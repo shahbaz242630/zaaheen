@@ -341,7 +341,7 @@ fn bridge_or_init_inner(
                  Per ADR-041, the V0.1 → V0.2 SQLCipher passphrase bridge requires \
                  VAULT_KEY (the V0.1 alpha passphrase) to unlock the existing vault \
                  for one-time re-encryption with the new keychain-derived passphrase. \
-                 Set VAULT_KEY to your V0.1 passphrase and relaunch Memory Vault. \
+                 Set VAULT_KEY to your V0.1 passphrase and relaunch Zaaheen. \
                  The keychain entry will be created automatically; on subsequent \
                  launches VAULT_KEY is no longer needed.",
                 vault_db_path.display()

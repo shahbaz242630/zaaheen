@@ -33,7 +33,15 @@
 #![forbid(unsafe_code)]
 
 pub mod commands;
-pub mod model_fetch;
+
+/// First-run model acquisition, re-exported from `vault-app`.
+///
+/// The module itself moved down to `vault-app` (ADR-100) so the CLI can
+/// acquire its own models when it is launched directly by an MCP client
+/// from an `.mcpb` bundle, with no desktop app in the picture. This
+/// re-export keeps every existing `vault_tauri::model_fetch::*` path
+/// working unchanged.
+pub use vault_app::model_fetch;
 
 use std::path::PathBuf;
 
@@ -98,6 +106,14 @@ pub fn env_override_for(env_var_name: &str) -> Option<PathBuf> {
 /// recovery path (Credential Manager inspection on Windows, reinstall on
 /// non-Windows where keychain is not yet supported in V0.2 Phase 1).
 ///
+/// **The dialog text deliberately does NOT name ADR-040, and a test must not
+/// require it to** (ADR-100). The reference belongs here, where a developer
+/// tracing the behaviour will look, not in front of a user whose app has just
+/// failed to start — "Per ADR-040 (T0.2.0 Phase 1)" tells them nothing they can
+/// act on and reads as leaked internals at the worst possible moment. What the
+/// dialog owes the user is the credential namespace to inspect, which
+/// `format_keychain_error_dialog_for_keychain_provenance_variant` pins.
+///
 /// **Defensive fallback for non-`KeychainProvenance` variants:** the
 /// function accepts any `&VaultError` so the call site can pass through
 /// without prior pattern-matching, but only `KeychainProvenance` variants
@@ -106,20 +122,20 @@ pub fn env_override_for(env_var_name: &str) -> Option<PathBuf> {
 pub fn format_keychain_error_dialog(err: &VaultError) -> String {
     match err {
         VaultError::KeychainProvenance(msg) => format!(
-            "Memory Vault cannot start: keychain access failed.\n\n\
+            "Zaaheen cannot start: keychain access failed.\n\n\
              Details: {msg}\n\n\
-             Per ADR-040 (T0.2.0 Phase 1), Memory Vault sources its master \
+             Zaaheen sources its master \
              encryption key from the OS keychain (Windows Credential Manager).\n\n\
              Recovery options:\n\
              1. On Windows, open Control Panel → User Accounts → Credential \
                 Manager → Windows Credentials and inspect entries under \
-                'com.memoryvault.v0.2'. If an entry exists with a corrupted \
-                or unexpected secret, delete it and relaunch Memory Vault \
+                'com.zaaheen.v0.2'. If an entry exists with a corrupted \
+                or unexpected secret, delete it and relaunch Zaaheen \
                 (a new master_key will be generated on first run).\n\
-             2. If you are running on macOS or Linux, note that V0.2 Phase 1 \
-                wires keychain support for Windows only. Cross-platform \
-                keychain support lands in a follow-up sub-task.\n\
-             3. Reinstall Memory Vault if the failure persists."
+             2. On macOS or Linux, note that Zaaheen currently stores its key \
+                in the Windows Credential Manager only. Support for the macOS \
+                and Linux keychains is coming.\n\
+             3. Reinstall Zaaheen if the failure persists."
         ),
         other => format_startup_failure_dialog(other),
     }
@@ -142,14 +158,14 @@ pub fn format_startup_failure_dialog(err: &VaultError) -> String {
             expected,
             actual,
         } => format!(
-            "Memory Vault cannot start: model integrity check failed.\n\n\
+            "Zaaheen cannot start: model integrity check failed.\n\n\
              File: {file}\n\
              Expected SHA-256: {expected}\n\
              Actual SHA-256:   {actual}\n\n\
              Reinstall to recover."
         ),
         other => format!(
-            "Memory Vault cannot start.\n\n\
+            "Zaaheen cannot start.\n\n\
              Details: {other}\n\n\
              Reinstall to recover."
         ),
@@ -264,10 +280,15 @@ mod tests {
             "KeychainProvenance dialog must propagate the underlying error \
              detail for diagnostics; got: {dialog}"
         );
+        // ADR-100 REMOVED the old `dialog.contains("ADR-040")` assertion here.
+        // It required an internal document number to appear in text a user
+        // reads when their app will not start. The source-of-truth reference it
+        // was protecting now lives in this function's doc comment, which is
+        // where a developer tracing the behaviour actually looks. What the user
+        // needs is asserted immediately below: the credential namespace.
         assert!(
-            dialog.contains("ADR-040"),
-            "KeychainProvenance dialog must reference ADR-040 for source-of-truth; \
-             got: {dialog}"
+            !dialog.contains("ADR-"),
+            "user-facing dialog MUST NOT quote internal ADR numbers; got: {dialog}"
         );
         assert!(
             dialog.contains("Credential Manager"),
@@ -275,7 +296,7 @@ mod tests {
              Manager for recovery; got: {dialog}"
         );
         assert!(
-            dialog.contains("com.memoryvault.v0.2"),
+            dialog.contains("com.zaaheen.v0.2"),
             "KeychainProvenance dialog must include the production namespace \
              so users can find the entry in Credential Manager; got: {dialog}"
         );

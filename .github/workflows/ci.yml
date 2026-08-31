@@ -294,7 +294,7 @@ jobs:
           # executing); then `cl.exe` itself failed with `error C1083:
           # Cannot open compiler generated file: '': Invalid argument`
           # because the inner TryCompile path was ~252 chars
-          # (`D:\a\Agent-Memory-Vault\Agent-Memory-Vault\target\debug
+          # (`D:\a\zaaheen\zaaheen\target\debug
           # \build\llama-cpp-sys-2-XXX\out\build\ggml\src\ggml-vulkan
           # \vulkan-shaders-gen-prefix\src\vulkan-shaders-gen-build
           # \CMakeFiles\CMakeScratch\TryCompile-XXX\testCCompiler.c`).
@@ -555,7 +555,7 @@ jobs:
           # executing); then `cl.exe` itself failed with `error C1083:
           # Cannot open compiler generated file: '': Invalid argument`
           # because the inner TryCompile path was ~252 chars
-          # (`D:\a\Agent-Memory-Vault\Agent-Memory-Vault\target\debug
+          # (`D:\a\zaaheen\zaaheen\target\debug
           # \build\llama-cpp-sys-2-XXX\out\build\ggml\src\ggml-vulkan
           # \vulkan-shaders-gen-prefix\src\vulkan-shaders-gen-build
           # \CMakeFiles\CMakeScratch\TryCompile-XXX\testCCompiler.c`).
@@ -795,7 +795,7 @@ jobs:
           # executing); then `cl.exe` itself failed with `error C1083:
           # Cannot open compiler generated file: '': Invalid argument`
           # because the inner TryCompile path was ~252 chars
-          # (`D:\a\Agent-Memory-Vault\Agent-Memory-Vault\target\debug
+          # (`D:\a\zaaheen\zaaheen\target\debug
           # \build\llama-cpp-sys-2-XXX\out\build\ggml\src\ggml-vulkan
           # \vulkan-shaders-gen-prefix\src\vulkan-shaders-gen-build
           # \CMakeFiles\CMakeScratch\TryCompile-XXX\testCCompiler.c`).

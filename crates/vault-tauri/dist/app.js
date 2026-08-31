@@ -333,18 +333,22 @@ function renderMaintEngineStatus() {
   }
 }
 
-// MCP connection snippets use the REAL entry point: `vault-cli mcp serve`
-// (stdio, 1:1) — cross-agent proven (Claude / Cursor / Codex).
+// MCP connection snippets name `zaaheen`, the binary the installer actually
+// lays down and puts on PATH (ADR-SEC-018), invoked with no paths because
+// ADR-101 taught it to find its own vault and models. This pairing is pinned by
+// installer_contract.rs: a comment claiming the snippet works is worth nothing,
+// which is exactly how `vault-cli` survived the rename here and would have sent
+// every tester a config for a program that does not exist.
 const SNIPPET_JSON = `{
   "mcpServers": {
     "zaaheen": {
-      "command": "vault-cli",
+      "command": "zaaheen",
       "args": ["mcp", "serve"]
     }
   }
 }`;
-const SNIPPET_TOML = `[mcp_servers.memory_vault]
-command = "vault-cli"
+const SNIPPET_TOML = `[mcp_servers.zaaheen]
+command = "zaaheen"
 args = ["mcp", "serve"]`;
 
 const AGENTS = [
@@ -1152,7 +1156,7 @@ function friendlyMaintError(code) {
 
 // Turn a run's raw stdout into one plain-English clause.
 //
-// The backend stores `vault-cli`'s output verbatim (truncated to 500 chars), so
+// The backend stores `zaaheen`'s output verbatim (truncated to 500 chars), so
 // naively showing its first line reads "starting consolidation run..." — the
 // least informative line in the report. Pull the counts out instead, and say
 // plainly when there was nothing to do.

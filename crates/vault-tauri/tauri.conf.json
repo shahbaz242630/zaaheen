@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Zaaheen",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "identifier": "com.zaaheen.app",
   "build": {
     "frontendDist": "dist"
@@ -37,6 +37,7 @@
     },
     "windows": {
       "wix": {
+        "upgradeCode": "813e4161-efe5-592d-b228-70483c861bef",
         "fragmentPaths": ["./windows/fragments/installer.wxs"],
         "componentRefs": ["SetLanceMemPoolEnv", "VaultCliBinary", "VaultMaintenanceBinary", "AddInstallDirToPath"]
       }

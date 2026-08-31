@@ -1111,12 +1111,15 @@ impl ServerHandler for StdioServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(rmcp::model::Implementation::new(
-                "vault-mcp",
+                "zaaheen",
                 env!("CARGO_PKG_VERSION"),
             ))
             .with_instructions(
-                "Memory Vault — a user-owned, cross-agent persistent memory layer. \
-                 Tools: memory_search, memory_write, memory_update, memory_delete. \
+                "Zaaheen — a user-owned, cross-agent persistent memory layer. \
+                 Call memory_read FIRST for any question about the user — it returns \
+                 structured facts or an explicit abstain, and is more reliable than \
+                 judging a raw result list. Tools: memory_read (primary), \
+                 memory_search, memory_write, memory_update, memory_delete. \
                  Authorization is host-mediated; tool args never override boundaries.",
             )
     }

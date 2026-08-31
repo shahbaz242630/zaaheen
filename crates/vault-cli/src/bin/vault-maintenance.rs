@@ -88,7 +88,7 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 #[derive(Parser, Debug)]
 #[command(
     name = "zaaheen-maintenance",
-    about = "Runs Memory Vault maintenance in the background, with no window.",
+    about = "Runs Zaaheen maintenance in the background, with no window.",
     long_about = None
 )]
 struct Args {

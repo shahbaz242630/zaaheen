@@ -17,7 +17,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.1"
 edition = "2021"
 rust-version = "1.81"
 # Never published to crates.io. Declared so cargo-deny can tell these
@@ -27,7 +27,7 @@ rust-version = "1.81"
 publish = false
 license = "Proprietary"
 authors = ["Shahbaz Malik"]
-repository = "https://github.com/shahbaz242630/Agent-Memory-Vault"
+repository = "https://github.com/shahbaz242630/zaaheen"
 
 # All dependencies pinned per BRD §2.9 / §4. Crates inherit via { workspace = true }.
 # Workspace.dependencies declarations are lazy — only fetched when a member crate

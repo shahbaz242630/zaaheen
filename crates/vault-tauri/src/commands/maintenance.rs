@@ -605,10 +605,12 @@ mod tests {
 
     fn ctx() -> MaintenanceContext {
         MaintenanceContext {
-            vault_cli: PathBuf::from(r"C:\Program Files\Memory Vault\vault-cli.exe"),
-            vault_maintenance: PathBuf::from(
-                r"C:\Program Files\Memory Vault\vault-maintenance.exe",
-            ),
+            // The real installed layout post-ADR-SEC-018: directory "Zaaheen",
+            // binaries zaaheen.exe / zaaheen-maintenance.exe. A fixture that
+            // names paths no build produces teaches the next reader the wrong
+            // shape, even though nothing here touches the filesystem.
+            vault_cli: PathBuf::from(r"C:\Program Files\Zaaheen\zaaheen.exe"),
+            vault_maintenance: PathBuf::from(r"C:\Program Files\Zaaheen\zaaheen-maintenance.exe"),
             log_dir: PathBuf::from(r"C:\logs"),
             vault_db: PathBuf::from(r"C:\data\vault.db"),
             vector_dir: PathBuf::from(r"C:\data\lance"),

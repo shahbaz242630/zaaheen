@@ -617,7 +617,7 @@ mod tests {
     // of sanity facts — a human eyeballs whether they're sensible search words.
     //
     // Ignored (needs the ~2.5 GB GGUF + ~minutes of CPU inference). Run:
-    //   $env:PHI4_MODEL_DIR='C:\Users\shahb\AppData\Roaming\com.shahbaz242630.memory-vault\models'
+    //   $env:PHI4_MODEL_DIR="$env:APPDATA\com.zaaheen.app\models"
     //   cargo test -p vault-consolidator --lib real_phi4_alias_quality -- --ignored --nocapture
     #[tokio::test]
     #[ignore = "loads the real Phi-4 GGUF; set PHI4_MODEL_DIR; run with --ignored --nocapture"]
@@ -625,7 +625,13 @@ mod tests {
         use vault_llm::{Phi4MiniConfig, Phi4MiniProvider};
 
         let model_dir = std::env::var("PHI4_MODEL_DIR").unwrap_or_else(|_| {
-            r"C:\Users\shahb\AppData\Roaming\com.shahbaz242630.memory-vault\models".to_string()
+            // Derived, never hardcoded. The literal that was here embedded a
+            // username AND named com.shahbaz242630.memory-vault - a directory
+            // deleted with the pre-Zaaheen build in session 34, so the fallback
+            // pointed at nothing on the one machine it was written for.
+            let appdata = std::env::var("APPDATA")
+                .expect("set PHI4_MODEL_DIR, or run where APPDATA names the data directory");
+            format!(r"{appdata}\com.zaaheen.app\models")
         });
         println!("\nloading Phi-4-mini from {model_dir} (model load + SHA verify)...");
         let provider = Phi4MiniProvider::new(Phi4MiniConfig::v0_2_default(model_dir.into()))
@@ -671,7 +677,7 @@ mod tests {
     // aliases stay as good as the alias-only probe above?
     //
     // Ignored (needs the real GGUF). Run:
-    //   $env:PHI4_MODEL_DIR='C:\Users\shahb\AppData\Roaming\com.shahbaz242630.memory-vault\models'
+    //   $env:PHI4_MODEL_DIR="$env:APPDATA\com.zaaheen.app\models"
     //   cargo test -p vault-consolidator --lib real_phi4_combined_extraction_quality -- --ignored --nocapture
     #[tokio::test]
     #[ignore = "loads the real Phi-4 GGUF; set PHI4_MODEL_DIR; run with --ignored --nocapture"]
@@ -686,7 +692,13 @@ mod tests {
             "You analyse a single memory about the user. Respond with strict JSON only.";
 
         let model_dir = std::env::var("PHI4_MODEL_DIR").unwrap_or_else(|_| {
-            r"C:\Users\shahb\AppData\Roaming\com.shahbaz242630.memory-vault\models".to_string()
+            // Derived, never hardcoded. The literal that was here embedded a
+            // username AND named com.shahbaz242630.memory-vault - a directory
+            // deleted with the pre-Zaaheen build in session 34, so the fallback
+            // pointed at nothing on the one machine it was written for.
+            let appdata = std::env::var("APPDATA")
+                .expect("set PHI4_MODEL_DIR, or run where APPDATA names the data directory");
+            format!(r"{appdata}\com.zaaheen.app\models")
         });
         println!("\nloading Phi-4-mini from {model_dir} (model load + SHA verify)...");
         let provider = Phi4MiniProvider::new(Phi4MiniConfig::v0_2_default(model_dir.into()))
@@ -1081,7 +1093,7 @@ mod tests {
     }
 
     // Run:
-    //   $env:PHI4_MODEL_DIR='C:\Users\shahb\AppData\Roaming\com.shahbaz242630.memory-vault\models'
+    //   $env:PHI4_MODEL_DIR="$env:APPDATA\com.zaaheen.app\models"
     //   cargo test -p vault-consolidator --lib real_phi4_extraction_scored -- --ignored --nocapture
     #[tokio::test]
     #[ignore = "loads the real Phi-4 GGUF; set PHI4_MODEL_DIR; run with --ignored --nocapture"]
@@ -1089,7 +1101,13 @@ mod tests {
         use vault_llm::{Phi4MiniConfig, Phi4MiniProvider};
 
         let model_dir = std::env::var("PHI4_MODEL_DIR").unwrap_or_else(|_| {
-            r"C:\Users\shahb\AppData\Roaming\com.shahbaz242630.memory-vault\models".to_string()
+            // Derived, never hardcoded. The literal that was here embedded a
+            // username AND named com.shahbaz242630.memory-vault - a directory
+            // deleted with the pre-Zaaheen build in session 34, so the fallback
+            // pointed at nothing on the one machine it was written for.
+            let appdata = std::env::var("APPDATA")
+                .expect("set PHI4_MODEL_DIR, or run where APPDATA names the data directory");
+            format!(r"{appdata}\com.zaaheen.app\models")
         });
         println!("\nloading Phi-4-mini from {model_dir}...");
         let provider = Phi4MiniProvider::new(Phi4MiniConfig::v0_2_default(model_dir.into()))

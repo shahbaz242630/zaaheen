@@ -52,7 +52,9 @@ use tokio::net::TcpListener;
 use uuid::Uuid;
 use vault_mcp::DaemonServer;
 
+use vault_app::install_paths;
 use vault_app::maintenance_state::{self, RunOutcome, RunSummary};
+use vault_app::model_fetch;
 
 use vault_app::keychain::{
     derive_at_rest_key, derive_sqlcipher_passphrase, read_or_init_master_key, PRODUCTION_NAMESPACE,
@@ -67,19 +69,22 @@ use vault_storage::{
 };
 
 #[derive(Parser, Debug)]
-#[command(name = "zaaheen", about = "Memory Vault operator CLI (V0.1).", version)]
+#[command(name = "zaaheen", about = "Zaaheen operator CLI.", version)]
 struct Cli {
-    /// Path to the SQLCipher metadata DB.
+    /// Path to the SQLCipher metadata DB. Defaults to the installed vault
+    /// (ADR-101) when omitted.
     #[arg(long, value_name = "PATH")]
-    vault_db: PathBuf,
+    vault_db: Option<PathBuf>,
 
-    /// Path to the LanceDB data directory.
+    /// Path to the LanceDB data directory. Defaults to the installed vault
+    /// (ADR-101) when omitted.
     #[arg(long, value_name = "PATH")]
-    vector_dir: PathBuf,
+    vector_dir: Option<PathBuf>,
 
-    /// Path to the DuckDB graph database file.
+    /// Path to the DuckDB graph database file. Defaults to the installed vault
+    /// (ADR-101) when omitted.
     #[arg(long, value_name = "PATH")]
-    graph_db: PathBuf,
+    graph_db: Option<PathBuf>,
 
     /// Embedding dimension expected by the vector store. Must match the
     /// dimension the vault was created with — passing a mismatched value
@@ -146,16 +151,19 @@ enum Command {
     /// deployment runs consolidation via `vault-cli consolidate run` in
     /// a separate process.
     Mcp {
-        /// Path to the BGE-small-en-v1.5 ONNX model file.
+        /// Path to the BGE-small-en-v1.5 ONNX model file. Defaults to the copy
+        /// installed beside this binary (ADR-101).
         #[arg(long, env = "VAULT_BGE_MODEL_PATH", value_name = "PATH")]
-        bge_model: PathBuf,
-        /// Path to the BGE-small-en-v1.5 tokenizer.json file.
+        bge_model: Option<PathBuf>,
+        /// Path to the BGE-small-en-v1.5 tokenizer.json file. Defaults to the
+        /// copy installed beside this binary (ADR-101).
         #[arg(long, env = "VAULT_BGE_TOKENIZER_PATH", value_name = "PATH")]
-        bge_tokenizer: PathBuf,
+        bge_tokenizer: Option<PathBuf>,
         /// Path to the ONNX Runtime dynamic library
-        /// (libonnxruntime.{dll,dylib,so}).
+        /// (libonnxruntime.{dll,dylib,so}). Defaults to the copy installed
+        /// beside this binary (ADR-101).
         #[arg(long, env = "VAULT_ORT_LIB_PATH", value_name = "PATH")]
-        ort_lib: PathBuf,
+        ort_lib: Option<PathBuf>,
         /// Path to the Phi-4-mini-instruct Q4_K_M GGUF file. Optional for
         /// this subcommand — the MCP server itself does not require Phi-4
         /// (the read path is fully deterministic per ADR-052). Supply only
@@ -173,6 +181,21 @@ enum Command {
         /// `--rerank-model` is supplied; reuses `--ort-lib` for the dylib.
         #[arg(long, env = "VAULT_RERANK_TOKENIZER_PATH", value_name = "PATH")]
         rerank_tokenizer: Option<PathBuf>,
+        /// Directory the CLI may download its own models into (ADR-100).
+        ///
+        /// Supplying this makes the CLI self-sufficient: when
+        /// `--rerank-model`/`--rerank-tokenizer` are omitted, the reranker is
+        /// resolved *inside* this directory and, if the files are not there
+        /// yet, downloaded in the background while the server is already
+        /// answering. Serving never blocks on the 1.15 GB transfer — reads
+        /// use the cosine gate until the download lands, then the reranker
+        /// warms up and takes over (the ADR-089 retry contract).
+        ///
+        /// Required for the `.mcpb` bundle path, where an MCP client launches
+        /// this binary directly and there is no desktop app to acquire models
+        /// first. Ignored when explicit reranker paths are supplied.
+        #[arg(long, env = "VAULT_MODELS_DIR", value_name = "DIR")]
+        models_dir: Option<PathBuf>,
         /// Authorized boundary to expose to the MCP client. Repeatable;
         /// defaults to ["personal"] when not supplied. Each boundary the
         /// client can read/write/update/delete must be listed here at
@@ -377,7 +400,7 @@ fn init_tracing() {
                 return;
             }
             Err(e) => {
-                eprintln!("memory-vault: could not start file logging: {e}");
+                eprintln!("zaaheen: could not start file logging: {e}");
             }
         }
     }
@@ -401,6 +424,95 @@ fn init_tracing() {
         .init();
 }
 
+/// Fill in any storage path the caller omitted, from the installed vault's
+/// layout (ADR-101).
+///
+/// **Why this exists.** The MCP config snippet the desktop app hands users
+/// promises `zaaheen mcp serve` with no arguments. Before ADR-101 that command
+/// exited with "the following required arguments were not provided", so every
+/// tester who followed our own instructions got a dead connection. The snippet
+/// was right about the shape; the binary was wrong to demand to be told where
+/// its own vault lives.
+///
+/// **A fully explicit invocation never consults the environment.** That branch
+/// returns before `data_dir()` is called, so scripts, CI and dev-tree runs
+/// behave exactly as they did — this can only add a path where there was none.
+///
+/// **Failure is an error, never a guess.** If the environment does not name a
+/// data directory we say so and ask for explicit paths. Inventing a plausible
+/// location would silently create a second, empty vault, and the user would
+/// conclude their memories were gone.
+fn resolve_storage_paths(
+    vault_db: Option<PathBuf>,
+    vector_dir: Option<PathBuf>,
+    graph_db: Option<PathBuf>,
+) -> Result<(PathBuf, PathBuf, PathBuf)> {
+    match (vault_db, vector_dir, graph_db) {
+        (Some(db), Some(vectors), Some(graph)) => Ok((db, vectors, graph)),
+        (db, vectors, graph) => {
+            let data_dir = install_paths::data_dir().ok_or_else(|| {
+                anyhow!(
+                    "could not determine where the vault lives on this system, \
+                     and not every storage path was supplied. Pass --vault-db, \
+                     --vector-dir and --graph-db explicitly."
+                )
+            })?;
+            Ok((
+                db.unwrap_or_else(|| install_paths::vault_db_in(&data_dir)),
+                vectors.unwrap_or_else(|| install_paths::vector_dir_in(&data_dir)),
+                graph.unwrap_or_else(|| install_paths::graph_db_in(&data_dir)),
+            ))
+        }
+    }
+}
+
+/// Fill in the embedder paths from the files installed beside this binary
+/// (ADR-101).
+///
+/// Mirrors `vault-tauri`'s `resolve_model_path` / `resolve_ort_lib_path`, which
+/// ask Tauri for `BaseDirectory::Resource`. That directory is the one holding
+/// the executable, which `install_paths::resource_dir` reaches without Tauri —
+/// the same sibling-of-current-exe reasoning `vault-maintenance` already uses,
+/// and immune to `PATH` shadowing for the same reason.
+///
+/// As with the storage paths, a fully explicit call returns before the
+/// environment is touched, so dev-tree and scripted runs are unaffected.
+fn resolve_embedder_paths(
+    bge_model: Option<PathBuf>,
+    bge_tokenizer: Option<PathBuf>,
+    ort_lib: Option<PathBuf>,
+) -> Result<(PathBuf, PathBuf, PathBuf)> {
+    match (bge_model, bge_tokenizer, ort_lib) {
+        (Some(model), Some(tokenizer), Some(lib)) => Ok((model, tokenizer, lib)),
+        (model, tokenizer, lib) => {
+            let resource_dir = install_paths::resource_dir().ok_or_else(|| {
+                anyhow!(
+                    "could not locate the directory holding this executable, \
+                     and not every embedder path was supplied. Pass \
+                     --bge-model, --bge-tokenizer and --ort-lib explicitly."
+                )
+            })?;
+            let lib = match lib {
+                Some(explicit) => explicit,
+                // `None` here means an OS we do not ship a runtime for. Saying
+                // so beats handing the loader a path that cannot exist.
+                None => install_paths::ort_lib_in(&resource_dir).ok_or_else(|| {
+                    anyhow!(
+                        "no bundled ONNX Runtime for this platform ({}); \
+                         pass --ort-lib explicitly.",
+                        std::env::consts::OS
+                    )
+                })?,
+            };
+            Ok((
+                model.unwrap_or_else(|| install_paths::bge_model_in(&resource_dir)),
+                tokenizer.unwrap_or_else(|| install_paths::bge_tokenizer_in(&resource_dir)),
+                lib,
+            ))
+        }
+    }
+}
+
 async fn real_main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -418,6 +530,8 @@ async fn real_main() -> Result<()> {
         dimension,
         command,
     } = cli;
+
+    let (vault_db, vector_dir, graph_db) = resolve_storage_paths(vault_db, vector_dir, graph_db)?;
 
     match command {
         Command::DeadLetter { action } => {
@@ -464,6 +578,7 @@ async fn real_main() -> Result<()> {
             phi4_model,
             rerank_model,
             rerank_tokenizer,
+            models_dir,
             boundary,
             run_at,
             action,
@@ -481,6 +596,7 @@ async fn real_main() -> Result<()> {
                 phi4_model,
                 rerank_model,
                 rerank_tokenizer,
+                models_dir,
                 boundary,
                 run_at,
                 action,
@@ -816,16 +932,32 @@ async fn dispatch_mcp(
     vault_db: &Path,
     vector_dir: &Path,
     graph_db: &Path,
-    bge_model: PathBuf,
-    bge_tokenizer: PathBuf,
-    ort_lib: PathBuf,
+    bge_model: Option<PathBuf>,
+    bge_tokenizer: Option<PathBuf>,
+    ort_lib: Option<PathBuf>,
     phi4_model: Option<PathBuf>,
     rerank_model: Option<PathBuf>,
     rerank_tokenizer: Option<PathBuf>,
+    models_dir: Option<PathBuf>,
     boundary: Vec<String>,
     run_at: Option<String>,
     action: McpAction,
 ) -> Result<()> {
+    // ADR-101 — the embedder and its runtime ship *beside* this binary, so an
+    // installed `zaaheen mcp serve` needs no paths. Resolved before the
+    // keychain and the backend so a missing install surfaces immediately
+    // rather than after the expensive setup work.
+    let (bge_model, bge_tokenizer, ort_lib) =
+        resolve_embedder_paths(bge_model, bge_tokenizer, ort_lib)?;
+
+    // ADR-101 + ADR-100 — default the acquisition directory to the vault's own
+    // `models/`, derived from the resolved `--vault-db` rather than re-deriving
+    // the data directory, so a caller who pointed at a non-default vault gets
+    // that vault's models rather than the installed one's. Without this the
+    // bare snippet would run on the cosine gate forever: `--models-dir` is what
+    // turns the reranker acquisition on, and nobody pasting two lines of JSON
+    // is going to pass it.
+    let models_dir = models_dir.or_else(|| vault_db.parent().map(install_paths::models_dir_in));
     // Map raw boundary strings to typed Boundary values up front so any
     // parse failure surfaces before we touch the keychain / open the
     // backend / load models (all expensive).
@@ -862,6 +994,20 @@ async fn dispatch_mcp(
     )
     .context("vault is already in use by another vault-cli process (daemon/serve/consolidate)")?;
 
+    // ADR-100 — a `--models-dir` with no explicit reranker paths means "resolve
+    // the reranker inside that directory, and fetch it if it isn't there yet".
+    // The files legitimately may not exist at this point: `Application::new`
+    // wires the reranker from the paths alone, and ADR-089 makes the first load
+    // fail soft and leave the cell cold so a later warm-up retries. That is what
+    // lets serving start immediately and the model arrive afterwards.
+    let (rerank_model, rerank_tokenizer) = match (rerank_model, rerank_tokenizer, &models_dir) {
+        (None, None, Some(dir)) => {
+            let paths = model_fetch::reranker_paths_in(dir);
+            (Some(paths.model), Some(paths.tokenizer))
+        }
+        (explicit_model, explicit_tokenizer, _) => (explicit_model, explicit_tokenizer),
+    };
+
     let app = build_application(
         vault_db,
         vector_dir,
@@ -876,7 +1022,9 @@ async fn dispatch_mcp(
     .await?;
 
     match action {
-        McpAction::Serve => run_mcp_serve(app, authorized_boundaries, consolidation_run_at).await,
+        McpAction::Serve => {
+            run_mcp_serve(app, authorized_boundaries, consolidation_run_at, models_dir).await
+        }
     }
 }
 
@@ -884,9 +1032,10 @@ async fn run_mcp_serve(
     app: Application,
     authorized_boundaries: Vec<Boundary>,
     consolidation_run_at: Option<chrono::NaiveTime>,
+    models_dir: Option<PathBuf>,
 ) -> Result<()> {
     eprintln!(
-        "vault-cli mcp serve: ready ({} authorized boundary{})",
+        "zaaheen mcp serve: ready ({} authorized boundary{})",
         authorized_boundaries.len(),
         if authorized_boundaries.len() == 1 {
             ""
@@ -898,11 +1047,41 @@ async fn run_mcp_serve(
         .start_with_mcp(authorized_boundaries, consolidation_run_at)
         .await
         .context("MCP transport bind failed")?;
-    handle
-        .wait()
-        .await
-        .context("MCP serve task exited with an error")?;
-    eprintln!("vault-cli mcp serve: clean shutdown");
+
+    // ADR-100 — first-run model acquisition for the CLI.
+    //
+    // Deliberately runs CONCURRENTLY with serving rather than before it. An
+    // MCP client gives the server a handshake budget measured in seconds; a
+    // 1.15 GB download in front of `start_with_mcp` would blow through it and
+    // the client would report the server as failed. So the vault answers from
+    // the moment it is ready, on the cosine gate, and the reranker takes over
+    // when it lands.
+    //
+    // `join!` rather than `tokio::spawn`: both futures borrow `app`, and a
+    // spawned task would need `'static`. Nothing here outlives the serve.
+    //
+    // A failed download is a WARN, never fatal — an offline user still has a
+    // working vault with cosine-gated reads, which is precisely the degraded
+    // mode ADR-089 designed for.
+    let acquire = async {
+        let Some(dir) = models_dir.as_deref() else {
+            return;
+        };
+        match model_fetch::ensure_reranker(dir).await {
+            Ok(_) => {
+                tracing::info!("reranker acquired; warming up");
+                app.spawn_reranker_warmup();
+            }
+            Err(e) => tracing::warn!(
+                error = %e,
+                "reranker acquisition failed; reads continue on the cosine gate"
+            ),
+        }
+    };
+
+    let (_, serve_result) = tokio::join!(acquire, handle.wait());
+    serve_result.context("MCP serve task exited with an error")?;
+    eprintln!("zaaheen mcp serve: clean shutdown");
     Ok(())
 }
 
@@ -1670,6 +1849,11 @@ mod tests {
                 phi4_model,
                 action,
             } => {
+                // NOT Option here: ADR-101 gave defaults to `mcp` only, which
+                // is the subcommand an MCP client launches from a pasted
+                // snippet. `consolidate` is invoked by the maintenance runner,
+                // which always passes explicit paths, so it keeps its required
+                // arguments and this arm keeps its plain `PathBuf` assertions.
                 assert_eq!(bge_model, PathBuf::from("/tmp/bge.onnx"));
                 assert_eq!(bge_tokenizer, PathBuf::from("/tmp/tokenizer.json"));
                 assert_eq!(ort_lib, PathBuf::from("/tmp/libonnxruntime.so"));
@@ -1799,18 +1983,32 @@ mod tests {
     }
 
     #[test]
-    fn cli_rejects_missing_required_flag() {
-        let result = Cli::try_parse_from([
+    fn cli_accepts_a_partial_storage_path_set_and_leaves_the_rest_unset() {
+        // INVERTED BY ADR-101. This test previously asserted the CLI REJECTED a
+        // missing --vector-dir. That contract is deliberately gone: an
+        // installed `zaaheen` knows where its own vault lives, and demanding to
+        // be told was why the connect snippet the app hands users could not
+        // run. What must still hold is that parsing leaves the omitted field
+        // `None` — `resolve_storage_paths` fills it, so a default arriving at
+        // parse time would silently defeat the "explicit wins" guarantee.
+        let cli = Cli::try_parse_from([
             "zaaheen",
             "--vault-db",
             "/tmp/v.db",
-            // missing --vector-dir
+            // --vector-dir omitted on purpose
             "--graph-db",
             "/tmp/g.duckdb",
             "dead-letter",
             "list",
-        ]);
-        assert!(result.is_err(), "should reject missing --vector-dir");
+        ])
+        .expect("omitting a storage path MUST parse; the installed layout supplies it");
+
+        assert_eq!(cli.vault_db, Some(PathBuf::from("/tmp/v.db")));
+        assert_eq!(
+            cli.vector_dir, None,
+            "an omitted path must stay None at parse time so resolve_storage_paths owns the default"
+        );
+        assert_eq!(cli.graph_db, Some(PathBuf::from("/tmp/g.duckdb")));
     }
 
     // --------------------------------------------------------------
@@ -1847,13 +2045,17 @@ mod tests {
                 phi4_model,
                 rerank_model,
                 rerank_tokenizer,
+                models_dir,
                 boundary,
                 run_at,
                 action,
             } => {
-                assert_eq!(bge_model, PathBuf::from("/tmp/bge.onnx"));
-                assert_eq!(bge_tokenizer, PathBuf::from("/tmp/tokenizer.json"));
-                assert_eq!(ort_lib, PathBuf::from("/tmp/libonnxruntime.so"));
+                // ADR-101 made these `Option`. `Some` is the assertion that
+                // matters: an explicitly-passed path must survive parsing
+                // untouched, never be replaced by the installed default.
+                assert_eq!(bge_model, Some(PathBuf::from("/tmp/bge.onnx")));
+                assert_eq!(bge_tokenizer, Some(PathBuf::from("/tmp/tokenizer.json")));
+                assert_eq!(ort_lib, Some(PathBuf::from("/tmp/libonnxruntime.so")));
                 assert!(
                     run_at.is_none(),
                     "mcp-serve without --run-at MUST yield None (defaults to 03:00 at start_with_mcp)"
@@ -1870,6 +2072,14 @@ mod tests {
                     rerank_tokenizer.is_none()
                         || std::env::var("VAULT_RERANK_TOKENIZER_PATH").is_ok(),
                     "mcp-serve without --rerank-tokenizer MUST yield None unless env var supplies it"
+                );
+                // ADR-100. `None` here is the load-bearing default: it is what
+                // keeps every pre-existing invocation (explicit model paths, no
+                // models dir) on exactly its old behaviour, with no acquisition
+                // attempted. Self-sufficiency is opt-in, never assumed.
+                assert!(
+                    models_dir.is_none() || std::env::var("VAULT_MODELS_DIR").is_ok(),
+                    "mcp-serve without --models-dir MUST yield None unless env var supplies it"
                 );
                 assert_eq!(
                     boundary,
@@ -1937,27 +2147,52 @@ mod tests {
     }
 
     #[test]
-    fn cli_rejects_mcp_serve_with_missing_bge_model() {
-        let result = Cli::try_parse_from([
-            "zaaheen",
-            "--vault-db",
-            "/tmp/v.db",
-            "--vector-dir",
-            "/tmp/lance",
-            "--graph-db",
-            "/tmp/g.duckdb",
-            "mcp",
-            // --bge-model deliberately omitted; env-var also unset for this test
-            "--bge-tokenizer",
-            "/tmp/tokenizer.json",
-            "--ort-lib",
-            "/tmp/libonnxruntime.so",
-            "serve",
-        ]);
+    fn cli_parses_the_bare_connect_snippet_invocation() {
+        // THE REGRESSION GUARD FOR THE WHOLE ADR-101 BUG, and the inverse of
+        // the `cli_rejects_mcp_serve_with_missing_bge_model` test it replaces.
+        //
+        // This argument vector is EXACTLY what the connect snippet in
+        // dist/app.js tells every user to run: `zaaheen mcp serve`, nothing
+        // else. Before ADR-101 it exited with "the following required
+        // arguments were not provided", so anyone following the app's own
+        // instructions got a dead connection on the one step the product
+        // exists for. If this test ever fails again, the snippet is broken
+        // again.
+        let cli = Cli::try_parse_from(["zaaheen", "mcp", "serve"])
+            .expect("the bare connect-snippet invocation MUST parse with no arguments at all");
+
         assert!(
-            result.is_err() || std::env::var("VAULT_BGE_MODEL_PATH").is_ok(),
-            "mcp-serve MUST refuse missing --bge-model unless env var supplies it"
+            cli.vault_db.is_none() && cli.vector_dir.is_none() && cli.graph_db.is_none(),
+            "storage paths must be None at parse time; resolve_storage_paths owns the defaults"
         );
+
+        match cli.command {
+            Command::Mcp {
+                bge_model,
+                bge_tokenizer,
+                ort_lib,
+                action,
+                ..
+            } => {
+                // `|| env::var(..).is_ok()` because these carry clap `env`
+                // fallbacks: a developer with VAULT_* exported in their shell
+                // would otherwise see a spurious failure here.
+                assert!(
+                    bge_model.is_none() || std::env::var("VAULT_BGE_MODEL_PATH").is_ok(),
+                    "embedder path must stay None at parse time unless the env var supplies it"
+                );
+                assert!(
+                    bge_tokenizer.is_none() || std::env::var("VAULT_BGE_TOKENIZER_PATH").is_ok(),
+                    "tokenizer path must stay None at parse time unless the env var supplies it"
+                );
+                assert!(
+                    ort_lib.is_none() || std::env::var("VAULT_ORT_LIB_PATH").is_ok(),
+                    "runtime path must stay None at parse time unless the env var supplies it"
+                );
+                assert!(matches!(action, McpAction::Serve));
+            }
+            other => panic!("expected Command::Mcp, got: {other:?}"),
+        }
     }
 
     // --------------------------------------------------------------
@@ -2213,6 +2448,31 @@ mod tests {
     // (b) no other tokio task contends for KEYCHAIN_TEST_MUTEX; (c) async
     // calls inside don't try to reacquire it. Production has no contention
     // (vault-tauri + vault-cli each call keychain helpers once at startup).
+    /// The three storage paths out of a `Cli` that was parsed with all of them
+    /// supplied.
+    ///
+    /// ADR-101 made them `Option` so an installed `zaaheen` can fill them in.
+    /// The callers below always pass them on the command line, so `expect`
+    /// documents that precondition rather than papering over a real `None`.
+    ///
+    /// `#[cfg(windows)]` because both callers are — without it, the other CI
+    /// legs see an unused function and `-D warnings` turns that into a failed
+    /// build on Linux and macOS.
+    #[cfg(windows)]
+    fn explicit_storage_paths(cli: &Cli) -> (&Path, &Path, &Path) {
+        (
+            cli.vault_db
+                .as_deref()
+                .expect("this test passes --vault-db explicitly"),
+            cli.vector_dir
+                .as_deref()
+                .expect("this test passes --vector-dir explicitly"),
+            cli.graph_db
+                .as_deref()
+                .expect("this test passes --graph-db explicitly"),
+        )
+    }
+
     #[tokio::test]
     #[cfg(windows)]
     #[allow(clippy::await_holding_lock)]
@@ -2244,15 +2504,16 @@ mod tests {
             "divergence-check",
         ])
         .expect("Cli::try_parse_from for success test");
+        let (vault_db, vector_dir, graph_db) = explicit_storage_paths(&cli);
 
         // Create the sealed vault first so open_backend_inner has a vault to
         // re-open. Drop it explicitly so file handles close before the
         // open_backend_inner call re-opens via its own internal opens.
         {
             let _initial = StorageBackend::open_with_at_rest_key(
-                &cli.vault_db,
-                &cli.vector_dir,
-                &cli.graph_db,
+                vault_db,
+                vector_dir,
+                graph_db,
                 sqlcipher_passphrase.clone(),
                 DIM,
                 &at_rest_key,
@@ -2262,9 +2523,9 @@ mod tests {
         }
 
         let result = open_backend_inner(
-            &cli.vault_db,
-            &cli.vector_dir,
-            &cli.graph_db,
+            vault_db,
+            vector_dir,
+            graph_db,
             cli.dimension,
             &namespace,
             vault_id,
@@ -2311,11 +2572,12 @@ mod tests {
             "divergence-check",
         ])
         .expect("Cli::try_parse_from for fail-closed test");
+        let (vault_db, vector_dir, graph_db) = explicit_storage_paths(&cli);
 
         let result = open_backend_inner(
-            &cli.vault_db,
-            &cli.vector_dir,
-            &cli.graph_db,
+            vault_db,
+            vector_dir,
+            graph_db,
             cli.dimension,
             &namespace,
             vault_id,

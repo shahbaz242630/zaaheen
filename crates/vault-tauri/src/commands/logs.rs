@@ -192,7 +192,7 @@ fn read_if_present(path: &Path) -> Option<String> {
 /// the vault's contents.
 fn header() -> String {
     format!(
-        "Memory Vault diagnostic log\nExported: {}\nApp version: {}\nPlatform: {} {}\n",
+        "Zaaheen diagnostic log\nExported: {}\nApp version: {}\nPlatform: {} {}\n",
         chrono::Utc::now().to_rfc3339(),
         env!("CARGO_PKG_VERSION"),
         std::env::consts::OS,
@@ -285,7 +285,7 @@ mod tests {
 
         export_logs_inner(&logs, &dest.to_string_lossy()).expect("export");
         let out = std::fs::read_to_string(&dest).expect("read export");
-        assert!(out.starts_with("Memory Vault diagnostic log"));
+        assert!(out.starts_with("Zaaheen diagnostic log"));
         assert!(out.contains(env!("CARGO_PKG_VERSION")));
         assert!(out.contains(std::env::consts::OS));
     }

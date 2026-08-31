@@ -10,7 +10,7 @@ their family. We take reports about it seriously.
 
 Report it privately through GitHub:
 
-> **[Open a private security advisory](https://github.com/shahbaz242630/Agent-Memory-Vault/security/advisories/new)**
+> **[Open a private security advisory](https://github.com/shahbaz242630/zaaheen/security/advisories/new)**
 
 That channel is private to the maintainers until an advisory is published, and
 it lets us work through the fix with you before anything becomes public.

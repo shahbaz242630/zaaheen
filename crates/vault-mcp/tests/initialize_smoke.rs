@@ -131,7 +131,7 @@ fn empty_trusted_slice_is_valid_construction() {
 /// 4 tools exist with these names."
 ///
 /// **Narrow `ServerInfo` assertion shape** — only `server_info.name`
-/// (the `vault-mcp` Implementation contract from `get_info()`) and the
+/// (the `zaaheen` Implementation contract from `get_info()`) and the
 /// presence of the `tools` capability. Server version is
 /// `env!("CARGO_PKG_VERSION")` — pinning ties tests to the bump cycle.
 /// Protocol version is rmcp's choice. Instructions text is free-form.
@@ -178,7 +178,7 @@ async fn full_initialize_round_trip_lists_five_tools_with_expected_names() {
         .peer_info()
         .expect("server_info populated post-initialize");
     assert_eq!(
-        server_info.server_info.name, "vault-mcp",
+        server_info.server_info.name, "zaaheen",
         "ServerInfo.name pins the get_info() Implementation contract"
     );
     assert!(

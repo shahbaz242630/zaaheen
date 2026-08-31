@@ -293,8 +293,99 @@ fn the_removal_action_lives_in_the_referenced_fragment() {
 }
 
 // ---------------------------------------------------------------------------
+// Guard 4 - the connect snippet must name a binary the installer ships.
+// ---------------------------------------------------------------------------
+
+/// The onboarding script, which holds the MCP config users copy out.
+const APP_JS: &str = include_str!("../dist/app.js");
+
+/// The exact command the connect snippets tell an agent to run.
+///
+/// Deliberately a literal rather than a parse of `app.js`: the value a user
+/// pastes is the thing under test, so it is written here in full and compared,
+/// not derived from the file it is checking.
+const SNIPPET_COMMAND: &str = "zaaheen";
+
+#[test]
+fn the_connect_snippet_names_a_binary_the_installer_actually_ships() {
+    // WHY THIS GUARD EXISTS, and it is not hypothetical. ADR-SEC-018 renamed
+    // the CLI from `vault-cli` to `zaaheen` and its own text called out that
+    // "every MCP config snippet changes". The snippets were missed. They kept
+    // saying `"command": "vault-cli"` - a program the installer does not lay
+    // down - so every tester who followed the app's own instructions would have
+    // got "command not found" on the single step the product exists for.
+    //
+    // Nothing caught it. app.js even carried a comment asserting the snippet
+    // used "the REAL entry point", which is precisely the kind of claim that
+    // rots silently. A comment cannot fail; this test can.
+    let installs_the_binary = markup().contains(&format!("Name=\"{SNIPPET_COMMAND}.exe\""));
+    assert!(
+        installs_the_binary,
+        "installer.wxs ships no {SNIPPET_COMMAND}.exe, but the connect snippet tells users to run {SNIPPET_COMMAND:?}. Whatever the snippet names MUST be a file the installer places on disk and on PATH, or the user's agent reports 'command not found' on the one step that matters."
+    );
+
+    assert!(
+        APP_JS.contains(&format!("\"command\": \"{SNIPPET_COMMAND}\"")),
+        "the JSON connect snippet in dist/app.js does not invoke {SNIPPET_COMMAND:?}; it must name the shipped binary."
+    );
+    assert!(
+        APP_JS.contains(&format!("command = \"{SNIPPET_COMMAND}\"")),
+        "the TOML connect snippet in dist/app.js does not invoke {SNIPPET_COMMAND:?}; it must name the shipped binary."
+    );
+
+    // The pre-rename name must not survive INSIDE the snippets. Asserting the
+    // new value alone would pass while a stale second snippet still carried the
+    // old one - which is the exact shape of the bug being fixed.
+    //
+    // Scoped to the snippet literals rather than the whole file on purpose:
+    // comments may legitimately discuss `vault-cli` as history (the one above
+    // this test does), and a guard that forbade the word outright would force
+    // us to erase the record of why the guard exists.
+    let snippets = snippet_block(APP_JS);
+    assert!(
+        !snippets.contains("vault-cli"),
+        "a connect snippet still names the pre-rename binary `vault-cli`; no shipped build lays that down. Snippets:\n{snippets}"
+    );
+    assert!(
+        !snippets.contains("memory_vault") && !snippets.contains("memory-vault"),
+        "a connect snippet still carries the pre-rename product name; the server key users see should be `zaaheen`. Snippets:\n{snippets}"
+    );
+}
+
+#[test]
+fn cli_default_paths_use_the_bundle_identifier() {
+    // ADR-101 lets `zaaheen mcp serve` run with no arguments by resolving the
+    // vault under the bundle identifier. `vault_app::install_paths` restates
+    // that identifier for the non-Tauri binaries, and tauri.conf.json is the
+    // source of truth. If they diverge, the CLI opens a DIFFERENT directory
+    // than the desktop app and the user's memories appear to have vanished.
+    let identifier = vault_app::install_paths::APP_IDENTIFIER;
+    assert!(
+        TAURI_CONF.contains(&format!("\"identifier\": \"{identifier}\"")),
+        "tauri.conf.json's identifier does not match vault_app::install_paths::APP_IDENTIFIER ({identifier:?}). The bundle identifier decides where the vault lives: the desktop app reads it from tauri.conf.json, the CLI reads the constant. They must name the same directory or the two open different vaults."
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Helper
 // ---------------------------------------------------------------------------
+
+/// The span of `app.js` holding the connect-snippet literals.
+///
+/// Scoping the pre-rename checks to this span keeps them honest about what a
+/// user actually copies, while leaving surrounding comments free to name the
+/// old binary when explaining history. Returns the whole file if the markers
+/// are missing, so a rename of the constants fails loudly here rather than
+/// silently narrowing the guard to nothing.
+fn snippet_block(js: &str) -> &str {
+    let Some(start) = js.find("const SNIPPET_JSON") else {
+        return js;
+    };
+    let Some(len) = js[start..].find("const AGENTS") else {
+        return js;
+    };
+    &js[start..start + len]
+}
 
 /// Pull the `componentRefs` string array out of `tauri.conf.json` without a
 /// JSON dependency (same no-dependency posture as `frontend_contract.rs`).
