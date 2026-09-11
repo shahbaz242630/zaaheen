@@ -9931,7 +9931,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vault-app"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "async-trait",
  "blake3",
@@ -9962,7 +9962,7 @@ dependencies = [
 
 [[package]]
 name = "vault-cli"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -9985,11 +9985,11 @@ dependencies = [
 
 [[package]]
 name = "vault-connectors"
-version = "0.2.1"
+version = "0.2.2"
 
 [[package]]
 name = "vault-consolidator"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -10011,7 +10011,7 @@ dependencies = [
 
 [[package]]
 name = "vault-core"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "proptest",
@@ -10023,7 +10023,7 @@ dependencies = [
 
 [[package]]
 name = "vault-embedding"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "async-trait",
  "half",
@@ -10042,7 +10042,7 @@ dependencies = [
 
 [[package]]
 name = "vault-llm"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -10064,7 +10064,7 @@ dependencies = [
 
 [[package]]
 name = "vault-mcp"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "async-trait",
  "chrono",
@@ -10086,7 +10086,7 @@ dependencies = [
 
 [[package]]
 name = "vault-retrieval"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -10110,7 +10110,7 @@ dependencies = [
 
 [[package]]
 name = "vault-scheduler"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "serde",
@@ -10121,7 +10121,7 @@ dependencies = [
 
 [[package]]
 name = "vault-storage"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "arrow-array 57.2.0",
  "arrow-schema 57.2.0",
@@ -10155,14 +10155,14 @@ dependencies = [
 
 [[package]]
 name = "vault-sync"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "dryoc",
 ]
 
 [[package]]
 name = "vault-tauri"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "serde",

@@ -79,9 +79,15 @@ pub const ROTATE_AT_BYTES: u64 = 5 * 1024 * 1024;
 /// INFO for our own crates, WARN for everything else — dependency chatter at
 /// INFO (lance, datafusion, hyper) would bury the lines that matter and blow
 /// the rotation budget in minutes.
+///
+/// `vault_embedding` was missing until ADR-103 D3: session 36's live test
+/// could not tell when the keeper's ranking model finished loading, because
+/// its load and warm-up lines were filtered out. They carry no memory text
+/// (static messages; every span on that crate skips its text arguments).
 pub const DEFAULT_FILTER: &str = "warn,vault_app=info,vault_tauri=info,vault_storage=info,\
                                   vault_retrieval=info,vault_consolidator=info,vault_mcp=info,\
-                                  vault_scheduler=info,vault_cli=info,vault_maintenance=info";
+                                  vault_scheduler=info,vault_cli=info,vault_maintenance=info,\
+                                  vault_embedding=info";
 
 /// Environment variable that redirects a console binary's logs into the shared
 /// application log file (ADR-SEC-015).
@@ -289,5 +295,15 @@ mod tests {
                 "{crate_name} must log at info -- it is the unattended path"
             );
         }
+    }
+
+    #[test]
+    fn the_filter_records_when_the_ranking_model_loads() {
+        // ADR-103 D3: a slow first read after a keeper start is only
+        // diagnosable if the log says when the model load began and ended.
+        assert!(
+            DEFAULT_FILTER.contains("vault_embedding=info"),
+            "vault_embedding must log at info -- it is where model loading is reported"
+        );
     }
 }

@@ -19,13 +19,26 @@
 //! `memory_search`, `memory_delete` (idempotent, ADR-056). A save whose reply
 //! was lost may already have committed; resending it would store the memory
 //! twice. Correctness over convenience — the agent is told to check first.
+//!
+//! **One deadline per call (ADR-103 D1).** Fixed when the call arrives —
+//! [`RELAY_CALL_BUDGET`] — and handed to every forwarding attempt, the resend
+//! included, so finding the keeper, the call and a resend all spend the same
+//! budget and a call never outlives the client that made it.
+//!
+//! **The relay's own failures are tool results (ADR-103 D2).** Timed out,
+//! connection lost, keeper unreachable: the agent must READ these to act on
+//! them, so they are `isError` results carrying our message. As JSON-RPC
+//! protocol errors a client reports "Tool execution failed" and drops the
+//! text — observed live with Claude Desktop 2026-09-11. The keeper's own
+//! errors are passed through untouched.
 
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, ListToolsResult, PaginatedRequestParams, ServerInfo,
-    Tool,
+    CallToolRequestParams, CallToolResult, Content, ListToolsResult, PaginatedRequestParams,
+    ServerInfo, Tool,
 };
 use rmcp::service::RequestContext;
 use rmcp::{ErrorData as McpError, RoleServer, ServerHandler};
@@ -48,13 +61,27 @@ pub const MSG_TIMED_OUT: &str = "the vault took too long to answer; try again";
 pub const MSG_TIMED_OUT_SAVE: &str = "the vault took too long to answer; the save may still \
      complete, so check with memory_read before saving again";
 
+/// How long one incoming tool call may take in total — finding or starting
+/// the keeper, the call itself and any resend (ADR-103 D1).
+///
+/// The MCP TypeScript SDK (Claude Desktop, Cursor) and Codex give a tool call
+/// 60 s; 5 s is left for the reply to travel. A relay that gives up earlier
+/// throws away answers the client would still accept: on 2026-09-11 a keeper
+/// on a memory-starved laptop answered a correct read at 36.85 s, after the
+/// old fixed 35 s cut-off had already reported failure.
+pub const RELAY_CALL_BUDGET: Duration = Duration::from_secs(55);
+
 /// The keeper connection, as the relay sees it.
 #[async_trait]
 pub trait Upstream: Send + Sync {
-    /// Forward one tool call to the keeper.
+    /// Forward one tool call to the keeper, giving up at `deadline`.
+    ///
+    /// `deadline` belongs to the incoming call, not to this attempt: a resend
+    /// receives the same one.
     async fn call_tool(
         &self,
         params: CallToolRequestParams,
+        deadline: Instant,
     ) -> Result<CallToolResult, UpstreamError>;
 }
 
@@ -92,13 +119,19 @@ fn is_repeat_safe(tool: &str) -> bool {
     matches!(tool, "memory_read" | "memory_search" | "memory_delete")
 }
 
+/// A failure the relay itself produced, as a tool result the agent can read.
+fn relay_failure(message: &str) -> Result<CallToolResult, McpError> {
+    Ok(CallToolResult::error(vec![Content::text(message)]))
+}
+
 fn to_mcp(result: Result<CallToolResult, UpstreamError>) -> Result<CallToolResult, McpError> {
     match result {
         Ok(r) => Ok(r),
+        // The keeper's own errors: exactly what the direct server returns.
         Err(UpstreamError::Keeper(e)) => Err(e),
-        Err(UpstreamError::NotSent(reason)) => Err(McpError::internal_error(reason, None)),
-        Err(UpstreamError::Lost) => Err(McpError::internal_error(MSG_OUTCOME_UNKNOWN, None)),
-        Err(UpstreamError::TimedOut) => Err(McpError::internal_error(MSG_TIMED_OUT, None)),
+        Err(UpstreamError::NotSent(reason)) => relay_failure(reason),
+        Err(UpstreamError::Lost) => relay_failure(MSG_OUTCOME_UNKNOWN),
+        Err(UpstreamError::TimedOut) => relay_failure(MSG_TIMED_OUT),
     }
 }
 
@@ -125,14 +158,15 @@ impl ServerHandler for RelayServer {
         _context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         let repeat_safe = is_repeat_safe(&request.name);
-        let outcome = match self.upstream.call_tool(request.clone()).await {
-            Err(UpstreamError::Lost) if repeat_safe => self.upstream.call_tool(request).await,
+        let deadline = Instant::now() + RELAY_CALL_BUDGET;
+        let outcome = match self.upstream.call_tool(request.clone(), deadline).await {
+            Err(UpstreamError::Lost) if repeat_safe => {
+                self.upstream.call_tool(request, deadline).await
+            }
             other => other,
         };
         match outcome {
-            Err(UpstreamError::TimedOut) if !repeat_safe => {
-                Err(McpError::internal_error(MSG_TIMED_OUT_SAVE, None))
-            }
+            Err(UpstreamError::TimedOut) if !repeat_safe => relay_failure(MSG_TIMED_OUT_SAVE),
             other => to_mcp(other),
         }
     }
