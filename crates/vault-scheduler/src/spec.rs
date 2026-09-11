@@ -143,6 +143,42 @@ impl ScheduleSpec {
     }
 }
 
+/// A per-user task with NO schedule, started only on request (ADR-102: the
+/// vault keeper, started when the first AI app needs it).
+///
+/// Same injection-safety gate as [`ScheduleSpec`]: validated before any OS
+/// call, `program`/`args` passed as an argument vector, never a shell string.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OnDemandTask {
+    /// Stable identifier. Carries the user's SID for the keeper so two
+    /// Windows users on one PC never share (or overwrite) a task.
+    pub task_id: TaskId,
+    /// Description the OS shows. Also the version marker: an existing task
+    /// whose description differs is replaced.
+    pub label: String,
+    /// Absolute path of the program to start.
+    pub program: PathBuf,
+    /// Arguments, one per argv slot.
+    pub args: Vec<String>,
+}
+
+impl OnDemandTask {
+    /// The same gate as [`ScheduleSpec::validate`].
+    pub fn validate(&self) -> SchedulerResult<()> {
+        if self.program.as_os_str().is_empty() {
+            return Err(SchedulerError::InvalidSpec(
+                "program path must not be empty".into(),
+            ));
+        }
+        reject_control_chars("label", &self.label)?;
+        reject_control_chars("program", &self.program.to_string_lossy())?;
+        for (i, arg) in self.args.iter().enumerate() {
+            reject_control_chars(&format!("arg[{i}]"), arg)?;
+        }
+        Ok(())
+    }
+}
+
 /// Reject any control character in `value`, naming `field` in the error.
 fn reject_control_chars(field: &str, value: &str) -> SchedulerResult<()> {
     if let Some(c) = value.chars().find(|c| c.is_control()) {

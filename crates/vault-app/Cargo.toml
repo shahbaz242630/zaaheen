@@ -50,7 +50,15 @@ vault-mcp = { path = "../vault-mcp" }
 #   via vault-mcp's macros) + ServiceExt::serve.
 # - `transport-io`: enables `rmcp::transport::stdio()` for process
 #   stdin/stdout transport. Same feature vault-mcp uses.
-rmcp = { workspace = true, features = ["server", "transport-io"] }
+# - `transport-async-rw` (ADR-102): the keeper serves each relay, and the relay
+#   talks to the keeper, over one authenticated local IPC stream (named pipe /
+#   unix socket) — any AsyncRead+AsyncWrite. Already enabled for vault-mcp.
+# - `client` (ADR-102): the relay is an MCP client of its own keeper. Only the
+#   small client role — no HTTP client, so no reqwest in this graph. Already
+#   compiled on every CI leg as a dev-dependency here and in vault-mcp. ADR-026's
+#   host-side threat class does not apply: the relay spawns nothing and passes
+#   no user input into `StdioServerParameters` (ADR-SEC-019).
+rmcp = { workspace = true, features = ["server", "transport-io", "transport-async-rw", "client"] }
 
 # Retriever trait — VaultAdapter::search delegates to the wired
 # `Arc<dyn Retriever>` (T0.2.7 Phase 4: AbstainingRetriever wrapping

@@ -37,6 +37,8 @@
 
 #![forbid(unsafe_code)]
 
+mod keeper;
+
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -57,8 +59,8 @@ use vault_app::maintenance_state::{self, RunOutcome, RunSummary};
 use vault_app::model_fetch;
 
 use vault_app::keychain::{
-    derive_at_rest_key, derive_sqlcipher_passphrase, read_or_init_master_key, PRODUCTION_NAMESPACE,
-    VAULT_ID,
+    derive_at_rest_key, derive_sqlcipher_passphrase, read_or_init_master_key, with_key_init_lock,
+    PRODUCTION_NAMESPACE, VAULT_ID,
 };
 use vault_app::{AppConfig, Application, ConsolidatorLock, VAULT_LOCKFILE_NAME};
 use vault_consolidator::ConsolidationReport;
@@ -211,9 +213,36 @@ enum Command {
         /// scheduler fire the full pipeline end-to-end.
         #[arg(long, value_name = "HH:MM")]
         run_at: Option<String>,
+        /// Open the vault in THIS process instead of sharing it through the
+        /// keeper (ADR-102). Only one app can then use the vault at a time.
+        /// For development and troubleshooting; also implied by explicit
+        /// storage paths, `--phi4-model` or `--run-at`.
+        #[arg(long)]
+        direct: bool,
 
         #[command(subcommand)]
         action: McpAction,
+    },
+    /// Own the vault and serve every AI app's connection to it (ADR-102).
+    /// Started on demand through Task Scheduler by `zaaheen mcp serve`; not
+    /// meant to be run by hand.
+    #[command(hide = true)]
+    Keeper {
+        /// Path to the BGE-small-en-v1.5 ONNX model file. Defaults to the copy
+        /// installed beside this binary (ADR-101).
+        #[arg(long, env = "VAULT_BGE_MODEL_PATH", value_name = "PATH")]
+        bge_model: Option<PathBuf>,
+        /// Path to the BGE-small-en-v1.5 tokenizer.json file.
+        #[arg(long, env = "VAULT_BGE_TOKENIZER_PATH", value_name = "PATH")]
+        bge_tokenizer: Option<PathBuf>,
+        /// Path to the ONNX Runtime dynamic library.
+        #[arg(long, env = "VAULT_ORT_LIB_PATH", value_name = "PATH")]
+        ort_lib: Option<PathBuf>,
+        /// Stop at end-of-file on stdin. The windowless launcher holds our
+        /// stdin open, so this is how the keeper learns the launcher was
+        /// killed.
+        #[arg(long)]
+        exit_on_stdin_eof: bool,
     },
     /// Manage per-agent capability tokens for the multi-agent daemon
     /// (ADR-SEC-001). Storage-only — loads no models. Each agent connecting to
@@ -424,6 +453,19 @@ fn init_tracing() {
         .init();
 }
 
+/// Whether `mcp serve` shares the vault through the keeper (ADR-102) rather
+/// than opening it in this process.
+///
+/// Sharing is the default for the installed vault, because AI apps start
+/// several servers at once and only one process may own the vault. Anything
+/// that ties the server to THIS process opts out: `--direct`, explicit storage
+/// paths (only the installed vault has a keeper), and `--phi4-model` /
+/// `--run-at`, which configure an in-process nightly run the keeper does not
+/// host.
+fn uses_keeper(direct: bool, explicit_storage: bool, phi4_model: bool, run_at: bool) -> bool {
+    !(direct || explicit_storage || phi4_model || run_at)
+}
+
 /// Fill in any storage path the caller omitted, from the installed vault's
 /// layout (ADR-101).
 ///
@@ -531,6 +573,9 @@ async fn real_main() -> Result<()> {
         command,
     } = cli;
 
+    // Recorded before defaults are filled in: only the installed vault is
+    // shared through the keeper (ADR-102), so an explicit path means direct.
+    let explicit_storage = vault_db.is_some() || vector_dir.is_some() || graph_db.is_some();
     let (vault_db, vector_dir, graph_db) = resolve_storage_paths(vault_db, vector_dir, graph_db)?;
 
     match command {
@@ -581,11 +626,38 @@ async fn real_main() -> Result<()> {
             models_dir,
             boundary,
             run_at,
+            direct,
             action,
         } => {
             // Same rationale as Consolidate above — `Application::new`
             // owns the embedding dimension.
             let _ = dimension;
+            if uses_keeper(
+                direct,
+                explicit_storage,
+                phi4_model.is_some(),
+                run_at.is_some(),
+            ) {
+                let explicit_models = [&bge_model, &bge_tokenizer, &ort_lib, &rerank_model]
+                    .iter()
+                    .any(|p| p.is_some())
+                    || rerank_tokenizer.is_some()
+                    || models_dir.is_some();
+                if explicit_models {
+                    tracing::warn!(
+                        "model path arguments are ignored while the vault is shared \
+                         through the keeper; pass --direct to use them"
+                    );
+                }
+                let vault_root = vault_db
+                    .parent()
+                    .map(Path::to_path_buf)
+                    .ok_or_else(|| anyhow!("vault path has no parent directory"))?;
+                let boundaries = parse_agent_boundaries(boundary)?;
+                return match action {
+                    McpAction::Serve => keeper::run_relay(vault_root, boundaries).await,
+                };
+            }
             dispatch_mcp(
                 &vault_db,
                 &vector_dir,
@@ -606,6 +678,28 @@ async fn real_main() -> Result<()> {
         Command::Agent { action } => {
             let backend = open_and_warn(&vault_db, &vector_dir, &graph_db, dimension).await?;
             dispatch_agent(&backend, action).await
+        }
+        Command::Keeper {
+            bge_model,
+            bge_tokenizer,
+            ort_lib,
+            exit_on_stdin_eof,
+        } => {
+            let _ = dimension;
+            let (bge_model, bge_tokenizer, ort_lib) =
+                resolve_embedder_paths(bge_model, bge_tokenizer, ort_lib)?;
+            keeper::dispatch_keeper(
+                keeper::KeeperPaths {
+                    vault_db,
+                    vector_dir,
+                    graph_db,
+                    bge_model,
+                    bge_tokenizer,
+                    ort_lib,
+                },
+                exit_on_stdin_eof,
+            )
+            .await
         }
         Command::Daemon {
             bge_model,
@@ -888,13 +982,23 @@ async fn dispatch_consolidate(
     // ADR-SEC-002: hold the vault-owner lock for the command's lifetime so a
     // manual consolidation can't race a running daemon (or another writer) —
     // restores the single-owner guard the in-memory graph removed.
-    let _vault_lock = ConsolidatorLock::try_acquire_named(
-        vault_db
-            .parent()
-            .unwrap_or_else(|| std::path::Path::new(".")),
-        VAULT_LOCKFILE_NAME,
-    )
-    .context("vault is already in use by another vault-cli process (daemon/serve/consolidate)")?;
+    let vault_root = vault_db
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."));
+    let _vault_lock = ConsolidatorLock::try_acquire_named(vault_root, VAULT_LOCKFILE_NAME)
+        .context(
+            "vault is already in use by another vault-cli process (daemon/serve/consolidate)",
+        )?;
+    // "Delete everything" is waiting for the vault: let it have it. Worded
+    // "busy" so the nightly launcher retries rather than records a failure.
+    if vault_app::keeper::intent::is_held(vault_root) {
+        anyhow::bail!("vault is busy: it is being handed over for erasure");
+    }
+    // ADR-102: tell AI apps the vault is busy for maintenance, so they answer
+    // at once instead of asking for a keeper that cannot start. Refreshed
+    // while the run lasts; removed when it ends (a crashed run's record goes
+    // stale within minutes).
+    let _maintenance_record = MaintenanceRecord::publish(vault_root);
 
     let app = build_application(
         vault_db,
@@ -912,6 +1016,79 @@ async fn dispatch_consolidate(
     match action {
         ConsolidateAction::Run { record_status } => {
             run_one_consolidation(&app, record_status.as_deref()).await
+        }
+    }
+}
+
+/// The discovery record a maintenance run publishes while it holds the vault
+/// (ADR-102): relays answer "busy" at once instead of asking for keepers.
+/// Rewritten every [`MAINTENANCE_HEARTBEAT`] so a crashed run's record goes
+/// stale quickly; removed on drop — only if it is still ours.
+///
+/// [`MAINTENANCE_HEARTBEAT`]: vault_app::keeper::relay::MAINTENANCE_HEARTBEAT
+struct MaintenanceRecord {
+    root: PathBuf,
+    /// `true` once the run is over. Held across each write and the removal,
+    /// so a heartbeat can never re-publish the record just after it was
+    /// removed (which would report "busy" for minutes after the run).
+    ended: Arc<std::sync::Mutex<bool>>,
+    heartbeat: tokio::task::JoinHandle<()>,
+}
+
+impl MaintenanceRecord {
+    fn publish(vault_root: &Path) -> Self {
+        use vault_app::keeper::relay::MAINTENANCE_HEARTBEAT;
+
+        let root = vault_root.to_path_buf();
+        let ended = Arc::new(std::sync::Mutex::new(false));
+        write_maintenance_record(&root);
+        let heartbeat = {
+            let root = root.clone();
+            let ended = ended.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(MAINTENANCE_HEARTBEAT).await;
+                    match ended.lock() {
+                        Ok(ended) if !*ended => write_maintenance_record(&root),
+                        _ => return,
+                    }
+                }
+            })
+        };
+        Self {
+            root,
+            ended,
+            heartbeat,
+        }
+    }
+}
+
+fn write_maintenance_record(root: &Path) {
+    use vault_app::keeper::discovery::{self, Discovery};
+    use vault_app::keeper::handshake::WIRE;
+
+    let at = chrono::Utc::now().to_rfc3339();
+    let record = Discovery::maintenance(std::process::id(), WIRE, env!("CARGO_PKG_VERSION"), &at);
+    if let Err(e) = discovery::write(root, &record) {
+        tracing::debug!(error = %e, "could not publish the maintenance record");
+    }
+}
+
+impl Drop for MaintenanceRecord {
+    fn drop(&mut self) {
+        use vault_app::keeper::discovery::{self, Role};
+        self.heartbeat.abort();
+        let remove =
+            || discovery::remove_if_written_by(&self.root, Role::Maintenance, std::process::id());
+        // The flag stays locked across the removal (see `ended`).
+        match self.ended.lock() {
+            Ok(mut ended) => {
+                *ended = true;
+                let _ = remove();
+            }
+            Err(_) => {
+                let _ = remove();
+            }
         }
     }
 }
@@ -1213,7 +1390,13 @@ async fn build_application(
     rerank_model: Option<PathBuf>,
     rerank_tokenizer: Option<PathBuf>,
 ) -> Result<Application> {
-    let master_key = read_or_init_master_key(PRODUCTION_NAMESPACE, VAULT_ID).map_err(|e| {
+    // Under the key-creation lock: on a fresh install the desktop app may be
+    // creating the key at this very moment (see `with_key_init_lock`).
+    let vault_root = vault_db.parent().unwrap_or_else(|| Path::new("."));
+    let master_key = with_key_init_lock(vault_root, || {
+        read_or_init_master_key(PRODUCTION_NAMESPACE, VAULT_ID)
+    })
+    .map_err(|e| {
         tracing::warn!(error = %e, "keychain read failed");
         anyhow!("authentication failed")
     })?;
@@ -1386,10 +1569,14 @@ pub(crate) async fn open_backend_inner(
     namespace: &str,
     vault_id: &str,
 ) -> Result<StorageBackend> {
-    let master_key = read_or_init_master_key(namespace, vault_id).map_err(|e| {
-        tracing::warn!(error = %e, "keychain read failed");
-        anyhow!("authentication failed")
-    })?;
+    let vault_root = vault_db.parent().unwrap_or_else(|| Path::new("."));
+    let master_key =
+        with_key_init_lock(vault_root, || read_or_init_master_key(namespace, vault_id)).map_err(
+            |e| {
+                tracing::warn!(error = %e, "keychain read failed");
+                anyhow!("authentication failed")
+            },
+        )?;
     let sqlcipher_passphrase = derive_sqlcipher_passphrase(&master_key);
     let at_rest_key = derive_at_rest_key(&master_key);
     StorageBackend::open_with_at_rest_key(
@@ -2048,8 +2235,12 @@ mod tests {
                 models_dir,
                 boundary,
                 run_at,
+                direct,
                 action,
             } => {
+                // ADR-102: sharing through the keeper is the default; direct
+                // mode is opt-in.
+                assert!(!direct, "--direct must default to off");
                 // ADR-101 made these `Option`. `Some` is the assertion that
                 // matters: an explicitly-passed path must survive parsing
                 // untouched, never be replaced by the installed default.
@@ -2193,6 +2384,61 @@ mod tests {
             }
             other => panic!("expected Command::Mcp, got: {other:?}"),
         }
+    }
+
+    // --------------------------------------------------------------
+    // ADR-102 — sharing the vault through the keeper
+    // --------------------------------------------------------------
+
+    /// The bare snippet — the line every AI app runs, several at a time in
+    /// Claude Desktop — must share the vault. If it routes to direct mode
+    /// again, every copy but one dies on the lock and the chat shows "Server
+    /// disconnected", which is the beta blocker ADR-102 fixed.
+    #[test]
+    fn anything_that_ties_the_server_to_this_process_opts_out_of_sharing() {
+        assert!(
+            uses_keeper(false, false, false, false),
+            "the bare snippet shares"
+        );
+        assert!(!uses_keeper(true, false, false, false), "--direct");
+        assert!(
+            !uses_keeper(false, true, false, false),
+            "explicit storage paths"
+        );
+        assert!(!uses_keeper(false, false, true, false), "--phi4-model");
+        assert!(!uses_keeper(false, false, false, true), "--run-at");
+    }
+
+    #[test]
+    fn direct_mode_is_an_explicit_flag() {
+        let cli =
+            Cli::try_parse_from(["zaaheen", "mcp", "--direct", "serve"]).expect("--direct parses");
+        match cli.command {
+            Command::Mcp { direct, .. } => assert!(direct),
+            other => panic!("expected Command::Mcp, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_keeper_subcommand_parses_and_stays_out_of_help() {
+        use clap::CommandFactory;
+
+        let cli = Cli::try_parse_from(["zaaheen", "keeper", "--exit-on-stdin-eof"])
+            .expect("keeper parses");
+        match cli.command {
+            Command::Keeper {
+                exit_on_stdin_eof, ..
+            } => assert!(exit_on_stdin_eof),
+            other => panic!("expected Command::Keeper, got: {other:?}"),
+        }
+
+        let help = Cli::command().render_help().to_string();
+        assert!(
+            !help
+                .lines()
+                .any(|line| line.trim_start().starts_with("keeper")),
+            "the keeper is internal and must not be listed in --help:\n{help}"
+        );
     }
 
     // --------------------------------------------------------------

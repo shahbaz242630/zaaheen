@@ -97,6 +97,110 @@ pub(crate) fn build_task_xml(spec: &ScheduleSpec) -> String {
     )
 }
 
+/// Build the XML for an on-demand task (ADR-102): no trigger at all, started
+/// only by `schtasks /Run`.
+///
+/// Settings that differ from the nightly task, each for a reason:
+/// - no `<Triggers>` — nothing starts it except an explicit request;
+/// - `ExecutionTimeLimit` `PT0S` (unlimited) — the default of 72 hours would
+///   kill a long-lived keeper after three days;
+/// - `Priority` 6 — the default 7 is background CPU/IO priority, which would
+///   make every memory read slow;
+/// - `MultipleInstancesPolicy` `IgnoreNew` — a start request while one is
+///   running is dropped, so requests can be repeated harmlessly.
+///
+/// `label` becomes the `Description`, which doubles as a version marker the
+/// caller checks to decide whether an existing task must be replaced.
+pub(crate) fn build_on_demand_task_xml(task: &crate::OnDemandTask) -> String {
+    let command = xml_escape(&task.program.to_string_lossy());
+    let arguments = xml_escape(&join_arguments(&task.args));
+    let description = xml_escape(&task.label);
+
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\n\
+         <Task version=\"1.2\" xmlns=\"{ns}\">\n\
+         \x20 <RegistrationInfo>\n\
+         \x20   <Description>{description}</Description>\n\
+         \x20 </RegistrationInfo>\n\
+         \x20 <Principals>\n\
+         \x20   <Principal id=\"Author\">\n\
+         \x20     <LogonType>InteractiveToken</LogonType>\n\
+         \x20     <RunLevel>LeastPrivilege</RunLevel>\n\
+         \x20   </Principal>\n\
+         \x20 </Principals>\n\
+         \x20 <Settings>\n\
+         \x20   <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>\n\
+         \x20   <AllowStartOnDemand>true</AllowStartOnDemand>\n\
+         \x20   <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\n\
+         \x20   <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\n\
+         \x20   <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\n\
+         \x20   <Priority>6</Priority>\n\
+         \x20   <Enabled>true</Enabled>\n\
+         \x20 </Settings>\n\
+         \x20 <Actions Context=\"Author\">\n\
+         \x20   <Exec>\n\
+         \x20     <Command>{command}</Command>\n\
+         \x20     <Arguments>{arguments}</Arguments>\n\
+         \x20   </Exec>\n\
+         \x20 </Actions>\n\
+         </Task>\n",
+        ns = TASK_XML_NS,
+    )
+}
+
+/// Decode `schtasks /Query /XML` output, which may arrive as UTF-16LE (with or
+/// without a BOM) or as 8-bit text depending on how the output is redirected.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) fn decode_schtasks_output(bytes: &[u8]) -> String {
+    let utf16 = bytes.starts_with(&[0xFF, 0xFE])
+        || (bytes.len() >= 4 && bytes.iter().skip(1).step_by(2).take(32).all(|b| *b == 0));
+    if utf16 {
+        let body = bytes.strip_prefix(&[0xFF, 0xFE]).unwrap_or(bytes);
+        let units: Vec<u16> = body
+            .chunks_exact(2)
+            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+            .collect();
+        String::from_utf16_lossy(&units)
+    } else {
+        String::from_utf8_lossy(bytes).into_owned()
+    }
+}
+
+/// Whether a registered on-demand task (its `schtasks /Query /XML` output)
+/// already has exactly this definition: same version label, program and
+/// arguments. Compared on DECODED element text, because Task Scheduler
+/// re-serialises the XML it stores — a quote we wrote as `&quot;` comes back
+/// as a literal `"` — and a byte comparison would then call every task stale
+/// and re-create it on every start request.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) fn on_demand_task_matches(registered_xml: &str, task: &crate::OnDemandTask) -> bool {
+    element_text(registered_xml, "Description").as_deref() == Some(task.label.as_str())
+        && element_text(registered_xml, "Command").as_deref()
+            == Some(task.program.to_string_lossy().as_ref())
+        // An absent element is an empty argument list.
+        && element_text(registered_xml, "Arguments").unwrap_or_default()
+            == join_arguments(&task.args)
+}
+
+/// The decoded text of the first `<name>...</name>` element, if any.
+fn element_text(xml: &str, name: &str) -> Option<String> {
+    let open = format!("<{name}>");
+    let close = format!("</{name}>");
+    let start = xml.find(&open)? + open.len();
+    let len = xml[start..].find(&close)?;
+    Some(xml_unescape(xml[start..start + len].trim()))
+}
+
+/// Undo XML's five predefined entities (`&amp;` last, so `&amp;quot;` stays
+/// the literal text `&quot;`).
+fn xml_unescape(s: &str) -> String {
+    s.replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+}
+
 /// Map a [`chrono::Weekday`] to its Task Scheduler `DaysOfWeek` element name.
 fn weekday_element(day: chrono::Weekday) -> &'static str {
     use chrono::Weekday::*;
@@ -161,7 +265,7 @@ fn windows_quote_arg(arg: &str) -> String {
 }
 
 #[cfg(windows)]
-pub(crate) use imp::WindowsScheduler;
+pub(crate) use imp::{start_on_demand, WindowsScheduler};
 
 #[cfg(windows)]
 mod imp {
@@ -171,9 +275,11 @@ mod imp {
     use std::os::windows::process::CommandExt;
     use std::process::Command;
 
-    use super::build_task_xml;
+    use super::{
+        build_on_demand_task_xml, build_task_xml, decode_schtasks_output, on_demand_task_matches,
+    };
     use crate::error::{SchedulerError, SchedulerResult};
-    use crate::spec::{ScheduleSpec, ScheduleStatus, TaskId};
+    use crate::spec::{OnDemandTask, ScheduleSpec, ScheduleStatus, TaskId};
     use crate::Scheduler;
 
     /// `CREATE_NO_WINDOW` — run a console child with no console window.
@@ -265,6 +371,47 @@ mod imp {
         }
     }
 
+    /// Make sure the on-demand task exists with this definition, then start
+    /// it. See [`crate::backends::start_on_demand`]; `task` is validated there.
+    pub(crate) fn start_on_demand(task: &OnDemandTask) -> SchedulerResult<()> {
+        let id = task.task_id.as_str();
+        let existing = schtasks_command()
+            .args(["/Query", "/TN", id, "/XML"])
+            .output()
+            .map_err(SchedulerError::Io)?;
+        // Arguments are compared too: the log directory in them can change
+        // while the label and program stay the same.
+        let up_to_date = existing.status.success()
+            && on_demand_task_matches(&decode_schtasks_output(&existing.stdout), task);
+
+        let mut create_error = None;
+        if !up_to_date {
+            let xml = build_on_demand_task_xml(task);
+            // A per-process file: several relays start at once, and a shared
+            // name would let one truncate another's definition mid-read.
+            let file_name = format!("vault-scheduler-{id}-{}.xml", std::process::id());
+            let path = write_task_xml_utf16_named(&file_name, &xml)?;
+            let path_str = path.to_string_lossy().into_owned();
+            let mut args = vec!["/Create", "/TN", id, "/XML", path_str.as_str()];
+            if existing.status.success() {
+                // A stale definition (an older build, a moved install) is
+                // replaced rather than left pointing at the wrong program.
+                args.push("/F");
+            }
+            if let Err(e) = run_schtasks(&args) {
+                // Another relay may have created it a moment ago; the start
+                // below is the real test.
+                create_error = Some(e);
+            }
+            let _ = std::fs::remove_file(&path);
+        }
+
+        match run_schtasks(&["/Run", "/TN", id]) {
+            Ok(_) => Ok(()),
+            Err(run_error) => Err(create_error.unwrap_or(run_error)),
+        }
+    }
+
     /// Run `schtasks.exe` with `args`, returning its stdout on success or a
     /// [`SchedulerError::BackendFailed`] carrying stderr on a non-zero exit.
     fn run_schtasks(args: &[&str]) -> SchedulerResult<String> {
@@ -295,10 +442,19 @@ mod imp {
     /// `schtasks /XML` accepts most reliably across Windows versions. Returns
     /// the path; the caller removes it after registration.
     fn write_task_xml_utf16(task_id: &str, xml: &str) -> SchedulerResult<std::path::PathBuf> {
-        let mut path = std::env::temp_dir();
         // task_id is charset-validated (A-Z a-z 0-9 . _ -), so it is a safe
         // filename component with no separators.
-        path.push(format!("vault-scheduler-{task_id}.xml"));
+        write_task_xml_utf16_named(&format!("vault-scheduler-{task_id}.xml"), xml)
+    }
+
+    /// As [`write_task_xml_utf16`], under a caller-chosen temp file name built
+    /// only from validated components.
+    fn write_task_xml_utf16_named(
+        file_name: &str,
+        xml: &str,
+    ) -> SchedulerResult<std::path::PathBuf> {
+        let mut path = std::env::temp_dir();
+        path.push(file_name);
 
         let mut bytes = Vec::with_capacity(xml.len() * 2 + 2);
         bytes.extend_from_slice(&[0xFF, 0xFE]); // UTF-16LE BOM
@@ -508,5 +664,135 @@ mod tests {
             1,
             "the commented mention must not be counted"
         );
+    }
+
+    // ------------------------------------------------------------------
+    //   On-demand keeper task (ADR-102)
+    // ------------------------------------------------------------------
+
+    fn keeper_task() -> crate::OnDemandTask {
+        crate::OnDemandTask {
+            task_id: TaskId::new("com.zaaheen.keeper.S-1-5-21-1111-2222-3333-1001").unwrap(),
+            label: "zaaheen-keeper-task-v1".into(),
+            program: PathBuf::from(r"C:\Program Files\Zaaheen\zaaheen-maintenance.exe"),
+            args: vec![
+                "keeper".into(),
+                "--log-dir".into(),
+                r"C:\Users\sam\AppData\Roaming\com.zaaheen.app\logs".into(),
+            ],
+        }
+    }
+
+    #[test]
+    fn the_keeper_task_has_no_trigger_and_starts_only_on_request() {
+        let xml = build_on_demand_task_xml(&keeper_task());
+        assert!(
+            !xml.contains("<Triggers>"),
+            "an on-demand task must never start by itself"
+        );
+        assert!(xml.contains("<AllowStartOnDemand>true</AllowStartOnDemand>"));
+    }
+
+    #[test]
+    fn the_keeper_is_never_killed_by_a_time_limit_and_runs_at_normal_priority() {
+        let xml = build_on_demand_task_xml(&keeper_task());
+        assert!(
+            xml.contains("<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>"),
+            "the 72-hour default would kill the keeper after three days"
+        );
+        assert!(
+            xml.contains("<Priority>6</Priority>"),
+            "the default priority 7 is background CPU and IO, which makes reads slow"
+        );
+    }
+
+    #[test]
+    fn repeated_start_requests_are_harmless_and_batteries_do_not_block_it() {
+        let xml = build_on_demand_task_xml(&keeper_task());
+        assert!(xml.contains("<MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>"));
+        assert!(xml.contains("<DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>"));
+        assert!(xml.contains("<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>"));
+    }
+
+    #[test]
+    fn the_keeper_task_runs_as_the_user_without_elevation() {
+        let xml = build_on_demand_task_xml(&keeper_task());
+        assert!(xml.contains("<LogonType>InteractiveToken</LogonType>"));
+        assert!(xml.contains("<RunLevel>LeastPrivilege</RunLevel>"));
+    }
+
+    #[test]
+    fn the_keeper_task_carries_its_version_marker_and_separate_arguments() {
+        let xml = build_on_demand_task_xml(&keeper_task());
+        assert!(xml.contains("<Description>zaaheen-keeper-task-v1</Description>"));
+        assert!(
+            xml.contains("<Command>C:\\Program Files\\Zaaheen\\zaaheen-maintenance.exe</Command>")
+        );
+        assert!(xml.contains("<Arguments>keeper --log-dir C:\\Users\\sam"));
+    }
+
+    #[test]
+    fn schtasks_output_decodes_from_utf16_and_from_8_bit_text() {
+        let text = "<Task><Description>zaaheen-keeper-task-v1</Description></Task>";
+        let utf16: Vec<u8> = text.encode_utf16().flat_map(u16::to_le_bytes).collect();
+        let mut with_bom = vec![0xFF, 0xFE];
+        with_bom.extend_from_slice(&utf16);
+        assert_eq!(decode_schtasks_output(&with_bom), text);
+        assert_eq!(decode_schtasks_output(&utf16), text);
+        assert_eq!(decode_schtasks_output(text.as_bytes()), text);
+    }
+
+    /// The task we write reads back as up to date — and still does after
+    /// Task Scheduler re-serialises it with literal quotes, as it does for a
+    /// user name with a space. Otherwise every start request would re-create
+    /// the task.
+    #[test]
+    fn a_registered_task_is_recognised_as_up_to_date_after_re_serialisation() {
+        let mut task = keeper_task();
+        task.args[2] = r"C:\Users\Sam Smith\AppData\Local\com.zaaheen.app\logs".into();
+        let written = build_on_demand_task_xml(&task);
+        assert!(on_demand_task_matches(&written, &task));
+
+        let as_stored = written.replace("&quot;", "\"");
+        assert!(
+            as_stored.contains("--log-dir \"C:\\Users\\Sam Smith"),
+            "the fixture must exercise a quoted argument"
+        );
+        assert!(on_demand_task_matches(&as_stored, &task));
+    }
+
+    /// A changed label, program or argument list means the stored task is
+    /// stale and must be replaced — arguments included, since the log
+    /// directory can move while the other two stay put.
+    #[test]
+    fn a_stale_task_is_not_up_to_date() {
+        let registered = build_on_demand_task_xml(&keeper_task());
+
+        let mut newer = keeper_task();
+        newer.label = "zaaheen-keeper-task-v2".into();
+        assert!(!on_demand_task_matches(&registered, &newer));
+
+        let mut moved = keeper_task();
+        moved.program = PathBuf::from(r"D:\Zaaheen\zaaheen-maintenance.exe");
+        assert!(!on_demand_task_matches(&registered, &moved));
+
+        let mut new_logs = keeper_task();
+        new_logs.args[2] = r"C:\Users\sam\AppData\Local\com.zaaheen.app\logs".into();
+        assert!(!on_demand_task_matches(&registered, &new_logs));
+
+        assert!(!on_demand_task_matches("<Task/>", &keeper_task()));
+    }
+
+    #[test]
+    fn an_on_demand_task_with_a_control_character_or_no_program_is_rejected() {
+        let mut t = keeper_task();
+        t.args.push("x\ny".into());
+        assert!(t.validate().is_err());
+
+        let mut t = keeper_task();
+        t.program = PathBuf::new();
+        assert!(t.validate().is_err());
+
+        assert!(keeper_task().validate().is_ok());
     }
 }

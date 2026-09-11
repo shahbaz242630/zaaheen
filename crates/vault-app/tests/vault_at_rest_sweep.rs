@@ -54,7 +54,7 @@ use chrono::Utc;
 use tempfile::TempDir;
 use uuid::Uuid;
 
-use vault_app::erasure::VAULT_ENTRIES;
+use vault_app::erasure::{VAULT_ENTRIES, VAULT_LOCK_FILES};
 use vault_consolidator::report::{generate_report, write_report_atomic};
 use vault_consolidator::topics::{Topic, TopicMap};
 use vault_core::{Boundary, Memory, MemoryType, NewMemory};
@@ -253,6 +253,7 @@ async fn vault_directory_contains_nothing_undeclared() {
     let declared: Vec<&str> = VAULT_ENTRIES
         .iter()
         .copied()
+        .chain(VAULT_LOCK_FILES.iter().copied())
         .chain(NON_USER_DATA_ENTRIES.iter().copied())
         .collect();
 

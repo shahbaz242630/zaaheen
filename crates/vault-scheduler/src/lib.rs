@@ -44,9 +44,9 @@ mod backends;
 mod error;
 mod spec;
 
-pub use backends::platform_scheduler;
+pub use backends::{platform_scheduler, start_on_demand};
 pub use error::{SchedulerError, SchedulerResult};
-pub use spec::{Frequency, ScheduleSpec, ScheduleStatus, TaskId};
+pub use spec::{Frequency, OnDemandTask, ScheduleSpec, ScheduleStatus, TaskId};
 
 /// Registers, queries, and removes a per-user OS-level scheduled task.
 ///

@@ -29,19 +29,53 @@
 //! explicitly do NOT downgrade the confidentiality result: once the key is
 //! gone those bytes are undecryptable ciphertext.
 
+use std::time::Duration;
+
 use tauri::State;
+use vault_app::keeper::exclusive::take_exclusive;
+use vault_app::keeper::relay::KeychainKeySource;
 use vault_app::keychain::{PRODUCTION_NAMESPACE, VAULT_ID};
 use vault_app::Application;
+
+/// Opaque error code: the vault could not be taken for erasure (a maintenance
+/// run holds it). Nothing was deleted.
+pub const ERR_ERASURE_BUSY: &str = "erasure_busy";
+
+/// Opaque error code: erasure failed at the key step. Nothing was deleted.
+pub const ERR_ERASURE_FAILED: &str = "erasure_failed";
+
+/// How long to wait for the vault to be handed over. A serving keeper lets go
+/// in well under a second; one that is still opening the vault takes a few
+/// seconds; a maintenance run is not interrupted and exhausts this.
+const TAKE_WAIT: Duration = Duration::from_secs(20);
+
+/// Bound on each step of the handover request.
+const TAKE_STEP: Duration = Duration::from_secs(5);
 
 /// Inner implementation, `Application`-only so it is testable without a
 /// Tauri runtime (same pattern as the other command modules).
 ///
 /// # Errors
 ///
-/// Returns an opaque error code when cryptographic erasure fails. The
-/// caller MUST treat this as "the vault was NOT erased".
+/// Returns an opaque error code when cryptographic erasure fails or cannot
+/// start. The caller MUST treat this as "the vault was NOT erased".
 pub async fn erase_everything_inner(app: &Application) -> Result<serde_json::Value, String> {
     let vault_root = app.vault_root().to_path_buf();
+
+    // ADR-102 amendment (session 35): first take the vault from the keeper
+    // serving any connected AI app. Left running, it would keep answering
+    // that app from its open stores after the user was told everything was
+    // deleted. Held until the erasure is over, so no keeper starts meanwhile.
+    let held = take_exclusive(&vault_root, &KeychainKeySource, TAKE_WAIT, TAKE_STEP)
+        .await
+        .map_err(|e| {
+            tracing::warn!(
+                target: "vault_tauri::erasure",
+                error = %e,
+                "erasure not started: the vault is in use; nothing was deleted"
+            );
+            ERR_ERASURE_BUSY.to_string()
+        })?;
 
     // Blocking work (credential store + recursive file removal) off the
     // async runtime, per BRD §2.
@@ -49,15 +83,16 @@ pub async fn erase_everything_inner(app: &Application) -> Result<serde_json::Val
         vault_app::erase_vault(&vault_root, PRODUCTION_NAMESPACE, VAULT_ID)
     })
     .await
-    .map_err(|_| "erasure_failed".to_string())?
+    .map_err(|_| ERR_ERASURE_FAILED.to_string())?
     .map_err(|e| {
         tracing::error!(
             target: "vault_tauri::erasure",
             error = %e,
             "erasure FAILED; the vault is still readable"
         );
-        "erasure_failed".to_string()
+        ERR_ERASURE_FAILED.to_string()
     })?;
+    drop(held);
 
     // NOTE: no audit row. The audit log lives inside the vault we just
     // destroyed — see the `vault_app::erasure` module docs. The operation
@@ -81,9 +116,10 @@ pub async fn erase_everything_inner(app: &Application) -> Result<serde_json::Val
 ///
 /// # Errors
 ///
-/// `"erasure_failed"` when the key could not be destroyed. No files are
-/// removed in that case — erasure either succeeds at the step that matters
-/// or does nothing at all.
+/// `"erasure_failed"` when the key could not be destroyed, `"erasure_busy"`
+/// when the vault could not be taken (a maintenance run is using it). No
+/// files are removed in either case — erasure either succeeds at the step
+/// that matters or does nothing at all.
 #[tauri::command]
 pub async fn erase_everything(app: State<'_, Application>) -> Result<serde_json::Value, String> {
     erase_everything_inner(&app).await

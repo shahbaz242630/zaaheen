@@ -83,6 +83,50 @@ const SQLCIPHER_KDF_CONTEXT: &str = "vault sqlcipher passphrase v1";
 /// HANDOFF.md — same string, single source-of-truth.
 const AT_REST_KDF_CONTEXT: &str = "vault memory at-rest sealing v1";
 
+/// File name, under the vault root, of the lock held while the master key is
+/// read-or-created. Declared in `erasure::VAULT_LOCK_FILES`.
+pub const KEY_INIT_LOCKFILE_NAME: &str = ".keyinit.lock";
+
+/// How long to wait for another process's key creation to finish.
+const KEY_INIT_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Run `f` — a read-or-create of the master key — while holding the vault's
+/// key-creation lock.
+///
+/// **Why.** Two processes can find NO key at the same moment: the desktop app
+/// on its first launch, and a keeper an AI app asked for (ADR-102). The
+/// keeper's `.vault.lock` does not cover the desktop app, so without this both
+/// could create a key and the second would overwrite the first — leaving
+/// whatever the first had already encrypted under a key that no longer
+/// exists. Holding this lock across "read, and create if absent" makes the
+/// second process read the first one's key instead.
+///
+/// Creates the vault directory if needed (a key is only ever created for a
+/// vault about to be created there).
+///
+/// # Errors
+///
+/// [`VaultError::ConsolidatorBusy`] if another process holds the lock for
+/// longer than the wait; [`VaultError::Io`] if the lock cannot be taken at
+/// all; otherwise whatever `f` returns.
+pub fn with_key_init_lock<T>(
+    vault_root: &Path,
+    f: impl FnOnce() -> VaultResult<T>,
+) -> VaultResult<T> {
+    std::fs::create_dir_all(vault_root).map_err(VaultError::Io)?;
+    let deadline = std::time::Instant::now() + KEY_INIT_WAIT;
+    let _guard = loop {
+        match crate::ConsolidatorLock::try_acquire_named(vault_root, KEY_INIT_LOCKFILE_NAME) {
+            Ok(guard) => break guard,
+            Err(VaultError::ConsolidatorBusy(_)) if std::time::Instant::now() < deadline => {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            Err(e) => return Err(e),
+        }
+    };
+    f()
+}
+
 /// Read the 32-byte `master_key` from the OS keychain. On first run (no
 /// entry exists), generate a new `master_key` via `getrandom`, persist via
 /// `set_secret`, and return the newly-persisted key.
@@ -141,6 +185,48 @@ pub fn read_or_init_master_key(
         "Keychain provenance is Windows-only at V0.2 Phase 1 (current platform: {}). \
          macOS / Linux per-platform crate-add deferred to T0.2.0.x sub-task or \
          T0.2.14 Stub-Installer-adjacent per HANDOFF.md OQ #1 partial resolution.",
+        std::env::consts::OS
+    )))
+}
+
+/// Read the master key WITHOUT ever creating one (ADR-SEC-019).
+///
+/// For processes that must never initialise the vault. A relay (ADR-102)
+/// runs beside a keeper that may be creating the vault at this very moment;
+/// if both could create the key on a fresh install, the last writer would win
+/// and the vault would be left encrypted under a key that was then
+/// overwritten — permanently unreadable. `Ok(None)` means there is no key
+/// yet; only the process holding `.vault.lock` may create it, through
+/// [`read_or_init_master_key`].
+///
+/// # Errors
+///
+/// [`VaultError::KeychainProvenance`] for any keychain failure other than
+/// "not found".
+#[cfg(windows)]
+pub fn read_existing_master_key(
+    namespace: &str,
+    vault_id: &str,
+) -> VaultResult<Option<Zeroizing<[u8; 32]>>> {
+    use windows_native_keyring_store::Store;
+
+    keyring_core::set_default_store(
+        Store::new()
+            .map_err(|e| VaultError::KeychainProvenance(format!("Store::new failed: {e}")))?,
+    );
+    let result = try_read_existing_master_key(namespace, vault_id);
+    keyring_core::unset_default_store();
+    result
+}
+
+/// Non-Windows stub, matching [`read_or_init_master_key`]'s.
+#[cfg(not(windows))]
+pub fn read_existing_master_key(
+    _namespace: &str,
+    _vault_id: &str,
+) -> VaultResult<Option<Zeroizing<[u8; 32]>>> {
+    Err(VaultError::KeychainProvenance(format!(
+        "Keychain provenance is Windows-only at V0.2 (current platform: {})",
         std::env::consts::OS
     )))
 }
@@ -826,6 +912,91 @@ mod tests {
     // by vault-cli's tests (eliminates 50-LOC duplication).
     #[cfg(windows)]
     use super::test_helpers::*;
+
+    /// A second first-launch waits for the first to finish creating the key.
+    #[test]
+    fn key_creation_waits_for_another_holder_then_runs() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let held =
+            crate::ConsolidatorLock::try_acquire_named(tmp.path(), KEY_INIT_LOCKFILE_NAME).unwrap();
+        let releaser = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            drop(held);
+        });
+        let started = std::time::Instant::now();
+        let ran = with_key_init_lock(tmp.path(), || Ok(42)).unwrap();
+        assert_eq!(ran, 42);
+        assert!(
+            started.elapsed() >= std::time::Duration::from_millis(150),
+            "it must wait for the holder rather than run alongside it"
+        );
+        releaser.join().unwrap();
+    }
+
+    /// The desktop app and a keeper launching on a fresh install at the same
+    /// moment must end up with ONE key, not each their own.
+    #[test]
+    #[cfg(windows)]
+    fn racing_first_launches_agree_on_one_key() {
+        let _guard = keychain_test_guard();
+        let namespace = unique_test_namespace("key_init_race");
+        let vault_id = "test-key-init-race";
+        cleanup_keychain_entry(&namespace, vault_id);
+        let tmp = tempfile::TempDir::new().unwrap();
+
+        let keys: Vec<[u8; 32]> = std::thread::scope(|s| {
+            let handles: Vec<_> = (0..4)
+                .map(|_| {
+                    s.spawn(|| {
+                        *with_key_init_lock(tmp.path(), || {
+                            read_or_init_master_key(&namespace, vault_id)
+                        })
+                        .unwrap()
+                    })
+                })
+                .collect();
+            handles.into_iter().map(|h| h.join().unwrap()).collect()
+        });
+        assert!(
+            keys.windows(2).all(|pair| pair[0] == pair[1]),
+            "every launcher must read the key the first one created"
+        );
+
+        cleanup_keychain_entry(&namespace, vault_id);
+    }
+
+    /// ADR-SEC-019: the read-only accessor never creates a key — not on the
+    /// first call, not on a repeat — and once the lock holder has created
+    /// one, it returns exactly that key.
+    #[test]
+    #[cfg(windows)]
+    fn read_existing_never_creates_a_key_and_returns_the_real_one() {
+        let _guard = keychain_test_guard();
+        let namespace = unique_test_namespace("read_existing");
+        let vault_id = "test-read-existing-vault";
+        cleanup_keychain_entry(&namespace, vault_id);
+
+        assert!(
+            read_existing_master_key(&namespace, vault_id)
+                .expect("a missing entry is Ok(None), not an error")
+                .is_none(),
+            "no key exists yet"
+        );
+        assert!(
+            read_existing_master_key(&namespace, vault_id)
+                .expect("still Ok")
+                .is_none(),
+            "the read-only accessor must not have created one on the first call"
+        );
+
+        let created = read_or_init_master_key(&namespace, vault_id).expect("lock holder creates");
+        let read = read_existing_master_key(&namespace, vault_id)
+            .expect("read")
+            .expect("now present");
+        assert_eq!(created.as_slice(), read.as_slice());
+
+        cleanup_keychain_entry(&namespace, vault_id);
+    }
 
     /// Round-trip: write a master_key via the helper path → read back → byte-
     /// equal. Per iteration-1.5 amendment test floor adjustment (a).

@@ -191,6 +191,96 @@ fn task_removal_is_upgrade_safe_and_cannot_fail_the_uninstall() {
 }
 
 // ---------------------------------------------------------------------------
+// Guard 2b — uninstall removes the per-user keeper task too (ADR-102).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn the_uninstaller_removes_this_users_keeper_task() {
+    use vault_app::keeper::KEEPER_TASK_ID_PREFIX;
+
+    let markup = markup();
+    let expected = format!("{KEEPER_TASK_ID_PREFIX}[UserSID]");
+    assert!(
+        markup.contains(&expected),
+        "installer.wxs does not delete {expected:?}.\n\n\
+         The keeper's Task Scheduler entry is named with the user's SID after \
+         `KEEPER_TASK_ID_PREFIX`. If the WiX literal and the Rust prefix \
+         diverge, uninstall silently leaves an on-demand task pointing at a \
+         program that no longer exists."
+    );
+    assert!(
+        KEEPER_TASK_ID_PREFIX.len() > 8 && KEEPER_TASK_ID_PREFIX.ends_with('.'),
+        "KEEPER_TASK_ID_PREFIX looks wrong ({KEEPER_TASK_ID_PREFIX:?}); this \
+         guard would pass vacuously"
+    );
+
+    let sequence_line = markup
+        .lines()
+        .find(|line| line.contains("<Custom ") && line.contains("RemoveKeeperTask"))
+        .expect("`RemoveKeeperTask` must be sequenced, or it never runs");
+    assert!(
+        sequence_line.contains("REMOVE=\"ALL\"")
+            && sequence_line.contains("NOT UPGRADINGPRODUCTCODE")
+            && sequence_line.contains("Before=\"RemoveFiles\""),
+        "keeper task removal must run on a real uninstall only, before files \
+         go: {sequence_line}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Guard 2c — setup ends Zaaheen's windowless background copies first.
+// ---------------------------------------------------------------------------
+
+/// Without this an update finds zaaheen.exe in use (every connected AI app
+/// runs one) and cannot replace it without a restart — the "close every AI
+/// app before updating" limit. Pinned: the exact images, the sequencing
+/// before the in-use check, and that the desktop app is left to the normal
+/// close prompt.
+#[test]
+fn setup_stops_the_background_copies_before_checking_for_files_in_use() {
+    let markup = markup();
+
+    let action = markup
+        .split("<CustomAction")
+        .find(|chunk| chunk.contains("Id=\"StopZaaheenBackground\""))
+        .expect("installer.wxs must define StopZaaheenBackground");
+    let action = &action[..action.find("/>").expect("the action element must close")];
+    assert!(
+        action.contains("[SystemFolder]taskkill.exe"),
+        "use the OS's own taskkill, which exists whatever state our files are in: {action}"
+    );
+    for image in ["/IM zaaheen.exe", "/IM zaaheen-maintenance.exe"] {
+        assert!(action.contains(image), "must end {image}: {action}");
+    }
+    assert!(
+        !action.contains("zaaheen-desktop"),
+        "the desktop app has a window; Windows Installer asks the user to close \
+         it. Ending it here would throw away whatever the user was doing."
+    );
+    assert!(
+        action.contains("Return=\"ignore\""),
+        "taskkill fails when nothing is running; that must never fail setup"
+    );
+    assert!(
+        action.contains("Directory=\"TARGETDIR\""),
+        "INSTALLDIR does not exist yet on a first install: {action}"
+    );
+
+    let sequence_line = markup
+        .lines()
+        .find(|line| line.contains("<Custom ") && line.contains("StopZaaheenBackground"))
+        .expect("StopZaaheenBackground must be sequenced, or it never runs");
+    assert!(
+        sequence_line.contains("Before=\"InstallValidate\""),
+        "it must run before InstallValidate, where the in-use check happens: {sequence_line}"
+    );
+    assert!(
+        !sequence_line.contains("REMOVE"),
+        "install, update, repair and uninstall all need the files free: {sequence_line}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Guard 3 — every componentRef in tauri.conf.json resolves to a real component.
 // ---------------------------------------------------------------------------
 

@@ -163,27 +163,110 @@ pub async fn ensure_model_at_path_with_progress<F>(
 where
     F: FnMut(DownloadProgress),
 {
-    let file_label = display_label(path);
+    if cached_and_verified(path, expected_sha256_hex).await? {
+        return Ok(());
+    }
 
-    if path.exists() {
-        let actual = hex::encode(compute_sha256_of_file(path).await?);
-        if actual == expected_sha256_hex {
-            tracing::info!(
-                file = %file_label,
-                "model file already present + hash verified (cache hit or air-gap)"
-            );
-            return Ok(());
-        }
-        tracing::warn!(
-            file = %file_label,
-            expected = %expected_sha256_hex,
-            actual = %actual,
-            "existing model file hash mismatch; deleting and re-downloading"
-        );
-        std::fs::remove_file(path)?;
+    // One download per file across PROCESSES (ADR-102 review, session 35):
+    // the desktop app and the vault keeper can both decide to fetch the same
+    // model at once. Sharing one `.partial`, each hashed its OWN stream while
+    // their writes interleaved in the file, so a download could "verify" and
+    // install a corrupt model. The loser of the lock waits, then finds the
+    // winner's verified file.
+    let _fetch_lock = FetchLock::acquire(path).await?;
+    if cached_and_verified(path, expected_sha256_hex).await? {
+        return Ok(());
     }
 
     download_with_verify(path, url, expected_sha256_hex, expected_bytes, on_progress).await
+}
+
+/// `true` when `path` holds exactly the expected file. A file with the wrong
+/// hash is deleted (it will be re-downloaded).
+async fn cached_and_verified(path: &Path, expected_sha256_hex: &str) -> VaultLlmResult<bool> {
+    if !path.exists() {
+        return Ok(false);
+    }
+    let file_label = display_label(path);
+    let actual = hex::encode(compute_sha256_of_file(path).await?);
+    if actual == expected_sha256_hex {
+        tracing::info!(
+            file = %file_label,
+            "model file already present + hash verified (cache hit or air-gap)"
+        );
+        return Ok(true);
+    }
+    tracing::warn!(
+        file = %file_label,
+        expected = %expected_sha256_hex,
+        actual = %actual,
+        "existing model file hash mismatch; deleting and re-downloading"
+    );
+    std::fs::remove_file(path)?;
+    Ok(false)
+}
+
+/// How often a process waiting for another's download re-checks the lock.
+const FETCH_LOCK_POLL: std::time::Duration = std::time::Duration::from_millis(500);
+
+/// An OS lock on `<model>.fetch.lock`, held for one download. The file is
+/// never deleted (deleting a lockfile by name is how two holders happen,
+/// ADR-SEC-020); the OS releases the lock when the handle closes, including
+/// when the holder crashes.
+struct FetchLock {
+    file: std::fs::File,
+}
+
+impl FetchLock {
+    async fn acquire(model_path: &Path) -> VaultLlmResult<Self> {
+        let lock_path = with_suffix(model_path, ".fetch.lock");
+        if let Some(dir) = lock_path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&lock_path)?;
+        let mut announced = false;
+        loop {
+            if try_lock_exclusive(&file)? {
+                return Ok(Self { file });
+            }
+            if !announced {
+                tracing::info!(
+                    file = %display_label(model_path),
+                    "another process is downloading this model; waiting for it"
+                );
+                announced = true;
+            }
+            tokio::time::sleep(FETCH_LOCK_POLL).await;
+        }
+    }
+}
+
+impl Drop for FetchLock {
+    fn drop(&mut self) {
+        let _ = unlock(&self.file);
+    }
+}
+
+/// `File::try_lock` is stable since Rust 1.89; the toolchain is pinned to
+/// 1.92 and the declared `rust-version` is stale (tracked as tech debt, as in
+/// vault-app's `consolidator_lock`).
+#[allow(clippy::incompatible_msrv)]
+fn try_lock_exclusive(file: &std::fs::File) -> std::io::Result<bool> {
+    match file.try_lock() {
+        Ok(()) => Ok(true),
+        Err(std::fs::TryLockError::WouldBlock) => Ok(false),
+        Err(std::fs::TryLockError::Error(e)) => Err(e),
+    }
+}
+
+#[allow(clippy::incompatible_msrv)]
+fn unlock(file: &std::fs::File) -> std::io::Result<()> {
+    file.unlock()
 }
 
 async fn download_with_verify<F>(
@@ -297,8 +380,13 @@ where
 /// (`model.gguf` → `model.gguf.partial`), so Phi-4's download path is
 /// byte-for-byte unchanged by this fix.
 fn partial_path_for(path: &Path) -> PathBuf {
+    with_suffix(path, ".partial")
+}
+
+/// `path` with `suffix` appended to the full file name.
+fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
     let mut raw = path.as_os_str().to_os_string();
-    raw.push(".partial");
+    raw.push(suffix);
     PathBuf::from(raw)
 }
 
@@ -419,5 +507,38 @@ mod tests {
             !path.exists(),
             "mismatched cached file must be deleted before redownload attempt"
         );
+    }
+
+    /// Two processes wanting the same model: the second waits for the first
+    /// and then uses its verified file, never downloading alongside it. (The
+    /// URL is unreachable, so any download attempt would fail the test.)
+    #[tokio::test]
+    async fn a_second_downloader_waits_for_the_first_and_uses_its_file() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let path = dir.path().join("model.onnx");
+        let expected = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
+        let first = FetchLock::acquire(&path).await.expect("first lock");
+
+        let waiter = {
+            let path = path.clone();
+            tokio::spawn(async move {
+                ensure_model_at_path(&path, "http://127.0.0.1:1/never-reached.bin", expected, 11)
+                    .await
+            })
+        };
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        assert!(
+            !waiter.is_finished(),
+            "must wait for the download in progress, not start its own"
+        );
+
+        // The first downloader lands its verified file and lets go.
+        std::fs::write(&path, b"hello world").expect("write model");
+        drop(first);
+
+        waiter
+            .await
+            .expect("join")
+            .expect("uses the first downloader's file");
     }
 }

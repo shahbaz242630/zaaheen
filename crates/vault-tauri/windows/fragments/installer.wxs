@@ -206,8 +206,66 @@
       Execute="immediate"
       Return="ignore" />
 
+    <!--
+      ADR-102 — uninstall also removes the vault keeper's on-demand task.
+
+      The keeper (the one process that owns the vault while AI apps are
+      connected) is started through a per-user Task Scheduler entry that the
+      first `zaaheen mcp serve` registers. It is named per user,
+      com.zaaheen.keeper.<SID>, so two Windows users on one PC never share or
+      overwrite one. Windows Installer's standard UserSID property is the SID of
+      the user running this uninstall, which is the entry this user's relays
+      registered.
+
+      Same reasoning as RemoveMaintenanceTask above for every attribute:
+      schtasks.exe rather than our own CLI, immediate execution in the user's
+      context, Return="ignore" because an absent task must never fail an
+      uninstall, NOT UPGRADINGPRODUCTCODE so an update keeps it, and this same
+      Fragment so it cannot be orphaned. The prefix is pinned to
+      vault_app::keeper::KEEPER_TASK_ID_PREFIX by installer_contract.rs.
+    -->
+    <CustomAction
+      Id="RemoveKeeperTask"
+      Directory="INSTALLDIR"
+      ExeCommand="&quot;[SystemFolder]schtasks.exe&quot; /Delete /TN &quot;com.zaaheen.keeper.[UserSID]&quot; /F"
+      Execute="immediate"
+      Return="ignore" />
+
+    <!--
+      ADR-102 honest limit 4 (session 35) — stop Zaaheen's BACKGROUND copies
+      before Windows Installer checks for files in use.
+
+      Every AI app that uses Zaaheen runs its own zaaheen.exe (a relay), and one
+      more zaaheen.exe (the keeper) owns the vault while any of them is
+      connected; zaaheen-maintenance.exe waits on the keeper. None has a window,
+      so Windows Installer cannot ask them to close: an update found
+      zaaheen.exe in use and could not replace it without a restart, which is
+      why users were told to quit every AI app first.
+
+      Ending them here is safe for the vault: a relay owns nothing, and a keeper
+      that is ended looks to the stores exactly like one that crashed, which
+      they are built to survive (durable queue, WAL, atomic commits). The AI apps
+      see their Zaaheen connection close and reconnect to the new version when
+      restarted. The desktop app is NOT ended: it has a window, so Windows
+      Installer asks the user to close it the ordinary way.
+
+      Unconditional (install, update, repair and uninstall all replace or remove
+      these files). Before InstallValidate, which is where the in-use check
+      runs. TARGETDIR as the working directory because INSTALLDIR does not exist
+      yet on a first install. Return="ignore": taskkill exits non-zero when
+      nothing is running, which is the common case and must never fail setup.
+    -->
+    <CustomAction
+      Id="StopZaaheenBackground"
+      Directory="TARGETDIR"
+      ExeCommand="&quot;[SystemFolder]taskkill.exe&quot; /F /IM zaaheen.exe /IM zaaheen-maintenance.exe"
+      Execute="immediate"
+      Return="ignore" />
+
     <InstallExecuteSequence>
+      <Custom Action="StopZaaheenBackground" Before="InstallValidate" />
       <Custom Action="RemoveMaintenanceTask" Before="RemoveFiles">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
+      <Custom Action="RemoveKeeperTask" Before="RemoveFiles">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
     </InstallExecuteSequence>
 
   </Fragment>

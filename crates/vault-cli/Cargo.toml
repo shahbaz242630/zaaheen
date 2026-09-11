@@ -46,7 +46,10 @@ anyhow = { workspace = true }
 vault-mcp = { path = "../vault-mcp" }
 # rmcp streamable-HTTP server transport — the multi-agent daemon serves
 # `DaemonServer` to many agents over localhost HTTP (vs `mcp serve`'s 1:1 stdio).
-rmcp = { workspace = true, features = ["server", "transport-streamable-http-server"] }
+# `transport-io` (ADR-102): relay mode serves `RelayServer` on stdio directly
+# rather than through `Application::start_with_mcp`. Already enabled in the tree
+# via vault-mcp and vault-app.
+rmcp = { workspace = true, features = ["server", "transport-streamable-http-server", "transport-io"] }
 # hyper-util — hosts the rmcp `StreamableHttpService` (a tower service) on the
 # loopback TCP listener. Exact-pinned to the in-tree version (no new crate).
 hyper-util = { version = "=0.1.20", features = ["server-auto", "service", "tokio"] }
@@ -55,6 +58,12 @@ uuid = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 serde_json = { workspace = true }
+
+# ADR-102: relays start the vault keeper through a per-user, on-demand Task
+# Scheduler entry. Windows-only use: elsewhere the relay spawns the keeper
+# itself. A leaf crate already in the workspace (vault-tauri uses it).
+[target.'cfg(windows)'.dependencies]
+vault-scheduler = { path = "../vault-scheduler" }
 
 [dev-dependencies]
 tempfile = { workspace = true }
