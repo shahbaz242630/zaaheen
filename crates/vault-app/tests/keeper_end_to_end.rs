@@ -5,7 +5,7 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use rmcp::model::CallToolRequestParams;
@@ -30,12 +30,21 @@ const MASTER_KEY: [u8; 32] = [0x42; 32];
 
 /// Records the boundaries every search arrived with, so a test can prove the
 /// keeper scoped each connection to exactly what its handshake proved.
+/// `search_delay` makes it a slow keeper, like one whose model is paged out.
 #[derive(Default)]
 struct RecordingAdapter {
     searches: Mutex<Vec<Vec<Boundary>>>,
+    search_delay: Duration,
 }
 
 impl RecordingAdapter {
+    fn slow(delay: Duration) -> Self {
+        Self {
+            search_delay: delay,
+            ..Self::default()
+        }
+    }
+
     fn searches(&self) -> Vec<Vec<Boundary>> {
         self.searches.lock().unwrap().clone()
     }
@@ -48,6 +57,9 @@ impl Adapter for RecordingAdapter {
             .lock()
             .unwrap()
             .push(query.authorized_boundaries.clone());
+        if !self.search_delay.is_zero() {
+            tokio::time::sleep(self.search_delay).await;
+        }
         Ok(Vec::new())
     }
 
@@ -163,9 +175,13 @@ fn relay_settings(root: std::path::PathBuf, boundaries: &[&str]) -> RelaySetting
         poll_every: Duration::from_millis(50),
         failed_cooldown: Duration::from_secs(60),
         step_deadline: Duration::from_secs(2),
-        call_timeout: Duration::from_secs(3),
         idle_drop: Duration::from_secs(60),
     }
+}
+
+/// A deadline no test here should reach: every call is well under a second.
+fn soon() -> Instant {
+    Instant::now() + Duration::from_secs(10)
 }
 
 fn search_call() -> CallToolRequestParams {
@@ -217,7 +233,10 @@ async fn a_relay_reaches_the_keeper_scoped_to_the_boundaries_it_proved() {
         Arc::new(NoStart),
         Arc::new(FixedKey(MASTER_KEY)),
     );
-    let result = pool.call_tool(search_call()).await.expect("forwarded");
+    let result = pool
+        .call_tool(search_call(), soon())
+        .await
+        .expect("forwarded");
     assert_ne!(result.is_error, Some(true));
     assert_eq!(
         adapter.searches(),
@@ -252,7 +271,10 @@ async fn two_relays_are_served_at_the_same_time() {
         Arc::new(NoStart),
         Arc::new(FixedKey(MASTER_KEY)),
     );
-    let (a, b) = tokio::join!(chat.call_tool(search_call()), pool.call_tool(search_call()));
+    let (a, b) = tokio::join!(
+        chat.call_tool(search_call(), soon()),
+        pool.call_tool(search_call(), soon())
+    );
     assert!(a.is_ok() && b.is_ok());
     let mut seen = adapter.searches();
     seen.sort();
@@ -280,7 +302,7 @@ async fn a_relay_with_the_wrong_key_never_reaches_the_vault() {
         Arc::new(NoStart),
         Arc::new(FixedKey([0x99; 32])),
     );
-    match pool.call_tool(search_call()).await {
+    match pool.call_tool(search_call(), soon()).await {
         Err(UpstreamError::NotSent(reason)) => assert_eq!(reason, MSG_KEY_CHANGED),
         other => panic!("expected a refusal, got {other:?}"),
     }
@@ -308,7 +330,7 @@ async fn a_relay_starts_a_keeper_when_there_is_none() {
         Arc::new(FixedKey(MASTER_KEY)),
     );
 
-    pool.call_tool(search_call())
+    pool.call_tool(search_call(), soon())
         .await
         .expect("served once the keeper is up");
     assert!(starter.requests.load(Ordering::SeqCst) >= 1);
@@ -345,7 +367,7 @@ async fn a_connected_relay_keeps_the_keeper_until_it_disconnects() {
         Arc::new(NoStart),
         Arc::new(FixedKey(MASTER_KEY)),
     );
-    pool.call_tool(search_call()).await.expect("served");
+    pool.call_tool(search_call(), soon()).await.expect("served");
     tokio::time::sleep(Duration::from_millis(900)).await;
     assert!(
         !keeper.is_finished(),
@@ -374,14 +396,14 @@ async fn a_call_after_the_keeper_stops_is_reported_not_sent() {
         Arc::new(NoStart),
         Arc::new(FixedKey(MASTER_KEY)),
     );
-    pool.call_tool(search_call()).await.expect("served");
+    pool.call_tool(search_call(), soon()).await.expect("served");
 
     let _ = stop.send(());
     keeper.await.unwrap().unwrap();
     // Let the connection close before the next call.
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    match pool.call_tool(search_call()).await {
+    match pool.call_tool(search_call(), soon()).await {
         Err(UpstreamError::NotSent(_)) | Err(UpstreamError::Lost) => {}
         other => panic!("expected a failure once the keeper is gone, got {other:?}"),
     }
@@ -389,6 +411,69 @@ async fn a_call_after_the_keeper_stops_is_reported_not_sent() {
         adapter.searches().len(),
         1,
         "only the first call reached it"
+    );
+}
+
+/// ADR-103 D1, found live 2026-09-11: a keeper that answers after the call's
+/// deadline is cut off AT the deadline — reported `TimedOut` (outcome
+/// unknown), never left hanging past it. Before, the cut-off was a fixed 35 s
+/// regardless of how much of the client's 60 s remained.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_keeper_slower_than_the_deadline_times_out_at_the_deadline() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::slow(Duration::from_secs(3)));
+    let (stop, keeper) = start_keeper(tmp.path(), adapter.clone(), Duration::from_secs(30)).await;
+    let pool = KeeperPool::new(
+        relay_settings(tmp.path().to_path_buf(), &["personal"]),
+        Arc::new(NoStart),
+        Arc::new(FixedKey(MASTER_KEY)),
+    );
+
+    let asked_at = Instant::now();
+    let deadline = asked_at + Duration::from_millis(1200);
+    match pool.call_tool(search_call(), deadline).await {
+        Err(UpstreamError::TimedOut) => {}
+        other => panic!("a keeper slower than the deadline must time out, got {other:?}"),
+    }
+    let waited = asked_at.elapsed();
+    assert!(
+        waited >= Duration::from_millis(1100) && waited < Duration::from_millis(2500),
+        "the relay must give up at the deadline, not before and not long after; waited {waited:?}"
+    );
+    assert_eq!(adapter.searches().len(), 1, "the call did reach the keeper");
+
+    let _ = stop.send(());
+    keeper.await.unwrap().unwrap();
+}
+
+/// ADR-103 D1: finding (or starting) a keeper spends the SAME deadline — it
+/// can never run on for its own full budget past the point the client has
+/// given up. The call was never sent, so it is `NotSent`, not `TimedOut`: a
+/// save the keeper never saw must not be reported as "may still complete".
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn finding_a_keeper_never_outlives_the_deadline() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    // No keeper, and a starter that never starts one: resolution can only end
+    // by running out of time. Its own budget (relay_settings: 3 s) is longer
+    // than the call's deadline.
+    let pool = KeeperPool::new(
+        relay_settings(tmp.path().to_path_buf(), &["personal"]),
+        Arc::new(NoStart),
+        Arc::new(FixedKey(MASTER_KEY)),
+    );
+
+    let asked_at = Instant::now();
+    match pool
+        .call_tool(search_call(), asked_at + Duration::from_millis(500))
+        .await
+    {
+        Err(UpstreamError::NotSent(_)) => {}
+        other => panic!("a call that never found a keeper is not sent, got {other:?}"),
+    }
+    assert!(
+        asked_at.elapsed() < Duration::from_millis(1500),
+        "resolution must stop at the call's deadline, not its own 3 s budget; took {:?}",
+        asked_at.elapsed()
     );
 }
 
@@ -408,7 +493,7 @@ async fn a_relay_answers_busy_at_once_during_maintenance() {
     );
 
     let asked_at = std::time::Instant::now();
-    match pool.call_tool(search_call()).await {
+    match pool.call_tool(search_call(), soon()).await {
         Err(UpstreamError::NotSent(reason)) => assert_eq!(reason, MSG_BUSY),
         other => panic!("expected busy, got {other:?}"),
     }
@@ -448,7 +533,7 @@ async fn erasure_takes_the_vault_from_a_serving_keeper() {
         Arc::new(NoStart),
         Arc::new(FixedKey(MASTER_KEY)),
     );
-    pool.call_tool(search_call()).await.expect("served");
+    pool.call_tool(search_call(), soon()).await.expect("served");
 
     let held = exclusive::take_exclusive(
         &root,
@@ -466,7 +551,7 @@ async fn erasure_takes_the_vault_from_a_serving_keeper() {
         "no new keeper may start while the erasure runs"
     );
 
-    match pool.call_tool(search_call()).await {
+    match pool.call_tool(search_call(), soon()).await {
         Err(UpstreamError::NotSent(_)) | Err(UpstreamError::Lost) => {}
         other => panic!("the vault must be out of reach, got {other:?}"),
     }

@@ -12,10 +12,13 @@
 //! once on a fresh install would leave the vault encrypted under a key that
 //! was then overwritten.)
 //!
-//! **Time budget.** Resolution plus the call stays inside ~50 s, below the
-//! 60 s default request timeout of the MCP TypeScript SDK most AI apps use; a
-//! client that gives up while the keeper still commits a save is how
-//! duplicates happen.
+//! **Time budget (ADR-103 D1).** Every call carries the deadline its relay
+//! fixed when the call arrived ([`vault_mcp::RELAY_CALL_BUDGET`], inside the
+//! 60 s default request timeout of the MCP TypeScript SDK most AI apps use).
+//! Resolution stops at the earlier of its own budget and that deadline, and
+//! the forwarded call stops AT the deadline — so a slow keeper gets all the
+//! time the client will actually wait, and never more: a client that gives up
+//! while the keeper still commits a save is how duplicates happen.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, Weak};
@@ -106,13 +109,13 @@ pub struct RelaySettings {
     pub poll_every: Duration,
     pub failed_cooldown: Duration,
     pub step_deadline: Duration,
-    pub call_timeout: Duration,
     pub idle_drop: Duration,
 }
 
 impl RelaySettings {
-    /// Shipped values: 15 s to find or start the keeper plus 35 s for the
-    /// call keeps a whole request under ~50 s.
+    /// Shipped values. At most 15 s of a call's deadline is spent finding or
+    /// starting the keeper; the call itself runs until the deadline (ADR-103
+    /// D1 — there is no separate call timeout any more).
     pub fn production(vault_root: PathBuf, boundaries: Vec<Boundary>) -> Self {
         Self {
             vault_root,
@@ -122,7 +125,6 @@ impl RelaySettings {
             poll_every: Duration::from_millis(200),
             failed_cooldown: Duration::from_secs(60),
             step_deadline: Duration::from_secs(5),
-            call_timeout: Duration::from_secs(35),
             idle_drop: Duration::from_secs(15 * 60),
         }
     }
@@ -213,8 +215,9 @@ impl KeeperPool {
         })
     }
 
-    /// A live peer, connecting (and starting a keeper) if needed.
-    async fn peer(&self) -> Result<(Peer<RoleClient>, u64), &'static str> {
+    /// A live peer, connecting (and starting a keeper) if needed — within the
+    /// call's `deadline`.
+    async fn peer(&self, deadline: Instant) -> Result<(Peer<RoleClient>, u64), &'static str> {
         let mut st = self.state.lock().await;
         let alive = st
             .service
@@ -222,7 +225,7 @@ impl KeeperPool {
             .is_some_and(|svc| !svc.is_transport_closed());
         if !alive {
             st.service = None;
-            let service = self.resolve().await?;
+            let service = self.resolve(deadline).await?;
             st.generation += 1;
             st.service = Some(service);
         }
@@ -241,9 +244,15 @@ impl KeeperPool {
         }
     }
 
-    async fn resolve(&self) -> Result<RunningService<RoleClient, ()>, &'static str> {
+    /// Find, start and authenticate a keeper. Stops at the earlier of the
+    /// resolution budget and the call's deadline: resolving past the point the
+    /// client has given up would only start a keeper nobody is waiting for.
+    async fn resolve(
+        &self,
+        call_deadline: Instant,
+    ) -> Result<RunningService<RoleClient, ()>, &'static str> {
         let s = &self.settings;
-        let deadline = Instant::now() + s.resolve_budget;
+        let deadline = (Instant::now() + s.resolve_budget).min(call_deadline);
         let mut last_start: Option<Instant> = None;
         // Keeper tenures whose proof did not verify with our key.
         let mut mismatched: Vec<[u8; NONCE_LEN]> = Vec::new();
@@ -386,10 +395,13 @@ impl Upstream for KeeperPool {
     async fn call_tool(
         &self,
         params: CallToolRequestParams,
+        deadline: std::time::Instant,
     ) -> Result<CallToolResult, UpstreamError> {
-        let (peer, generation) = self.peer().await.map_err(UpstreamError::NotSent)?;
-        let outcome =
-            tokio::time::timeout(self.settings.call_timeout, peer.call_tool(params)).await;
+        let deadline = Instant::from_std(deadline);
+        let (peer, generation) = self.peer(deadline).await.map_err(UpstreamError::NotSent)?;
+        // Until the call's own deadline (ADR-103 D1): all the time the client
+        // will wait, however much of it finding the keeper used.
+        let outcome = tokio::time::timeout_at(deadline, peer.call_tool(params)).await;
         self.touch();
         match outcome {
             // A slow keeper is not a dead one: keep the connection.
@@ -435,11 +447,16 @@ mod tests {
     }
 
     #[test]
-    fn production_budget_stays_under_the_client_timeout() {
+    fn resolution_leaves_most_of_the_call_budget_for_the_call() {
+        // ADR-103 D1: resolution is bounded by BOTH its own budget and the
+        // call's deadline; the whole call is bounded by RELAY_CALL_BUDGET,
+        // which vault-mcp pins under the client's 60 s. A resolution budget
+        // near the call budget would leave a just-started keeper no time to
+        // answer.
         let s = RelaySettings::production(PathBuf::from("x"), vec![]);
         assert!(
-            s.resolve_budget + s.call_timeout <= Duration::from_secs(50),
-            "resolution plus the call must finish before a 60 s client timeout"
+            s.resolve_budget * 3 <= vault_mcp::RELAY_CALL_BUDGET,
+            "finding the keeper must leave most of the call budget for the call"
         );
     }
 }

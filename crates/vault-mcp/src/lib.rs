@@ -76,7 +76,7 @@ pub use audit::{ToolInvokeDetails, ToolInvokeError};
 pub use daemon::DaemonServer;
 pub use relay::{
     NoVaultAdapter, RelayServer, Upstream, UpstreamError, MSG_OUTCOME_UNKNOWN, MSG_TIMED_OUT,
-    MSG_TIMED_OUT_SAVE,
+    MSG_TIMED_OUT_SAVE, RELAY_CALL_BUDGET,
 };
 pub use server::{
     DeleteToolParams, SearchToolParams, StdioServer, UpdateToolParams, WriteToolParams,
