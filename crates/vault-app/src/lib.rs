@@ -30,6 +30,7 @@ mod config;
 mod consolidator_lock;
 pub mod erasure;
 pub mod install_paths;
+pub mod keeper;
 pub mod keychain;
 pub mod logging;
 pub mod maintenance_state;

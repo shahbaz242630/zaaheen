@@ -112,6 +112,36 @@ pub fn data_dir() -> Option<PathBuf> {
         .map(|p| p.join(APP_IDENTIFIER))
 }
 
+/// The per-user directory the desktop app writes its log to — where a
+/// windowless keeper (ADR-102) must log too, so one "Save activity record"
+/// export (ADR-SEC-017) carries both.
+///
+/// Mirrors Tauri's `app_log_dir()` as documented per platform:
+/// - Windows: `%LOCALAPPDATA%\com.zaaheen.app\logs` (Local, NOT Roaming)
+/// - macOS: `~/Library/Logs/com.zaaheen.app`
+/// - Linux: `$XDG_DATA_HOME/com.zaaheen.app/logs`, else `~/.local/share/...`
+///
+/// `None` when the environment names no base directory.
+pub fn log_dir() -> Option<PathBuf> {
+    if cfg!(windows) {
+        std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .filter(|p| !p.as_os_str().is_empty())
+            .map(|p| p.join(APP_IDENTIFIER).join("logs"))
+    } else if cfg!(target_os = "macos") {
+        std::env::var_os("HOME")
+            .filter(|h| !h.is_empty())
+            .map(|h| PathBuf::from(h).join("Library/Logs").join(APP_IDENTIFIER))
+    } else {
+        std::env::var_os("XDG_DATA_HOME")
+            .map(PathBuf::from)
+            .filter(|p| !p.as_os_str().is_empty())
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))
+            .filter(|p| !p.as_os_str().is_empty())
+            .map(|p| p.join(APP_IDENTIFIER).join("logs"))
+    }
+}
+
 /// The directory holding this executable — Tauri's `BaseDirectory::Resource`.
 ///
 /// Resolved from [`std::env::current_exe`] rather than a `PATH` lookup, so a
@@ -231,6 +261,32 @@ mod tests {
                 "data dir must live under the bundle identifier; got {}",
                 d.display()
             );
+        }
+    }
+
+    /// The keeper logs where the desktop app does, so one exported activity
+    /// record carries both. Shape only, as above: the identifier must be in
+    /// the path, and on Windows it must be the LOCAL app-data tree, which is
+    /// what Tauri's `app_log_dir()` resolves to — not Roaming, where the vault
+    /// lives.
+    #[test]
+    fn the_log_dir_is_the_one_tauri_resolves() {
+        if let Some(d) = log_dir() {
+            assert!(
+                d.components()
+                    .any(|c| c.as_os_str() == std::ffi::OsStr::new(APP_IDENTIFIER)),
+                "log dir must sit under the bundle identifier; got {}",
+                d.display()
+            );
+            if cfg!(windows) {
+                if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+                    assert!(
+                        d.starts_with(local),
+                        "Windows logs live under %LOCALAPPDATA%"
+                    );
+                }
+                assert!(d.ends_with("logs"));
+            }
         }
     }
 }

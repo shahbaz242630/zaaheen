@@ -103,7 +103,28 @@ pub const VAULT_ENTRIES: &[&str] = &[
     "lance",
     "reports",
     "maintenance.json",
+    // ADR-102 / ADR-SEC-019: the keeper's discovery file (public fields only),
+    // the marker recording that the folder's permissions were tightened, and
+    // the POSIX socket directory.
+    ".vault-host.json",
+    ".acl-v1",
+    ".keeper",
+];
+
+/// The vault's lockfiles: declared (the at-rest sweep must see every file the
+/// vault writes) but never erased.
+///
+/// They are empty and hold no user data, and they persist after release by
+/// design (ADR-SEC-020): the OS lock on the file is released, never the file.
+/// Erasure used to delete them; since session 35 the eraser HOLDS two of them
+/// while it works (`keeper::exclusive`), and deleting a lockfile by name is
+/// the two-owner race ADR-SEC-020 removed — on POSIX a held lockfile can be
+/// unlinked, and the next process would lock a fresh file beside the holder.
+pub const VAULT_LOCK_FILES: &[&str] = &[
     ".vault.lock",
+    ".consolidator.lock",
+    ".vault.intent",
+    ".keyinit.lock",
 ];
 
 /// Cryptographically erase the vault: destroy the master_key, then remove
@@ -240,6 +261,30 @@ mod tests {
             !VAULT_ENTRIES.contains(&"models"),
             "models/ holds no user data and must survive erasure"
         );
+    }
+
+    /// The lockfiles are declared, never erased, and agree with the constants
+    /// the lock code uses.
+    #[test]
+    fn lockfiles_are_declared_but_never_erased() {
+        for name in VAULT_LOCK_FILES {
+            assert!(
+                !VAULT_ENTRIES.contains(name),
+                "{name} is a lockfile; erasure must not delete it by name (ADR-SEC-020)"
+            );
+            assert_eq!(Path::new(name).components().count(), 1);
+        }
+        for used in [
+            crate::VAULT_LOCKFILE_NAME,
+            crate::consolidator_lock::LOCKFILE_NAME,
+            crate::keeper::intent::INTENT_FILE,
+            crate::keychain::KEY_INIT_LOCKFILE_NAME,
+        ] {
+            assert!(
+                VAULT_LOCK_FILES.contains(&used),
+                "{used} is written into the vault but not declared"
+            );
+        }
     }
 
     #[test]

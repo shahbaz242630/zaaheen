@@ -33,7 +33,8 @@
 //! The alternative — scheduling the desktop app itself with a headless flag —
 //! was rejected: it would boot the whole GUI runtime for a background job, and
 //! if the app were already running the second instance would contend for the
-//! vault lock. That is the failure ADR-SEC-012 just finished fixing.
+//! vault lock — the contention class ADR-SEC-012 and then ADR-SEC-020 dealt
+//! with.
 //!
 //! # What it is responsible for
 //!
@@ -64,7 +65,8 @@
 #![forbid(unsafe_code)]
 
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::process::{Command, ExitCode, Stdio};
+use std::time::{Duration, Instant};
 
 use clap::Parser;
 use vault_app::logging;
@@ -84,6 +86,9 @@ const VAULT_CLI_EXE: &str = "zaaheen";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
+/// Pause between attempts while the vault is busy (`--wait-if-busy-minutes`).
+const BUSY_RETRY_INTERVAL: Duration = Duration::from_secs(5 * 60);
+
 /// Run a maintenance pass without showing a console window.
 #[derive(Parser, Debug)]
 #[command(
@@ -93,12 +98,28 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 )]
 struct Args {
     /// Where to record the run's outcome (`<data>/maintenance.json`).
-    #[arg(long, value_name = "PATH")]
-    status_file: PathBuf,
+    /// Required for a maintenance run.
+    #[arg(long, value_name = "PATH", required_unless_present = "keeper")]
+    status_file: Option<PathBuf>,
 
     /// Directory for the application log.
     #[arg(long, value_name = "PATH")]
     log_dir: PathBuf,
+
+    /// Start the vault keeper (ADR-102) instead of a maintenance run, and
+    /// stay alive exactly as long as it does. Used by the keeper's on-demand
+    /// Task Scheduler entry.
+    #[arg(long, conflicts_with = "status_file")]
+    keeper: bool,
+
+    /// When the vault is busy, try again every five minutes for up to this
+    /// many minutes before recording the night as skipped. The scheduled task
+    /// passes it: an AI app left open overnight keeps the vault in use until
+    /// its connection goes idle, and one refusal at 03:00 would otherwise cost
+    /// the whole night's tidy-up. 0 (the default, and what "Run now" uses)
+    /// means one attempt.
+    #[arg(long, value_name = "MINUTES", default_value_t = 0)]
+    wait_if_busy_minutes: u32,
 
     /// Override the `vault-cli` executable. Defaults to our own sibling, which
     /// is what the installer lays down; the override exists for tests and for
@@ -126,31 +147,122 @@ fn main() -> ExitCode {
             Ok(path) => path,
             Err(e) => {
                 tracing::error!(error = %e, "could not locate the maintenance executable");
-                record(&args.status_file, &RunOutcome::Failed);
+                if let Some(status_file) = &args.status_file {
+                    record(status_file, &RunOutcome::Failed);
+                }
                 return ExitCode::FAILURE;
             }
         },
     };
 
-    match run_child(&vault_cli, &args) {
-        Ok(true) => {
-            // The child recorded its own counters on the way out
-            // (ADR-SEC-016). Writing again here would overwrite a real summary
-            // with a less informative one.
-            tracing::info!("maintenance run completed");
-            ExitCode::SUCCESS
-        }
-        Ok(false) => ExitCode::FAILURE,
-        Err(e) => {
-            tracing::error!(error = %e, "could not start the maintenance run");
-            record(&args.status_file, &RunOutcome::Failed);
-            ExitCode::FAILURE
+    if args.keeper {
+        return match run_keeper(&vault_cli, &args.log_dir) {
+            Ok(true) => ExitCode::SUCCESS,
+            Ok(false) => ExitCode::FAILURE,
+            Err(e) => {
+                tracing::error!(error = %e, "could not start the vault keeper");
+                ExitCode::FAILURE
+            }
+        };
+    }
+    // clap guarantees this without `--keeper`; checked rather than unwrapped.
+    let Some(status_file) = args.status_file.clone() else {
+        tracing::error!("a maintenance run needs --status-file");
+        return ExitCode::FAILURE;
+    };
+
+    let budget = Duration::from_secs(u64::from(args.wait_if_busy_minutes) * 60);
+    let started = Instant::now();
+    loop {
+        match run_child(&vault_cli, &args, &status_file) {
+            Ok(None) => {
+                // The child recorded its own counters on the way out
+                // (ADR-SEC-016). Writing again here would overwrite a real
+                // summary with a less informative one.
+                tracing::info!("maintenance run completed");
+                return ExitCode::SUCCESS;
+            }
+            Ok(Some(RunOutcome::Busy))
+                if retry_fits(started.elapsed(), BUSY_RETRY_INTERVAL, budget) =>
+            {
+                // Not recorded: a skip is only recorded once the wait is
+                // over, so the card never shows "skipped" for a night that
+                // then ran.
+                tracing::info!(
+                    "the vault is in use (an AI app, or another run); trying again in five minutes"
+                );
+                std::thread::sleep(BUSY_RETRY_INTERVAL);
+            }
+            Ok(Some(outcome)) => {
+                match outcome {
+                    RunOutcome::Busy => {
+                        tracing::warn!("maintenance skipped: the vault is in use by another writer")
+                    }
+                    _ => tracing::error!("maintenance run failed"),
+                }
+                record(&status_file, &outcome);
+                return ExitCode::FAILURE;
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "could not start the maintenance run");
+                record(&status_file, &RunOutcome::Failed);
+                return ExitCode::FAILURE;
+            }
         }
     }
 }
 
-/// Spawn `vault-cli` and record the outcome. Returns whether it succeeded.
-fn run_child(vault_cli: &Path, args: &Args) -> std::io::Result<bool> {
+/// Whether another attempt, `interval` from now, still starts inside the
+/// `budget` measured from the first attempt.
+fn retry_fits(elapsed: Duration, interval: Duration, budget: Duration) -> bool {
+    elapsed.saturating_add(interval) <= budget
+}
+
+/// Keeper mode (ADR-102): start `zaaheen keeper` with no window and wait for
+/// it.
+///
+/// - **Stays alive exactly as long as the keeper**, so Task Scheduler's
+///   `IgnoreNew` sees a running instance and drops repeated start requests.
+/// - **Holds the keeper's stdin open.** If this launcher is killed (by
+///   `schtasks /End`, an installer, a logoff), the OS closes that pipe and the
+///   keeper, started with `--exit-on-stdin-eof`, shuts down cleanly — a
+///   parent-death signal with no platform-specific API.
+/// - **Records nothing** in `maintenance.json`: a keeper is not a maintenance
+///   run, and its exits must not appear on the Consolidation card.
+/// - **No output buffering**: stdout and stderr go nowhere (the keeper logs to
+///   the shared log file via `VAULT_LOG_DIR`), so a long-lived keeper never
+///   accumulates output in this process's memory.
+///
+/// Returns whether the keeper exited successfully.
+fn run_keeper(vault_cli: &Path, log_dir: &Path) -> std::io::Result<bool> {
+    let mut command = Command::new(vault_cli);
+    command
+        .arg("keeper")
+        .arg("--exit-on-stdin-eof")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .env(logging::LOG_DIR_ENV, log_dir);
+    no_window(&mut command);
+
+    let mut child = command.spawn()?;
+    // Held, never written, until the keeper exits.
+    let _keeper_stdin = child.stdin.take();
+    let status = child.wait()?;
+    if !status.success() {
+        tracing::warn!(%status, "the vault keeper exited with an error");
+    }
+    Ok(status.success())
+}
+
+/// Spawn `vault-cli` once. `Ok(None)` when it succeeded (it has recorded its
+/// own outcome); otherwise the classified failure, which the caller records —
+/// or retries, when it is `Busy` and time remains.
+fn run_child(
+    vault_cli: &Path,
+    args: &Args,
+    status_file: &Path,
+) -> std::io::Result<Option<RunOutcome>> {
     let mut command = Command::new(vault_cli);
     command
         .args(&args.child_args)
@@ -158,13 +270,13 @@ fn run_child(vault_cli: &Path, args: &Args) -> std::io::Result<bool> {
         // Appended here rather than asked of the caller so there is exactly
         // one place that decides which file a run reports into.
         .arg("--record-status")
-        .arg(&args.status_file)
+        .arg(status_file)
         .env(logging::LOG_DIR_ENV, &args.log_dir);
     no_window(&mut command);
 
     let output = command.output()?;
     if output.status.success() {
-        return Ok(true);
+        return Ok(None);
     }
 
     // Classify from the child's output, then discard it. It is never stored:
@@ -174,15 +286,8 @@ fn run_child(vault_cli: &Path, args: &Args) -> std::io::Result<bool> {
         String::from_utf8_lossy(&output.stderr),
         String::from_utf8_lossy(&output.stdout)
     );
-    let outcome = maintenance_state::classify_failure(&combined);
-    match outcome {
-        RunOutcome::Busy => {
-            tracing::warn!("maintenance skipped: the vault is in use by another writer")
-        }
-        _ => tracing::error!(status = %output.status, "maintenance run failed"),
-    }
-    record(&args.status_file, &outcome);
-    Ok(false)
+    tracing::debug!(status = %output.status, "maintenance child exited unsuccessfully");
+    Ok(Some(maintenance_state::classify_failure(&combined)))
 }
 
 /// Suppress the child's console window on Windows.
@@ -254,8 +359,47 @@ mod tests {
             args.child_args,
             vec!["--vault-db", "/data/vault.db", "consolidate", "run"]
         );
-        assert_eq!(args.status_file, PathBuf::from("/data/maintenance.json"));
+        assert_eq!(
+            args.status_file,
+            Some(PathBuf::from("/data/maintenance.json"))
+        );
         assert_eq!(args.log_dir, PathBuf::from("/logs"));
+        assert!(!args.keeper, "a maintenance run is not keeper mode");
+    }
+
+    #[test]
+    fn keeper_mode_needs_only_the_log_dir() {
+        // The keeper's Task Scheduler entry passes exactly this.
+        let args = parse(&["zaaheen-maintenance", "--keeper", "--log-dir", "/logs"]);
+        assert!(args.keeper);
+        assert!(args.status_file.is_none());
+        assert!(args.child_args.is_empty());
+    }
+
+    #[test]
+    fn keeper_mode_and_a_status_file_cannot_be_combined() {
+        // A keeper is not a maintenance run; letting it record into
+        // maintenance.json would put keeper exits on the Consolidation card.
+        assert!(Args::try_parse_from([
+            "zaaheen-maintenance",
+            "--keeper",
+            "--status-file",
+            "/s.json",
+            "--log-dir",
+            "/l",
+        ])
+        .is_err());
+    }
+
+    #[test]
+    fn a_keeper_that_cannot_start_is_a_failure_not_a_hang() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let result = run_keeper(&tmp.path().join("definitely-not-here"), tmp.path());
+        assert!(result.is_err(), "spawning a missing executable must fail");
+        assert!(
+            !tmp.path().join("maintenance.json").exists(),
+            "keeper mode records nothing"
+        );
     }
 
     #[test]
@@ -307,13 +451,15 @@ mod tests {
         let tmp = tempfile::TempDir::new().expect("temp dir");
         let status = tmp.path().join("maintenance.json");
         let args = Args {
-            status_file: status.clone(),
+            status_file: Some(status.clone()),
             log_dir: tmp.path().join("logs"),
+            keeper: false,
+            wait_if_busy_minutes: 0,
             vault_cli: Some(tmp.path().join("definitely-not-here")),
             child_args: vec![],
         };
 
-        let result = run_child(&args.vault_cli.clone().expect("set above"), &args);
+        let result = run_child(&args.vault_cli.clone().expect("set above"), &args, &status);
         assert!(result.is_err(), "spawning a missing executable must fail");
 
         // `main` is what records on this path; do the same here so the
@@ -324,6 +470,47 @@ mod tests {
             .expect("an outcome must be recorded");
         assert!(!last.ok);
         assert_eq!(last.summary, maintenance_state::OUTCOME_FAILED);
+    }
+
+    #[test]
+    fn the_busy_wait_is_opt_in_and_parsed_before_the_child_arguments() {
+        let args = parse(&[
+            "zaaheen-maintenance",
+            "--status-file",
+            "/s.json",
+            "--log-dir",
+            "/l",
+            "--wait-if-busy-minutes",
+            "75",
+            "consolidate",
+            "run",
+        ]);
+        assert_eq!(args.wait_if_busy_minutes, 75);
+        assert_eq!(args.child_args, vec!["consolidate", "run"]);
+
+        let default = parse(&[
+            "zaaheen-maintenance",
+            "--status-file",
+            "/s",
+            "--log-dir",
+            "/l",
+        ]);
+        assert_eq!(default.wait_if_busy_minutes, 0, "\"Run now\" tries once");
+    }
+
+    /// A 75-minute wait with 5-minute pauses: attempts at 0, 5, ..., 75 —
+    /// never one that would start after the budget.
+    #[test]
+    fn retries_stop_once_the_next_attempt_would_start_after_the_budget() {
+        let every = Duration::from_secs(5 * 60);
+        let budget = Duration::from_secs(75 * 60);
+        assert!(retry_fits(Duration::ZERO, every, budget));
+        assert!(retry_fits(Duration::from_secs(70 * 60), every, budget));
+        assert!(!retry_fits(Duration::from_secs(71 * 60), every, budget));
+        assert!(
+            !retry_fits(Duration::ZERO, every, Duration::ZERO),
+            "no budget, no retry"
+        );
     }
 
     #[cfg(windows)]

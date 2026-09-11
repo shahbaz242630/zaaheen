@@ -68,11 +68,16 @@
 mod adapter;
 mod audit;
 mod daemon;
+mod relay;
 mod server;
 
 pub use adapter::Adapter;
 pub use audit::{ToolInvokeDetails, ToolInvokeError};
 pub use daemon::DaemonServer;
+pub use relay::{
+    NoVaultAdapter, RelayServer, Upstream, UpstreamError, MSG_OUTCOME_UNKNOWN, MSG_TIMED_OUT,
+    MSG_TIMED_OUT_SAVE,
+};
 pub use server::{
     DeleteToolParams, SearchToolParams, StdioServer, UpdateToolParams, WriteToolParams,
 };

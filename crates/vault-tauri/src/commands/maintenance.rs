@@ -149,6 +149,41 @@ fn consolidate_args(ctx: &MaintenanceContext) -> Vec<String> {
     ]
 }
 
+/// How long a SCHEDULED run keeps retrying while the vault is busy.
+///
+/// An AI app left open overnight keeps the vault in use (ADR-102: its
+/// connection drops after 15 idle minutes and the keeper exits 5 minutes
+/// later), so a run that gave up at the first refusal would lose the night.
+/// Must leave room inside the task's two-hour limit for the run itself — see
+/// the compile-time check below.
+const SCHEDULED_BUSY_WAIT_MINUTES: u32 = 75;
+
+// The wait plus the longest run must end inside the task's time limit, or
+// Task Scheduler would stop a run that finally got the vault. Sources: `PT2H`
+// in vault-scheduler's task XML; the consolidator's 30-minute hard timeout
+// (vault-app `CONSOLIDATOR_HARD_TIMEOUT`); a margin for loading the
+// maintenance model. Checked at compile time, so raising the wait past it
+// fails the build.
+const TASK_LIMIT_MINUTES: u32 = 120;
+const RUN_CAP_MINUTES: u32 = 30;
+const MODEL_LOAD_MARGIN_MINUTES: u32 = 10;
+const _: () = assert!(
+    SCHEDULED_BUSY_WAIT_MINUTES + RUN_CAP_MINUTES + MODEL_LOAD_MARGIN_MINUTES <= TASK_LIMIT_MINUTES
+);
+
+/// The scheduled task's arguments: the busy wait, then everything a manual
+/// run passes. The launcher's own flags must come before the forwarded ones
+/// (ADR-SEC-015), so the wait is prepended. "Run now" does not wait: the user
+/// is looking at the screen and is better told "busy" at once.
+fn scheduled_args(ctx: &MaintenanceContext) -> Vec<String> {
+    let mut args = vec![
+        "--wait-if-busy-minutes".to_string(),
+        SCHEDULED_BUSY_WAIT_MINUTES.to_string(),
+    ];
+    args.extend(consolidate_args(ctx));
+    args
+}
+
 /// Managed state for the first-run Phi-4 download. Mirrors
 /// `engine::RecallEngineFetch`: a `OnceCell` dedupes concurrent callers onto one
 /// transfer and leaves the cell cold on failure so a retry is possible.
@@ -279,7 +314,7 @@ fn build_spec(
         // Pointing this at a console binary is what put an unexplained black
         // terminal on the founder's screen at login on 2026-08-27.
         program: ctx.vault_maintenance.clone(),
-        args: consolidate_args(ctx),
+        args: scheduled_args(ctx),
         env: vec![(
             LANCE_MEM_POOL_ENV.0.to_string(),
             LANCE_MEM_POOL_ENV.1.to_string(),
@@ -758,6 +793,22 @@ mod tests {
         assert_ne!(
             spec.program, ctx.vault_cli,
             "scheduling the console binary is what shows a window"
+        );
+    }
+
+    /// The nightly run waits out a busy vault; "Run now" does not. The wait
+    /// is a launcher flag, so it must lead — after the first forwarded
+    /// argument the launcher would pass it to the child instead.
+    #[test]
+    fn only_the_scheduled_run_waits_for_a_busy_vault() {
+        let ctx = ctx();
+        let spec = build_spec(&ctx, &MaintenanceConfig::default()).expect("spec");
+        assert_eq!(spec.args[0], "--wait-if-busy-minutes");
+        assert_eq!(spec.args[1], SCHEDULED_BUSY_WAIT_MINUTES.to_string());
+        assert_eq!(spec.args[2..], consolidate_args(&ctx)[..]);
+        assert!(
+            !consolidate_args(&ctx).contains(&"--wait-if-busy-minutes".to_string()),
+            "a manual run reports busy at once"
         );
     }
 

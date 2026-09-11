@@ -9979,6 +9979,7 @@ dependencies = [
  "vault-consolidator",
  "vault-core",
  "vault-mcp",
+ "vault-scheduler",
  "vault-storage",
 ]
 

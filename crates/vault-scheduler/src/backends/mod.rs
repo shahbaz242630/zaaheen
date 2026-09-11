@@ -44,6 +44,31 @@ pub fn platform_scheduler() -> SchedulerResult<Box<dyn Scheduler>> {
     }
 }
 
+/// Make sure the on-demand `task` exists with this exact definition, then ask
+/// the OS to start it (ADR-102).
+///
+/// Idempotent and safe to repeat: an up-to-date task is not re-registered,
+/// and a start request while an instance runs is dropped by the OS
+/// (`IgnoreNew`). Windows only in V0.2; elsewhere the caller starts the
+/// program itself.
+///
+/// # Errors
+///
+/// [`crate::SchedulerError::InvalidSpec`] from validation,
+/// [`crate::SchedulerError::Unsupported`] off Windows, or the OS tool's
+/// failure.
+pub fn start_on_demand(task: &crate::OnDemandTask) -> SchedulerResult<()> {
+    task.validate()?;
+    #[cfg(windows)]
+    {
+        windows::start_on_demand(task)
+    }
+    #[cfg(not(windows))]
+    {
+        Err(crate::error::SchedulerError::Unsupported)
+    }
+}
+
 /// Escape the five XML predefined entities, shared by the backends that emit
 /// XML (Windows Task Scheduler definitions and macOS launchd plists).
 ///

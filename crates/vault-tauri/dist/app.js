@@ -1048,9 +1048,11 @@ async function eraseEverything() {
   } catch (err) {
     // Honest failure. The vault is STILL READABLE when this path runs, and
     // saying anything softer than that would be a lie about the one
-    // property the user was trying to obtain.
-    $("erase-status").textContent =
-      "Your memories were NOT deleted, and they are still readable. Nothing was changed. Please try again, or restart Zaaheen and retry.";
+    // property the user was trying to obtain. "erasure_busy" means a
+    // background tidy-up is using the vault and was not interrupted.
+    $("erase-status").textContent = String(err).includes("erasure_busy")
+      ? "Zaaheen is tidying up your memories right now, so nothing was deleted and your memories are still readable. Please try again in a few minutes."
+      : "Your memories were NOT deleted, and they are still readable. Nothing was changed. Please try again, or restart Zaaheen and retry.";
     $("erase-cancel").disabled = false;
     $("erase-confirm-btn").disabled = false;
     return;

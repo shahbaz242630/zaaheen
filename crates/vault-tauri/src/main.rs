@@ -79,7 +79,7 @@ use std::path::PathBuf;
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 use vault_app::keychain::{
-    bridge_or_init_master_key, derive_at_rest_key, derive_sqlcipher_passphrase,
+    bridge_or_init_master_key, derive_at_rest_key, derive_sqlcipher_passphrase, with_key_init_lock,
     PRODUCTION_NAMESPACE, VAULT_ID,
 };
 use vault_app::{AppConfig, Application};
@@ -280,12 +280,12 @@ fn main() {
             //    bridge's Some-with-non-empty-content discipline).
             let vault_key_env = std::env::var("VAULT_KEY").ok();
             let v0_1_vault_key = vault_key_env.as_deref().filter(|s| !s.is_empty());
-            let master_key = match bridge_or_init_master_key(
-                &data_dir,
-                PRODUCTION_NAMESPACE,
-                VAULT_ID,
-                v0_1_vault_key,
-            ) {
+            // Under the key-creation lock: an AI app may have asked for a
+            // keeper (ADR-102) that is creating the key at this very moment
+            // on a fresh install; see `with_key_init_lock`.
+            let master_key = match with_key_init_lock(&data_dir, || {
+                bridge_or_init_master_key(&data_dir, PRODUCTION_NAMESPACE, VAULT_ID, v0_1_vault_key)
+            }) {
                 Ok(k) => k,
                 Err(err) => {
                     show_fatal_dialog_and_exit(

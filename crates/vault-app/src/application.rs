@@ -1047,9 +1047,9 @@ impl Application {
     /// - **Cross-process lockfile** at `<vault_root>/.consolidator.lock` —
     ///   refuses with [`VaultError::ConsolidatorBusy`] if held. Released
     ///   on drop (RAII guard via [`ConsolidatorLock`]) including under
-    ///   panic unwind. Stale lockfiles (holder crashed without cleanup)
-    ///   require manual removal — explicit operator action per the
-    ///   `consolidator_lock` module docs.
+    ///   panic unwind, and by the OS if the holder crashes, so a stale lock
+    ///   cannot block a later run (ADR-SEC-020, `consolidator_lock` module
+    ///   docs).
     /// - **30-min hard timeout** — past this, the run is cancelled and
     ///   [`VaultError::ConsolidatorTimeout`] returned. Per-merge
     ///   transactions already committed remain committed (ADR-046);

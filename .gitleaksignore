@@ -1,0 +1,17 @@
+# Findings reviewed and confirmed NOT to be secrets. One gitleaks fingerprint per
+# line (commit:file:rule:line). Each entry pins ONE historical occurrence, so a
+# new secret on any other line, file or commit is still reported.
+#
+# Why a fingerprint and not an allowlist pattern in .gitleaks.toml: a pattern
+# broad enough to match these lines would also match a real key written the
+# same way. A fingerprint cannot.
+#
+# Both entries: the public SHA-256 of the BGE-small-en-v1.5 tokenizer.json
+# (BAAI, Hugging Face commit 9b09f79). It is a file checksum, not a credential;
+# the same value is published in crates/vault-embedding/MODEL_PROVENANCE.md and
+# pinned in crates/vault-embedding/src/integrity.rs. gitleaks' generic-api-key
+# rule matched the `..._SHA256 = "<hex>"` assignment shape as quoted in two old
+# HANDOFF notes. Found by the first full-history scan (2026-08-26) and failing
+# every run since; triaged 2026-09-10.
+cf153f1578e71e9367558a8930458cc2bf403d12:HANDOFF.md:generic-api-key:581
+1d72aac74412b9cefb7293ea8c48fed10458a3a1:HANDOFF_V0.1_ARCHIVE.md:generic-api-key:1101
