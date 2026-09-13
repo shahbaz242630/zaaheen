@@ -1,0 +1,133 @@
+name: Site
+
+# zaaheen.com: build, audit and (on main) publish. Policy: SEO-HANDOFF.md
+# (repo root, kept local and gitignored).
+#
+# Hostinger's Git deployment copies a whole branch into public_html and runs no
+# build step, so it must never point at main (that would publish the product's
+# source tree). Instead the built site is committed to the site-deploy branch,
+# which holds nothing else, and Hostinger auto-deploys that branch.
+
+on:
+  pull_request:
+    paths: ['site/**', '.github/workflows/site.yml']
+  push:
+    branches: [main]
+    paths: ['site/**', '.github/workflows/site.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          # Full history: every page's sitemap lastmod is its last commit date.
+          # A shallow clone would stamp every page with today.
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Audit the build (fails on anything that hurts search or AI visibility)
+        run: npm run check
+      - name: Refuse placeholder copy on a build that will be published
+        # Same condition as the deploy job: only main publishes.
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: npm run check -- --release
+      - name: Prove the audit still catches what it claims to
+        run: npm test
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: site-dist
+          path: site/dist
+          # .htaccess is a dot-file: without this it is silently dropped, and the
+          # 404 page, www redirect and security headers go with it.
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Publish to Hostinger
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The only job that can write, and it never installs or runs npm packages.
+    permissions:
+      contents: write
+    concurrency:
+      group: site-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          sparse-checkout: site/scripts
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: site-dist
+          path: dist
+      - name: Commit the build to the site-deploy branch
+        id: publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -f dist/.htaccess || { echo "::error::.htaccess missing from the artifact"; exit 1; }
+          # The live-site check waits until this file matches the commit.
+          echo "$GITHUB_SHA" > dist/build.txt
+
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          work="$RUNNER_TEMP/site-deploy"
+          mkdir -p "$work" && cd "$work"
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch -q --depth=1 "$remote" site-deploy 2>/dev/null; then
+            git checkout -q -b site-deploy FETCH_HEAD
+            first=false
+          else
+            git checkout -q --orphan site-deploy
+            first=true
+          fi
+
+          # Replace the whole tree with the new build, so deleted pages are
+          # deleted on the server too.
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "$GITHUB_WORKSPACE/dist/." .
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Build identical to what is deployed; nothing to publish."
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git commit -q -m "Deploy zaaheen.com from ${GITHUB_SHA}"
+          if [ "$first" = true ]; then
+            git ls-files > "$GITHUB_WORKSPACE/changed.txt"
+          else
+            git diff --name-only HEAD~1 HEAD > "$GITHUB_WORKSPACE/changed.txt"
+          fi
+          git push -q "$remote" site-deploy
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+          echo "Published $(wc -l < "$GITHUB_WORKSPACE/changed.txt") changed file(s)."
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.publish.outputs.pushed == 'true' && vars.SITE_LIVE == 'true'
+        with:
+          node-version: 22
+      - name: Verify the live site, then notify IndexNow
+        # SITE_LIVE is a repository variable, set to true once Hostinger serves
+        # zaaheen.com. Until then there is no live site to check.
+        if: steps.publish.outputs.pushed == 'true' && vars.SITE_LIVE == 'true'
+        run: node site/scripts/post-deploy.mjs --sha "$GITHUB_SHA" --changed changed.txt --wait 600

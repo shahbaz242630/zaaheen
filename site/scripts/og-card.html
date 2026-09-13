@@ -1,0 +1,49 @@
+<!doctype html>
+<!--
+  Source for public/og.png, the 1200x630 link-preview image (WhatsApp, LinkedIn,
+  X, Slack, iMessage). To regenerate: serve site/ over HTTP (fonts load from
+  node_modules), open /scripts/og-card.html at a 1200x630 viewport, screenshot
+  the viewport, save as public/og.png. Keep the words in step with the home page.
+-->
+<meta charset="utf-8">
+<title>og card</title>
+<style>
+  @font-face { font-family: "Newsreader Variable"; font-weight: 200 800;
+    src: url(../node_modules/@fontsource-variable/newsreader/files/newsreader-latin-opsz-normal.woff2) format("woff2-variations"); }
+  @font-face { font-family: "IBM Plex Sans"; font-weight: 400;
+    src: url(../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2) format("woff2"); }
+  @font-face { font-family: "IBM Plex Sans"; font-weight: 500;
+    src: url(../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-500-normal.woff2) format("woff2"); }
+  @font-face { font-family: "IBM Plex Mono"; font-weight: 400;
+    src: url(../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2) format("woff2"); }
+  html, body { margin: 0; }
+  .card { width: 1200px; height: 630px; box-sizing: border-box; background: #faf8f3;
+    color: #26221c; padding: 72px 88px; display: flex; flex-direction: column;
+    justify-content: space-between; position: relative; overflow: hidden; }
+  .card::after { content: ""; position: absolute; right: -150px; bottom: -190px;
+    width: 560px; height: 560px; border-radius: 50%; background: #7fae8e; opacity: .16; }
+  .brand { display: flex; align-items: center; gap: 18px;
+    font: 500 40px "Newsreader Variable", Georgia, serif; }
+  h1 { margin: 0; font: 500 84px/1.05 "Newsreader Variable", Georgia, serif;
+    letter-spacing: -.015em; max-width: 900px; }
+  .sub { margin: 26px 0 0; font: 400 30px/1.4 "IBM Plex Sans", sans-serif; color: #3a352c; }
+  .foot { display: flex; gap: 22px; align-items: center;
+    font: 400 22px "IBM Plex Mono", monospace; color: #6b655b; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #7fae8e; }
+</style>
+<div class="card">
+  <div class="brand">
+    <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
+      <circle cx="32" cy="32" r="26" fill="#faf8f3"/>
+      <circle cx="32" cy="32" r="24.4" fill="#7fae8e"/>
+      <path d="M22 23h20L22 41h20" fill="none" stroke="#26221c" stroke-width="5.4"
+            stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+    Zaaheen
+  </div>
+  <div>
+    <h1>A quiet place for everything they learn.</h1>
+    <p class="sub">A private memory for your AI assistants, kept on your own computer.</p>
+  </div>
+  <div class="foot"><span>zaaheen.com</span><span class="dot"></span><span>Beta for Windows</span></div>
+</div>

@@ -1,0 +1,7 @@
+---
+// Marks copy that has not been written yet. "[Placeholder]" is exactly what a
+// crawler would read and cache, so `scripts/audit.mjs --release` (the deploy
+// run) refuses any build that still contains it: an unwritten page can be
+// built and previewed, never published.
+---
+<p class="placeholder">[Placeholder] <slot /></p>

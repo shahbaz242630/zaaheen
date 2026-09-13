@@ -1,0 +1,12 @@
+---
+// The Zaaheen mark: a sage disc on a paper rim, cut by an ink Z. Same geometry
+// as the app icon and public/favicon.svg; change all three together.
+interface Props { size?: number }
+const { size = 30 } = Astro.props;
+---
+<svg viewBox="0 0 64 64" width={size} height={size} aria-hidden="true">
+  <circle cx="32" cy="32" r="26" fill="#faf8f3"/>
+  <circle cx="32" cy="32" r="24.4" fill="#7fae8e"/>
+  <path d="M22 23h20L22 41h20" fill="none" stroke="#26221c" stroke-width="5.4"
+        stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

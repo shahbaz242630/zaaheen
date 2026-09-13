@@ -26,6 +26,8 @@ ui/.svelte-kit/
 # ---------- Node / TS (cloud Workers, frontend) ----------
 node_modules/
 **/node_modules/
+site/dist/
+site/.astro/
 .pnp.*
 yarn-debug.log*
 yarn-error.log*
@@ -205,6 +207,13 @@ TODO.local.md
 # See HANDOFF.md ADR-004.
 CLAUDE.md
 .claude/CLAUDE.md
+
+# ---------- Website SEO working docs (local-only per Shahbaz, 2026-09-12) ----------
+# The zaaheen.com SEO handoff and the two independent research reports behind it.
+# Kept in the repo root for every session to read, never committed.
+/SEO-HANDOFF.md
+/SEO-RESEARCH-A.md
+/SEO-RESEARCH-B.md
 
 # Wrangler local state (Cloudflare CLI cache + auth scratch). Never committed.
 .wrangler/
