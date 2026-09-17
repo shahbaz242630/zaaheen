@@ -2,7 +2,15 @@
 
 **Current version:** V0.2 Closed Beta (BRD §6.2 — sleep consolidator, boundaries hardening, cross-device sync, 30 beta users)
 
-**Last updated:** 2026-09-17 (session 42, mid-session) - 🔒 **TWO RED SECURITY CHECKS FIXED BEFORE THE CLERK WORK: rmcp 1.5.0 → 2.2.0 AND rustls 0.23.40 → 0.23.45 (ADR-SEC-021, §8.25).**
+**Last updated:** 2026-09-17 (session 42, close) - 🔒 **SECURITY PR #64 IS OPEN; ITS FIRST CI RUN FOUND ONE MORE LOCKFILE GAP, NOW FIXED. NEXT SESSION: CHECK CI, MERGE, THEN CLERK.**
+- **PR #64** (`fix/rmcp-2.2-and-rustls`, commit `a7afa0e`), first CI run `35233904122`:
+  - **`Secrets and dependencies` PASSED** (the rustls advisory is gone). fmt, CodeQL and GitGuardian passed too.
+  - **Build + clippy FAILED on all 3 OSes, inside rmcp 2.2.0 itself** (E0599 `SseStream::from_bytes_stream` not found, twice). rmcp 2.2.0 calls an `sse-stream` function added in **0.2.4** (2026-07-07) but still declares `sse-stream = "0.2"`, and our lock held 0.2.3. `cargo update -p rmcp --precise` does not raise a requirement that is already met.
+  - **Fix:** `sse-stream` 0.2.3 → **0.2.4**, a lockfile-only follow-up commit (one package; no build ran). rustc reports every error in a crate at once, and those two were the only ones.
+  - **Our own crates have NOT yet compiled under 2.2.0 in CI**, because rmcp failed first. The next run is the first real test of the rename.
+- **Founder at close:** "next session we check CI and then clerk". Clerk steps live in local `OPS-HANDOFF.md`.
+
+**Earlier in session 42:** 🔒 **TWO RED SECURITY CHECKS FIXED BEFORE THE CLERK WORK: rmcp 1.5.0 → 2.2.0 AND rustls 0.23.40 → 0.23.45 (ADR-SEC-021, §8.25).**
 - **Founder:** "before we start lets commit push.. make sure we have clean starting point.. also this rmcp why is it failing test ? lets fix this .. dont run new build".
 - **Why Dependabot PR #63 was red (two separate causes):**
   - rmcp 2.x renamed `rmcp::model::Content` → `ContentBlock` (E0432 in `server.rs` and `relay.rs`), so nothing downstream compiled.
@@ -91,8 +99,11 @@
 >
 > ### 🎯 DO THIS FIRST (rest of session 42 / session 43)
 >
-> **0. CI + the security PR.** Branch `fix/rmcp-2.2-and-rustls` (ADR-SEC-021, §8.25).
-> - Check its CI (`gh pr checks <n>`; filter runs on the FULL head sha). All required checks must be green, `Secrets and dependencies` included.
+> **0. CI + the security PR: PR #64**, branch `fix/rmcp-2.2-and-rustls` (ADR-SEC-021, §8.25).
+> - Check its CI with `gh pr checks 64`, and filter runs on the FULL head sha. All required checks must be green, `Secrets and dependencies` included.
+>   - The first run (`35233904122`, on `a7afa0e`) failed only because the lock held `sse-stream` 0.2.3. The 0.2.4 follow-up is the first run where OUR crates compile under rmcp 2.2.0.
+>   - If that run shows a rename miss, the error names the file.
+>   - `jq` is not installed in Git Bash, so use `gh ... --jq` or PowerShell for JSON.
 > - If CI is green and the founder has said yes, merge it; Dependabot then closes PR #63 by itself.
 > - If CI is red, fix it in the same session (broken CI is a regression, not tech debt).
 > - After the merge, confirm `main`'s own push run is green, then `git switch main && git pull`.
@@ -2057,7 +2068,8 @@ The PR was red on every job, for two independent reasons:
 - **D1 rmcp `=2.2.0`, not Dependabot's 2.0.0.** 2.0.0 rewrote `AsyncRwTransport::receive` as `read_until` into a buffer that each call CLEARS first. The service loop polls `receive()` inside `select!`, so an outgoing message that becomes ready mid-line drops the read, and the half-read request is discarded: the agent waits out `RELAY_CALL_BUDGET` for a call the server never saw. This is rust-sdk issue #941, fixed in 2.1.0 by PR #947 (read from the source, `rmcp-2.2.0/src/transport/async_rw.rs`). **That reader carries every stdio message from Claude/Cursor AND every keeper-pipe message** (ADR-102), so 2.0.0 would have shipped a load-dependent lost-request bug into the path we just made concurrent.
   - 2.2.0 is the last 2.x. Its public API is additive-only over 2.0.0, its `[dependencies]` are identical (only the `rmcp-macros` requirement moves, and the lock already resolved macros 2.2.0), and there are no advisories against it.
   - **Not 3.x:** 3.0 implements the 2026-07-28 spec revision, a larger API and behaviour change that needs its own live test (tech debt #11).
-- **D2 rustls `0.23.45` (lockfile only).** It requires `aws-lc-rs ^1.18`, so aws-lc-rs 1.16.3 → 1.18.1 and aws-lc-sys 0.40.0 → 0.45.0 (AWS-LC 5.7.0); rustls-webpki 0.103.13 → 0.103.15. No new crates enter the tree (aws-lc-sys gains a dependency edge to the already-present `pkg-config`). All MSRV 1.71, well under our pinned 1.92.0. aws-lc-rs 1.18's FIPS-module switch affects only the `fips` feature, which we do not enable.
+- **D2 rustls `0.23.45` (lockfile only).** It requires `aws-lc-rs ^1.18`, so aws-lc-rs 1.16.3 → 1.18.1 and aws-lc-sys 0.40.0 → 0.45.0 (AWS-LC 5.7.0); rustls-webpki 0.103.13 → 0.103.15. No new crates enter the tree (aws-lc-sys gains a dependency edge to the already-present `pkg-config`). All MSRV 1.71, well under our pinned 1.92.0.
+- **D2a `sse-stream` 0.2.3 → 0.2.4 (found by the PR's first CI run, `35233904122`).** rmcp 2.2.0's reqwest streamable-HTTP client calls `SseStream::from_bytes_stream`, which first appears in sse-stream 0.2.4, yet rmcp still declares `sse-stream = "0.2"`. A `--precise` update of rmcp leaves an already-satisfied requirement alone, so the lock kept 0.2.3 and rmcp itself failed to compile (E0599 ×2, all 3 OSes). **Lesson:** when a dependency's source moves, its declared minimums can lag; check new calls into ITS dependencies, not just our calls into it. The source diff in D3 covered our API surface only. aws-lc-rs 1.18's FIPS-module switch affects only the `fips` feature, which we do not enable.
 - **D3 The code change is the rename only.** `Content::{text,json}` → `ContentBlock::{text,json}` (same signatures) in `server.rs`, `relay.rs`, `tests/relay_server.rs` and `examples/macro_spike.rs`. Every other rmcp item we touch was checked against the downloaded 2.0.0/2.2.0 source rather than assumed, including:
   - `CallToolResult::{success,error}` and its `content`/`is_error` fields; `ContentBlock::as_text().text`;
   - `ServerInfo::new`, `with_server_info`, `with_instructions`, `Implementation::new`, `ErrorCode(i32)`, `ServerCapabilities::builder`;
