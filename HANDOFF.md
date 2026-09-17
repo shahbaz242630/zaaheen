@@ -15,6 +15,12 @@
   - coaching customers sign in before booking;
   - the desktop app asks again only after **30 days unused** or a sign-out. It is our own timer, because Clerk's OAuth refresh tokens never expire. Browser sessions keep the free plan's fixed 7 days.
 - **Founder direction:** stay on free plans and provider defaults until there is traction.
+- **PR #64 MERGED by rebase → `main` at `93ca1c2`** (founder: "yes plz"), branch deleted; Dependabot closed its rmcp 2.0.0 PR by itself, and the two rmcp alerts are gone (11 open alerts → 9).
+- 🔴 **THEN main's own push run exposed a DIFFERENT red, older than this PR: `Secret scan (full history)` has failed since 2026-09-14** (green `34629857214` on 09-11, red `34835861370` on 09-14, red `35256194657` today).
+  - **Cause: 3 gitleaks `generic-api-key` findings on the site branch's IndexNow key** (`site/src/data/site.ts`, `site/scripts/audit.mjs`), which `site/production-ready` brought in on 2026-09-13. The workflow scans every branch's full history, so a branch push moved a job that only runs on `main`.
+  - **An IndexNow key is public by design** — the site must serve it back at `https://<domain>/<key>.txt`, and `audit.mjs` already fails the build if the file and the key disagree. Nothing can be signed, read or spent with it.
+  - **Fix: allowlisted BY VALUE in `.gitleaks.toml`, never by path**, so it cannot hide a real secret that lands in the same file. The existing note in that file (why no allowlist exists for the hardcoded test keys) still holds.
+  - Fixed on branch `fix/secret-scan-indexnow`, verified by `workflow_dispatch` on that ref before merging.
 
 **Prior (session 42, close):** 🔒 **SECURITY PR #64 IS OPEN; ITS FIRST CI RUN FOUND ONE MORE LOCKFILE GAP, NOW FIXED.**
 - **PR #64** (`fix/rmcp-2.2-and-rustls`, commit `a7afa0e`), first CI run `35233904122`:
@@ -2186,7 +2192,10 @@ Full text of every ADR lives in an archive — cross-link by number, **quote don
 Full rules in `~/.claude/projects/C--Projects-GitHub-Memory-Vault/memory/`.
 
 - **Confirm before every commit + push.** One combined approval covers both; per-action (yes-commit ≠ yes-push for the *next* task). Co-Authored-By: bare `Claude <noreply@anthropic.com>`, no model qualifier.
-- **CI green per-commit.** Every code commit shows CI green matrix-wide (`gh run list --workflow=ci.yml -L 1`) before staging the next. Local DoD ≠ CI green. Relaxation is the founder's to invoke per-batch, acknowledged in the commit body.
+- **CI green per-commit, ACROSS EVERY WORKFLOW.** Every code commit shows green matrix-wide before staging the next. Local DoD ≠ CI green. Relaxation is the founder's to invoke per-batch, acknowledged in the commit body.
+  - **Check every workflow, not just `ci.yml`** — `for w in ci.yml codeql.yml secret-scan-history.yml monthly-tech-debt.yml; do gh run list --workflow=$w -L 2 ...; done`, or `gh run list --branch main -L 10`, and add any new workflow to that list when it is created.
+  - **Why (2026-09-17, session 43):** the rule named `ci.yml` alone, so `Secret scan (full history)` sat red from 2026-09-14 to 09-17 unseen. Only a main push revealed it. This is the same silent-failure class the rule exists to prevent — the 22-commit stretch of T0.1.6 → T0.1.9 — in a workflow the rule did not cover.
+  - **Session open reads the same list**, because a scheduled (cron) failure belongs to no commit and can only be found by looking.
 - **Confirm before any cargo build/test/clippy/check/run + check disk first** (laptop freezes during compile; disk runs tight). Report disk + target size in the ask. Only `cargo fmt` is safe. Run gates in background (`run_in_background=true`).
 - **Strictly-serial cargo.** Never parallel cargo on the same workspace (kills incremental cache → 30GB+ wipe + 30-min rebuild). Order: check → test → clippy → fmt → `git status`.
 - **Cargo on Windows = PowerShell** (Strawberry Perl path order for the sqlcipher/openssl vendoring; MSYS2 perl in Bash lacks the modules). Set `LIBCLANG_PATH` + prepend to PATH each fresh shell.
