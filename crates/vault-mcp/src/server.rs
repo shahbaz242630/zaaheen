@@ -30,7 +30,7 @@ use std::time::Instant;
 use chrono::{DateTime, NaiveDate, Utc};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::model::{CallToolResult, Content, ErrorCode, ServerCapabilities, ServerInfo};
+use rmcp::model::{CallToolResult, ContentBlock, ErrorCode, ServerCapabilities, ServerInfo};
 use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData as McpError, ServerHandler};
 use serde::{Deserialize, Serialize};
 use vault_core::{Boundary, MemoryId, MemoryType, NewMemory, VaultError, VaultResult};
@@ -1276,8 +1276,8 @@ fn parse_as_of(s: &str) -> VaultResult<DateTime<Utc>> {
 /// Serialise a value to a `CallToolResult` with a single JSON content
 /// block — the canonical success shape for every vault tool.
 fn success_json_result<T: Serialize>(value: &T) -> Result<CallToolResult, McpError> {
-    let content = Content::json(value).map_err(|e| {
-        // Content::json failures only happen on serialise errors, which
+    let content = ContentBlock::json(value).map_err(|e| {
+        // ContentBlock::json failures only happen on serialise errors, which
         // shouldn't occur for our domain types. Map to a generic internal
         // error rather than leaking the serde message.
         let _ = e;

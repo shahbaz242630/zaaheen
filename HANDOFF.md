@@ -2,7 +2,39 @@
 
 **Current version:** V0.2 Closed Beta (BRD §6.2 — sleep consolidator, boundaries hardening, cross-device sync, 30 beta users)
 
-**Last updated:** 2026-09-11 (session 36, close) - ✅ **THE KEEPER WORKS LIVE: CLAUDE DESKTOP AND CURSOR SHARE ONE VAULT AT THE SAME TIME — AND THE LIVE TEST FOUND AND FIXED A FAILURE NO TEST COULD (ADR-103).** The 0.2.2 installer was installed over 0.2.1 **with Claude Desktop open** (exit 0, no restart, one product row) and every check in the session-35 list passed on the founder's machine: every copy Claude starts connects (zero `vault is already in use`, twice), exactly one keeper started the designed way (`svchost → zaaheen-maintenance → zaaheen keeper`), the vault folder lost the second account's read access (before/after `icacls`), and **the keeper shut itself down 5 min after the last app quit** — the session-35 blocker, verified on hardware. **Cursor saved "copper meadow kite", Claude read it back** — but only on a retry: on a memory-starved 16 GB laptop the keeper answered a correct read at **36.85 s** and the relay's fixed 35 s cut-off had already reported failure, which Claude's model saw only as *"Tool execution failed"*. **ADR-103** (§8.24): one 55 s deadline per relayed call (resolution, call and resend all spend it — also closes review-round-3 K7), the relay's own failures become `isError` tool results the agent can read, and model loading now reaches the log. Tests first; **gates green** (build 0 warnings · vault-mcp **58/0** · vault-app **186/0** · clippy 0 · fmt clean); incremental release build (16.5 + 51.6 min) → **`Zaaheen_0.2.2_adr103.msi` verified 30/30**, installed (exit 0), and **re-tested live: Cursor saved "silver orchard compass", Claude read it back correctly in 24.6 s, and the log now shows the model's 17.6 s warm-up.** Honest scope: that read beat the old cut-off too — the deadline and error paths are proven by the new tests, not by a live timeout. The measured cause of the slowness — the keeper's 2.86 GB, ~99 % paged out under the founder's normal app load — is recorded, not "fixed": **founder: "speed on our system is slow because this is old laptop; as long as our engine works fine we are good."** **Founder-found:** the Agents tab says "No agents connected yet" while Claude and Cursor are connected → **session 37's first job** (§1). Earlier in the session: PR #60 merged → `d69e468`, CI green on the branch, the PR and main. The session-36 detail follows:
+**Last updated:** 2026-09-17 (session 42, mid-session) - 🔒 **TWO RED SECURITY CHECKS FIXED BEFORE THE CLERK WORK: rmcp 1.5.0 → 2.2.0 AND rustls 0.23.40 → 0.23.45 (ADR-SEC-021, §8.25).**
+- **Founder:** "before we start lets commit push.. make sure we have clean starting point.. also this rmcp why is it failing test ? lets fix this .. dont run new build".
+- **Why Dependabot PR #63 was red (two separate causes):**
+  - rmcp 2.x renamed `rmcp::model::Content` → `ContentBlock` (E0432 in `server.rs` and `relay.rs`), so nothing downstream compiled.
+  - `cargo deny` failed on a NEW advisory that is not rmcp's: **RUSTSEC-2026-0285** (rustls 0.23.40, TLS 1.3 messages accepted across encryption levels). It would turn `main`'s next Monday cron red too.
+- **PR #63 was a SECURITY update:** two HIGH Dependabot alerts on rmcp 1.5.0 (GHSA-9pj6-vhgr-3mwh streamable-HTTP session-table leak, which `zaaheen daemon` serves; GHSA-33f5-2c5q-wgwj OAuth metadata, `auth` feature not enabled here).
+- **Not 2.0.0, as Dependabot proposed:** its rewritten line reader drops a request whenever rmcp's `select!` cancels a half-read line (rust-sdk #941, fixed in 2.1.0 by #947). That reader carries every stdio and keeper-pipe message. **2.2.0** = the last 2.x, additive-only API over 2.0.0, identical dependency list, same wire format.
+- **Code:** `Content` → `ContentBlock` in 4 files. Every other rmcp item we use was checked against the downloaded 2.0.0/2.2.0 source. New guard `vault-mcp/tests/transport_cancel_safety.rs` is built to fail on 2.0.0 and pass on 2.1.0+ (not run locally).
+- **Lockfile:** rmcp + rmcp-macros 2.2.0; rustls 0.23.45 pulls rustls-webpki 0.103.15, aws-lc-rs 1.18.1 and aws-lc-sys 0.45.0 (no new crates; all MSRV 1.71).
+- **Verification = CI only.** No local cargo build/test/clippy ran (founder direction); `cargo fmt --all --check` clean.
+- **Also:** BRD §1.6 and the sessions 40–41 notes ride with this commit, **minus every company-account detail.** Founder, mid-session: "nothing related to accounts etc goes to github remains local plz" (this repo is public). Those details moved verbatim to the new gitignored `OPS-HANDOFF.md`. `.gitignore` also gets the site branch's identical ignore lines, so `main` shows no untracked SEO docs or Astro output.
+- **Branch `fix/rmcp-2.2-and-rustls`** from `main`. `site/production-ready` is untouched at `2ccf3f1`; its future rebase will conflict on `HANDOFF.md` (take `main`'s version).
+- **⚠️ Before the NEXT installer ships, live-test with Claude Desktop AND Cursor.** rmcp 2.x echoes any KNOWN protocol version the client asks for, including `2026-07-28`, where 1.5.0 capped the answer at `2025-11-25`. No local log records what either app requests.
+
+**Prior (session 41, close):** 🔐 **COMPANY ACCOUNT SETUP CONTINUED, AND "ONE ZAAHEEN ACCOUNT" IS LOCKED.** Account details are in local `OPS-HANDOFF.md` (founder rule: they never go to GitHub).
+- **Locked (founder): one Zaaheen account for the memory app AND coaching.** Clerk is the only user list; coaching keeps its own bookings database, keyed by the Clerk user ID. Admin is the founder's own account flagged admin, not a second login.
+- `clerk init` is deliberately NOT run in this repo.
+- **New idea recorded:** an email-handling agent, to design before go-live, starting draft-for-approval.
+- No code, no cargo, nothing committed.
+
+**Prior (session 40, close):** 💳 **THE BUSINESS MODEL IS DECIDED.**
+- Accounts on Clerk; payments through a merchant of record for the app (BRD §1.6).
+- A 30-day free trial with no card, then $5/month or $48/year, replacing the one-time $10.
+- When the trial ends unpaid, the app locks and keeps only Subscribe and Download my memories.
+- Recorded as BRD §1.6 "Pricing amendment 1". Company account setup began (local `OPS-HANDOFF.md`).
+
+**Prior (session 39, close):** 🌐 **READY FOR LAUNCH, NOT LAUNCHING: THE LICENCE IS GRANTED AND GO-LIVE WAITS ON ITS DETAILS.** Four things landed. Staging's database is wired (255 slots render). The launch checklist is written (`SEO-HANDOFF.md` §0a, local). The Astro site is committed on its branch for the first time (`2ccf3f1`, not merged, not deployed). The booking app's company top bar is merged (Training Page #57 → `33cf0e9`) and live on staging. **Next: item 5, the Microsoft connection** (§1 session-40 opener).
+
+**Prior (session 38, close):** 🌐 **THE WEBSITE PLAN IS DECIDED AND HALF WIRED UP, AND THE BOOKING APP'S TEST SITE WORKS AGAIN.** **Founder decisions:** zaaheen.com stays the **Astro** site (`site/`); the coaching booking app stays **Next.js** on its own sub-address **`coaching.zaaheen.com`** ("let's keep it simple"). The single-address options were explained and declined: a Cloudflare Worker router, merging into one Next app, rebuilding booking in Astro. Top bar: **Products · Documents · Knowledge Centre**. The Knowledge Centre hub carries three "Book your session" buttons to `coaching.zaaheen.com`. **British spelling** (D5). **Built on `site/production-ready` (uncommitted):** the top bar, and `/products/`, `/docs/`, `/knowledge-centre/` with visible `[Placeholder]` copy. `audit.mjs` now refuses placeholders on the release run (main only, wired into `site.yml`) and em dashes always. **Audit tests 18/18.** **`SEO-HANDOFF.md` §3a** adopts the Best Answer Hub playbook's copy and page rules (founder's request), with the conflicts resolved and the skipped rules listed. **Booking app (`C:\Projects\GitHub\Training Page`):** staging answered 500 on every page. hPanel Runtime logs gave the cause: Hostinger could not follow pnpm's symlinks, so `@swc/helpers` went missing. **PR #55 `nodeLinker: hoisted` merged → `7434b11`.** The required Dependency audit had gone red on a new sharp advisory (GHSA-rgj7-g3m4-5g8c). **PR #56 sharp 0.35.4 merged → `00f80a7`.** All 10 checks were green on each. **Staging recovered 18:30Z:** every page 200, unknown slug 404. **Still open there:** staging has **no `DATABASE_URL`** (Runtime logs: "DATABASE_URL is not set"). The founder sets Supabase's Session pooler URI in hPanel → Environment variables, then Redeploy. Booking also shows "not open yet" because staging has no Stripe keys. The booking app's header top bar, with links back to zaaheen.com (founder: "add backlink tab"), is built and was verified at 838 tests, but is **parked in `git stash`** there and becomes the next PR. **No Rust touched, no cargo gates; nothing committed in this repo** (the session-37 "dont commit yet" still stands). Two memories added or updated: `reference_hostinger_node_pnpm_hoisted`, `project_zaaheen_parent_company`.
+
+**Prior (session 37, close):** 🌐 **SESSION 37 WENT TO THE WEBSITE, AND ENDED WITH A BIGGER DECISION: ZAAHEEN IS A LICENSED PARENT COMPANY, AND zaaheen.com MUST BE ONE COMPANY WEBSITE (memory app + future products + 1-to-1 AI Coaching), NOT A PRODUCT PAGE.** **Nothing was committed or merged (founder: "dont merge or commit yet").** **Session 38 = make zaaheen.com SEO-optimised as that one site — start at §1's session-38 opener and `SEO-HANDOFF.md` §0** (repo root, local only / gitignored, with the two research reports `SEO-RESEARCH-A.md` / `-B.md`). Recommended, awaiting the founder: the existing coaching booking app (`C:\Projects\GitHub\Training Page`, Next.js) grows into the one Zaaheen website; the Astro rebuild below becomes a parts bin. The account of the session as it happened: **Found and fixed live:** Cloudflare's *managed robots.txt* was prepending Disallow rules for GPTBot, ClaudeBot, CCBot (DeepSeek's likely training source), Google-Extended (Gemini app answers), Applebot-Extended, Amazonbot, Bytespider and meta-externalagent, plus `ai-train=no` — our own robots.txt could never have overridden it. Turned off in the dashboard with the founder's OK (managed robots.txt disabled; legacy "Block AI bots" → do not block; the Sept-15 mixed-purpose switch → allow), verified from outside with `curl`. **Evidence base:** two independent research agents, same brief, primary sources only (Google Search Central, Bing, OpenAI/Anthropic/Perplexity/Kimi crawler docs, Cloudflare, Hostinger, ICO, RFC 9309, peer-reviewed GEO research); they agreed on every material point. **Built (on branch `site/production-ready`):** `site/` moved to **Astro 7.3.2** static output, fonts self-hosted, strict CSP; favicon set (incl. the PNG Google needs, since it rejects SVG), `og.png`, allow-all robots.txt, git-dated sitemap, `llms.txt`, WebSite/Organization/WebPage/SoftwareApplication JSON-LD (**no fake ratings**), real 404, `.htaccess`; content fixed to the truth (0.2.2, "tested on Windows 11", only live-tested apps named, the email box that discarded addresses removed, a real download `<a href>` instead of one injected by script). **`scripts/audit.mjs`** gates every build (0 problems) and **`audit.test.mjs` proves it: 14 deliberately broken builds each caught, 15/15**. The audit caught two real bugs in my own first build (an inlined script the CSP would block; Astro 7's new whitespace default rendering "ChooseMore info"). **Auto-deploy:** `.github/workflows/site.yml` builds + audits on every PR; on `main` it commits the built site to a **`site-deploy`** branch that Hostinger's Git integration deploys (Hostinger copies a whole branch with no build step, so pointing it at `main` would publish the source tree), then verifies the live site and pings IndexNow. Publish step tested locally against a bare repo (create, change, delete). **No cargo gates apply:** no Rust touched. **Then the founder clarified the company structure** (above), I mapped the coaching app into it (subfolder via a Cloudflare Worker was withdrawn: two sites underneath; Cloudflare's no-code path routing is Enterprise-only), and confirmed the coaching app is deployed **only** to its Hostinger test domain (address in that repo's local HANDOFF; kept out of public files) (noindexed, not in any search result, Stripe test mode only) — where every page currently returns **HTTP 500** (undiagnosed). Disk: cleared at close from 4.8 to **83 GB free** (a 24.4 GB runaway log from another session, the debug `.pdb` files, Remotion temp bundles, the npm download cache, and unused Docker images).
+
+**Prior (session 36, close):** ✅ **THE KEEPER WORKS LIVE: CLAUDE DESKTOP AND CURSOR SHARE ONE VAULT AT THE SAME TIME — AND THE LIVE TEST FOUND AND FIXED A FAILURE NO TEST COULD (ADR-103).** The 0.2.2 installer was installed over 0.2.1 **with Claude Desktop open** (exit 0, no restart, one product row) and every check in the session-35 list passed on the founder's machine: every copy Claude starts connects (zero `vault is already in use`, twice), exactly one keeper started the designed way (`svchost → zaaheen-maintenance → zaaheen keeper`), the vault folder lost the second account's read access (before/after `icacls`), and **the keeper shut itself down 5 min after the last app quit** — the session-35 blocker, verified on hardware. **Cursor saved "copper meadow kite", Claude read it back** — but only on a retry: on a memory-starved 16 GB laptop the keeper answered a correct read at **36.85 s** and the relay's fixed 35 s cut-off had already reported failure, which Claude's model saw only as *"Tool execution failed"*. **ADR-103** (§8.24): one 55 s deadline per relayed call (resolution, call and resend all spend it — also closes review-round-3 K7), the relay's own failures become `isError` tool results the agent can read, and model loading now reaches the log. Tests first; **gates green** (build 0 warnings · vault-mcp **58/0** · vault-app **186/0** · clippy 0 · fmt clean); incremental release build (16.5 + 51.6 min) → **`Zaaheen_0.2.2_adr103.msi` verified 30/30**, installed (exit 0), and **re-tested live: Cursor saved "silver orchard compass", Claude read it back correctly in 24.6 s, and the log now shows the model's 17.6 s warm-up.** Honest scope: that read beat the old cut-off too — the deadline and error paths are proven by the new tests, not by a live timeout. The measured cause of the slowness — the keeper's 2.86 GB, ~99 % paged out under the founder's normal app load — is recorded, not "fixed": **founder: "speed on our system is slow because this is old laptop; as long as our engine works fine we are good."** **Founder-found:** the Agents tab says "No agents connected yet" while Claude and Cursor are connected → **session 37's first job** (§1). Earlier in the session: PR #60 merged → `d69e468`, CI green on the branch, the PR and main. The session-36 detail follows:
 
 **Session 36, first half (as recorded mid-session):** 📦 **THE KEEPER IS ON MAIN AND IN AN INSTALLER.** PR #60 merged by rebase → **`d69e468`** on main (tree byte-identical to the tested `19456d5`); CI green three times over — the manual branch run `34552538380` (9/9), the PR run `34557540382` (11 checks incl. CodeQL + GitGuardian) and main's own push run `34562170993` (8/8, real-model smoke skipped by design) — so the keeper's unix-socket / POSIX-spawn / flock paths have now passed on Linux and macOS twice. **`Zaaheen_0.2.2_adr102-keeper.msi` (206.1 MB) built from scratch and verified WITHOUT installing: 30/30** on a new `verify-msi-0.2.2.ps1` that reads the MSI's own tables over COM and then administratively extracts the payload — version 0.2.2, pinned upgrade code (replaces 0.2.1 in place), all six files real (no 0-byte placeholders), `StopZaaheenBackground` at 1399 unconditional (before `InstallValidate` 1400 — limit 4), `RemoveKeeperTask` 3498 / `RemoveMaintenanceTask` 3499 on real uninstall only (before `RemoveFiles` 3500), and the shipped `zaaheen.exe` answers `zaaheen 0.2.2` and carries two strings that exist only in ADR-102 code. **The check was negative-controlled first:** against the old 0.2.1 MSI it fails exactly the 8 new-in-0.2.2 items and passes the other 20 — and running it caught a bug in the checker itself (PowerShell `-like` reads `[UserSID]` as a wildcard class, so the correct keeper-task command could never match; fixed to a literal compare, and the same flaw removed from the live-test script where `[error]` would have counted nearly every log line). **The cold build cost 6 h 45 min, not the 1–2 h forecast** (224 min `-p vault-cli` + 181 min `cargo tauri build`), because the desktop build **recompiles DuckDB, llama.cpp, lance, arrow, tokio and rmcp a second time** under its own feature set — both variants are now cached in `target/release` (KEEP IT), so the next installer is an incremental build. Zero errors, zero warnings, lowest free RAM 0.37 GB (a browser at 4.5 GB, not the build). ⚠️ **Uncommitted on main: the version bump `0.2.1 → 0.2.2` (Cargo.toml, tauri.conf.json, 13 Cargo.lock lines) + this file — they ride with the live test's commit (with a fix if it finds one).**
 
@@ -38,9 +70,165 @@
 
 ---
 
-## 1 · 🟢 NEXT SESSION OPENER — ✅ **THE KEEPER WORKS LIVE (Claude Desktop + Cursor, one vault, at once) and ADR-103 fixed the one failure the live test found.** 🔴 **Session 37 = the Agents tab tells the truth, then walk through the app WITH the founder.** Sessions 2–18 detail archived → `HANDOFF_V0.2_PART3_ARCHIVE.md`.
+## 1 · 🟢 NEXT SESSION OPENER — 🔐 **Session 42 = land the ADR-SEC-021 security PR, then company account setup (local `OPS-HANDOFF.md`) and the sign-in + subscription design covering the desktop app AND coaching, before any code.** Booking stays parked. Sessions 2–18 detail archived → `HANDOFF_V0.2_PART3_ARCHIVE.md`.
 
-> ### ▶️ START HERE — session 37 opener (written at session-36 close, 2026-09-11 ~21:00)
+> ### ▶️ START HERE — session 42 opener (rewritten mid-session 42, 2026-09-17)
+>
+> **Read first:**
+> - **`OPS-HANDOFF.md`** (repo root, LOCAL ONLY, gitignored like `SEO-HANDOFF.md`) holds company account setup and its open items.
+>   - **Founder rule (2026-09-17):** "nothing related to accounts etc goes to github remains local plz."
+>   - This repo is public, so account details never go in this file (memory `feedback_account_details_stay_local`).
+> - BRD §1.6 "Pricing amendment 1".
+> - **Before any sign-in design, re-read BRD §11 in full** (this touches §11.4).
+>
+> Work step by step: one item, show it, ask only that item's decision, in plain English. Every account or settings change needs its own explicit founder yes.
+>
+> **State (mid-session 42):**
+> - **Security PR:** branch `fix/rmcp-2.2-and-rustls` (from `main` at `e493d7b`) carries ADR-SEC-021, this file and BRD §1.6. It is pushed, with a PR open against `main`.
+> - **Site branch:** `site/production-ready` is untouched at `2ccf3f1` (pushed, not merged, not deployed). Its future rebase will conflict on `HANDOFF.md`; take `main`'s version.
+> - **Local stash:** `session-41 docs ...` on `site/production-ready` is the pre-split HANDOFF/BRD, and it still contains account details. **Never pop it onto a branch that gets pushed.** Its account content now lives in `OPS-HANDOFF.md`; drop the stash once the PR is merged.
+> - **Machine:** 21 GB free. No cargo build/test/clippy ran this session (founder: "dont run new build").
+>
+> ### 🎯 DO THIS FIRST (rest of session 42 / session 43)
+>
+> **0. CI + the security PR.** Branch `fix/rmcp-2.2-and-rustls` (ADR-SEC-021, §8.25).
+> - Check its CI (`gh pr checks <n>`; filter runs on the FULL head sha). All required checks must be green, `Secrets and dependencies` included.
+> - If CI is green and the founder has said yes, merge it; Dependabot then closes PR #63 by itself.
+> - If CI is red, fix it in the same session (broken CI is a regression, not tech debt).
+> - After the merge, confirm `main`'s own push run is green, then `git switch main && git pull`.
+>
+> **1. Company account setup:** continue from `OPS-HANDOFF.md`, which covers the sign-in provider's setup steps and the founder decisions on them.
+>
+> **2. Then the sign-in + subscription design** (ADR + ADR-SEC, BRD §11 checklist, two adversarial reviewers).
+> - **Scope:** the desktop app AND coaching (`coaching.zaaheen.com`, Next.js).
+> - **Subdomains:** include a subdomain allowlist + `authorizedParties`. Clerk's docs warn that, on a root-domain instance, another compromised subdomain can mint sessions.
+> - **Re-confirm with the founder** that customers must sign in to book coaching (recommended, not yet explicitly confirmed).
+> - **Proposed shape**, from two independent research passes:
+>   - **Sign-in path.**
+>     - The app opens the system browser at `accounts.zaaheen.com` (Clerk's hosted pages).
+>     - It uses OAuth authorization code + PKCE with a loopback redirect `127.0.0.1:<random port>` (RFC 8252), and stores the tokens in Windows Credential Manager.
+>     - **Sign-in never touches the vault key.** Zero-knowledge holds; the server learns only who you are and whether you've paid.
+>   - **Who checks, and where status lives.**
+>     - **The keeper (ADR-102) is the one place that checks entitlement; relays only forward.**
+>     - A Cloudflare Worker turns payment webhooks into account metadata and issues a **signed lease with an expiry**, which the app verifies offline.
+>     - The trial clock starts at first sign-in.
+>   - **Trial ends or sign-in expires.** MCP tools return a plain message in the ADR-103 style ("sign-in needed" / "trial ended, subscribe at zaaheen.com"). The app shows the upgrade screen with Subscribe and Download my memories. **The export is new work.**
+>   - **Idle sign-outs are ours.** Clerk refresh tokens never expire, so we enforce the 30-day inactivity rule ourselves.
+>   - **Clerk provides:** hosted sign-in pages, passkeys and email codes, user storage, bot protection.
+>   - **We build:**
+>     - the desktop side of sign-in (Clerk has no official desktop SDK);
+>     - the trial and subscription status;
+>     - the keeper's check;
+>     - the lock screen and export;
+>     - the inactivity rule;
+>     - keeping sign-in apart from the vault key.
+>   - **LOCKED (founder, 2026-09-17): one Zaaheen account for the memory app AND coaching.**
+>     - Clerk is the only user list: email, name, and small backend-only private metadata (trial start, subscribed-until, is-admin).
+>     - The memory app has no database for now, and never shares coaching's.
+>     - Coaching keeps its own bookings database, keyed by the Clerk user ID (no Supabase Auth).
+>     - Admin is the founder's own account flagged admin, with 2FA required. It is not a second login, and it unlocks the coaching dashboard (Phase 8, not built).
+>   - **Never run `clerk init` in this repo.** There is no desktop SDK, and `@clerk/astro` needs server output while the site is static. The website links to the hosted pages instead.
+> - **Design question to settle:** should the "sign-in needed" message in an AI chat carry a clickable link, with the keeper starting PKCE and handing the agent the URL?
+>   - Risk: a link inside an AI chat can be imitated by prompt injection. A reviewer must attack this.
+>   - Fallback: "open the Zaaheen app to sign in".
+>
+> **3. Then the PKCE spike** (spike playbook, method declared up front) on the development instance. Prove browser → PKCE → loopback → token before any production code.
+> - Evidence so far: the Clerk CLI's own login already uses auth code + PKCE S256 + a `127.0.0.1` callback, the same shape.
+> - Unverified: whether "OAuth applications" is on the free plan.
+>
+> **4. Founder decisions for sign-in** (one at a time, each with a recommendation):
+> - **a.** How long people stay signed in. Recommend: stay signed in; ask again only after 30 days unused, or after a sign-out or password change.
+> - **b.** How long the app keeps working offline before it must re-check the subscription. Recommend 7 days.
+>
+> **5. Website, after the design.**
+> - A pricing page ($5/month, $48/year, 30-day free trial, no card) and a sign-in link.
+> - Terms, privacy and refund pages. They need the licence details, and the payment provider requires them before approval.
+>
+> **Also open (not now unless asked):**
+> - An email-handling agent, to design before go-live. It starts draft-for-approval, because prompt injection via inbound mail is the main risk.
+> - Booking stays parked (`SEO-HANDOFF.md` §0a, plus `OPS-HANDOFF.md`).
+>
+> **Sessions 40–41 in one line each** (details in `OPS-HANDOFF.md`):
+> - **Session 40:** the business model was decided (BRD §1.6 amendment 1), and company account setup began.
+> - **Session 41:** company account setup continued, and the one-account decision above was locked.
+>
+> ---
+>
+> ### ▶️ (superseded; the session 40–41 openers now live in local `OPS-HANDOFF.md`) session 39 opener (written at session-38 close, 2026-09-12)
+>
+> **Read `SEO-HANDOFF.md` §0 first**, specifically its "Session 38 decisions" block, and the Training Page repo's own `HANDOFF.md` 2026-09-12 entry (local, gitignored). Keep working step by step: one item, show it, ask only that item's decision.
+>
+> **State at close:**
+> - **This repo:** branch `site/production-ready` has **40 changed paths, uncommitted**: session 37's staged Astro rebuild, plus session 38's top bar, the three placeholder pages, `components/Placeholder.astro`, the audit and test changes, and `site.yml`'s `--release` step. The session-37 instruction "dont merge or commit yet" has not been lifted. Now that Astro IS the main site, **ask whether to commit it** (it no longer needs rework first). `astro preview` was stopped.
+> - **Training Page repo:** `main` = `7434b11`, clean. `stash@{0}` = the booking app's company top bar (`src/config/site.ts` `COMPANY_NAV_LINKS`, `SiteHeader.tsx`, 2 tests in `content.test.ts`). The local branch `feat/company-top-bar` still points at the old `0e5b79f`. Local `node_modules` may be in the old isolated layout: run `pnpm install` (Node 24 via `fnm exec --using=24 pnpm.cmd …`) before anything else.
+> - **Staging** (address in the Training Page's local HANDOFF; kept out of public files) runs #55. It is missing `DATABASE_URL` (the founder's step, see below) and has no Stripe keys.
+>
+> ### 🎯 DO THIS FIRST (session 39)
+>
+> **0. CI.** This repo pushed nothing in session 38 (last run still `e493d7b`). Training Page `main`: **verified green at close**, CI + Security for both `00f80a7` (18:25Z) and `7434b11` (18:28Z). Re-check only if something was pushed since.
+>
+> **1. Ask the founder whether `DATABASE_URL` is set** in hPanel → Environment variables, as Supabase's **Session pooler** URI, followed by Redeploy. Then re-run smoke stage 1 (`SEO-HANDOFF.md` §0 has the checklist). The booking page's RSC payload should carry `availabilityFailed":false` and ISO slot times, and Runtime logs should show no `DATABASE_URL is not set`. The password never goes through chat. If it is reset (S14 in that repo), the local `.env.local` needs it too.
+>
+> **2. Booking app top bar PR.** Recreate the branch from `main`, `git stash pop`, `pnpm verify`, then a PR with founder approval (the CI-on-commit rule is in that repo's HANDOFF).
+>
+> **3. Booking landing URL.** On `coaching.zaaheen.com`, root or `/training`? The root page is still the old "company shell" placeholder. Point `COACHING.bookingUrl` (`site/src/data/site.ts`) at the answer.
+>
+> **4. Go live, both hosts:** connect `coaching.zaaheen.com` to the Node app (hPanel "Connect domain" + Cloudflare DNS A record) and publish zaaheen.com (`SEO-HANDOFF.md` §8: Hostinger static + `site-deploy` branch). Then smoke stage 2, the full click-through.
+>
+> **5. Later (founder: "beautify later"):** real copy for the placeholders, the Knowledge Centre content (pull UAE keyword data first; "AI coaching" mostly means coaching *by* an AI), the booking app's 8 em dashes, the company identity (legal entity name still unconfirmed), the database region (C43: Sydney is slow from the UAE), and Supabase Pro before real customers (S21).
+>
+> **Machine:** 77 GB free at close. Nothing heavy was built; no cargo ran.
+>
+> **Session 39 progress (2026-09-13):** CI green on both repos at open (`e493d7b` run `34629857204`; Training Page `7434b11`). **Step 1 done:** staging `DATABASE_URL` = Supabase Session pooler URI, built locally from `.env.local`, proven with `db-migrate.mjs --check` through the pooler, and pasted into hPanel by the founder (clipboard handoff; the password never entered chat). Smoke stage 1 is fully green: 255 slots render. **Founder reframed the goal:** the licence is granted, but launch waits on details from it, so the aim is readiness (structure + code), not going live. Steps 3-4 above wait. The readiness checklist, with a live wiring map, is **`SEO-HANDOFF.md` §0a**. Answer to "is everything wired?": **no**. zaaheen.com is still Hostinger's parked page; `coaching.` and `dl.` have no DNS; the top bar is in a stash; checkout, email, calendar and scheduled jobs are not wired. **Checklist item 11 done: the Astro site is committed** on `site/production-ready` (founder approved, 2026-09-13), with sessions 37-39 in one commit. It is **not merged and not deployed**: `ci.yml` runs only on `main`/PRs to `main`, and `site.yml` only on PRs touching `site/**` or `main`, so a branch push runs nothing. Local gates from a clean `npm ci`: 188 packages, 0 vulnerabilities; `astro build` 5 pages; `npm run check` OK (0 problems, 7 placeholders counted, allowed off-release); `npm test` **18/18**. Its first CI build will run when a PR is opened. **Item 12 done:** the booking app's company top bar, Training Page PR #57, squash-merged → `33cf0e9` (founder approved; 10/10 checks green on the tested `0274f22`; 838 tests; checked at desktop width and 390 px).
+>
+> ---
+>
+> ### ▶️ (superseded by the session-39 opener above) session 38 opener (written at session-37 close, 2026-09-12)
+>
+> **Founder's task for session 38: "make zaaheen.com SEO optimised."** Read **`SEO-HANDOFF.md` §0 first** (repo root, **local only / gitignored** — so are `SEO-RESEARCH-A.md` and `SEO-RESEARCH-B.md`, the two independent research reports behind it). Work **step by step**: one item, show it, ask only that item's decision (memory `feedback_step_by_step_not_batched_plans`).
+>
+> **What changed in session 37 (founder's words, 2026-09-12):** *Zaaheen is a licensed parent company.* The memory app is product one; more SaaS/apps will follow; **Coaching** (1-to-1 private AI sessions, B2C, no certificates) is a Zaaheen segment. Like google.com / anthropic.com: *"1 website, no separate websites... let's not confuse our audience and Google and search agents."* (memory `project_zaaheen_parent_company`).
+>
+> **State at close — nothing committed, nothing merged (founder: "dont merge or commit yet"):**
+> - Branch **`site/production-ready`** (off `main` at `e493d7b`) holds a **staged, uncommitted** Astro 7 rebuild of `site/` (technical SEO, favicon set incl. the PNG Google needs, `og.png`, allow-all robots, git-dated sitemap, `llms.txt`, JSON-LD without fake ratings, real 404, `.htaccess`, `scripts/audit.mjs` + 15/15 negative tests, `.github/workflows/site.yml` → `site-deploy` branch) plus `.gitignore` and this HANDOFF entry. **Under the one-website direction it is a parts bin, not the final site — do not commit it as-is.** Its parts are listed in `SEO-HANDOFF.md` §0.
+> - **Cloudflare is fixed and live** (not code): managed robots.txt had been disallowing GPTBot, ClaudeBot, CCBot, Google-Extended, Applebot-Extended, Amazonbot, Bytespider, meta-externalagent. Now disabled; legacy "Block AI bots" set to "Do not block"; the 15 Sept mixed-purpose switch set to "continue to be allowed"; AI bot policies were already Allow ×3. Verified from outside with `curl https://zaaheen.com/robots.txt`.
+> - zaaheen.com still shows Hostinger's parking page. `dl.zaaheen.com` is not connected yet.
+> - `npx astro preview` was stopped at close. If `site/node_modules` exists, it is gitignored.
+>
+> ### 🎯 DO THIS FIRST (session 38)
+>
+> **0. Confirm CI on `main`.** Nothing was pushed in session 37, so the last run is still `e493d7b` (green, run `34629857204`).
+>
+> **1. Take the five decisions in `SEO-HANDOFF.md` §0 with the founder, one at a time, recommendation first:**
+>   (1) one Next.js app — the coaching app `C:\Projects\GitHub\Training Page` (repo `ai-training-platform`) — becomes zaaheen.com;
+>   (2) memory product named "Zaaheen Memory" at `/memory`;
+>   (3) "Coaching" at `/coaching` instead of `/training` (check search demand first; URLs are permanent);
+>   (4) the registered legal company name + licence country;
+>   (5) the warm Zaaheen design everywhere.
+>
+> **2. If (1) is approved, work moves to the coaching repo.** Read its own `CLAUDE.md` and `HANDOFF.md` first: it has different rules (pnpm 11, Node 24, squash merges, `pnpm verify`, public repo, founder approval for anything touching money, pricing, legal or marketing copy, banned "certificate/academy/enrol" vocabulary). Then, step by step:
+>   - Diagnose staging first. Every page returned **HTTP 500** on 2026-09-12. First suspect: the free Supabase project paused after 7 idle days.
+>   - Fill in the company identity (Zaaheen + legal name) and move `/training` → `/coaching` if approved.
+>   - Build the company home, then the `/memory` section, using the Astro parts bin.
+>   - SEO plumbing in Next.js, following `SEO-HANDOFF.md` §3–§5 rules. Its robots/sitemap/metadata already exist behind a production-only switch.
+>   - Port the audit rules into `pnpm verify`.
+>   - Attach zaaheen.com to the Hostinger Node.js app: Cloudflare DNS → SSL Full (strict) → Hostinger CDN **off** (it also rewrites that app's CSP header, open item C15 there).
+>   - Search Console + Bing.
+>
+> **3. Carried forward from session 37's original list (unchanged, after the website):** the Agents tab tells the truth (design below, item 1 of the session-37 opener); walk through the app with the founder; D4; the session-36 tech debt; the second machine; rebuild the `.mcpb`; Dependabot PRs #45–#49; README + registry listing.
+>
+> **Machine:** disk **83 GB free at close** (was 4.8 GB). Cleared, founder-directed:
+>   - `%TEMP%\skel.log`: a **24.4 GB runaway log from a Voice-project Claude session** (`python - <<EOF` opened Python 3.13's REPL, which looped on a console error until the disk filled; memory `reference_python_heredoc_fills_disk`).
+>   - `target/debug` `.pdb` files: 31.4 GB (regenerate on next link).
+>   - 66 `%TEMP%\remotion-webpack-bundle-*` folders: 6.3 GB.
+>   - npm `_cacache`: 6.3 GB (`_npx` left alone; the Playwright MCP runs from it).
+>   - Docker, keeping eva and the Sandoq Kin Supabase stack: `docker image prune -a` + `docker volume prune` took images 18.6 → 8.8 GB; Docker Desktop shrank `docker_data.vhdx` 21.4 → 12.06 GB on stop, and a verifying diskpart compact found nothing more.
+>
+>   `target/release` (10 GB) kept. Not touched: Hugging Face cache 6.6 GB, pnpm store 4.6 GB, `%TEMP%\claude` of the Voice-project session 5 GB. **Bonus to raise later:** with a registered company, Windows code signing may now be possible. Check each vendor against the licence's country (memory `project_zaaheen_parent_company`).
+>
+> ---
+>
+> ### ▶️ (superseded by the session-38 opener above) session 37 opener (written at session-36 close, 2026-09-11 ~21:00)
 >
 > **In one line:** the shared-vault keeper (ADR-102) is live-verified on the founder's machine with Claude Desktop and Cursor open together, and the one failure that live test exposed — a correct 36.85 s answer thrown away by a 35 s relay cut-off, reported to the model as "Tool execution failed" — is fixed by ADR-103, re-built into `Zaaheen_0.2.2_adr103.msi` (30/30), installed and re-tested. **Installed on the founder's machine now: 0.2.2 + ADR-103** (ProductCode `{05755D6C-E579-4B49-B404-886AF56B3783}`; `C:\Program Files\Zaaheen\zaaheen.exe` contains `vault_maintenance=info,vault_embedding=info` — the quick "is this the ADR-103 build?" check).
 >
@@ -1414,6 +1602,15 @@ Full narrative for each in PART2 archive ("Tech debt — open items"). File poin
 
 10. **`scripts/run-desktop-dev.ps1`'s `-NoReranker` docs are stale post-ADR-089 (LOW, but it MISLEADS a verifier).** The switch is documented as *"Deliberately omit the reranker paths … to reproduce the pre-ADR-087 behaviour (search on the cosine gate)"*. That is no longer what it does: ADR-089 made the binding unconditional, so omitting the env overrides makes `resolve_reranker_paths` fall through to the **production** `<data>/models/` path — the reranker is not disabled, it is pointed at the real install location. Conversely the DEFAULT invocation pins the fixtures, which silently makes it useless for verifying first-run acquisition (see the two corrections in §1). Fix: rename/redocument to say which PATH it selects (fixtures vs installed), not whether the reranker is on. Files: `scripts/run-desktop-dev.ps1:21-23,75-84`. (Surfaced session 24.)
 
+11. **rmcp 3.x (MCP spec 2026-07-28) — a planned upgrade, not a Dependabot merge (LOW until a client needs it; added session 42).** ADR-SEC-021 stopped at 2.2.0, the last 2.x. 3.x (3.4.0 on 2026-09-15, MSRV 1.88) is the 2026-07-28 revision. **Before it:** read the 3.0 migration notes the way §8.25 D3 read 2.0's, keep `transport_cancel_safety.rs` green, and live-test Claude Desktop + Cursor on an installer. Watch for rmcp advisories against 2.2.0 meanwhile. No `dependabot.yml` exists, so only SECURITY updates open PRs; a 3.x version PR will not appear on its own.
+12. **The other open Dependabot alerts (MEDIUM; §0a item 23 in `SEO-HANDOFF.md`).** 11 were open at session 42; the 2 rmcp alerts close when ADR-SEC-021 merges. That leaves:
+    - `quinn-proto` (HIGH, PR #48 waiting);
+    - `tauri` origin confusion (MEDIUM; BRD §11.12 vault-tauri, so read it before the next installer);
+    - `jsonwebtoken` type confusion (MEDIUM; matters once Clerk JWT verification lands);
+    - `serde_with`, `cmov`, `tar`, `openssl` (MEDIUM);
+    - `lru`, `glib` (LOW / Linux-only).
+    - PRs #45–#49 have waited since 2026-08-26. Triage one at a time; each needs its own CI run.
+
 Also tracked as SHIPPED-design-record in PART2 archive: `bulk_upsert` promotion to the `VectorStore` trait (730× faster bulk insert, shipped `c091281`).
 
 ---
@@ -1846,9 +2043,42 @@ Two independent failures, both fatal to the one step the product exists for:
 
 **Pinned by** `vault-mcp/tests/relay_server.rs` (every relay failure arrives as `isError` with its text; keeper errors still arrive as protocol errors; the resend receives the SAME deadline; the deadline is `RELAY_CALL_BUDGET` from arrival) and `vault-app/tests/keeper_end_to_end.rs` (a keeper slower than the deadline yields `TimedOut` at the deadline; resolution never outlives the deadline).
 
+## 8.25 · 🆕 ADR-SEC-021 (LOCKED 2026-09-17) — rmcp 1.5.0 → 2.2.0 and rustls 0.23.40 → 0.23.45 (advisory-driven)
+
+**Context.** Dependabot opened PR #63 (rmcp 1.5.0 → 2.0.0, 2026-09-16) as a SECURITY update. Two HIGH alerts, both published 2026-09-16, both `< 2.0.0`, both fixed in 2.0.0:
+- **GHSA-9pj6-vhgr-3mwh:** unauthenticated, permanent session-table leak in the streamable-HTTP server transport (remote DoS). **We ship that transport:** `vault-cli` enables `transport-streamable-http-server` in `[dependencies]` for the loopback multi-agent daemon (`main.rs` `StreamableHttpService::new`). Loopback plus rmcp's default `allowed_hosts` narrow the exposure; they do not remove it.
+- **GHSA-33f5-2c5q-wgwj:** missing `resource` validation in OAuth protected-resource metadata discovery. **Not reachable:** no crate enables rmcp's `auth` feature.
+
+The PR was red on every job, for two independent reasons:
+1. rmcp 2.x renamed `rmcp::model::Content` → `ContentBlock`: E0432 at `vault-mcp/src/server.rs:33` and `relay.rs:40`. Nothing downstream (vault-app, vault-cli, tests) compiled, so those were never checked by that run.
+2. `cargo deny` failed on **RUSTSEC-2026-0285** (rustls 0.23.40: TLS 1.3 handshake messages accepted across encryption-level boundaries; fixed ≥ 0.23.45; reached via `lancedb → lance-io → aws-config → aws-smithy-http-client` and our reqwest). This is unrelated to rmcp and would fail `main`'s next run as well (§11.7.5: known vulnerabilities fail CI).
+
+**Decision.**
+- **D1 rmcp `=2.2.0`, not Dependabot's 2.0.0.** 2.0.0 rewrote `AsyncRwTransport::receive` as `read_until` into a buffer that each call CLEARS first. The service loop polls `receive()` inside `select!`, so an outgoing message that becomes ready mid-line drops the read, and the half-read request is discarded: the agent waits out `RELAY_CALL_BUDGET` for a call the server never saw. This is rust-sdk issue #941, fixed in 2.1.0 by PR #947 (read from the source, `rmcp-2.2.0/src/transport/async_rw.rs`). **That reader carries every stdio message from Claude/Cursor AND every keeper-pipe message** (ADR-102), so 2.0.0 would have shipped a load-dependent lost-request bug into the path we just made concurrent.
+  - 2.2.0 is the last 2.x. Its public API is additive-only over 2.0.0, its `[dependencies]` are identical (only the `rmcp-macros` requirement moves, and the lock already resolved macros 2.2.0), and there are no advisories against it.
+  - **Not 3.x:** 3.0 implements the 2026-07-28 spec revision, a larger API and behaviour change that needs its own live test (tech debt #11).
+- **D2 rustls `0.23.45` (lockfile only).** It requires `aws-lc-rs ^1.18`, so aws-lc-rs 1.16.3 → 1.18.1 and aws-lc-sys 0.40.0 → 0.45.0 (AWS-LC 5.7.0); rustls-webpki 0.103.13 → 0.103.15. No new crates enter the tree (aws-lc-sys gains a dependency edge to the already-present `pkg-config`). All MSRV 1.71, well under our pinned 1.92.0. aws-lc-rs 1.18's FIPS-module switch affects only the `fips` feature, which we do not enable.
+- **D3 The code change is the rename only.** `Content::{text,json}` → `ContentBlock::{text,json}` (same signatures) in `server.rs`, `relay.rs`, `tests/relay_server.rs` and `examples/macro_spike.rs`. Every other rmcp item we touch was checked against the downloaded 2.0.0/2.2.0 source rather than assumed, including:
+  - `CallToolResult::{success,error}` and its `content`/`is_error` fields; `ContentBlock::as_text().text`;
+  - `ServerInfo::new`, `with_server_info`, `with_instructions`, `Implementation::new`, `ErrorCode(i32)`, `ServerCapabilities::builder`;
+  - `CallToolRequestParams::new` plus the `arguments` field; the `ServerHandler` methods; `ServiceError`'s variants (unchanged, so the relay's match holds);
+  - `Peer::call_tool`, `RunningService::{peer, peer_info, waiting}`, `impl ClientHandler for ()`;
+  - `stdio()`, `StreamableHttpService::new`, `StreamableHttpServerConfig::default()` (new fields are defaulted; we never build it as a literal), `LocalSessionManager::default()`, `StreamableHttpClientTransport::{from_uri, from_config}`, `StreamableHttpClientTransportConfig::{with_uri, auth_header}`;
+  - `Parameters`, `ToolRouter`, the three macros, and every model item the 2.2.0 macros emit.
+  - No deprecated alias is used anywhere (CI builds with `-D warnings`).
+- **D4 Wire and behaviour.** 2.x keeps the JSON wire format (migration guide #926: "only additive `_meta` / optional fields"). Two behaviour changes matter:
+  - (a) **Protocol negotiation:** 2.x echoes the client's requested version when it is in `KNOWN_VERSIONS`, which now includes `2026-07-28`. 1.5.0 answered `min(client, 2025-11-25)`. rmcp's `serve_server` re-negotiates after our handler, so we cannot cap it without forking. Neither Claude Desktop's log nor ours records the requested version. **The next installer's live test must cover both Claude Desktop and Cursor.**
+  - (b) **Invalid input on a pipe:** unparsable input is now ignored, and well-formed-but-wrong JSON gets an Invalid Request reply; 1.5.0 closed the stream. This happens only after the ADR-SEC-019 handshake, so only an already-authenticated peer can reach it.
+- **D5 Pinned by** `vault-mcp/tests/transport_cancel_safety.rs`. It writes half a request, forces a `receive()` cancellation with a timeout, writes the rest, and requires the request to arrive. It is deterministic: the cancellation is forced, not raced. It is built to fail on 2.0.0 and pass on 2.1.0+, so the pin cannot slide back unnoticed. **Neither side has been run locally** (no build this session): CI proves the pass, and the fail is reasoned from the 2.0.0 source (`line_buf.clear()` at the top of `receive`), not observed.
+- **D6 Verification = CI only.** Founder: "dont run new build". No local build/test/clippy ran; `cargo fmt --all --check` is clean. The matrix (ubuntu / windows-2025 / macos: build + test, clippy, fmt, secrets + dependencies, CodeQL) is the proof. The aws-lc-sys native build is the part most worth watching on Windows. The desktop build (`cargo tauri build`) has a different feature set from CI and first meets this at the next installer build.
+
+**Security checklist (§11.12 vault-mcp):** the capability tokens, schema validation, boundary checks, per-call audit and generic errors are all our code, and none of it changed. `daemon_auth.rs`, `adversarial.rs`, `relay_server.rs` and `error_mapping.rs` re-prove them under 2.2.0 in CI. Threat model §11.1: this closes a supply-chain item (known-vulnerable dependency) and adds no surface.
+
 ## 9 · 📇 ADR index
 
 Full text of every ADR lives in an archive — cross-link by number, **quote don't paraphrase** ([[feedback_quote_locked_artefacts_dont_paraphrase]]).
+
+**In-flight (full text in §8.25) — SESSION 42:** **ADR-SEC-021** (rmcp `=2.2.0` for GHSA-9pj6 + GHSA-33f5, deliberately past Dependabot's 2.0.0 because its line reader drops a cancelled half-read request (rust-sdk #941); rustls 0.23.45 for RUSTSEC-2026-0285; `Content` → `ContentBlock`; pinned by `transport_cancel_safety.rs`; CI-only verification; live-test protocol negotiation before the next installer).
 
 **In-flight (full text in §8.24) — SESSION 36:** **ADR-103** (found by the live test: one 55 s deadline per relayed call — resolution, call and resend all spend it, replacing ADR-102 D6's fixed 15 s + 35 s; the relay's own failures are `isError` tool results so the agent reads them instead of "Tool execution failed"; `vault_embedding=info` in the log filter).
 

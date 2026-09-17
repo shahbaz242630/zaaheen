@@ -37,7 +37,7 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, Content, ListToolsResult, PaginatedRequestParams,
+    CallToolRequestParams, CallToolResult, ContentBlock, ListToolsResult, PaginatedRequestParams,
     ServerInfo, Tool,
 };
 use rmcp::service::RequestContext;
@@ -121,7 +121,7 @@ fn is_repeat_safe(tool: &str) -> bool {
 
 /// A failure the relay itself produced, as a tool result the agent can read.
 fn relay_failure(message: &str) -> Result<CallToolResult, McpError> {
-    Ok(CallToolResult::error(vec![Content::text(message)]))
+    Ok(CallToolResult::error(vec![ContentBlock::text(message)]))
 }
 
 fn to_mcp(result: Result<CallToolResult, UpstreamError>) -> Result<CallToolResult, McpError> {

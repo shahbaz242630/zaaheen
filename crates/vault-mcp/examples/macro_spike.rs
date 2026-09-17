@@ -50,7 +50,7 @@
 
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
-    model::{CallToolResult, Content, ServerCapabilities, ServerInfo},
+    model::{CallToolResult, ContentBlock, ServerCapabilities, ServerInfo},
     schemars, tool, tool_handler, tool_router, ErrorData as McpError, ServerHandler,
 };
 use serde::{Deserialize, Serialize};
@@ -125,7 +125,7 @@ impl SpikeServer {
             "query_echo": p.query,
             "max_results": p.max_results.unwrap_or(10),
         });
-        Ok(CallToolResult::success(vec![Content::json(payload)?]))
+        Ok(CallToolResult::success(vec![ContentBlock::json(payload)?]))
     }
 
     /// Mirrors `memory_delete` — no-frills arg shape proves the macro handles
@@ -138,7 +138,7 @@ impl SpikeServer {
     ) -> Result<CallToolResult, McpError> {
         let Parameters(p) = params;
         let payload = serde_json::json!({ "deleted": p.id });
-        Ok(CallToolResult::success(vec![Content::json(payload)?]))
+        Ok(CallToolResult::success(vec![ContentBlock::json(payload)?]))
     }
 }
 
