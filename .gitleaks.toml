@@ -24,6 +24,23 @@ paths = [
   '''Cargo\.lock$''',
 ]
 
+# The website's IndexNow key, allowlisted BY VALUE (not by path, so it cannot
+# hide a real secret that lands in the same file). IndexNow keys are public by
+# design: the site must serve the key back at `https://<domain>/<key>.txt` for
+# a search engine to accept a submission, and `site/scripts/audit.mjs` fails
+# the build if that file's contents and the key ever disagree. It is a
+# published identifier, not a credential -- nothing can be signed, read or
+# spent with it.
+#
+# Why this entry exists: `site/production-ready` (pushed 2026-09-13) carries
+# the key in `site/src/data/site.ts` and `site/scripts/audit.mjs`, and this
+# workflow scans EVERY branch's full history. The scan was green on
+# 2026-09-11 and has been red since 2026-09-14 for exactly these 3 findings.
+# Replacing the key is a site change, not a secret rotation.
+regexes = [
+  '''dc7e96914b463f8b38a2ca7309b9a25f''',
+]
+
 # NOTE ON TEST KEY MATERIAL: this codebase hardcodes 32-byte master keys in
 # tests (`b"acceptance-a-master-key-32-bytes"`, `b"phase-0d-correct-master-
 # 32-bytes"` and similar). There is deliberately NO allowlist entry for them.
