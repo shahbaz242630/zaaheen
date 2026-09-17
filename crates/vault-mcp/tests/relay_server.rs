@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
-use rmcp::model::{CallToolRequestParams, CallToolResult, Content};
+use rmcp::model::{CallToolRequestParams, CallToolResult, ContentBlock};
 use rmcp::service::RunningService;
 use rmcp::{ErrorData as McpError, RoleClient, ServiceExt};
 use vault_mcp::{
@@ -106,7 +106,7 @@ fn call(tool: &str) -> CallToolRequestParams {
 }
 
 fn ok() -> Result<CallToolResult, UpstreamError> {
-    Ok(CallToolResult::success(vec![Content::text("ok")]))
+    Ok(CallToolResult::success(vec![ContentBlock::text("ok")]))
 }
 
 /// The handshake and `tools/list` must never wait on the keeper: Claude

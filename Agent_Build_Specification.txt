@@ -174,9 +174,31 @@ Build the V1 product for this user. Do not optimize for grandma-friendly UX or l
 
 | Mode | Name | Who it's for | LLM | Storage host | Pricing |
 |---|---|---|---|---|---|
-| **1** | **Local** | Power users, privacy-first, modern hardware (the §1.5 target user) | Local Qwen-7B (ADR-049) / Phi family | User's laptop, sealed at rest | **One-time $10** (lifetime licence for the local binary) |
+| **1** | **Local** | Power users, privacy-first, modern hardware (the §1.5 target user) | Local Qwen-7B (ADR-049) / Phi family | User's laptop, sealed at rest | **30-day free trial, then $5/month or $48/year** (amended 2026-09-17; was one-time $10, see amendment below) |
 | **2** | **BYOK** | Tech-comfortable users who find Mode 1 too slow but want to keep ownership of the vault | User-supplied API key via `LlmProvider` trait → OpenAI / Anthropic / Google / etc. | User's own VPS (user-managed infrastructure), sealed at rest with the same envelope as Mode 1 | **$5/month** subscription for the vault binary + licence + updates; user pays their LLM provider separately |
 | **3** | **Managed** | Non-tech users who want speed without setup or infra | User picks model at signup; we provision via cloud LLM APIs and charge accordingly | Our managed VPS (sealed at rest — we cannot read content, zero-knowledge invariant preserved) | **Pay-as-you-go OR monthly credits** based on per-call volume; scale by adding VPS as users grow |
+
+**Pricing amendment 1 (founder-approved 2026-09-17, session 40):**
+
+- **Mode 1 price.** The one-time $10 lifetime licence is replaced by a 30-day free trial, then **$5/month or $48/year** (the annual plan works out to two months free).
+- **Why:** the payment provider's fixed fee of about $0.50 per charge takes about 14–18% of a $5 payment but only 6–9% of $48. On the old model we would keep about $9 per customer, once. Comparable apps charge $15–70 one-time or subscribe.
+- **Mode 2 follow-up.** Mode 2's $5/month now equals Mode 1's price, so Mode 2 and Mode 3 are re-priced before their launch. That is not needed for V0.2 or V1.0 Local.
+- **Payments.** Payments go through a merchant of record. The first choice is Paddle, with Dodo as the fallback.
+- **Why not Stripe directly:** a UAE company selling direct owes EU VAT through the non-Union OSS scheme, and UK VAT, from its first sale. Stripe Managed Payments does not accept UAE companies. This supersedes T1.0.3's "via Stripe"; the webhook still lands on a Cloudflare Worker.
+- **Accounts.** Accounts stay on Clerk (T1.0.1, §11.4.1), re-confirmed by two independent research passes on 2026-09-17.
+  - **Why not Supabase Auth:** its passkeys are "experimental", and its OAuth 2.1 server, which the desktop sign-in would need, is still beta.
+  - **How it works:** the account is created on the app's first launch through the system browser (authorization code + PKCE, loopback redirect). The trial starts at that moment.
+  - **Downloads stay open**, with no sign-up needed first.
+- **The trial needs no card** (founder, 2026-09-17).
+  - **How it runs:** we track the trial clock against the account ourselves, and the app shows its own reminders before day 30. The payment provider is involved only when the customer subscribes.
+  - **Why:** a card-free trial produces about the same number of paying customers per 1,000 visitors (about 15 vs 12; First Page Sage, 86 companies, 2022–25) and about three times as many people who try the app.
+  - **Accepted risk:** some people will open a new account to get another trial. The later mitigation is one trial per device.
+- **When the trial ends unpaid, the app locks** (founder, 2026-09-17):
+  - **MCP:** every tool call returns a plain message that the trial has ended and that the user can subscribe at zaaheen.com. The agent relays it, in the ADR-103 "tell the agent why" pattern, and no vault data is served.
+  - **Desktop app:** it shows an upgrade screen with exactly two actions, **Subscribe** and **Download my memories**. The second writes a readable export file.
+  - **Why the export stays open:** `vault.db` is SQLCipher-encrypted, so the files on disk are unreadable without the app. Without the export, a locked app would cut people off from their own memories, and we could not honestly say "your memories are always yours".
+  - **Subscribing** restores everything, with nothing lost.
+  - The export feature does not exist yet; it is new work in this arc.
 
 **Why three modes:**
 

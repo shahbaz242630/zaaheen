@@ -65,7 +65,7 @@ fn extract_success_json(result: CallToolResult) -> serde_json::Value {
     let raw_obj: serde_json::Value =
         serde_json::to_value(item).expect("content block round-trips via Value");
     // rmcp wraps the user value in `{"type": "text", "text": "<json string>"}`
-    // for `Content::json` — Step 4's success path uses the same wrapper.
+    // for `ContentBlock::json` — Step 4's success path uses the same wrapper.
     // Either shape works here: parse the inner `text` if present, else
     // assume the raw value is the user payload.
     if raw_obj.get("type").map(|t| t.as_str()) == Some(Some("text")) {

@@ -36,8 +36,10 @@ vault-storage = { path = "../vault-storage" }
 # Retriever trait (Phase 2 wires the search handler).
 vault-retrieval = { path = "../vault-retrieval" }
 
-# rmcp 1.5.0 — exact-pinned in workspace deps per ADR-026 (pinned 2026-04-16,
-# one day after the OX Security April 15 RCE class disclosure). vault-mcp is
+# rmcp 2.2.0 — exact-pinned in workspace deps per ADR-026 (first pinned
+# 1.5.0 on 2026-04-16, one day after the OX Security April 15 RCE class
+# disclosure; moved to 2.2.0 by ADR-SEC-021 for two rmcp advisories and the
+# 2.0.0 dropped-request bug — reasons at the workspace pin). vault-mcp is
 # a stdio SERVER — structurally not in the host-side threat surface per
 # ADR-026 host-vs-server scope analysis.
 #

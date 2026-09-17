@@ -163,7 +163,16 @@ reqwest = { version = "=0.12.28", features = ["json", "rustls-tls", "stream"] }
 # revisits per ADR-026 forward pointer. Features (server / transport-io /
 # macros / etc.) declared per-crate in `vault-mcp/Cargo.toml` so the set
 # stays scoped to actual usage.
-rmcp = "=1.5.0"
+#
+# ADR-SEC-021 (2026-09-17): 1.5.0 -> 2.2.0. 1.5.0 carries two high advisories
+# (GHSA-9pj6-vhgr-3mwh streamable-HTTP session-table leak, which `zaaheen
+# daemon` serves; GHSA-33f5-2c5q-wgwj OAuth metadata, `auth` feature not
+# enabled here), both fixed in 2.0.0. NOT 2.0.0 itself: its rewritten
+# line reader drops an incoming request when the service loop's `select!`
+# cancels a half-read line (rust-sdk #941, fixed in 2.1.0 by #947), and that
+# reader carries every stdio and keeper-pipe message we have. 2.x keeps the
+# JSON wire format; 3.x is the 2026-07-28 spec and needs its own live test.
+rmcp = "=2.2.0"
 
 # CLI (T0.1.6 Phase C1b — vault-cli operator binary). Exact-pinned per
 # BRD §2.9 from Cargo.lock at first build. The two deps are tightly
