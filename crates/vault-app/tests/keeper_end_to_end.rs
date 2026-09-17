@@ -597,8 +597,10 @@ async fn erasure_waits_out_and_reports_a_maintenance_run() {
 /// this hash, and the fix is to bump `WIRE` deliberately.
 #[test]
 fn the_tool_contract_is_pinned_to_the_wire_version() {
-    // Recorded 2026-09-10 from the wire-v1 tool contract (session 35).
-    const PINNED: &str = "2e062fb5bc6adb1a62b37ca9c33adb51dbfd2f59249e501d7fa6dfb9871309be";
+    // Recorded 2026-09-17 from the wire-v2 tool contract (session 43): the
+    // value CI computed on Linux and macOS under rmcp 2.2.0 (ADR-SEC-021 D4c).
+    // Wire 1 was 2e062fb5bc6adb1a62b37ca9c33adb51dbfd2f59249e501d7fa6dfb9871309be.
+    const PINNED: &str = "64bafc664287b3e09449bb4c093e38bfa87b287bbb769ce86e14967363a7d836";
 
     let server = StdioServer::new(Arc::new(NoVaultAdapter), Vec::new());
     let mut hasher = blake3::Hasher::new();
@@ -624,7 +626,7 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     let actual = hasher.finalize().to_hex().to_string();
     assert_eq!(
         (WIRE, actual.as_str()),
-        (1, PINNED),
+        (2, PINNED),
         "The MCP tool contract changed. Relays and keepers from different \
          builds must not disagree about it silently: bump WIRE in \
          vault_app::keeper::handshake and set PINNED to {actual}."

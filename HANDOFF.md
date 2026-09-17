@@ -2,7 +2,21 @@
 
 **Current version:** V0.2 Closed Beta (BRD §6.2 — sleep consolidator, boundaries hardening, cross-device sync, 30 beta users)
 
-**Last updated:** 2026-09-17 (session 42, close) - 🔒 **SECURITY PR #64 IS OPEN; ITS FIRST CI RUN FOUND ONE MORE LOCKFILE GAP, NOW FIXED. NEXT SESSION: CHECK CI, MERGE, THEN CLERK.**
+**Last updated:** 2026-09-17 (session 43, mid-session) - 🔒 **PR #64's SECOND CI RUN: OUR CRATES COMPILE UNDER rmcp 2.2.0 (clippy green ×3), AND ONE GUARD CAUGHT A REAL TOOL-CONTRACT CHANGE → WIRE 1 → 2 (ADR-SEC-021 D4c). CLERK DEV SETUP DONE (details local).**
+- **Run `35242340764`** on `b9f395b`:
+  - fmt, `Secrets and dependencies`, CodeQL and clippy (all 3 OSes) passed.
+  - **build + test failed on ubuntu and macOS** at `vault-app/tests/keeper_end_to_end.rs::the_tool_contract_is_pinned_to_the_wire_version`, and only there: 12 passed, 1 failed.
+  - **Why:** the rmcp-macros 2.2.0 `#[tool]` macro calls `schema_for_input`, which strips each input schema's top-level `title` and `description`. Those were our params structs' developer doc comments ("…when the Qwen-7B read-time synthesis was retired…"), published to every agent under 1.5.0. The field-level descriptions that steer agents are untouched.
+  - **Fix:** `WIRE` 1 → 2 and `PINNED` = `64bafc66…a7d836` (the same value on both OSes), exactly as the guard and `handshake.rs` prescribe ("Bump when … the tool contract changes"). A wire-1 relay now gets `MSG_UPDATE` ("Zaaheen was updated; restart every app that uses Zaaheen"); a wire-2 relay makes a wire-1 keeper yield.
+  - **`cargo test --workspace` stops at the first failing test binary**, so most of the workspace had not run under 2.2.0. Rather than spend another 47-min cycle, two read-only source audits (no cargo) diffed rmcp 1.5.0 against 2.2.0 for every rmcp-touching test: **57 stdio/pipe + 5 HTTP tests judged PASS, none at risk**, including the never-run `transport_cancel_safety.rs`. CI's `build --workspace --all-targets` step had already compiled every target.
+  - **Newly recorded behaviour change (D4d):** malformed tool arguments now reach agents as an `isError` tool result, not JSON-RPC `-32602`, with the same text.
+  - **Verification = CI only again** (no local cargo; `fmt --all --check` clean).
+- **Clerk (founder, step by step, dev instance only, nothing bought):** the setup list is done. Account specifics are in local `OPS-HANDOFF.md` §E. **Sign-in design inputs LOCKED this session:**
+  - coaching customers sign in before booking;
+  - the desktop app asks again only after **30 days unused** or a sign-out. It is our own timer, because Clerk's OAuth refresh tokens never expire. Browser sessions keep the free plan's fixed 7 days.
+- **Founder direction:** stay on free plans and provider defaults until there is traction.
+
+**Prior (session 42, close):** 🔒 **SECURITY PR #64 IS OPEN; ITS FIRST CI RUN FOUND ONE MORE LOCKFILE GAP, NOW FIXED.**
 - **PR #64** (`fix/rmcp-2.2-and-rustls`, commit `a7afa0e`), first CI run `35233904122`:
   - **`Secrets and dependencies` PASSED** (the rustls advisory is gone). fmt, CodeQL and GitGuardian passed too.
   - **Build + clippy FAILED on all 3 OSes, inside rmcp 2.2.0 itself** (E0599 `SseStream::from_bytes_stream` not found, twice). rmcp 2.2.0 calls an `sse-stream` function added in **0.2.4** (2026-07-07) but still declares `sse-stream = "0.2"`, and our lock held 0.2.3. `cargo update -p rmcp --precise` does not raise a requirement that is already met.
@@ -78,9 +92,9 @@
 
 ---
 
-## 1 · 🟢 NEXT SESSION OPENER — 🔐 **Session 42 = land the ADR-SEC-021 security PR, then company account setup (local `OPS-HANDOFF.md`) and the sign-in + subscription design covering the desktop app AND coaching, before any code.** Booking stays parked. Sessions 2–18 detail archived → `HANDOFF_V0.2_PART3_ARCHIVE.md`.
+## 1 · 🟢 NEXT SESSION OPENER — 🔐 **Land the ADR-SEC-021 security PR (wire-2 fix), then the sign-in + subscription design covering the desktop app AND coaching, before any code.** Clerk dev setup is done (local `OPS-HANDOFF.md` §E). Booking stays parked. Sessions 2–18 detail archived → `HANDOFF_V0.2_PART3_ARCHIVE.md`.
 
-> ### ▶️ START HERE — session 42 opener (rewritten mid-session 42, 2026-09-17)
+> ### ▶️ START HERE — opener (session 42, updated mid-session 43, 2026-09-17)
 >
 > **Read first:**
 > - **`OPS-HANDOFF.md`** (repo root, LOCAL ONLY, gitignored like `SEO-HANDOFF.md`) holds company account setup and its open items.
@@ -91,29 +105,35 @@
 >
 > Work step by step: one item, show it, ask only that item's decision, in plain English. Every account or settings change needs its own explicit founder yes.
 >
-> **State (mid-session 42):**
+> **State (mid-session 43; unchanged from 42 unless noted):**
 > - **Security PR:** branch `fix/rmcp-2.2-and-rustls` (from `main` at `e493d7b`) carries ADR-SEC-021, this file and BRD §1.6. It is pushed, with a PR open against `main`.
 > - **Site branch:** `site/production-ready` is untouched at `2ccf3f1` (pushed, not merged, not deployed). Its future rebase will conflict on `HANDOFF.md`; take `main`'s version.
 > - **Local stash:** `session-41 docs ...` on `site/production-ready` is the pre-split HANDOFF/BRD, and it still contains account details. **Never pop it onto a branch that gets pushed.** Its account content now lives in `OPS-HANDOFF.md`; drop the stash once the PR is merged.
-> - **Machine:** 21 GB free. No cargo build/test/clippy ran this session (founder: "dont run new build").
+> - **Machine:** 21 GB free. No cargo build/test/clippy ran in session 42 (founder: "dont run new build") or in session 43; verification is CI-only.
 >
 > ### 🎯 DO THIS FIRST (rest of session 42 / session 43)
 >
 > **0. CI + the security PR: PR #64**, branch `fix/rmcp-2.2-and-rustls` (ADR-SEC-021, §8.25).
 > - Check its CI with `gh pr checks 64`, and filter runs on the FULL head sha. All required checks must be green, `Secrets and dependencies` included.
->   - The first run (`35233904122`, on `a7afa0e`) failed only because the lock held `sse-stream` 0.2.3. The 0.2.4 follow-up is the first run where OUR crates compile under rmcp 2.2.0.
->   - If that run shows a rename miss, the error names the file.
+>   - Run 1 (`35233904122`, `a7afa0e`) failed on the `sse-stream` 0.2.3 lock (fixed by `b9f395b`).
+>   - Run 2 (`35242340764`, `b9f395b`) compiled everything; clippy was green ×3. Tests failed only on the tool-contract pin (fixed by the wire-2 commit, D4c).
+>   - Run 3, on the wire-2 commit, is the first where the whole workspace's tests run under 2.2.0. The source audits predict green. If anything else fails, the log names the test. Fetch failed job logs with `gh api repos/<owner>/<repo>/actions/jobs/<id>/logs`, because `gh run view --log-failed` refuses while any job is still running.
 >   - `jq` is not installed in Git Bash, so use `gh ... --jq` or PowerShell for JSON.
 > - If CI is green and the founder has said yes, merge it; Dependabot then closes PR #63 by itself.
 > - If CI is red, fix it in the same session (broken CI is a regression, not tech debt).
 > - After the merge, confirm `main`'s own push run is green, then `git switch main && git pull`.
 >
-> **1. Company account setup:** continue from `OPS-HANDOFF.md`, which covers the sign-in provider's setup steps and the founder decisions on them.
+> **1. Company account setup: the Clerk dev list is DONE (session 43).** Specifics are in local `OPS-HANDOFF.md` §E. Still open there: ask whether the bank account has opened, since Stripe for coaching waits on it.
 >
 > **2. Then the sign-in + subscription design** (ADR + ADR-SEC, BRD §11 checklist, two adversarial reviewers).
 > - **Scope:** the desktop app AND coaching (`coaching.zaaheen.com`, Next.js).
 > - **Subdomains:** include a subdomain allowlist + `authorizedParties`. Clerk's docs warn that, on a root-domain instance, another compromised subdomain can mint sessions.
-> - **Re-confirm with the founder** that customers must sign in to book coaching (recommended, not yet explicitly confirmed).
+> - **LOCKED (founder, session 43): coaching customers sign in before booking** ("yes sign if before book for coaching"). This supersedes the Training Page PRD's guest checkout.
+> - **LOCKED (founder, session 43): the desktop app stays signed in and asks again only after 30 days unused, or after a sign-out.**
+>   - It is our own timer, in the keeper's check, because Clerk OAuth refresh tokens never expire (access tokens last 1 day).
+>   - The founder first said "if clerk gives 7 days we keep 7 days", then, once told the desktop default is "never", said: "yes build the timer for 30 days".
+>   - Browser sessions (site, coaching) keep Clerk's free-plan fixed 7 days.
+> - **Founder direction (session 43):** "lets keep everything free for now", with provider defaults until traction ("once we see traction we upgrade plan"). Passkeys and MFA are on in dev but are Pro-only at launch; decide then whether to buy Pro or switch them off.
 > - **Proposed shape**, from two independent research passes:
 >   - **Sign-in path.**
 >     - The app opens the system browser at `accounts.zaaheen.com` (Clerk's hosted pages).
@@ -148,7 +168,7 @@
 > - Unverified: whether "OAuth applications" is on the free plan.
 >
 > **4. Founder decisions for sign-in** (one at a time, each with a recommendation):
-> - **a.** How long people stay signed in. Recommend: stay signed in; ask again only after 30 days unused, or after a sign-out or password change.
+> - **a.** ~~How long people stay signed in~~ **DECIDED session 43** (item 2 above). Passwords are off, so "password change" no longer applies.
 > - **b.** How long the app keeps working offline before it must re-check the subscription. Recommend 7 days.
 >
 > **5. Website, after the design.**
@@ -1621,6 +1641,10 @@ Full narrative for each in PART2 archive ("Tech debt — open items"). File poin
     - `serde_with`, `cmov`, `tar`, `openssl` (MEDIUM);
     - `lru`, `glib` (LOW / Linux-only).
     - PRs #45–#49 have waited since 2026-08-26. Triage one at a time; each needs its own CI run.
+13. **rmcp 2.2.0 behaviours no test pins yet (LOW; added session 43, ADR-SEC-021 D4d/D5a).**
+    - (a) A wire-level test that a `tools/call` with unparsable arguments returns `isError: true` carrying `failed to deserialize parameters:`, and never a stack or internal path. Drive it through the router, not the handler.
+    - (b) A final JSON-RPC line with no trailing newline before EOF. Decide whether we care: agents always end lines.
+    - Add both with the next vault-mcp change that runs its tests; not worth a standalone CI cycle.
 
 Also tracked as SHIPPED-design-record in PART2 archive: `bulk_upsert` promotion to the `VectorStore` trait (730× faster bulk insert, shipped `c091281`).
 
@@ -2081,7 +2105,30 @@ The PR was red on every job, for two independent reasons:
 - **D4 Wire and behaviour.** 2.x keeps the JSON wire format (migration guide #926: "only additive `_meta` / optional fields"). Two behaviour changes matter:
   - (a) **Protocol negotiation:** 2.x echoes the client's requested version when it is in `KNOWN_VERSIONS`, which now includes `2026-07-28`. 1.5.0 answered `min(client, 2025-11-25)`. rmcp's `serve_server` re-negotiates after our handler, so we cannot cap it without forking. Neither Claude Desktop's log nor ours records the requested version. **The next installer's live test must cover both Claude Desktop and Cursor.**
   - (b) **Invalid input on a pipe:** unparsable input is now ignored, and well-formed-but-wrong JSON gets an Invalid Request reply; 1.5.0 closed the stream. This happens only after the ADR-SEC-019 handshake, so only an already-authenticated peer can reach it.
+  - (c) **Amendment 1 (session 43): the tool contract DID change, so `WIRE` 1 → 2.** D4's "same wire format" held for JSON-RPC framing but not for `tools/list` content.
+    - rmcp-macros 2.2.0's `#[tool]` emits `schema_for_input::<P>()` where 1.5.0 emitted `schema_for_type::<P>()` (`rmcp-macros-*/src/tool.rs:234`). `schema_for_input` → `validate_and_strip` removes each input schema's top-level `title` and `description` (`rmcp-2.2.0/src/handler/server/common.rs:53-97`).
+    - For us, those were the params structs' developer doc comments (ADR-025 notes, phase history, a model name), which 1.5.0 published to every agent. Losing them is an improvement.
+    - The field-level descriptions that steer agents (`initialize_smoke.rs` pins them) are untouched. `Tool`'s own struct is byte-identical across the two versions.
+    - Found by CI run `35242340764`: `the_tool_contract_is_pinned_to_the_wire_version` failed on ubuntu and macOS with the same new hash.
+    - Per the guard and `handshake.rs` ("Bump when the framing after F4 or the tool contract changes"): `WIRE = 2`, `PINNED = 64bafc664287b3e09449bb4c093e38bfa87b287bbb769ce86e14967363a7d836`.
+    - A second reason to bump: the pipe now runs on a different rmcp major (D4a/b), so a mixed 1.5.0/2.2.0 relay/keeper pair must refuse loudly rather than half-work.
+    - After an update: a wire-1 relay meeting a wire-2 keeper returns `MSG_UPDATE` ("Zaaheen was updated; restart every app that uses Zaaheen"). A wire-2 relay meeting a wire-1 keeper asks it to yield; the yield purpose shipped in v1 for exactly this.
+    - Every other wire use is `WIRE`-relative (handshake unit tests use `WIRE + 1`; discovery writes `WIRE`), so nothing else moves.
+  - (d) **Amendment 1: malformed tool arguments change envelope.** In 2.2.0 `ToolRouter::call` → `into_tool_argument_error` turns an `INVALID_PARAMS` error whose message starts `failed to deserialize parameters:` into `Ok(CallToolResult::error(..))` (`router/tool.rs:144-158`, `:573-577`). An agent that sends arguments serde cannot parse now gets an `isError` tool result instead of JSON-RPC `-32602`, with the same text as 1.5.0 (`handler/server/tool.rs:27`).
+    - **Accepted.** The text goes only to the agent that sent the input and describes only the public schema. The agent can read it and correct itself (the ADR-103 direction).
+    - ADR-024's generic `-32602` still covers our own validation (boundary, length and control-character checks run inside the handlers, not the router). Existing `-32602` tests call the handlers directly, so they are unaffected.
+    - No test pins the new envelope (tech debt #13).
+  - (e) **Amendment 1: HTTP daemon changes (no test impact, noted):**
+    - a POST without a session id must be `initialize` before a session exists (the GHSA-9pj6 fix itself);
+    - new sessions must initialize within 60 s;
+    - an `MCP-Protocol-Version` header on `initialize` must match the body, or the reply is 400;
+    - a cancelled request's reply is dropped;
+    - `allowed_origins` is new and defaults to empty (Origin unchecked, as before; optional hardening).
 - **D5 Pinned by** `vault-mcp/tests/transport_cancel_safety.rs`. It writes half a request, forces a `receive()` cancellation with a timeout, writes the rest, and requires the request to arrive. It is deterministic: the cancellation is forced, not raced. It is built to fail on 2.0.0 and pass on 2.1.0+, so the pin cannot slide back unnoticed. **Neither side has been run locally** (no build this session): CI proves the pass, and the fail is reasoned from the 2.0.0 source (`line_buf.clear()` at the top of `receive`), not observed.
+- **D5a Amendment 1: pre-screening instead of CI round-trips.** `cargo test --workspace` stops at the first failing test binary. Run 2 therefore exercised only vault-app's first six test binaries, and a red run hides every later failure.
+  - Before pushing the wire-2 fix, two independent read-only audits diffed the rmcp 1.5.0 and 2.2.0 sources against every rmcp-touching test. They found none at risk: 43 vault-mcp, 12 keeper_end_to_end, 2 relay unit and 5 HTTP daemon tests.
+  - They also confirmed `transport_cancel_safety.rs` is correct against 2.2.0's API and logic. CI's `build --workspace --all-targets` had already compiled it.
+  - Residual gap (tech debt #13): a final message with no trailing newline before EOF was delivered by 1.5.0's `decode_eof`. 2.2.0 delivers it only if it was read in the same `read_until` call. It is untested, and our clients always end lines.
 - **D6 Verification = CI only.** Founder: "dont run new build". No local build/test/clippy ran; `cargo fmt --all --check` is clean. The matrix (ubuntu / windows-2025 / macos: build + test, clippy, fmt, secrets + dependencies, CodeQL) is the proof. The aws-lc-sys native build is the part most worth watching on Windows. The desktop build (`cargo tauri build`) has a different feature set from CI and first meets this at the next installer build.
 
 **Security checklist (§11.12 vault-mcp):** the capability tokens, schema validation, boundary checks, per-call audit and generic errors are all our code, and none of it changed. `daemon_auth.rs`, `adversarial.rs`, `relay_server.rs` and `error_mapping.rs` re-prove them under 2.2.0 in CI. Threat model §11.1: this closes a supply-chain item (known-vulnerable dependency) and adds no surface.
@@ -2090,7 +2137,7 @@ The PR was red on every job, for two independent reasons:
 
 Full text of every ADR lives in an archive — cross-link by number, **quote don't paraphrase** ([[feedback_quote_locked_artefacts_dont_paraphrase]]).
 
-**In-flight (full text in §8.25) — SESSION 42:** **ADR-SEC-021** (rmcp `=2.2.0` for GHSA-9pj6 + GHSA-33f5, deliberately past Dependabot's 2.0.0 because its line reader drops a cancelled half-read request (rust-sdk #941); rustls 0.23.45 for RUSTSEC-2026-0285; `Content` → `ContentBlock`; pinned by `transport_cancel_safety.rs`; CI-only verification; live-test protocol negotiation before the next installer).
+**In-flight (full text in §8.25) — SESSION 42:** **ADR-SEC-021** (rmcp `=2.2.0` for GHSA-9pj6 + GHSA-33f5, deliberately past Dependabot's 2.0.0 because its line reader drops a cancelled half-read request (rust-sdk #941); rustls 0.23.45 for RUSTSEC-2026-0285; `Content` → `ContentBlock`; pinned by `transport_cancel_safety.rs`; CI-only verification; live-test protocol negotiation before the next installer). **Amendment 1 (session 43):** the tool contract changed (rmcp 2.x strips the input schemas' top-level title/description), so `WIRE` 1 → 2; malformed arguments now arrive as `isError`; CI round-trips were replaced by source pre-screening (D4c/d/e, D5a).
 
 **In-flight (full text in §8.24) — SESSION 36:** **ADR-103** (found by the live test: one 55 s deadline per relayed call — resolution, call and resend all spend it, replacing ADR-102 D6's fixed 15 s + 35 s; the relay's own failures are `isError` tool results so the agent reads them instead of "Tool execution failed"; `vault_embedding=info` in the log filter).
 

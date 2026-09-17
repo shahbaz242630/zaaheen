@@ -63,7 +63,11 @@ pub const MAGIC: &[u8; 4] = b"ZKH1";
 
 /// This build's wire version. Bump when the framing after F4 or the tool
 /// contract changes.
-pub const WIRE: u16 = 1;
+///
+/// 2 (ADR-SEC-021): rmcp 2.x stops publishing each tool's top-level input
+/// schema `title` and `description`, and carries the pipe on a different
+/// rmcp major, so a wire-1 relay must be told to restart, not served.
+pub const WIRE: u16 = 2;
 
 /// Fresh random bytes each side contributes per connection.
 pub const CHALLENGE_LEN: usize = 32;
