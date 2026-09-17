@@ -163,7 +163,7 @@ reqwest = { version = "=0.12.28", features = ["json", "rustls-tls", "stream"] }
 # revisits per ADR-026 forward pointer. Features (server / transport-io /
 # macros / etc.) declared per-crate in `vault-mcp/Cargo.toml` so the set
 # stays scoped to actual usage.
-rmcp = "=1.5.0"
+rmcp = "=2.1.0"
 
 # CLI (T0.1.6 Phase C1b — vault-cli operator binary). Exact-pinned per
 # BRD §2.9 from Cargo.lock at first build. The two deps are tightly
