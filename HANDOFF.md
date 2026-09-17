@@ -2,7 +2,12 @@
 
 **Current version:** V0.2 Closed Beta (BRD §6.2 — sleep consolidator, boundaries hardening, cross-device sync, 30 beta users)
 
-**Last updated:** 2026-09-17 (session 43, mid-session) - 🔒 **PR #64's SECOND CI RUN: OUR CRATES COMPILE UNDER rmcp 2.2.0 (clippy green ×3), AND ONE GUARD CAUGHT A REAL TOOL-CONTRACT CHANGE → WIRE 1 → 2 (ADR-SEC-021 D4c). CLERK DEV SETUP DONE (details local).**
+**Last updated:** 2026-09-17 (session 43, close) - 🔐 **THE SECURITY PR IS MERGED, A THREE-DAY-OLD SILENT RED IS FIXED AT ITS ROOT, AND SIGN-IN + SUBSCRIPTION IS DESIGNED, REVIEWED THREE TIMES AND LIVE-SPIKED (ADR-104 + ADR-SEC-022, §8.26).**
+- **Session 43 in four lines:**
+  1. **PR #64 merged → `main` `93ca1c2`** (ADR-SEC-021 + the wire-2 fix). The two rmcp alerts are closed; 11 open Dependabot alerts → 9.
+  2. **`Secret scan (full history)` had been red since 2026-09-14 and nobody was looking.** Both root causes fixed on `fix/secret-scan-indexnow` (`6d67c92`) — the job now runs on every branch push, and §10's green-check rule now covers every workflow.
+  3. **Clerk dev setup done** (app renamed, names required, passwords off, passkeys on, Google on; details in local `OPS-HANDOFF.md` §E).
+  4. **ADR-104 + ADR-SEC-022 LOCKED** (§8.26), with the S0 PKCE spike run live against the dev instance. **Next session starts at S1** (§1).
 - **Run `35242340764`** on `b9f395b`:
   - fmt, `Secrets and dependencies`, CodeQL and clippy (all 3 OSes) passed.
   - **build + test failed on ubuntu and macOS** at `vault-app/tests/keeper_end_to_end.rs::the_tool_contract_is_pinned_to_the_wire_version`, and only there: 12 passed, 1 failed.
@@ -20,7 +25,12 @@
   - **Cause: 3 gitleaks `generic-api-key` findings on the site branch's IndexNow key** (`site/src/data/site.ts`, `site/scripts/audit.mjs`), which `site/production-ready` brought in on 2026-09-13. The workflow scans every branch's full history, so a branch push moved a job that only runs on `main`.
   - **An IndexNow key is public by design** — the site must serve it back at `https://<domain>/<key>.txt`, and `audit.mjs` already fails the build if the file and the key disagree. Nothing can be signed, read or spent with it.
   - **Fix: allowlisted BY VALUE in `.gitleaks.toml`, never by path**, so it cannot hide a real secret that lands in the same file. The existing note in that file (why no allowlist exists for the hardcoded test keys) still holds.
-  - Fixed on branch `fix/secret-scan-indexnow`, verified by `workflow_dispatch` on that ref before merging.
+  - Fixed on branch `fix/secret-scan-indexnow` (`6d67c92`), and the push itself proved the new trigger: the scan ran on a branch for the first time and passed (`35257230324`).
+  - **Second root cause, and the one that let it hide: our own green-check rule named `ci.yml` literally**, so nothing ever looked at this workflow. §10 now says check every workflow, at session open and before staging (memory `feedback_check_every_workflow_not_just_ci_yml`).
+  - **Verified with controls, not assumed** (gitleaks 8.24.3, the CI version, downloaded and SHA-256-checked against the published `gitleaks_8.24.3_checksums.txt`; Docker's mounts are broken on this machine, so it ran natively):
+    - old config, same history → **3 findings**;
+    - new config, same history → **0**;
+    - new config, throwaway repo holding a random 40-hex fake secret **and** the allowlisted key → **exactly 1 finding**, so the alarm still works and the allowlist is as narrow as intended.
 
 **Prior (session 42, close):** 🔒 **SECURITY PR #64 IS OPEN; ITS FIRST CI RUN FOUND ONE MORE LOCKFILE GAP, NOW FIXED.**
 - **PR #64** (`fix/rmcp-2.2-and-rustls`, commit `a7afa0e`), first CI run `35233904122`:
@@ -98,9 +108,37 @@
 
 ---
 
-## 1 · 🟢 NEXT SESSION OPENER — 🔐 **Land the ADR-SEC-021 security PR (wire-2 fix), then the sign-in + subscription design covering the desktop app AND coaching, before any code.** Clerk dev setup is done (local `OPS-HANDOFF.md` §E). Booking stays parked. Sessions 2–18 detail archived → `HANDOFF_V0.2_PART3_ARCHIVE.md`.
+## 1 · 🟢 NEXT SESSION OPENER — 🔐 **Session 44 = build S1, the `vault-account` crate, against the LOCKED ADR-104 + ADR-SEC-022 (§8.26). Tests first.** Clerk dev setup and the S0 spike are done (local `OPS-HANDOFF.md` §E). Booking stays parked. Sessions 2–18 detail archived → `HANDOFF_V0.2_PART3_ARCHIVE.md`.
 
-> ### ▶️ START HERE — opener (session 42, updated mid-session 43, 2026-09-17)
+> ### ▶️ START HERE — session 44 opener (written at session-43 close, 2026-09-17)
+>
+> **Read first:** §8.26 in full (it is the locked design, quote it, don't paraphrase) · `OPS-HANDOFF.md` §E (accounts, IDs, the created OAuth application) · BRD §11 again before writing any of S1's security paths.
+>
+> **State at close:**
+> - `main` = `93ca1c2` (ADR-SEC-021 + wire 2). Branch `fix/secret-scan-indexnow` = `6d67c92`, scan green on the branch; merge state at close is in the session-43 log below.
+> - `site/production-ready` is untouched at `2ccf3f1`. Its rebase will conflict on `HANDOFF.md` — take `main`'s version. The stash `session-41 docs …` there is superseded by `OPS-HANDOFF.md`; drop it.
+> - **Open Dependabot PRs: #65** (rmcp 1.5.0 → 2.1.0, stale — `main` already has 2.2.0, so close or let Dependabot close it) and **#45–#49** (quinn-proto, cmov, serde_with, openssl, tar). 9 open alerts. Triage one at a time; each needs its own CI run.
+> - No cargo ran in sessions 42–43. Disk 21 GB free at close.
+>
+> ### 🎯 DO THIS FIRST (session 44)
+>
+> **0. CI, every workflow** (§10, the rule that changed this session): `ci.yml`, `codeql.yml`, `secret-scan-history.yml`, `monthly-tech-debt.yml` — a cron failure belongs to no commit, so only looking finds it.
+>
+> **1. S1 — the `vault-account` crate** (§8.26 §12's build plan). Tests first, in this order:
+> - PKCE client + loopback listener (adversarial: wrong `state`, wrong `iss`, replayed callback, second request, oversized request, `error=` callback, a squatter's noise on the port);
+> - token store on **its own `CredentialStore`** (never `keyring-core`'s process-global default — §1's verified note) with `persistence=Local`; keychain errors transient, never "signed out";
+> - lease verify (bad signature, wrong `sub`, expired, both public keys, exact-bytes-before-parse);
+> - the time model (§8.26 §4): forward jump then correction, backwards clock, floor keyed to `lease_issued_at`, activity in server time;
+> - refresh under `refresh.lock`, **and the rotation-reuse rule the spike forced** (§8.26 §15): re-read the store once on `invalid_grant` before concluding signed-out.
+> - **Ask before any cargo build/test/clippy** and report disk first (§10).
+>
+> **2. Then S2** (Worker + `/pay` page), **S3** (gate + keeper lock mode + UI), **S4** (export, ships with S3), **S5** (coaching), **S6** (production + live test). Nothing in S2–S6 starts before S1 is DoD-green.
+>
+> **3. Ask the founder at session open:** has the bank account opened? (Applied 2026-09-17; 2–3 days quoted. Stripe for coaching waits on the bank letter.)
+>
+> ---
+>
+> ### ▶️ (superseded) session 42 opener, updated mid-session 43
 >
 > **Read first:**
 > - **`OPS-HANDOFF.md`** (repo root, LOCAL ONLY, gitignored like `SEO-HANDOFF.md`) holds company account setup and its open items.
@@ -1652,6 +1690,8 @@ Full narrative for each in PART2 archive ("Tech debt — open items"). File poin
     - (b) A final JSON-RPC line with no trailing newline before EOF. Decide whether we care: agents always end lines.
     - Add both with the next vault-mcp change that runs its tests; not worth a standalone CI cycle.
 
+14. **The vault key is stored with Windows "Enterprise" (roaming) persistence (LOW; found session 43).** `windows-native-keyring-store` 1.0.0 defaults to `CredPersist::Enterprise` (`lib.rs:40`) and `keychain.rs` never overrides it; `cmdkey /list` shows no local-persistence marker on `default.com.zaaheen.v0.2`. On a domain-joined machine with a roaming profile the master key would follow the user to other machines. Harmless for a home PC, wrong for the zero-knowledge promise. Fix with the S1 credential work (which already specifies `persistence=Local` for the account entry): set `Local` for the vault key too, and migrate an existing entry by rewriting it.
+
 Also tracked as SHIPPED-design-record in PART2 archive: `bulk_upsert` promotion to the `VectorStore` trait (730× faster bulk insert, shipped `c091281`).
 
 ---
@@ -2139,9 +2179,233 @@ The PR was red on every job, for two independent reasons:
 
 **Security checklist (§11.12 vault-mcp):** the capability tokens, schema validation, boundary checks, per-call audit and generic errors are all our code, and none of it changed. `daemon_auth.rs`, `adversarial.rs`, `relay_server.rs` and `error_mapping.rs` re-prove them under 2.2.0 in CI. Threat model §11.1: this closes a supply-chain item (known-vulnerable dependency) and adds no surface.
 
+## 8.26 · 🆕 ADR-104 + ADR-SEC-022 (LOCKED 2026-09-17) — sign-in, trial and subscription, for the desktop app and coaching
+
+> Locked verbatim from the session-43 working draft (`signin-design-v3.md`), after three adversarial review rounds by two independent reviewers and the S0 spike. v1/v2 and the six review reports stay in the session-43 scratchpad. Account identifiers live in local `OPS-HANDOFF.md`, never here.
+
+Session 43, 2026-09-17. **ADR-104** (architecture) + **ADR-SEC-022** (security). History: v1 → round 1 (reviewers A and B, independent) → v2 → round 2 (same reviewers; both verdicts: "ready to lock once these spec edits are made") → v3. v1/v2 are in the same folder; §12–§14 map each review finding to its resolution.
+
+**STATUS: LOCKED 2026-09-17 (session 43).** Both reviewers signed off on round 3 once its edits were applied. Founder decisions made this session: offline 30 days · `comp_until` for beta testers · "Open the Zaaheen app and choose Subscribe" (subscribe from the app only) · no reminder emails for now. `[FOUNDER, later]` marks spend decisions deferred to launch.
+
+---
+
+## 0. Locked inputs
+BRD §1.6 amendment 1 (30-day no-card trial → $5/mo or $48/yr; Paddle; Clerk; PKCE loopback; lock screen with Subscribe + Download my memories; export always available) · one Zaaheen account for app + coaching · coaching sign-in before booking · desktop signed in until 30 days unused or sign-out · free plans until traction · sign-in never touches the vault key · ADR-102/103 keeper/relay (D4 not built).
+
+## 1. Verified facts
+All of v2 §1, plus:
+- `ClientRequest` in rmcp 2.2.0 is an intentionally exhaustive enum (`model.rs:3573-3592`, `#[expect(clippy::exhaustive_enums)]`): Ping, Initialize, Complete, SetLevel, GetPrompt, ListPrompts, ListResources, ListResourceTemplates, ReadResource, Subscribe, Unsubscribe, CallTool, ListTools, GetTask, ListTasks, GetTaskPayload, CancelTask, Custom. `impl<S: Service<RoleServer>> ServiceExt<RoleServer> for S` (`service/server.rs:104`).
+- `KeeperExit` = `Idle | Yielded | HandedOver | Shutdown` (`keeper/runtime.rs:79`); the serve loop has an `idle_tick` interval (`:122`, `:133`).
+- Reviewer-verified: Clerk `user.deleted` payload is only `{id, object, deleted}` (BAPI `DeletedObject`); Workers free plan: 50 subrequests and 10 ms CPU per invocation, cron included; Paddle list-subscriptions filters by `customer_id`, `status`, `price_id` (not `custom_data`); Paddle rate limit 240 requests/min per IP; Bot Fight Mode is zone-wide and cannot be bypassed; SChannel on Windows 10 has no TLS 1.3; Google OAuth apps in "Testing" only admit listed test users.
+
+**S0 spike must answer:** OAuth app creatable on free · any loopback port matches · refresh token returned with `offline_access` · refresh-token rotation · refresh token survives browser sign-out / 7-day session end · public client can call `…/oauth/token/revoke` · consent-screen frequency · `iss` in the callback · verify-endpoint claims · whether the Account Portal lists OAuth grants. **S2 must answer:** Workers rate-limit binding on free · Paddle domain approval for `zaaheen.com`.
+
+## 2. Parts
+| Part | Owns |
+|---|---|
+| Clerk production (`zaaheen.com`) | identity, `accounts.zaaheen.com`, `private_metadata` |
+| OAuth app "Zaaheen for Windows" | public, PKCE, scopes `openid profile email offline_access`, consent screen on, opaque access tokens |
+| Account Worker `api.zaaheen.com` | `/v1/lease`, `/v1/checkout`, `/paddle/webhook`, `/clerk/webhook`, paged daily cron; kill switch; own Clerk secret key, Paddle keys, Svix secret, lease signing key |
+| Paddle | checkout on `zaaheen.com/pay` (Paddle.js, domain approval), portal, dunning, receipts |
+| `vault-account` (new crate) | PKCE client + loopback listener, token store (own `CredentialStore`, Local persistence), lease verify, entitlement state machine, activity timer, refresh lock, revoke |
+| `vault-mcp::EntitledService` + `EntitlementCheck` trait | the gate, as a `Service<RoleServer>` wrapper |
+| vault-app | wires the check; keeper lock mode; mode-change exit; maintenance-runner check; export |
+| vault-tauri | onboarding sign-in step, account panel, lock screen, banners, typed per-command guard |
+| Coaching | `@clerk/nextjs`, own secret key, `authorizedParties`, bookings keyed by user ID, own `user.deleted` handler |
+| `site/` | links, pricing, **terms / privacy / refund pages** (Paddle review), `/pay` page |
+
+Dependencies: `vault-tauri → vault-app → {vault-account, vault-mcp} → vault-core`. vault-mcp does not depend on vault-account.
+
+## 3. Desktop sign-in
+Unchanged from v2 §3: Rust opens the browser; verifier/challenge/state; listener on `127.0.0.1:0`, concurrent connections, ≤ 8 KB and ≤ 5 s each, 10-minute window, only `GET /callback` considered, `state` (constant time) **and** `iss` must match, `error=` ends the flow with a static page, no kill-after-N; code exchange; access token memory-only; refresh token in Credential Manager via vault-account's own store with Local persistence; keychain errors are transient; "Signed in as <email> — not you? Sign out" shown at once. On storing the token, the keeper-independent **sign-in marker** file is written (§4). First `/v1/lease` starts the trial.
+
+## 4. Lease and local state
+- **Wire:** `b64url(payload) "." b64url(sig)`, `sig = Ed25519(sk, "zaaheen-lease-v1\0" || payload_bytes)`, verified on the exact bytes before parsing (dryoc).
+- **Keys:** the app ships **two** public keys from day one: `primary` (in Cloudflare Secrets) and `backup` (generated offline, private half kept offline by the founder). Losing or leaking the primary means rotating to the backup without stranding anyone.
+- **Payload:** `{ v, kid, sub, state: "trial"|"active"|"payment_failed"|"ended", trial_ends_at, active_until, issued_at, client_time, offline_days }`.
+  - `client_time`: the client sends its clock reading `client_now` in the request, and the server signs it **as received, with no clamp**. It is the anchor for all local elapsed-time maths. (Round 3: a ±24 h clamp would permanently lock a user whose clock runs more than a day slow. The backwards-clock rule already defeats the freeze trick.)
+- **Entitlement check (all times UTC epoch seconds):**
+  - `floor = max(stored_floor, system_now)`, where `stored_floor` = `state.floor` **only if `state.lease_issued_at == lease.issued_at`**, else `client_time` (a reader that sees a new lease before `state.json` is rewritten must not use the old floor). `elapsed = max(0, floor − client_time)`.
+  - Entitled iff `elapsed < offline_days` and:
+    - `trial`: `elapsed < trial_ends_at − issued_at`;
+    - `active` / `payment_failed`: `elapsed < active_until − issued_at`.
+  - `system_now < client_time − 10 min` (clock moved backwards past the anchor) ⇒ treated as "needs refresh"; offline ⇒ not entitled, with "Zaaheen couldn't confirm your subscription. Check your internet connection."
+  - At receipt, if `|client_now − server_now| > 24 h`, the desktop shows **"Your computer's clock is wrong. Set it to update automatically."** as information only; entitlement is unaffected, because all maths is relative to `client_time`.
+  - **Accepted residual:** a user who blocks `api.zaaheen.com` and runs a script pinning the clock just behind the floor keeps a lease that never ages. This is a business control, not a security boundary (§6.7).
+- **Files** (`%LOCALAPPDATA%\com.zaaheen.app\account\`, ADR-SEC-019 ACL before first write; only the keeper and the desktop write here, **never a relay**):
+  - `lease`: the signed lease bytes, written atomically (temp + rename) under the lock. Self-contained: no separate anchor file to fall out of step.
+  - `state.json`: `{ lease_issued_at, floor, last_active_anchor, last_refresh_attempt }`, written under the lock, throttled to at most one write per minute.
+    - `last_active_anchor` and `last_refresh_attempt` always merge with `max()`, across leases too. At sign-in, `last_active_anchor = issued_at` of the first lease.
+    - **Only `floor` is lease-scoped.** A new lease resets `floor` to its `client_time`. For the same `lease_issued_at`, `floor` merges with `max()`. A writer holding an older `lease_issued_at` never changes `floor`. So a clock that once jumped far ahead stops counting once it is fixed and a fresh lease arrives.
+    - Deleting the file only lowers the floor to "now".
+  - `signed-in`: marker written when a refresh token is stored, removed on sign-out.
+  - `refresh.lock`: never deleted.
+- **Offline allowance: 30 days — LOCKED (founder, session 43: "yes 30 days is fine partner").** Always capped by trial end / `active_until`.
+- **Refresh rules:**
+  - Refresh-then-decide on a denial: refresh first (≤ 5 s), then answer. The lock wait is ≤ 2 s; if the lock is still held after that, skip this refresh and decide from whatever is on disk. At most one attempt per minute, tracked in `state.json` so a new process honours it. A `last_refresh_attempt` later than `system_now` counts as no attempt (a clock that jumped back must not block refreshes).
+  - At keeper start and desktop open: refresh if the lease is older than 24 h or any deadline is within 3 days.
+  - Otherwise a jittered daily timer while running (never triggered by tool activity).
+  - After checkout: every 10 s for 10 min, plus an "I've paid" button. (The Worker allows a live Paddle fetch every 30 s per user while `checkout_at` is within 1 h.)
+  - **After a signed `ended`:** refresh-on-denial backs off to at most hourly. It refreshes at once after checkout, "I've paid", or opening the desktop app. This keeps churned trials from flooding the Worker's free daily quota.
+  - Every refresh takes `refresh.lock`, re-reads token and lease after acquiring it, writes atomically.
+  - A network error, 5xx, or keychain error never discards a lease or signs anyone out. Only a bad signature or a valid signed state changes the decision.
+- **30 days unused:** activity is recorded in **server time** (`last_active_anchor = issued_at + elapsed`, at most hourly), so the client's clock error never enters it. The rule is evaluated **only after a successful refresh**, as `server issued_at − last_active_anchor > 30 days` → sign out (delete token, lease, marker; revoke). A local clock jump cannot trigger it.
+
+## 5. Account Worker
+- **Auth:** BAPI `POST /oauth_applications/access_tokens/verify`; require our `client_id`, not revoked, not expired → `subject`. Opaque access tokens.
+- **Derived billing record** (written only by the Worker): `private_metadata.zaaheen_memory = { trial_started_at, paddle_customer_id, active_until, payment_failed, comp_until, checkout_at, synced_at }`.
+  - Only subscriptions whose items belong to **our allowlisted Paddle product ID** count (checked on the fetched items, so a future price change cannot lock new subscribers out). `/v1/checkout` still maps `plan` to allowlisted price IDs.
+  - `status=active`, no scheduled cancel → `active_until = current_billing_period.ends_at + 3 days` (renewal gap).
+  - `status=active` with a scheduled cancel → `active_until = scheduled change effective_at`.
+  - `status=past_due` → `active_until = current_billing_period.starts_at + 7 days`, `payment_failed = true`.
+  - `paused`/`canceled` → nothing. The latest `active_until` over all counting subscriptions wins.
+  - Writes never clear `trial_started_at` (tested); a PATCH is skipped when nothing changed.
+- **`/paddle/webhook`:** subscribed to `subscription.*` only. Verify `Paddle-Signature` (any `h1`, 5 s tolerance), **derive synchronously** (re-fetch that customer's subscriptions), write, then 200. Any failure → 5xx so Paddle retries.
+- **`/v1/lease`:**
+  - body `{ client_now, app_version }`; first desktop call sets `trial_started_at`.
+  - `state`:
+    - `active` if `now < max(active_until, comp_until)` (`payment_failed` flag → state `payment_failed`);
+    - **live Paddle re-derive first** when (a) the record is active-flavoured but `now ≥ active_until`, or (b) `paddle_customer_id` exists and the result would be `ended`, or (c) `checkout_at` is within 24 h and the result is not active. Rate-limited to one live fetch per user per 10 min. Cases (a) and (b) are skipped when `synced_at > active_until`; case (c), the just-paid check, never is;
+    - else `trial` if `now < trial_started_at + 30 d`; else `ended`.
+  - **Paddle or Clerk error for a record that was active-flavoured → sign `active` until the stored `active_until + 3 days`.** Any other upstream error → 503 (never a signed `ended`).
+  - **Kill switch:** env flag `NEVER_END_PAYERS=1` → anyone with a `paddle_customer_id` gets `active` with **`active_until = now + 3 days`** (a bad deploy must not lock everyone, and leases granted during an incident, including to abandoned checkouts, lapse soon after it).
+- **`/v1/checkout`:** body `{ plan: "monthly"|"annual" }` mapped to allowlisted price IDs. A **live** fetch decides "already subscribed" (active or past_due) → `{ kind:"portal", url }` (portal session). Otherwise find-or-create the customer, store `paddle_customer_id` and `checkout_at`, create a transaction with `custom_data.clerk_user_id` server-side → `{ kind:"checkout", txn }`. The app validates `txn` (`^txn_[a-z0-9]{26}$`) and builds `https://zaaheen.com/pay?_ptxn=…`; portal URLs must be `https` on the allowlisted Paddle host. Nothing from the server reaches the OS unchecked.
+- **`/clerk/webhook`** (Svix-verified): `user.deleted` → page through subscriptions with status active/past_due/paused and our price IDs, match `custom_data.clerk_user_id`, cancel immediately. Failure → 5xx (Svix retries). Runbook backup.
+- **Cron (daily, paged):** each run handles one page of subscriptions whose billing period ends within ±48 h and stays under 50 subrequests, PATCHing only changes. **At ~30 paying customers move to Workers Paid ($5/month)** [FOUNDER, later].
+- **Bot Fight Mode is zone-wide:** keep it off for `zaaheen.com` (the static site and coaching don't need it; Clerk has its own bot protection). Recorded.
+- **Secrets / residuals:** per-consumer Clerk secret keys; `zaaheen_memory` Worker-only; `is_admin` founder-only; `unsafe_metadata` never trusted; a coaching compromise can write metadata / impersonate (instance-wide keys) — accepted and recorded.
+- **Beta comp — LOCKED (founder, session 43: "yes go with the free until date"):** `comp_until`, set per person by the founder in the Clerk dashboard (the founder's own account included). No other grace code.
+
+## 6. Enforcement
+1. **`vault_mcp::EntitledService<S: Service<RoleServer>>`** implements `Service<RoleServer>` (`handle_request`, `handle_notification`, `get_info`). An **exhaustive `match` on `ClientRequest`** (a future rmcp variant fails to compile) sorts each request:
+   - `Ping`, `Initialize`, `ListTools` always delegate **without consulting the check**, so `initialize` stays fast (ADR-102 K8).
+   - `CallTool` (plain or task-flavoured) and every other request ask `Arc<dyn EntitlementCheck>` (refresh-then-decide per §4). When entitled, they delegate. When not:
+     - a plain `CallTool` → `CallToolResult::error([message])`;
+     - a task-flavoured `CallTool` → the inner server's own invalid-params error (a task caller expects `CreateTaskResult`; our tools forbid tasks anyway);
+     - `ListPrompts`, `ListResources`, `ListResourceTemplates` delegate (empty lists);
+     - every other request → an error.
+   `EntitledService` counts calls in flight (used by §6.2). Notifications pass through. The adapter is never touched while locked.
+   Built at `application.rs:959` and `keeper/runtime.rs:282` around `StdioServer`, and in the daemon after `authorize` (`daemon.rs:63/98`).
+2. **Keeper modes:**
+   - At start the keeper reads the master key (the handshake needs it; none ⇒ publish `failed`), takes `.vault.lock`, then evaluates entitlement.
+   - Locked ⇒ **lock mode** = the same `runtime::serve` loop with `EntitledService<StdioServer<NoVaultAdapter>>` and a **`LockModeCheck`**: the real refresh-then-decide check, except that a "yes" is never served. It answers "unlocking" and triggers `ModeChanged`. Identical tool list, `WIRE`, discovery roles, and erasure intent/handover path; no `Application`, no models.
+   - On each `idle_tick`, both modes re-evaluate (file read, no network) and exit with a new **`KeeperExit::ModeChanged`** only when entitlement flips. Lock mode's re-evaluation uses the real check; the always-deny gate only serves calls.
+     - A full keeper that finds the user locked **refreshes first** (a merely stale lease must not unload and reload 2.86 GB).
+     - It then **waits for calls in flight to finish** (the `EntitledService` counter; new calls are already refused) before exiting through the existing `stop_tx` path. The idle exit requires zero connections; `ModeChanged` does not, so it must not cut a write off mid-way. Lock → full lets the next relay start a full keeper; full → lock frees the 2.86 GB instead of holding it while relays stay connected. A lock-mode call that finds the user now entitled answers "Zaaheen is unlocking. Try again in a moment." and triggers the exit.
+3. **Relay short-circuit:** no `signed-in` marker (checked twice, 200 ms apart) ⇒ the relay answers the sign-in message itself and starts no keeper. A marker but no lease ⇒ normal keeper start (it retries the fetch).
+4. **Desktop (pre-D4):** gated `*_inner` functions take an `Entitled` token that only the check can mint (the compiler enforces the guard). A source test in the existing `include_str!` pattern lists all registered commands and the ungated allowlist (account, export, erasure, logs, settings, maintenance status).
+5. **Maintenance runner:** skips while not entitled ("paused until you subscribe").
+6. **Audit:** gated calls are logged to the application log only (no vault write). Divergence recorded.
+7. Business control, not a security boundary. No DRM.
+
+**Messages** (fixed text, no links, no user data):
+- signed out: "Zaaheen needs you to sign in. Open the Zaaheen app on this computer to sign in."
+- can't confirm: "Zaaheen couldn't confirm your subscription. Check your internet connection and try again."
+- payment failed (still entitled; `health.warnings` + desktop banner): "Your last Zaaheen payment didn't go through. Open the Zaaheen app to update your card."
+- trial ended: "Your Zaaheen free trial has ended. Open the Zaaheen app and choose Subscribe to keep using your memories. Nothing has been deleted."
+- subscription ended: "Your Zaaheen subscription has ended. Open the Zaaheen app and choose Subscribe to keep using your memories. Nothing has been deleted."
+- unlocking: "Zaaheen is unlocking. Try again in a moment."
+- **LOCKED (founder, session 43: "yes use that wording, subscribe from the app"):** "Open the Zaaheen app and choose Subscribe" replaces BRD §1.6's "subscribe at zaaheen.com". Subscribing happens only from the app; the website shows prices and explains how. (BRD divergence, recorded in ADR-SEC-022.)
+- The lock screen shows a support email address.
+- ADR-SEC-009's flagged patterns gain look-alike sign-in / subscribe instructions inside memory content.
+
+**Trial reminders:** desktop banner from day 23; `health.warnings` in the last 5 days. **Email reminders: NOT NOW — LOCKED (founder, session 43: "yes skip emails for now")**; revisit at launch if trial-to-paid conversion is weak.
+
+## 7. Other flows
+Sign-out (client revokes its own refresh token at the public endpoint; fallback Worker endpoint with the access token → BAPI `revoke_token`) · Delete everything (erasure + local sign-out + revoke; dialog says the subscription continues until cancelled, with the portal link) · Clerk account deletion cancels billing via `/clerk/webhook` · export always available (S3 and S4 ship together) · "sign out all computers" deferred · upgrade from 0.2.x: sign-in step on first run, no grace code, beta testers via `comp_until`.
+
+## 8. TLS, proxies, privacy
+- Account calls use reqwest's default native-tls backend (SChannel, OS roots, corporate inspection works) and the system proxy (PAC unsupported, documented). **TLS floor 1.2**, recorded as a divergence (Windows 10's SChannel has no 1.3; a 1.3-only floor would break inspecting proxies; the lease signature carries integrity). No `Cargo.toml` feature change.
+- No certificate pinning (CDN). Worker learns: user ID, subscription state, trial start, app version, clamped client clock, request IP, about one request a day per active install. Never vault content or anything key-derived.
+
+## 9. Coaching (S5, off the launch critical path)
+As v2 §9.
+
+## 10. Launch checklist (S6)
+Clerk production + DNS-only records · subdomain allowlist · per-consumer secret keys · opaque tokens · **Google OAuth app published "In production"** · Paddle live, **website review (visible pricing, terms, privacy naming Clerk/Paddle/Cloudflare and the daily lease call, refund policy)**, domain approval, dunning window, notification emails for failed webhooks · Cloudflare failure notifications · Bot Fight Mode off for the zone · Worker deploy with the kill switch documented · backup lease key generated offline · support email on the lock screen · daily manual check of Paddle failed deliveries and Worker errors during launch · live test with Claude Desktop (Store) and Cursor, including relays reading `%LOCALAPPDATA%\…\account` from inside the Store package · **signed Windows installer** (SmartScreen) — spend decision [FOUNDER, later].
+
+## 11. BRD divergences (ADR-SEC-022)
+As v2 §11, with item 10 now: TLS floor 1.2 (not 1.3).
+
+## 12. Round-2 findings → resolution
+| Finding | Resolution |
+|---|---|
+| Renewal gap still signs `ended`; Paddle error keeps an expired lease (B-X1) | §5 `+3 days`, active-flavoured error → signed active |
+| Short-lived keeper never runs the daily timer; denial decided before refresh (B-M2) | §4 refresh-then-decide; refresh at start |
+| Lock-mode restart loop (A4, B-M3) | §6.2 exit only on flip at `idle_tick`, `ModeChanged`, persisted attempt time |
+| Lease/anchor desync; unsigned anchor (A3, B-M4, B-N9) | §4 signed `client_time`, self-contained lease, `max()` merge |
+| Single signing key (B-M5) | §4 primary + offline backup |
+| `user.deleted` can't find the customer (A2, B-M6) | §5 page through + match `custom_data` |
+| 200-then-derive loses retries; just-paid lockout (A1, B-M7) | §5 synchronous derive, 5xx, live checks (b)(c), `subscription.*` only |
+| Cron exceeds free-plan subrequests (A5, B-M8) | §5 paged ±48 h, PATCH on change, Workers Paid at ~30 payers |
+| 30-day timer on wall clock (A6) | §4 anchored activity, evaluated after refresh |
+| past_due UX and fetch storms (A7) | §5 `payment_failed` state, message; fetch limits |
+| Other Paddle products (A8) | §5 price-ID allowlist |
+| 30 s lock wait inside a call (A9) | §4 ≤ 2 s |
+| EntitledServer fragility / task path (A10, B-N11) | §6.1 `Service<RoleServer>`, exhaustive match, deny by default |
+| Short-circuit on "no lease file" (A11, B-N10) | §6.3 marker, double check |
+| Bot Fight Mode zone-wide (A12) | §5 off for the zone |
+| TLS floor (A13) | §8 native-tls, 1.2, divergence |
+| Allowlist proves names only (B-N12) | §6.4 typed token |
+| Store-packaged relay reading `%LOCALAPPDATA%` (B-N13) | §4 relays never write; §10 live test |
+| Launch gaps (A, B) | §10 |
+
+## 13. Round-3 edits (reviewer B: "DO NOT LOCK as written; make two one-line edits, then lock")
+| Finding | Edit |
+|---|---|
+| T1 MAJOR: a +/-24 h clamp on `client_time` permanently locks a user whose clock is more than a day slow | §4: `client_now` signed unclamped; clock message is informational only; residual recorded |
+| T2 MAJOR: "newer lease replaces the record outright" could wipe `last_active_anchor` and sign everyone out | §4: only `floor` is lease-scoped; activity and attempt times always `max()`; anchor seeded at sign-in |
+| Activity anchor should be server time | §4: `last_active_anchor = issued_at + elapsed` |
+| Price-ID allowlist can lock new subscribers after a price change | §5: product-ID allowlist on fetched items |
+| `synced_at` skip must not apply to the just-paid check | §5 |
+| Gate must not delay `initialize` | §6.1: Ping/Initialize/ListTools never consult the check |
+| Lock-wait wording contradictory | §4: wait <= 2 s, then decide from disk |
+| Lock mode cannot be `NeverEntitled` and still say "unlocking" | §6.2: `LockModeCheck` |
+| "A clock that far off breaks TLS" was inaccurate | removed |
+
+## 14. Round-3 edits (reviewer A: "LOCK, with wording-level edits")
+| Finding | Edit |
+|---|---|
+| Use the stored floor only for the same lease | §4 keyed floor |
+| 10-minute live-fetch limit fights the 10 s post-checkout poll | §4 / §5: every 30 s while `checkout_at` is within 1 h |
+| Locked task-style `CallTool` | §6.1: inner invalid-params error; list requests delegate |
+| Lock mode needs the real check to detect a flip | §6.2 |
+| `ModeChanged` can cut off a call in flight | §6.2: refresh first, wait for in-flight calls |
+| Refresh traffic from churned trials | §4: hourly back-off after a signed `ended` |
+| Kill switch grants abandoned checkouts open-ended access | §5: kill-switch leases last 3 days |
+| (A's clamped-clock lockout note) | already resolved by reviewer B's T1 edit (no clamp) |
+
+**Status: both reviewers' round-3 edits applied. Reviewer A: LOCK. Reviewer B: LOCK once T1/T2 are in (they are). Ready for founder approval.**
+
+## 15. S0 spike results (run live against the dev instance, 2026-09-17)
+Script `pkce-spike.mjs`, log `spike-log.jsonl` (no token value was ever printed or stored). OAuth app `Zaaheen for Windows`, public + PKCE, scopes `openid profile email offline_access`.
+
+| Question | Answer |
+|---|---|
+| (a) OAuth application on the free plan | **Yes** — created on the dev (Hobby) instance |
+| (b) Random loopback port | **Yes** — `http://127.0.0.1/callback` registered once; ports 52686 and 50072 both accepted (authorize pre-check 302 → `/sign-in`, then a real callback) |
+| (c) Refresh token with `offline_access` | **Yes** — 48-char opaque refresh token; access token 36-char **opaque** (not a JWT), `expires_in` 86400 |
+| (d) Refresh-token rotation | **Yes, with reuse detection.** A refresh returns a NEW refresh token; replaying the old one fails `invalid_grant` ("The refresh token was already used") **and kills the successor too** — the whole grant dies |
+| (e) Survives a browser sign-out | **Yes** — after signing out in the browser, the refresh still worked (200) |
+| (f) Public revocation | **Yes** — `POST /oauth/token/revoke` with `token` + `client_id`, no secret, returned **200**; the refresh then failed and the access token was gone ("OAuth Access Token not found"). `/v1/signout` stays dropped |
+| (g) Consent frequency | Second authorize completed in 36 s with interaction; founder observation pending. Treat as "may appear each time" |
+| (h) `iss` in the callback | **Yes** — matches the issuer exactly (RFC 9207); the client checks it |
+| (i) Claims | userinfo: `sub`, `user_id`, `email`, `email_verified`, `given_name`, `family_name`, `name`, `instance_id`, `object`. `id_token`: adds `sid`, `auth_time`, `at_hash`, `jti`, `rat`; `aud` = our client id; lifetime 86400 |
+| (j) Account Portal lists grants | **No** — its Security section lists browser devices only ("Windows / Edge"), not the desktop app. The app's own "Signed in on this computer" stands (D-BRD-3) |
+| extra | Authorization-code replay is rejected (`invalid_grant`) |
+| extra | BAPI `access_tokens/verify` returns `client_id`, `subject`, `scopes`, `revoked`, `expired` — exactly what the Worker needs |
+
+**Design change forced by (d) — refresh-token rotation with reuse detection (amends §4):**
+- Every refresh MUST hold `refresh.lock`. A process that cannot take the lock **never refreshes**; it waits (≤ 2 s) and re-reads.
+- After a refresh returns, the new refresh token is written to the credential store **before** the new lease is written, and the write is confirmed before the old token is considered spent.
+- On `invalid_grant`: **re-read the store once** (another process may have rotated the token a moment earlier) and retry with what is there. Only if that also fails is the state `signed_out`. A rotation race must never look like a sign-out.
+- Residual: a crash between "Clerk issued a new token" and "the store wrote it" spends the old token and ends the grant; the user signs in again. Window is milliseconds; accepted and recorded.
+
 ## 9 · 📇 ADR index
 
 Full text of every ADR lives in an archive — cross-link by number, **quote don't paraphrase** ([[feedback_quote_locked_artefacts_dont_paraphrase]]).
+
+**In-flight (full text in §8.26) — SESSION 43:** **ADR-104 + ADR-SEC-022** (sign-in, trial and subscription for the desktop app AND coaching: Clerk OAuth public client + PKCE on a loopback port, refresh token in Credential Manager, an Ed25519 **lease** from a Cloudflare Worker that the app verifies offline for 30 days, Paddle as merchant of record with billing state **derived by re-fetching Paddle** rather than patched per webhook, a `Service<RoleServer>` gate that answers locked calls as `isError`, keeper lock mode, export always available, coaching sign-in before booking; three review rounds, S0 spike live-verified; founder decisions: 30 offline days, `comp_until` for beta testers, subscribe from the app, no reminder emails yet).
 
 **In-flight (full text in §8.25) — SESSION 42:** **ADR-SEC-021** (rmcp `=2.2.0` for GHSA-9pj6 + GHSA-33f5, deliberately past Dependabot's 2.0.0 because its line reader drops a cancelled half-read request (rust-sdk #941); rustls 0.23.45 for RUSTSEC-2026-0285; `Content` → `ContentBlock`; pinned by `transport_cancel_safety.rs`; CI-only verification; live-test protocol negotiation before the next installer). **Amendment 1 (session 43):** the tool contract changed (rmcp 2.x strips the input schemas' top-level title/description), so `WIRE` 1 → 2; malformed arguments now arrive as `isError`; CI round-trips were replaced by source pre-screening (D4c/d/e, D5a).
 
