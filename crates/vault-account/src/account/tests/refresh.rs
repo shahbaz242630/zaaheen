@@ -13,7 +13,7 @@ async fn refresh(world: &World, trigger: Trigger, now: i64) -> RefreshOutcome {
 fn issued_at(outcome: &RefreshOutcome) -> i64 {
     match outcome {
         RefreshOutcome::Refreshed(lease) => lease.issued_at(),
-        other => panic!("expected Refreshed, got {other:?}"),
+        other => panic!("expected Refreshed, got {}", outcome_kind(other)),
     }
 }
 
@@ -310,7 +310,7 @@ async fn a_signed_ended_is_written_and_decides() {
             assessment.entitlement,
             Entitlement::Denied(Denial::Ended { was_paid: false })
         ),
-        other => panic!("{other:?}"),
+        other => panic!("unexpected status: {}", status_kind(&other)),
     }
     assert!(world.has(MARKER_FILE), "ended is not signed out");
 }
@@ -419,7 +419,9 @@ async fn two_refreshes_at_once_reach_the_server_once() {
     assert_eq!(
         calls.load(Ordering::SeqCst),
         1,
-        "one refresher: {a:?} / {b:?}"
+        "one refresher: {} / {}",
+        outcome_kind(&a),
+        outcome_kind(&b)
     );
     assert_eq!(issued_at(&a), T0 + DAY);
     assert_eq!(issued_at(&b), T0 + DAY);
