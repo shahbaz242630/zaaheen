@@ -46,12 +46,34 @@ export function deriveBilling(subscriptions: readonly unknown[], productId: stri
   return best;
 }
 
-function deriveOne(sub: unknown, productId: string): Derived {
+const SUBSCRIPTION_ID = /^sub_[a-z0-9]{26}$/;
+
+/**
+ * Ids of our subscriptions whose status is one of `statuses` (for
+ * `/v1/checkout`'s "already subscribed" check, §5). One of ours without a
+ * readable id is a BillingError, like any unreadable data of ours.
+ */
+export function ourSubscriptionIds(subscriptions: readonly unknown[], productId: string, statuses: readonly string[]): string[] {
+  const ids: string[] = [];
+  for (const sub of subscriptions) {
+    if (!isOurs(sub, productId)) continue;
+    if (typeof sub["status"] !== "string" || !statuses.includes(sub["status"])) continue;
+    const id = sub["id"];
+    if (typeof id !== "string" || !SUBSCRIPTION_ID.test(id)) throw new BillingError("a subscription of ours has no readable id");
+    ids.push(id);
+  }
+  return ids;
+}
+
+function isOurs(sub: unknown, productId: string): sub is Record<string, unknown> {
   if (!isObject(sub)) throw new BillingError("a subscription is not an object");
   const items = sub["items"];
   if (!Array.isArray(items)) throw new BillingError("a subscription's items are not a list");
-  const ours = items.some((item) => isObject(item) && isObject(item["price"]) && item["price"]["product_id"] === productId);
-  if (!ours) return { active_until: null, payment_failed: false };
+  return items.some((item) => isObject(item) && isObject(item["price"]) && item["price"]["product_id"] === productId);
+}
+
+function deriveOne(sub: unknown, productId: string): Derived {
+  if (!isOurs(sub, productId)) return { active_until: null, payment_failed: false };
 
   try {
     switch (sub["status"]) {
