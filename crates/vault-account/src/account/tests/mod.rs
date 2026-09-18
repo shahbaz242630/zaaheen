@@ -378,6 +378,26 @@ impl World {
     }
 }
 
+/// The kind of a status, for failure messages. Tests never print a lease or
+/// an account's contents, even fake ones: CodeQL's cleartext-logging rule
+/// cannot tell test data from real, and the habit is the right one anyway.
+pub(super) fn status_kind(status: &Status) -> &'static str {
+    match status {
+        Status::SignedOut => "SignedOut",
+        Status::NoLease { .. } => "NoLease",
+        Status::Leased { .. } => "Leased",
+    }
+}
+
+/// The kind of a refresh outcome, for failure messages (see [`status_kind`]).
+pub(super) fn outcome_kind(outcome: &RefreshOutcome) -> &'static str {
+    match outcome {
+        RefreshOutcome::Refreshed(_) => "Refreshed",
+        RefreshOutcome::SignedOut(_) => "SignedOut",
+        RefreshOutcome::Skipped(_) => "Skipped",
+    }
+}
+
 pub(super) fn code() -> AuthorizedCode {
     AuthorizedCode {
         code: Zeroizing::new("code_1".into()),
@@ -458,7 +478,7 @@ async fn a_wrong_clock_is_reported_at_sign_in_and_changes_nothing_else() {
             assessment.entitlement,
             Entitlement::Entitled { .. }
         )),
-        other => panic!("{other:?}"),
+        other => panic!("unexpected status: {}", status_kind(&other)),
     }
 }
 
@@ -489,7 +509,7 @@ async fn status_reads_the_folder_without_the_network() {
             assert_eq!(lease.sub(), SUB);
             assert_eq!(assessment.elapsed, HOUR);
         }
-        other => panic!("{other:?}"),
+        other => panic!("unexpected status: {}", status_kind(&other)),
     }
     assert_eq!(world.oauth.seen().len() + world.worker.seen().len(), before);
 }
@@ -617,6 +637,6 @@ async fn denials_are_reported_through_status() {
             assessment.entitlement,
             Entitlement::Denied(Denial::DeadlinePassed | Denial::OfflineTooLong)
         )),
-        other => panic!("{other:?}"),
+        other => panic!("unexpected status: {}", status_kind(&other)),
     }
 }
