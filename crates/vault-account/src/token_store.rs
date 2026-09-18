@@ -45,7 +45,9 @@ use zeroize::{Zeroize, Zeroizing};
 use crate::error::{AccountError, AccountResult};
 use crate::oauth::RefreshToken;
 
-/// Credential service name.
+/// Credential service name. Only the Windows store and the tests name it;
+/// elsewhere nothing would use it (V0.2's store is Windows-only).
+#[cfg(any(windows, test))]
 pub const SERVICE: &str = "com.zaaheen.account";
 
 /// Credential user name.
