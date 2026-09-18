@@ -17,6 +17,8 @@
 - **An independent review of the crate found one real defect, now fixed:** a refused save of a rotated token would have signed the user out one refresh later (`SIGNIN-DESIGN.md` §8.27, last bullet). The 4 new tests failed before the fix.
 - **Re-run after both fixes: all green.** `build --workspace` 0 warnings; `clippy --workspace --all-targets -D warnings` clean (between them the two runs linted every workspace crate; crates with a build script log "Compiling", not "Checking"); `fmt --check` clean; `test -p vault-account` 205/0, 10 of 10 repeat runs.
 
+- **Committed `4bb3e0d` on `feat/s1-vault-account`, PR #67.** Its first CI run failed on macOS (and would have on Linux): `constant SERVICE is never used`. Only the Windows store and the tests use it, so it is dead code off Windows. That is the trap in memory `feedback_cfg_gate_transitively_platform_only_items`. Fixed by `#[cfg(any(windows, test))]`; local tests 205/0.
+
 **Do, in order:**
 1. **Gates green (done)** → show the founder what is staged and the commit message, then ask. **One yes covers commit and push** (memory `feedback_confirm_before_commit_push`). The commit goes to a new branch (e.g. `feat/s1-vault-account`) with a PR to `main`. It carries the crate, `Cargo.toml` + `Cargo.lock`, this file, `HANDOFF_V0.2_PART4_ARCHIVE.md` and `SIGNIN-DESIGN.md`.
 2. **CI green on every workflow** (§6), fix any red in the same session, then merge by rebase with founder approval, pinning the full head sha.
