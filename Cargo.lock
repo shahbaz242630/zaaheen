@@ -9931,6 +9931,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
+name = "vault-account"
+version = "0.2.2"
+dependencies = [
+ "base64 0.22.1",
+ "dryoc",
+ "getrandom 0.2.17",
+ "keyring-core",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "subtle",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "url",
+ "vault-core",
+ "windows-native-keyring-store",
+ "zeroize",
+]
+
+[[package]]
 name = "vault-app"
 version = "0.2.2"
 dependencies = [
