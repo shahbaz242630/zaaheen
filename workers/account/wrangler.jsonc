@@ -1,9 +1,12 @@
-// The account Worker (SIGNIN-DESIGN.md §5). Not deployed yet: S2 step 1 is
-// the offline core (lease signing, billing derivation, the lease decision).
-// Routes, secrets and the cron arrive with the endpoints.
+// The account Worker (SIGNIN-DESIGN.md §5). Not deployed yet. Every
+// account-specific value (keys, secrets, Clerk and Paddle ids) is a
+// Cloudflare secret, or `.dev.vars` locally (gitignored), never this file
+// (§8.30): see `src/config.ts` for the names. Routes arrive with the deploy.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "zaaheen-account",
   "main": "src/index.ts",
-  "compatibility_date": "2026-09-01"
+  "compatibility_date": "2026-09-01",
+  // The renewal sweep (src/sweep.ts), daily at 03:17 UTC.
+  "triggers": { "crons": ["17 3 * * *"] }
 }

@@ -2,7 +2,7 @@
 
 > **Live text.** Moved out of `HANDOFF.md` on 2026-09-18 (session 44) so the handoff stays short; the words below are unchanged from HANDOFF §8.26 (locked 2026-09-17, session 43) and §8.27 (amendment 1, session 44). Build S2–S6 against this file, quote it, don't paraphrase it, and record any change here as a numbered amendment. Account identifiers never go here (this repo is public): they live in the local `OPS-HANDOFF.md`.
 
-**Build order:** S0 PKCE spike ✅ · S1 `crates/vault-account` ✅ built (session 44) · S2 Worker + `/pay` page (step 1, the offline core: built session 45, §8.29) · S3 gate + keeper lock mode + desktop UI · S4 export (ships with S3) · S5 coaching · S6 production + live test.
+**Build order:** S0 PKCE spike ✅ · S1 `crates/vault-account` ✅ built (session 44) · S2 Worker + `/pay` page (step 1, the offline core, and step 2, the endpoints: built session 45, §8.29–§8.30) · S3 gate + keeper lock mode + desktop UI · S4 export (ships with S3) · S5 coaching · S6 production + live test.
 
 ---
 
@@ -312,6 +312,67 @@ Implementation choices §5 left open, each pinned by a test in `workers/account/
 - The kill switch never calls Paddle.
 - The `payment_failed` flag gives state `payment_failed` whenever `now < max(active_until, comp_until)` (literal §5).
 
-**Left for step 2 (the endpoints):** validating the `/v1/lease` request body, the Clerk and Paddle clients (paging and error mapping), and the Clerk metadata-merge check above.
+**Left for step 2 (the endpoints):** validating the `/v1/lease` request body, the Clerk and Paddle clients (paging and error mapping), and the Clerk metadata-merge check above. *(All done in step 2, §8.30.)*
 
 **Evidence:** 103 Worker tests and 3 new `vault-account` tests. 17 planted bugs each turned a test red: 4 in lease signing, 12 in the rules, 1 in the Rust vector check. Each was run once and then restored byte for byte.
+
+## 8.30 · ADR-104 / ADR-SEC-022 amendment 4 (2026-09-18, session 45) — decisions made building S2 step 2 (the Worker's endpoints)
+
+Implementation choices §5 left open, each pinned by a test in `workers/account/test/`. None changes a locked rule. Still nothing is deployed and no account is touched: Clerk and Paddle are fakes in every test.
+
+**Configuration:**
+- Every account-specific value is a Cloudflare secret, or `.dev.vars` locally (gitignored). None is in `wrangler.jsonc`.
+- The names: `CLERK_SECRET_KEY`, `CLERK_OAUTH_CLIENT_ID`, `CLERK_WEBHOOK_SECRET`, `PADDLE_API_KEY`, `PADDLE_ENVIRONMENT`, `PADDLE_PRODUCT_ID`, `PADDLE_PRICE_MONTHLY`, `PADDLE_PRICE_ANNUAL`, `PADDLE_WEBHOOK_SECRET`, `LEASE_PRIMARY_KID`, `LEASE_PRIMARY_KEY`, and `NEVER_END_PAYERS` (on only for exactly `1`).
+- Anything missing or inconsistent makes every route answer 503. That includes a Paddle key whose prefix does not match `PADDLE_ENVIRONMENT`: a live key against the sandbox, or the reverse, is a deploy mistake.
+
+**Clerk (BAPI spec 2026-05-12):**
+- A token is refused (401) only on a definitive answer: another app's `client_id`, `revoked`, `expired`, an inactive JWT, 400 or 404.
+- Our own key refused (401/403), 429, 5xx, no network, or a 200 we cannot read is an upstream error (503), **never a 401**, so a Worker-side fault can never look like the user's token being bad.
+- A user Clerk no longer has is 401.
+- **§8.29's open point is closed:** `PATCH /v1/users/{id}/metadata` deep-merges, and "You can remove metadata keys at any level by setting their value to `null`" (spec, quoted).
+
+**Paddle:**
+- A `next` page link is followed only on Paddle's own API host, so the key is never sent elsewhere.
+- One customer's list reads at most 5 pages. Running out is an upstream error, never a derivation from a partial list.
+- The all-customers list (for `/clerk/webhook`) reads at most 20 pages of 200. The sweep reads exactly one.
+
+**`/v1/lease`:**
+- A bad request is refused before any upstream call: 400 for the body (at most 1 KB; unknown fields ignored), 401 for a missing or malformed `Authorization`.
+- The signing key is imported before any upstream call, so a broken deploy fails before it writes anything.
+- `Cache-Control: no-store` on every answer. Error bodies are fixed codes that never echo a token, a key or an upstream body.
+
+**`/v1/checkout`:**
+- **The record (`paddle_customer_id`, `checkout_at`) is written before the transaction is created.** A checkout that could not be recorded is never started (503).
+- A customer already in the record is used as it is. Otherwise the user's primary email finds one by exact match (Paddle's `email` filter), or creates one. A 409 creation race re-reads once. An email containing a comma is refused, because the filter is a comma-separated list.
+- A user with no email gets 422 `no_email`, and nothing is created.
+- "Already subscribed" means one of our product's subscriptions is `active` or `past_due` (a live fetch). `paused` or `canceled` goes to a new checkout.
+- The portal link must be `https` on `paddle.com` or one of its subdomains.
+
+**`/paddle/webhook`:**
+- **Binding rule.** A subscription's `custom_data.clerk_user_id` can be set by a buyer's own browser (Paddle.js `customData`, "stored against the transaction and subscription"). So a record is updated only when it **already names that Paddle customer**, and that link is made only by our authenticated `/v1/checkout`. A forged tag cannot point anyone's payment at another account.
+- The derivation re-fetches the customer's current list. The event's own copy is never used.
+- A genuine event that changes nothing answers 200, so Paddle stops retrying: another event type, no user tag, a user gone, or an unbound record.
+- Body at most 256 KB (413 otherwise). The `ts` tolerance is ±5 s, both directions, and any `h1` may match.
+
+**`/clerk/webhook` (Svix):**
+- Signature: HMAC-SHA256 over `id.timestamp.body`, keyed with the base64 part of the `whsec_` secret. Any `v1` entry in the list may match; other versions are ignored.
+- The timestamp tolerance is ±5 minutes, the default of Svix's own libraries. Body at most 64 KB.
+- **Cancelling:** it lists our two prices with status `active,past_due,paused` and cancels with `effective_from: immediately` every subscription tagged with the deleted user's id. A forged tag only ever cancels the forger's own subscription.
+
+**The sweep (the daily cron, 03:17 UTC):**
+- It reads one page of our `active,past_due` subscriptions and takes those whose period ends within ±48 h inclusive, one per user.
+- It applies the webhook's binding rule.
+- **It counts its own outbound calls** (budget 45 < 50, 3 per user) and reports how many it left for the next run. One user's failure is logged and skipped.
+
+**Accepted residuals:**
+- A signed-in user can create many unpaid checkout transactions. They are only drafts, and each costs us nothing.
+- Flooding `/v1/lease` with bogus tokens costs Clerk verify calls. Flood protection (the rate-limit binding, or a Cloudflare rule) comes with the deploy, step 3.
+- Record writes are blind merges (Clerk has no version check). Two invocations for the same user at the same moment (say a lease refresh and a webhook) can each patch from the same snapshot, and the later write wins for the fields both changed. Both derive from Paddle's live list, and the next lease call, webhook or sweep re-derives, so it corrects itself. It never clears `trial_started_at` or touches `comp_until`, because patches only carry changed fields. Raised as informational by the step-2 review; accepted.
+
+**Not yet (step 3):**
+- The sandbox's **default payment link** must be set before Paddle will create any transaction.
+- The `/pay` page.
+- The first deploy.
+- A live test against the Zaaheen sandbox.
+
+**Evidence:** 261 Worker tests inside workerd. 32 new planted bugs, each caught, then restored byte for byte, and all 17 of step 1's still caught against the full suite: 8 for the clients, config and `/v1/lease`; 6 for checkout; 6 for the Paddle webhook; 7 for the Clerk webhook; 5 for the sweep.

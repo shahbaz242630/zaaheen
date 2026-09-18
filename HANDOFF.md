@@ -8,32 +8,44 @@
 
 ---
 
-## 1 · 🟢 Next — S2 step 2: the Worker's endpoints
+## 1 · 🟢 Next — S2 step 3: the `/pay` page and the first deploy
 
 **State (2026-09-18, session 45, mid-session):**
-- **`main` = `99ff08e`, every workflow green** (checked at session open; the 2026-09-14 secret-scan cron failure predates the session-43 fix).
-- **S2's two questions are answered** (`SIGNIN-DESIGN.md` §8.28): the rate-limit binding is on the free plan as far as the docs go (confirm at the first deploy), and it cannot carry §5's per-user limits, so those use `live_fetch_at` in the record. Paddle domain approval is needed for live only, so S2 is built against the sandbox.
-- **S2 step 1, the Worker's offline core, is built and uncommitted** (`workers/account/`, `SIGNIN-DESIGN.md` §8.29):
-  - lease signing (WebCrypto Ed25519), the Paddle derivation, the Clerk record and the `/v1/lease` decision;
-  - 103 Worker tests inside workerd; 3 new `vault-account` tests (`lease::worker_vectors`), crate total 208/0;
-  - shared vectors that Node, workerd and dryoc must all agree on byte for byte;
-  - 17 planted bugs, each caught;
-  - **an independent read-only review found one real deviation, fixed tests-first:** case (b) stopped re-checking Paddle, once any sync had happened, for a customer who never had a paid period. A payment landing after 24 h with a lost webhook would have stayed locked out (§8.29);
-  - `tsc` clean; the CI steps replayed from a clean install;
-  - CI job "account Worker (types + tests)" and CodeQL job "Analyse (TypeScript)" added. Neither is a required check yet: adding them to the "main protection" ruleset is a settings change for the founder's yes.
-- **Tooling:** Node 24.19.0 via fnm (`fnm exec --using=24 -- npm.cmd ...` from PowerShell). Node 22's npm 10.9.8 crashes on this tree (`edgesOut`).
+- **S2 step 1 is merged:** PR #68 → `main` `8b99454` (rebase; its tree is identical to the tested `468bee1`). PR #68's checks were all green on 3 OSes; `vault-account` ran 208/208 on Windows CI.
+  - `main`'s own push run was still going at the last look: everything had passed except Windows build + test, which was 35 min in. **Check it.**
+- **S2 step 2, the endpoints, is built and uncommitted** (`SIGNIN-DESIGN.md` §8.30): `/v1/lease`, `/v1/checkout`, `/paddle/webhook`, `/clerk/webhook` and the daily sweep (cron 03:17 UTC), with the Clerk and Paddle clients.
+  - 261 Worker tests inside workerd; `tsc` clean.
+  - 32 new planted bugs, each caught, and step 1's 17 still caught against the full suite.
+  - Contracts were read from Clerk's BAPI spec, Paddle's API reference and docs, and Svix's docs. Nothing was guessed. Clerk's metadata deep-merge (null deletes a key) is confirmed.
+  - **Security rule found while reading Paddle's docs:** a buyer's browser can set `custom_data`, so the Paddle webhook and the sweep only update a record that already names that Paddle customer. Only our own authenticated `/v1/checkout` makes that link.
+  - **Independent review: no defects.** Its one informational point (blind-merge races, self-correcting) is recorded as an accepted residual in §8.30.
+  - **Next:** commit + PR (founder yes), then CI.
+- **Product decisions (founder, session 45):**
+  - buyers see the product name **"Zaaheen"**, with prices "Monthly" ($5) and "Yearly" ($48);
+  - **tax is added on top, everywhere** (Paddle `tax_mode: external`), because Paddle's own fee already takes 5%. The live prices must match, and the pricing page should say "plus applicable tax" (wording to confirm with the adviser).
+- **Account-side status** (the bank, Stripe, the Paddle and Cloudflare accounts, keys and ids) lives only in the local `OPS-HANDOFF.md`, section F.
+- **Tooling:** Node 24.19.0 via fnm (`fnm exec --using=24 -- npm.cmd ...` from PowerShell). Node 22's npm 10.9.8 crashes on this tree (`edgesOut`). **Edit files with Write/Edit or a `.mjs` file, never `node -e` inside double-quoted bash:** backticks got executed twice this session (memory `feedback_no_backticks_in_double_quoted_bash`).
 - **Standing approval (founder, session 44):** small `cargo test -p <crate in hand>` runs need no ask. Whole-app builds, every commit and every merge still do.
 
 **Do, in order:**
-1. Finish step 1: commit + PR (founder yes), then CI on every workflow. Done so far: the review, and the whole-app gates (founder yes; warm, about 1 min): `build --workspace` 0 warnings, `clippy --workspace --all-targets -D warnings` clean, `fmt --check` clean, `test -p vault-account` 208/0.
-2. **S2 step 2: the endpoints** (`/v1/lease`, `/v1/checkout`, `/paddle/webhook`, `/clerk/webhook`, the cron). They need:
-   - the Clerk and Paddle clients, confirming Clerk's metadata merge (§8.29);
-   - `/v1/lease` request validation;
-   - the lease signing keys: the primary is generated for Cloudflare Secrets; **the backup is generated offline by the founder and its private half never touches a server**;
-   - tests first, and one independent read-only review before the commit (memory `feedback_independent_review_before_security_commit`).
+1. **Finish step 2:** act on the review's findings (tests-first), then commit + PR (founder yes), then CI on every workflow. Step 2 touched no Rust, so the cargo gates only need `fmt --check`.
+2. **S2 step 3: the `/pay` page, then the first deploy.**
+   - Set the sandbox's **default payment link** (Paddle refuses to create any transaction without one).
+   - Build `/pay` (Paddle.js v2 overlay, `_ptxn` only), reusing the founder's other live, Paddle-approved site for the pattern and the CSP entries (memory `reference_affiliate_site_paddle_reuse`). Its code, account and keys are not reused.
+   - The lease signing keys: the primary is generated for Cloudflare Secrets; **the backup is generated offline by the founder and its private half never touches a server.**
+   - The first deploy: flood protection (the rate-limit binding, or a Cloudflare rule; confirm the binding on the free plan), secrets set by clipboard, then a live test against the Zaaheen sandbox.
+   - **The Cloudflare login stays as it is** (founder). The recommended "add the company login as a second admin" is noted in the local `OPS-HANDOFF.md` for when he wants it; don't raise it before the deploy.
    - Work step by step with the founder: one item, show it, ask only that item's decision.
-3. **S2 step 3:** the `/pay` page (Paddle.js, sandbox), then the first deploy (confirms the rate-limit binding on the free plan).
-4. Then **S3** (the gate in vault-mcp, keeper lock mode, the desktop sign-in step, account panel and lock screen), with **S4** (export) in the same release. Then **S5** (coaching) and **S6** (production and the live test). The build order and every rule is in `SIGNIN-DESIGN.md`. S3's wiring rules are in its §8.27.
+4. Then **S3** (the gate in vault-mcp, keeper lock mode, the desktop sign-in step, account panel and lock screen), with **S4** (export) in the same release. The build order and every rule is in `SIGNIN-DESIGN.md`. S3's wiring rules are in its §8.27.
+5. **Then: the user chooses where their memories live** (founder, 2026-09-18: "add it to the plan after S3 + S4"). Write its design (ADR-105 + an ADR-SEC, BRD §11 re-read) once S2 is finished; build it right after S3 + S4, whose onboarding it adds a step to.
+   - **Onboarding:** "Your memories will be saved here: [default] — Change…". The native folder picker (drives, "New folder"); the default is preselected. Settings gets "Move my memories".
+   - **One location for every process:** the desktop app, the keeper, every relay and the nightly maintenance runner (so consolidation follows the vault). Today they all resolve `%APPDATA%\com.zaaheen.app` (`vault-app/src/install_paths.rs::data_dir`, Tauri's `app_data_dir`), so a pointer at the default location is the likely shape. Models stay where they are.
+   - **Must-haves:**
+     - refuse cloud-synced folders (OneDrive, often behind "Documents"; Dropbox; Google Drive; iCloud) and network drives, because sync clients corrupt a database mid-write;
+     - an external drive that is missing means "reconnect your drive", never a new empty vault (a drive letter can change);
+     - a folder on exFAT/FAT32 has no Windows permissions, so the ADR-SEC-019 ACL cannot apply there (the files stay encrypted).
+   - **Say it plainly in the UI:** a USB drive does not carry memories to another computer (the key stays in this computer's Credential Manager). That needs the BRD §11.5.4 backup and restore.
+6. Then **S5** (coaching) and **S6** (production and the live test).
 
 **Lessons from session 44, already saved in memory:**
 - Gate every item used only by `#[cfg(windows)]` code, constants included (`feedback_cfg_gate_transitively_platform_only_items`).
@@ -54,7 +66,7 @@
 ### The sign-in and subscription arc (ADR-104 + ADR-SEC-022)
 - **Locked design: `SIGNIN-DESIGN.md`.** Clerk OAuth public client with PKCE on a loopback port; the refresh token in Windows Credential Manager; an Ed25519 lease from a Cloudflare Worker, verified offline for up to 30 days; Paddle as merchant of record; the keeper as the one gate; export always available.
 - **Business model:** a 30-day trial with no card, then $5/month or $48/year (BRD §1.6 amendment 1). Beta testers get a per-person `comp_until` date.
-- **S0 spike: done** (session 43). **S1: merged** (session 44, `main` `99ff08e`). **S2: step 1 built** (session 45, the Worker's offline core, `SIGNIN-DESIGN.md` §8.29).
+- **S0 spike: done** (session 43). **S1: merged** (session 44, `main` `99ff08e`). **S2: steps 1 and 2 built** (session 45: the Worker's offline core, merged as `8b99454`, and its endpoints; `SIGNIN-DESIGN.md` §8.29–§8.30). Step 3 (`/pay` and the first deploy) is next.
 - **What S1 is.** `crates/vault-account` (no other crate depends on it yet):
   - `PendingSignIn`: PKCE and the loopback listener, with its adversarial suite.
   - `OAuthClient`: exchange, refresh, revoke, userinfo.
