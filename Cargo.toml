@@ -9,6 +9,7 @@ members = [
     "crates/vault-retrieval",
     "crates/vault-consolidator",
     "crates/vault-scheduler",
+    "crates/vault-account",
     "crates/vault-mcp",
     "crates/vault-sync",
     "crates/vault-connectors",
@@ -216,6 +217,15 @@ windows-native-keyring-store = "=1.0.0"
 # small crates already in the resolved transitive tree pre-Phase-1.
 getrandom = "=0.2.17"
 hex = "=0.4.3"
+
+# Account sign-in (ADR-104 + ADR-SEC-022, S1 vault-account). Both were already
+# in the resolved tree, so neither adds a crate to Cargo.lock:
+# - base64: the PKCE S256 challenge (RFC 7636 §4.2) and the lease wire format
+#   are base64url without padding. 0.22.1 is the version reqwest already pulls.
+# - subtle: constant-time comparison of the OAuth `state` (§8.26 §3).
+#   RustCrypto's crate; dryoc already depends on this exact version.
+base64 = "=0.22.1"
+subtle = "=2.6.1"
 
 # Hashing (BRD §11.9.2 audit log tamper-evident chain — added in T0.1.3, ADR-006)
 blake3 = "=1.8.5"

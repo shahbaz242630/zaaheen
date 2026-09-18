@@ -1,0 +1,62 @@
+[package]
+name = "vault-account"
+description = "The desktop app's Zaaheen account: browser sign-in (OAuth PKCE on a loopback redirect), the refresh-token store, the signed entitlement lease and its offline time model. See ADR-104 + ADR-SEC-022 (SIGNIN-DESIGN.md)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Workspace-internal: the shared error catalogue only. §8.26 §2 fixes the
+# direction `vault-app → {vault-account, vault-mcp} → vault-core`; this crate
+# never sees the vault, its key, or vault-mcp.
+vault-core = { path = "../vault-core" }
+
+# Per-crate thiserror error enum, converted to VaultError at the workspace
+# boundary (BRD §2.4).
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+# The loopback listener (TcpListener, per-connection timeouts, JoinSet).
+tokio = { workspace = true }
+
+# Token endpoint + userinfo. Default features keep native-tls as the default
+# backend (SChannel on Windows, OS roots, corporate inspection works), which is
+# §8.26 §8's choice; no feature change (ADR-SEC-022 divergence 10: TLS floor 1.2).
+reqwest = { workspace = true }
+url = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# PKCE (RFC 7636): 32 random bytes, S256 challenge, base64url without padding.
+getrandom = { workspace = true }
+sha2 = { workspace = true }
+base64 = { workspace = true }
+
+# Constant-time comparison of the OAuth `state` (§8.26 §3).
+subtle = { workspace = true }
+
+# Ed25519 verification of the entitlement lease (§8.26 §4 names dryoc; the
+# workspace's one crypto crate, SP-5).
+dryoc = { workspace = true }
+
+# Codes, verifiers and tokens are wiped on drop (BRD §11.5.3).
+zeroize = { workspace = true }
+
+# The refresh token's store (§8.26 §3). Entries are built from this crate's
+# own store instance, never keyring-core's process-global default, which
+# vault-app sets and unsets around every master-key read.
+keyring-core = { workspace = true }
+
+[dev-dependencies]
+# Throwaway account folders.
+tempfile = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+# Windows Credential Manager, the only production store in V0.2 (as for the
+# vault key). Entries are written with `persistence=Local`, not the roaming
+# Enterprise default.
+windows-native-keyring-store = { workspace = true }
