@@ -1,6 +1,6 @@
 # Zaaheen (Memory Vault) — Build Handoff
 
-**Current version:** V0.2 Closed Beta (BRD §6.2). **Last updated:** 2026-09-18, session 44.
+**Current version:** V0.2 Closed Beta (BRD §6.2). **Last updated:** 2026-09-18, session 45.
 
 > **How to read this file.** §1 is what to do next; act on it. §2 is where things stand. §3–§7 are the working rules and reference. Everything older, including every full ADR, lives in the archives (§8): cross-link to them and quote them, never paraphrase. This file was reset to this short form in session 44 (founder request); the previous 2,632-line version is `HANDOFF_V0.2_PART4_ARCHIVE.md`, word for word.
 >
@@ -8,28 +8,36 @@
 
 ---
 
-## 1 · 🟢 Next — finish S1, then S2
+## 1 · 🟢 Next — S2 step 2: the Worker's endpoints
 
-**State (2026-09-18, mid-session 44):**
-- `main` = `be5fbd7`, every workflow green on it.
-- **S1 (`crates/vault-account`) is built and uncommitted:** 205 tests green, 0 warnings, fmt clean (details in §2).
-- **Whole-app gates, first run** (line-tables-only, `-j 2`, founder: keep the RAM pressure low; `target/debug` deleted first, `target/release` kept): `build --workspace` **passed, 0 warnings** (72 min cold). `clippy --workspace --all-targets -D warnings` **failed on 2 findings in `vault-account/src/pkce.rs`** (`needless_borrows_for_generic_args`). They were fixed without copying the secret out of its `Zeroizing` wrapper (`.as_slice()`, not clippy's `*bytes`). fmt passed.
-- **An independent review of the crate found one real defect, now fixed:** a refused save of a rotated token would have signed the user out one refresh later (`SIGNIN-DESIGN.md` §8.27, last bullet). The 4 new tests failed before the fix.
-- **Re-run after both fixes: all green.** `build --workspace` 0 warnings; `clippy --workspace --all-targets -D warnings` clean (between them the two runs linted every workspace crate; crates with a build script log "Compiling", not "Checking"); `fmt --check` clean; `test -p vault-account` 205/0, 10 of 10 repeat runs.
-
-- **Committed `4bb3e0d` on `feat/s1-vault-account`, PR #67.** Its first CI run failed on macOS (and would have on Linux): `constant SERVICE is never used`. Only the Windows store and the tests use it, so it is dead code off Windows. That is the trap in memory `feedback_cfg_gate_transitively_platform_only_items`. Fixed by `#[cfg(any(windows, test))]`; local tests 205/0. On `aaef410`, macOS and Linux went green (203 vault-account tests each: all but the 2 Windows-only live ones). CodeQL then raised 5 "cleartext logging" alerts, **all in test code**: failure messages printed whole `Status`/`RefreshOutcome` values (fake leases and subs). Tests now name only the kind of result (`status_kind`, `outcome_kind`).
+**State (2026-09-18, session 45, mid-session):**
+- **`main` = `99ff08e`, every workflow green** (checked at session open; the 2026-09-14 secret-scan cron failure predates the session-43 fix).
+- **S2's two questions are answered** (`SIGNIN-DESIGN.md` §8.28): the rate-limit binding is on the free plan as far as the docs go (confirm at the first deploy), and it cannot carry §5's per-user limits, so those use `live_fetch_at` in the record. Paddle domain approval is needed for live only, so S2 is built against the sandbox.
+- **S2 step 1, the Worker's offline core, is built and uncommitted** (`workers/account/`, `SIGNIN-DESIGN.md` §8.29):
+  - lease signing (WebCrypto Ed25519), the Paddle derivation, the Clerk record and the `/v1/lease` decision;
+  - 103 Worker tests inside workerd; 3 new `vault-account` tests (`lease::worker_vectors`), crate total 208/0;
+  - shared vectors that Node, workerd and dryoc must all agree on byte for byte;
+  - 17 planted bugs, each caught;
+  - **an independent read-only review found one real deviation, fixed tests-first:** case (b) stopped re-checking Paddle, once any sync had happened, for a customer who never had a paid period. A payment landing after 24 h with a lost webhook would have stayed locked out (§8.29);
+  - `tsc` clean; the CI steps replayed from a clean install;
+  - CI job "account Worker (types + tests)" and CodeQL job "Analyse (TypeScript)" added. Neither is a required check yet: adding them to the "main protection" ruleset is a settings change for the founder's yes.
+- **Tooling:** Node 24.19.0 via fnm (`fnm exec --using=24 -- npm.cmd ...` from PowerShell). Node 22's npm 10.9.8 crashes on this tree (`edgesOut`).
+- **Standing approval (founder, session 44):** small `cargo test -p <crate in hand>` runs need no ask. Whole-app builds, every commit and every merge still do.
 
 **Do, in order:**
-1. **Gates green (done)** → show the founder what is staged and the commit message, then ask. **One yes covers commit and push** (memory `feedback_confirm_before_commit_push`). The commit goes to a new branch (e.g. `feat/s1-vault-account`) with a PR to `main`. It carries the crate, `Cargo.toml` + `Cargo.lock`, this file, `HANDOFF_V0.2_PART4_ARCHIVE.md` and `SIGNIN-DESIGN.md`.
-2. **CI green on every workflow** (§6), fix any red in the same session, then merge by rebase with founder approval, pinning the full head sha.
-3. **S2: the account Worker (`api.zaaheen.com`) and the `/pay` page.** This is the first TypeScript/Cloudflare work in the repo. Before any code:
-   - read `SIGNIN-DESIGN.md` §5 and §8.27 in full (the lease-endpoint contract S1 already speaks);
-   - answer the two questions S2 owns: does the Workers rate-limit binding exist on the free plan, and is Paddle domain approval for `zaaheen.com` needed;
+1. Finish step 1: commit + PR (founder yes), then CI on every workflow. Done so far: the review, and the whole-app gates (founder yes; warm, about 1 min): `build --workspace` 0 warnings, `clippy --workspace --all-targets -D warnings` clean, `fmt --check` clean, `test -p vault-account` 208/0.
+2. **S2 step 2: the endpoints** (`/v1/lease`, `/v1/checkout`, `/paddle/webhook`, `/clerk/webhook`, the cron). They need:
+   - the Clerk and Paddle clients, confirming Clerk's metadata merge (§8.29);
+   - `/v1/lease` request validation;
    - the lease signing keys: the primary is generated for Cloudflare Secrets; **the backup is generated offline by the founder and its private half never touches a server**;
-   - tests first, as for S1.
-4. Then **S3** (the gate in vault-mcp, keeper lock mode, the desktop sign-in step, account panel and lock screen), with **S4** (export) in the same release. Then **S5** (coaching) and **S6** (production and the live test). The build order and every rule is in `SIGNIN-DESIGN.md`.
+   - tests first, and one independent read-only review before the commit (memory `feedback_independent_review_before_security_commit`).
+   - Work step by step with the founder: one item, show it, ask only that item's decision.
+3. **S2 step 3:** the `/pay` page (Paddle.js, sandbox), then the first deploy (confirms the rate-limit binding on the free plan).
+4. Then **S3** (the gate in vault-mcp, keeper lock mode, the desktop sign-in step, account panel and lock screen), with **S4** (export) in the same release. Then **S5** (coaching) and **S6** (production and the live test). The build order and every rule is in `SIGNIN-DESIGN.md`. S3's wiring rules are in its §8.27.
 
-**Ask the founder at session open:** has the bank account opened? (Applied 2026-09-17. Stripe for coaching waits on the bank letter.)
+**Lessons from session 44, already saved in memory:**
+- Gate every item used only by `#[cfg(windows)]` code, constants included (`feedback_cfg_gate_transitively_platform_only_items`).
+- Test failure messages name the kind of a result and never print account values, because CodeQL's cleartext-logging rule flags them (`feedback_tests_never_print_account_values`).
 
 ---
 
@@ -46,7 +54,7 @@
 ### The sign-in and subscription arc (ADR-104 + ADR-SEC-022)
 - **Locked design: `SIGNIN-DESIGN.md`.** Clerk OAuth public client with PKCE on a loopback port; the refresh token in Windows Credential Manager; an Ed25519 lease from a Cloudflare Worker, verified offline for up to 30 days; Paddle as merchant of record; the keeper as the one gate; export always available.
 - **Business model:** a 30-day trial with no card, then $5/month or $48/year (BRD §1.6 amendment 1). Beta testers get a per-person `comp_until` date.
-- **S0 spike: done** (session 43). **S1: built** (session 44), commit pending (§1).
+- **S0 spike: done** (session 43). **S1: merged** (session 44, `main` `99ff08e`). **S2: step 1 built** (session 45, the Worker's offline core, `SIGNIN-DESIGN.md` §8.29).
 - **What S1 is.** `crates/vault-account` (no other crate depends on it yet):
   - `PendingSignIn`: PKCE and the loopback listener, with its adversarial suite.
   - `OAuthClient`: exchange, refresh, revoke, userinfo.
@@ -64,7 +72,7 @@
 - **Accounts:** Clerk (dev instance set up), Microsoft 365, Paddle, Cloudflare and the bank. All details live **only** in the local `OPS-HANDOFF.md`; this repo is public.
 
 ### Recent sessions
-- **44 (2026-09-18):** S1 built, tests first (205 green), reviewed, one defect fixed; the whole-app build passed; handoff reset to this file.
+- **44 (2026-09-18):** S1 built tests first and merged (PR #67 → `99ff08e`, 205 tests, all CI green on 3 OSes). An independent review caught one real defect (a refused token save), fixed tests-first. CI caught a Windows-only dead constant and five test messages CodeQL flagged; both fixed. The handoff was reset to this file (old one archived word for word; the design moved to `SIGNIN-DESIGN.md`).
 - **43 (2026-09-17):** security PR #64 merged; the silently red secret scan fixed at both root causes; Clerk dev set up; ADR-104 + ADR-SEC-022 locked after three review rounds and a live spike.
 - **42 (2026-09-17):** rmcp 1.5.0 → 2.2.0 and rustls 0.23.45 for advisories (ADR-SEC-021), verified by CI only (founder: no local build).
 - **Before that:** see the archives, newest first in `HANDOFF_V0.2_PART4_ARCHIVE.md`.
@@ -171,6 +179,7 @@ Full rules live in memory (`~/.claude/projects/C--Projects-GitHub-Memory-Vault/m
 
 - **Repo:** `https://github.com/shahbaz242630/zaaheen` (public). **Local:** `C:\Projects\GitHub\Memory Vault`. **Spec:** `Agent_Build_Specification.txt` (the BRD, canonical).
 - **Crates:** vault-core, -storage, -embedding, -llm, -retrieval, -consolidator, -scheduler, **-account** (new), -mcp, -sync (stub; deferred), -connectors, -app, -cli (builds `zaaheen.exe`), -tauri (the desktop app).
+- **Workers:** `workers/account` (TypeScript, Cloudflare; `api.zaaheen.com`, not deployed yet). From PowerShell: `fnm exec --using=24 -- npm.cmd test` (tests run in workerd), `npm.cmd run types` then `npm.cmd run typecheck`.
 - **The founder's installed app:**
   - `C:\Program Files\Zaaheen\` (`zaaheen.exe`, `zaaheen-maintenance.exe`, the desktop exe);
   - vault: `%APPDATA%\com.zaaheen.app`;

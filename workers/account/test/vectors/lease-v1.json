@@ -1,0 +1,104 @@
+{
+  "note": "TEST KEYS ONLY (RFC 8032 section 7.1, TEST 1 = primary, TEST 2 = backup). Made by scripts/make-lease-vectors.mjs. Checked by workers/account/test/lease.test.ts and crates/vault-account/src/lease/tests.rs.",
+  "domain": "zaaheen-lease-v1\\0",
+  "public_keys": {
+    "primary": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+    "backup": "PUAXw-hDiVqStwqnTRt-vJyYLM8uxJaMwM1V8Sr0Zgw"
+  },
+  "cases": [
+    {
+      "name": "active, primary key",
+      "payload": {
+        "v": 1,
+        "kid": "primary",
+        "sub": "user_2abcDEF",
+        "state": "active",
+        "trial_ends_at": 1760000000,
+        "active_until": 1762600000,
+        "issued_at": 1760500000,
+        "client_time": 1760499990,
+        "offline_days": 30
+      },
+      "payload_json": "{\"v\":1,\"kid\":\"primary\",\"sub\":\"user_2abcDEF\",\"state\":\"active\",\"trial_ends_at\":1760000000,\"active_until\":1762600000,\"issued_at\":1760500000,\"client_time\":1760499990,\"offline_days\":30}",
+      "wire": "eyJ2IjoxLCJraWQiOiJwcmltYXJ5Iiwic3ViIjoidXNlcl8yYWJjREVGIiwic3RhdGUiOiJhY3RpdmUiLCJ0cmlhbF9lbmRzX2F0IjoxNzYwMDAwMDAwLCJhY3RpdmVfdW50aWwiOjE3NjI2MDAwMDAsImlzc3VlZF9hdCI6MTc2MDUwMDAwMCwiY2xpZW50X3RpbWUiOjE3NjA0OTk5OTAsIm9mZmxpbmVfZGF5cyI6MzB9.s6f8OA7JE0rQi65hbNzFPLdm_a8ffk1mS5tMR-Wk-1xtUrpS-IF8KUusp_Rv_1Ob3Ngin-0OCv3_--Z4i5ZhDw"
+    },
+    {
+      "name": "trial",
+      "payload": {
+        "v": 1,
+        "kid": "primary",
+        "sub": "user_2abcDEF",
+        "state": "trial",
+        "trial_ends_at": 1762592000,
+        "issued_at": 1760000000,
+        "client_time": 1760000007,
+        "offline_days": 30
+      },
+      "payload_json": "{\"v\":1,\"kid\":\"primary\",\"sub\":\"user_2abcDEF\",\"state\":\"trial\",\"trial_ends_at\":1762592000,\"issued_at\":1760000000,\"client_time\":1760000007,\"offline_days\":30}",
+      "wire": "eyJ2IjoxLCJraWQiOiJwcmltYXJ5Iiwic3ViIjoidXNlcl8yYWJjREVGIiwic3RhdGUiOiJ0cmlhbCIsInRyaWFsX2VuZHNfYXQiOjE3NjI1OTIwMDAsImlzc3VlZF9hdCI6MTc2MDAwMDAwMCwiY2xpZW50X3RpbWUiOjE3NjAwMDAwMDcsIm9mZmxpbmVfZGF5cyI6MzB9.hxkomtdJryd13ik2Jio1uS-thYx8YKPcinoj0LcHWWy8P-r89vQo6NZ0KthIwFTlHv1l__1xPqQIZZS85dtDAw"
+    },
+    {
+      "name": "payment failed",
+      "payload": {
+        "v": 1,
+        "kid": "primary",
+        "sub": "user_2abcDEF",
+        "state": "payment_failed",
+        "trial_ends_at": 1760000000,
+        "active_until": 1761000000,
+        "issued_at": 1760500000,
+        "client_time": 1760400000,
+        "offline_days": 30
+      },
+      "payload_json": "{\"v\":1,\"kid\":\"primary\",\"sub\":\"user_2abcDEF\",\"state\":\"payment_failed\",\"trial_ends_at\":1760000000,\"active_until\":1761000000,\"issued_at\":1760500000,\"client_time\":1760400000,\"offline_days\":30}",
+      "wire": "eyJ2IjoxLCJraWQiOiJwcmltYXJ5Iiwic3ViIjoidXNlcl8yYWJjREVGIiwic3RhdGUiOiJwYXltZW50X2ZhaWxlZCIsInRyaWFsX2VuZHNfYXQiOjE3NjAwMDAwMDAsImFjdGl2ZV91bnRpbCI6MTc2MTAwMDAwMCwiaXNzdWVkX2F0IjoxNzYwNTAwMDAwLCJjbGllbnRfdGltZSI6MTc2MDQwMDAwMCwib2ZmbGluZV9kYXlzIjozMH0.eQxIWtH8DGZSTo2zMWdihjnU7f7lGuPOywhii303StYqj4tpISxn6mz6KMIOChN0VFJ6TfwNGiD4gDE2tphICQ"
+    },
+    {
+      "name": "ended after paying (subscription ended)",
+      "payload": {
+        "v": 1,
+        "kid": "primary",
+        "sub": "user_2abcDEF",
+        "state": "ended",
+        "trial_ends_at": 1760000000,
+        "active_until": 1762600000,
+        "issued_at": 1763000000,
+        "client_time": 1763000100,
+        "offline_days": 30
+      },
+      "payload_json": "{\"v\":1,\"kid\":\"primary\",\"sub\":\"user_2abcDEF\",\"state\":\"ended\",\"trial_ends_at\":1760000000,\"active_until\":1762600000,\"issued_at\":1763000000,\"client_time\":1763000100,\"offline_days\":30}",
+      "wire": "eyJ2IjoxLCJraWQiOiJwcmltYXJ5Iiwic3ViIjoidXNlcl8yYWJjREVGIiwic3RhdGUiOiJlbmRlZCIsInRyaWFsX2VuZHNfYXQiOjE3NjAwMDAwMDAsImFjdGl2ZV91bnRpbCI6MTc2MjYwMDAwMCwiaXNzdWVkX2F0IjoxNzYzMDAwMDAwLCJjbGllbnRfdGltZSI6MTc2MzAwMDEwMCwib2ZmbGluZV9kYXlzIjozMH0._l0FkP85qdQ765kNpdbSa86Hr4UYp6oC31R50tredZXXIULYe64Lz6R3voI-XTCTlzVfrE2lAUxybsfDLn_QDw"
+    },
+    {
+      "name": "ended without paying (trial ended)",
+      "payload": {
+        "v": 1,
+        "kid": "primary",
+        "sub": "user_2abcDEF",
+        "state": "ended",
+        "trial_ends_at": 1762592000,
+        "issued_at": 1763000000,
+        "client_time": 1762913600,
+        "offline_days": 30
+      },
+      "payload_json": "{\"v\":1,\"kid\":\"primary\",\"sub\":\"user_2abcDEF\",\"state\":\"ended\",\"trial_ends_at\":1762592000,\"issued_at\":1763000000,\"client_time\":1762913600,\"offline_days\":30}",
+      "wire": "eyJ2IjoxLCJraWQiOiJwcmltYXJ5Iiwic3ViIjoidXNlcl8yYWJjREVGIiwic3RhdGUiOiJlbmRlZCIsInRyaWFsX2VuZHNfYXQiOjE3NjI1OTIwMDAsImlzc3VlZF9hdCI6MTc2MzAwMDAwMCwiY2xpZW50X3RpbWUiOjE3NjI5MTM2MDAsIm9mZmxpbmVfZGF5cyI6MzB9.1JEPaBX7WHkC5LqcKfFArwMsKXxTbe5ag-KT1hgBD55vg89dZSoHTzCE5XHipDt8h8xXZaMZ8Ua5yaEloxYaAQ"
+    },
+    {
+      "name": "active, backup key",
+      "payload": {
+        "v": 1,
+        "kid": "backup",
+        "sub": "user_2abcDEF",
+        "state": "active",
+        "trial_ends_at": 1760000000,
+        "active_until": 1762600000,
+        "issued_at": 1760500000,
+        "client_time": 1760500000,
+        "offline_days": 30
+      },
+      "payload_json": "{\"v\":1,\"kid\":\"backup\",\"sub\":\"user_2abcDEF\",\"state\":\"active\",\"trial_ends_at\":1760000000,\"active_until\":1762600000,\"issued_at\":1760500000,\"client_time\":1760500000,\"offline_days\":30}",
+      "wire": "eyJ2IjoxLCJraWQiOiJiYWNrdXAiLCJzdWIiOiJ1c2VyXzJhYmNERUYiLCJzdGF0ZSI6ImFjdGl2ZSIsInRyaWFsX2VuZHNfYXQiOjE3NjAwMDAwMDAsImFjdGl2ZV91bnRpbCI6MTc2MjYwMDAwMCwiaXNzdWVkX2F0IjoxNzYwNTAwMDAwLCJjbGllbnRfdGltZSI6MTc2MDUwMDAwMCwib2ZmbGluZV9kYXlzIjozMH0.bOSJP2MjA9tmCvkfcTdFwojqR-byNcv7XaCqRIMXKTh_1dxIeyINeUHibPKmXQfDhfRSEuEtX-xBXszoTBrjCg"
+    }
+  ]
+}

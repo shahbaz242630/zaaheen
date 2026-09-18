@@ -1,0 +1,9 @@
+// The account Worker (SIGNIN-DESIGN.md §5). Not deployed yet: S2 step 1 is
+// the offline core (lease signing, billing derivation, the lease decision).
+// Routes, secrets and the cron arrive with the endpoints.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zaaheen-account",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01"
+}

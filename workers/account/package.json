@@ -1,0 +1,22 @@
+{
+  "name": "zaaheen-account-worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The account Worker (api.zaaheen.com): signed entitlement leases, Paddle checkout and webhooks. ADR-104 + ADR-SEC-022, SIGNIN-DESIGN.md §5.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "types": "wrangler types",
+    "types:check": "wrangler types --check"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.1.10",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11",
+    "wrangler": "4.132.0"
+  }
+}

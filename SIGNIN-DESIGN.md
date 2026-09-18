@@ -2,7 +2,7 @@
 
 > **Live text.** Moved out of `HANDOFF.md` on 2026-09-18 (session 44) so the handoff stays short; the words below are unchanged from HANDOFF §8.26 (locked 2026-09-17, session 43) and §8.27 (amendment 1, session 44). Build S2–S6 against this file, quote it, don't paraphrase it, and record any change here as a numbered amendment. Account identifiers never go here (this repo is public): they live in the local `OPS-HANDOFF.md`.
 
-**Build order:** S0 PKCE spike ✅ · S1 `crates/vault-account` ✅ built (session 44) · S2 Worker + `/pay` page · S3 gate + keeper lock mode + desktop UI · S4 export (ships with S3) · S5 coaching · S6 production + live test.
+**Build order:** S0 PKCE spike ✅ · S1 `crates/vault-account` ✅ built (session 44) · S2 Worker + `/pay` page (step 1, the offline core: built session 45, §8.29) · S3 gate + keeper lock mode + desktop UI · S4 export (ships with S3) · S5 coaching · S6 production + live test.
 
 ---
 
@@ -256,3 +256,62 @@ Implementation choices §8.26 left open, each pinned by a test. None changes a l
 - **A rotated refresh token that the store refuses is kept in memory** (found by an independent review of S1, session 44). After Clerk rotates, the stored token is spent, so one refused save would otherwise sign the user out on the *next* refresh (`invalid_grant` → re-read finds the same spent token), breaking "a keychain error never signs anyone out". Now the save is tried 5 times (~0.4 s); if the store still refuses, the process keeps the token, the next refresh stores it and uses it first (never the spent one), and sign-out revokes it. **Residual:** if that process exits, or another Zaaheen process refreshes, while the store is still refusing, the newer token is lost or bypassed and that refresh signs the user out. Same class as §15's crash residual; accepted.
 
 **Evidence:** 205 tests; planted-bug runs proved the §15 tests (re-read, one refresher, token-first) and the floor-keying and server-time-activity tests each fail when their rule is broken; the four refused-save tests failed on the code before the fix.
+
+## 8.28 · ADR-104 / ADR-SEC-022 amendment 2 (2026-09-18, session 45) — the two questions S2 owns (§1)
+
+Web research, session 45. Runtime confirmation is due at the Worker's first deploy (memory `feedback_runtime_confirmation_after_web_spike`).
+
+**1. Workers rate-limit binding on the free plan: yes, as far as the docs go, not yet seen live.** The `ratelimit` binding went GA on 2025-09-19 ("stable and recommended for all production workloads"). Neither the binding page nor Workers pricing names a plan restriction, and secondary sources report it on Free. Wrangler ≥ 4.36.0.
+- **It cannot carry §5's per-user live-fetch limits.** Its `period` "must be either 10 or 60" seconds, each key counts separately "per Cloudflare location", and it is "permissive, eventually consistent, and intentionally designed to not be used as an accurate accounting system".
+- **So §5's "one live fetch per user per 10 min" and §4's "every 30 s while `checkout_at` is within 1 h" are enforced by a timestamp in the per-user record:** `private_metadata.zaaheen_memory` gains `live_fetch_at` (written only by the Worker, like the rest). Exact, global, and no extra subrequest (the Worker reads the record on every lease call anyway).
+- The binding stays available for coarse flood protection only.
+
+**2. Paddle domain approval for `zaaheen.com`: needed for live, not for sandbox.**
+- Paddle: "you will only be allowed to sell through the domain(s) that have been approved"; the default payment link "should be a page for an approved website" that includes Paddle.js, and "You can't create transactions without it". Sandbox: "You can use `localhost` or a test domain".
+- Review needs the site "live and secured with an SSL certificate (HTTPS)", a product description, pricing, key features, and Terms (with the company's legal name), Refund and Privacy pages. zaaheen.com today is a parked page and would fail.
+- Most submissions are approved automatically; a manual review takes "5-7 business days". Plan for that lead time in S6.
+- **Consequence:** S2 is built and tested entirely against the Paddle sandbox. Live approval joins the S6 checklist items that already wait on the licence details (§10).
+
+## 8.29 · ADR-104 / ADR-SEC-022 amendment 3 (2026-09-18, session 45) — decisions made building S2 step 1 (the Worker's offline core)
+
+Implementation choices §5 left open, each pinned by a test in `workers/account/test/`. None changes a locked rule.
+
+**Where and how it is built:**
+- `workers/account/`: TypeScript on Cloudflare Workers. Tests run inside workerd (the production runtime) through `@cloudflare/vitest-plugin`. CI job "account Worker (types + tests)"; CodeQL job "Analyse (TypeScript)".
+- Dev tools are pinned exactly and were at least 3 days old when pinned. **The Worker has no runtime dependencies:** everything deployed is our own code.
+
+**The lease (with §4 and §8.27):**
+- The signing secret is PKCS#8 DER in standard base64, imported non-extractable.
+- Payload fields are written in a fixed order (`v, kid, sub, state, trial_ends_at, active_until, issued_at, client_time, offline_days`). A deadline that is absent is left out, never written as `null`.
+- The Worker refuses to sign anything `LeaseVerifier` would refuse (same limits), because a lease the app rejects locks its user out.
+- **Shared vectors:** `workers/account/test/vectors/lease-v1.json` holds six leases under the RFC 8032 §7.1 test keys, made by Node's OpenSSL. workerd must sign the same bytes (Worker tests), and dryoc must verify them (`vault-account` `lease::worker_vectors`). Neither side can drift on the wire, the domain prefix, the field names or the key encoding without a test failing.
+
+**Billing derivation (§5 "Derived billing record"):**
+- A subscription counts if **any** item's `price.product_id` is ours.
+- A scheduled **pause** ends access at `effective_at`, like a cancel. A scheduled resume ends nothing.
+- `trialing` and unknown statuses count for nothing.
+- On an equal `active_until`, the subscription that is paying wins over the one whose payment failed.
+- Unreadable data on one of **our** subscriptions is an upstream error (the §5 error rules apply), never a silent "nothing". Dropping a payer's subscription would sign them `ended`.
+
+**The record (`private_metadata.zaaheen_memory`):**
+- A malformed field is dropped, with a log warning that names the field, never its value.
+- `comp_until` may be epoch seconds or `YYYY-MM-DD`, meaning free through the end of that day (UTC), because the founder types it by hand.
+- When a derivation finds nothing counting:
+  - an `active_until` already past is kept, so the app says "subscription ended" (§8.27);
+  - one still in the future is cut to `now` (a refund or an immediate cancel).
+- The write back carries only the Worker's fields that changed; a field removed is sent as `null`. It never writes `comp_until` and never changes or clears an existing `trial_started_at`. (Clerk's merge semantics for this are confirmed in step 2, with the Clerk client.)
+
+**The `/v1/lease` decision (§5):**
+- "Active-flavoured" means the record has an `active_until`.
+- "Skipped when `synced_at > active_until`" is implemented as `synced_at ≥ active_until`, because a derivation that finds nothing sets both to the same second.
+- **With no `active_until`, cases (a) and (b) are never skipped.** There is no paid period to have synced since, so a Paddle customer who is `ended` keeps being re-checked, at most once per 10 minutes (the app backs off to hourly after a signed `ended`). A payment that lands after case (c)'s 24 hours, with its webhook lost, is still found. The cost is extra Paddle calls for abandoned checkouts; the other way, a payer stays locked out. (The first draft skipped them after any sync; the independent review of step 1 caught it.)
+- A failed live fetch still stamps `live_fetch_at` (so Paddle is not hammered during an outage). A `live_fetch_at` later than now counts as no fetch.
+- **A trial whose start could not be saved is never signed** (503). Otherwise every failed write would restart the trial.
+- On any Clerk write failure, the terms come from the *stored* record's upstream-error rule, even if the Paddle fetch succeeded.
+- Upstream-error terms are `active` until `max(active_until + 3 days, comp_until)`, so a later comp date is kept.
+- The kill switch never calls Paddle.
+- The `payment_failed` flag gives state `payment_failed` whenever `now < max(active_until, comp_until)` (literal §5).
+
+**Left for step 2 (the endpoints):** validating the `/v1/lease` request body, the Clerk and Paddle clients (paging and error mapping), and the Clerk metadata-merge check above.
+
+**Evidence:** 103 Worker tests and 3 new `vault-account` tests. 17 planted bugs each turned a test red: 4 in lease signing, 12 in the rules, 1 in the Rust vector check. Each was run once and then restored byte for byte.
