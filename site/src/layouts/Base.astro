@@ -11,7 +11,7 @@ import { graphFor } from '../lib/seo';
 
 interface Props {
   page: PageEntry;
-  /** Only for pages that must never be indexed (the 404 page). */
+  /** Only for pages that must never be indexed: the 404 page and /pay (UNLISTED in scripts/audit.mjs). */
   noindex?: boolean;
 }
 

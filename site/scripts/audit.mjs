@@ -17,6 +17,20 @@ const args = process.argv.slice(2);
 const RELEASE = args.includes('--release');
 const DIST = path.resolve(args.find((a) => !a.startsWith('--')) || 'dist');
 const INDEXNOW_KEY = 'dc7e96914b463f8b38a2ca7309b9a25f';
+// Pages that are never listed in search: no canonical, no JSON-LD, noindex,
+// never in the sitemap (section 3, rule 2 names the 404 page as the only
+// exception; /pay, Paddle's checkout page, is the second, SIGNIN-DESIGN §5).
+const UNLISTED = { '404.html': 'the 404 page', 'pay/index.html': 'the pay page' };
+// Section 3, rule 8: no third-party requests. The single exception is the pay
+// page loading Paddle.js, which Paddle requires on its default payment link.
+const THIRD_PARTY_ALLOWED = { 'pay/index.html': ['https://cdn.paddle.com/paddle/v2/paddle.js'] };
+// The pay page's own CSP (public/pay/.htaccess), pinned: widening it is a
+// reviewed change to this line, never a quiet edit to the server file. Why each
+// Paddle source is there: the comment in public/pay/.htaccess (measured live).
+const PAY_CSP =
+  "default-src 'self'; script-src 'self' https://cdn.paddle.com; style-src 'self' 'unsafe-inline' https://*.paddle.com; img-src 'self' data:; " +
+  "font-src 'self'; connect-src 'self' https://*.paddle.com; frame-src https://*.paddle.com; object-src 'none'; " +
+  "frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 const errors = [];
 const fail = (where, msg) => errors.push(`${where}: ${msg}`);
 
@@ -38,8 +52,28 @@ for (const rel of [
   'index.html', '404.html', 'robots.txt', 'sitemap.xml', 'llms.txt', '.htaccess',
   'favicon.ico', 'favicon.svg', 'favicon-192.png', 'apple-touch-icon.png',
   'icon-192.png', 'icon-512.png', 'manifest.webmanifest', 'og.png', `${INDEXNOW_KEY}.txt`,
+  'pay/index.html', 'pay/.htaccess',
 ]) {
   if (!files.includes(rel)) fail(rel, 'required file is missing from the build');
+}
+
+// --- /pay: Paddle's default payment link (SIGNIN-DESIGN §5) -----------------------
+if (files.includes('pay/.htaccess')) {
+  const conf = read('pay/.htaccess');
+  const csps = [...conf.matchAll(/^\s*Header\s+always\s+set\s+Content-Security-Policy\s+"([^"]*)"\s*$/gim)].map((m) => m[1]);
+  if (csps.length !== 1 || csps[0] !== PAY_CSP) fail('pay/.htaccess', 'the checkout CSP is not the pinned policy (PAY_CSP in scripts/audit.mjs)');
+  if (!/^\s*Header\s+always\s+set\s+X-Robots-Tag\s+"noindex"\s*$/im.test(conf)) fail('pay/.htaccess', 'missing the X-Robots-Tag noindex header');
+}
+// A published build must take live payments: production, with a live token.
+// Anything else (no config, the sandbox, a mixed pair) fails on release only,
+// so previews and sandbox tests still build.
+if (RELEASE && files.includes('pay/index.html')) {
+  const html = read('pay/index.html');
+  const env = (html.match(/\sdata-paddle-env="([^"]*)"/) || [])[1];
+  const token = (html.match(/\sdata-paddle-token="([^"]*)"/) || [])[1] || '';
+  if (env !== 'production' || !/^live_[a-zA-Z0-9]{27}$/.test(token)) {
+    fail('pay/index.html', 'checkout is not set up for live payments (PUBLIC_PADDLE_ENVIRONMENT=production and a live_ client-side token)');
+  }
 }
 if (files.includes(`${INDEXNOW_KEY}.txt`) && read(`${INDEXNOW_KEY}.txt`).trim() !== INDEXNOW_KEY) {
   fail(`${INDEXNOW_KEY}.txt`, 'IndexNow key file does not contain its own key');
@@ -73,7 +107,7 @@ const indexable = [];
 for (const rel of htmlFiles) {
   const html = read(rel);
   const url = urlFor(rel);
-  const isNotFound = rel === '404.html';
+  const unlisted = UNLISTED[rel];
 
   const titles = all(html, /<title>([^<]*)<\/title>/gi).map((m) => m[1].trim());
   if (titles.length !== 1) fail(rel, `expected exactly one <title>, found ${titles.length}`);
@@ -89,9 +123,9 @@ for (const rel of htmlFiles) {
   const robotsMeta = metaContent(html, 'name', 'robots').join(',').toLowerCase();
   const canonicals = all(html, /<link\b[^>]*rel="canonical"[^>]*>/gi).map((m) => attr(m[0], 'href'));
 
-  if (isNotFound) {
-    if (!robotsMeta.includes('noindex')) fail(rel, 'the 404 page must be noindex');
-    if (canonicals.length) fail(rel, 'the 404 page must not declare a canonical');
+  if (unlisted) {
+    if (!robotsMeta.includes('noindex')) fail(rel, `${unlisted} must be noindex`);
+    if (canonicals.length) fail(rel, `${unlisted} must not declare a canonical`);
   } else {
     indexable.push(url);
     // Section 3, rule 2: nothing that removes a page from search or AI answers.
@@ -135,7 +169,9 @@ for (const rel of htmlFiles) {
     const tag = m[0];
     if (/rel="canonical"/i.test(tag)) continue;
     const ref = attr(tag, 'src') ?? attr(tag, 'href');
-    if (ref && /^(https?:)?\/\//i.test(ref)) fail(rel, `loads a third-party resource: ${ref}`);
+    if (!ref || !/^(https?:)?\/\//i.test(ref)) continue;
+    const allowed = m[1].toLowerCase() === 'script' && (THIRD_PARTY_ALLOWED[rel] || []).includes(ref);
+    if (!allowed) fail(rel, `loads a third-party resource: ${ref}`);
   }
 
   for (const m of all(html, /<img\b[^>]*>/gi)) {

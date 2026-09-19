@@ -40,6 +40,13 @@ jobs:
           cache-dependency-path: site/package-lock.json
       - run: npm ci
       - run: npm run build
+        env:
+          # The /pay page's Paddle environment and client-side token (both
+          # public; kept out of the repo as account identifiers). Repository
+          # variables; the --release audit below refuses anything but
+          # production with a live_ token.
+          PUBLIC_PADDLE_ENVIRONMENT: ${{ vars.PADDLE_ENVIRONMENT }}
+          PUBLIC_PADDLE_CLIENT_TOKEN: ${{ vars.PADDLE_CLIENT_TOKEN }}
       - name: Audit the build (fails on anything that hurts search or AI visibility)
         run: npm run check
       - name: Refuse placeholder copy on a build that will be published
