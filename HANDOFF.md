@@ -1,6 +1,6 @@
 # Zaaheen (Memory Vault) — Build Handoff
 
-**Current version:** V0.2 Closed Beta (BRD §6.2). **Last updated:** 2026-09-18, session 45.
+**Current version:** V0.2 Closed Beta (BRD §6.2). **Last updated:** 2026-09-19, session 46.
 
 > **How to read this file.** §1 is what to do next; act on it. §2 is where things stand. §3–§7 are the working rules and reference. Everything older, including every full ADR, lives in the archives (§8): cross-link to them and quote them, never paraphrase. This file was reset to this short form in session 44 (founder request); the previous 2,632-line version is `HANDOFF_V0.2_PART4_ARCHIVE.md`, word for word.
 >
@@ -8,36 +8,20 @@
 
 ---
 
-## 1 · 🟢 Next — S2 step 3: the `/pay` page and the first deploy
+## 1 · 🟢 Next — S3 (the gate, lock mode, desktop sign-in) with S4 (export)
 
-**State (2026-09-18, session 45, mid-session):**
-- **S2 step 1 is merged:** PR #68 → `main` `8b99454` (rebase; its tree is identical to the tested `468bee1`). PR #68's checks were all green on 3 OSes; `vault-account` ran 208/208 on Windows CI.
-  - `main`'s own push run was still going at the last look: everything had passed except Windows build + test, which was 35 min in. **Check it.**
-- **S2 step 2, the endpoints, is built and uncommitted** (`SIGNIN-DESIGN.md` §8.30): `/v1/lease`, `/v1/checkout`, `/paddle/webhook`, `/clerk/webhook` and the daily sweep (cron 03:17 UTC), with the Clerk and Paddle clients.
-  - 261 Worker tests inside workerd; `tsc` clean.
-  - 32 new planted bugs, each caught, and step 1's 17 still caught against the full suite.
-  - Contracts were read from Clerk's BAPI spec, Paddle's API reference and docs, and Svix's docs. Nothing was guessed. Clerk's metadata deep-merge (null deletes a key) is confirmed.
-  - **Security rule found while reading Paddle's docs:** a buyer's browser can set `custom_data`, so the Paddle webhook and the sweep only update a record that already names that Paddle customer. Only our own authenticated `/v1/checkout` makes that link.
-  - **Independent review: no defects.** Its one informational point (blind-merge races, self-correcting) is recorded as an accepted residual in §8.30.
-  - **Next:** commit + PR (founder yes), then CI.
-- **Product decisions (founder, session 45):**
-  - buyers see the product name **"Zaaheen"**, with prices "Monthly" ($5) and "Yearly" ($48);
-  - **tax is added on top, everywhere** (Paddle `tax_mode: external`), because Paddle's own fee already takes 5%. The live prices must match, and the pricing page should say "plus applicable tax" (wording to confirm with the adviser).
-- **Account-side status** (the bank, Stripe, the Paddle and Cloudflare accounts, keys and ids) lives only in the local `OPS-HANDOFF.md`, section F.
-- **Tooling:** Node 24.19.0 via fnm (`fnm exec --using=24 -- npm.cmd ...` from PowerShell). Node 22's npm 10.9.8 crashes on this tree (`edgesOut`). **Edit files with Write/Edit or a `.mjs` file, never `node -e` inside double-quoted bash:** backticks got executed twice this session (memory `feedback_no_backticks_in_double_quoted_bash`).
-- **Standing approval (founder, session 44):** small `cargo test -p <crate in hand>` runs need no ask. Whole-app builds, every commit and every merge still do.
+**State (2026-09-19, session 46): S2 is finished and live-tested against the sandbox.** Every step-3 decision and the live test are in `SIGNIN-DESIGN.md` §8.31; account identifiers only in the local `OPS-HANDOFF.md` §G.
+- **The sandbox account service is live at `api-sandbox.zaaheen.com`** (`wrangler deploy --env sandbox` from `workers/account`), with all 11 secrets, the daily sweep and its own lease keys. Paddle sandbox and Clerk development only; nothing is live or bought.
+- **Live test, every step passed:** PKCE sign-in → a signed 30-day `trial` (the signature verified with the sandbox public key) → checkout → paid on `/pay/` with Paddle's test card → both webhooks delivered first time → the lease turned `active` about 2 s later → a second checkout gave the portal → deleting the Clerk user canceled the subscription within a second.
+- **`/pay/` is built** in the Astro site on `site/production-ready` (worktree `C:\Projects\GitHub\Memory Vault site`; its gitignored `site/.env` holds the sandbox client-side token). `allowLogout: false` locks the buyer's email (the binding rule, §8.30). Its CSP was measured live and is pinned by the audit. The founder signed off the site's one third-party exception (the local site rules 2 and 8).
+- **Flood protection:** the Worker's rate-limit binding is in (`src/flood.ts`), but it was **measured not refusing** on the free plan (300 requests in 38 s). The enforced protection is a Cloudflare WAF rate-limiting rule at S6 (§8.31).
+- **The founder's offline backup key moved to S6:** the sandbox has its own throwaway keys, so a test-card lease can never unlock a real app.
+- **Machine:** Node 24 via fnm; wrangler 4.132.0 is signed in to the founder's Cloudflare account. The Claude Code auto-mode classifier refuses secret-store writes from me: the founder runs those scripts with `!` (or a clipboard script is allowed).
 
 **Do, in order:**
-1. **Finish step 2:** act on the review's findings (tests-first), then commit + PR (founder yes), then CI on every workflow. Step 2 touched no Rust, so the cargo gates only need `fmt --check`.
-2. **S2 step 3: the `/pay` page, then the first deploy.**
-   - Set the sandbox's **default payment link** (Paddle refuses to create any transaction without one).
-   - Build `/pay` (Paddle.js v2 overlay, `_ptxn` only), reusing the founder's other live, Paddle-approved site for the pattern and the CSP entries (memory `reference_affiliate_site_paddle_reuse`). Its code, account and keys are not reused.
-   - The lease signing keys: the primary is generated for Cloudflare Secrets; **the backup is generated offline by the founder and its private half never touches a server.**
-   - The first deploy: flood protection (the rate-limit binding, or a Cloudflare rule; confirm the binding on the free plan), secrets set by clipboard, then a live test against the Zaaheen sandbox.
-   - **The Cloudflare login stays as it is** (founder). The recommended "add the company login as a second admin" is noted in the local `OPS-HANDOFF.md` for when he wants it; don't raise it before the deploy.
-   - Work step by step with the founder: one item, show it, ask only that item's decision.
-4. Then **S3** (the gate in vault-mcp, keeper lock mode, the desktop sign-in step, account panel and lock screen), with **S4** (export) in the same release. The build order and every rule is in `SIGNIN-DESIGN.md`. S3's wiring rules are in its §8.27.
-5. **Then: the user chooses where their memories live** (founder, 2026-09-18: "add it to the plan after S3 + S4"). Write its design (ADR-105 + an ADR-SEC, BRD §11 re-read) once S2 is finished; build it right after S3 + S4, whose onboarding it adds a step to.
+0. **CI** (§6): this session's branch `feat/s2-step3-deploy` (the Worker, this file, `SIGNIN-DESIGN.md`) and `main` after its merge. The site commit is on `site/production-ready`: a branch push runs no workflow, so its proof is the local `npm test` (12 + 31 pass).
+1. **S3 + S4**, one release. The build order and every rule is in `SIGNIN-DESIGN.md` (S3's wiring rules §8.27; the app builds `https://zaaheen.com/pay/?_ptxn=…` with the trailing slash, §8.31; development builds carry the sandbox lease public keys from `OPS-HANDOFF.md` §G). Re-read BRD §11 first: S3 touches vault-mcp and the Tauri IPC layer.
+2. **The user chooses where their memories live** (founder, 2026-09-18: "add it to the plan after S3 + S4"). S2 is finished, so its design (ADR-105 + an ADR-SEC, BRD §11 re-read) can be written now; it is built right after S3 + S4, whose onboarding it adds a step to.
    - **Onboarding:** "Your memories will be saved here: [default] — Change…". The native folder picker (drives, "New folder"); the default is preselected. Settings gets "Move my memories".
    - **One location for every process:** the desktop app, the keeper, every relay and the nightly maintenance runner (so consolidation follows the vault). Today they all resolve `%APPDATA%\com.zaaheen.app` (`vault-app/src/install_paths.rs::data_dir`, Tauri's `app_data_dir`), so a pointer at the default location is the likely shape. Models stay where they are.
    - **Must-haves:**
@@ -45,11 +29,14 @@
      - an external drive that is missing means "reconnect your drive", never a new empty vault (a drive letter can change);
      - a folder on exFAT/FAT32 has no Windows permissions, so the ADR-SEC-019 ACL cannot apply there (the files stay encrypted).
    - **Say it plainly in the UI:** a USB drive does not carry memories to another computer (the key stays in this computer's Credential Manager). That needs the BRD §11.5.4 backup and restore.
-6. Then **S5** (coaching) and **S6** (production and the live test).
+3. Then **S5** (coaching) and **S6** (production and the live test). **S6 now also carries:** the WAF rate-limiting rule for the API hosts' two `/v1` paths; production lease keys (the primary for Cloudflare, the founder's offline backup); a per-consumer Clerk secret key; the live default payment link `https://zaaheen.com/pay/` and the repository variables `PADDLE_ENVIRONMENT=production` + a `live_` `PADDLE_CLIENT_TOKEN` for the site build.
+4. **In parallel, the founder's own account-side items** are in the local `OPS-HANDOFF.md` §F (the live Paddle company account takes days on Paddle's side).
+5. **Optional, the founder's call:** add "account Worker (types + tests)" and "Analyse (TypeScript)" to the "main protection" ruleset's required checks. Open Dependabot PRs #45–#49 are still untouched.
 
-**Lessons from session 44, already saved in memory:**
-- Gate every item used only by `#[cfg(windows)]` code, constants included (`feedback_cfg_gate_transitively_platform_only_items`).
-- Test failure messages name the kind of a result and never print account values, because CodeQL's cleartext-logging rule flags them (`feedback_tests_never_print_account_values`).
+**Lessons from session 46:**
+- A design's "confirm it live" step earns its keep: the rate-limit binding passed every test in workerd and did nothing in production, and the strict CSP passed the audit and broke the real checkout.
+- Read the provider's settings, not just its API: Paddle's default checkout lets the buyer change email, which would have silently broken the binding rule.
+- Secrets never enter the conversation: clipboard → script → `wrangler secret put`; a browser-revealed secret goes to a file through `browser_evaluate`'s `filename`, and the script deletes it.
 
 ---
 
@@ -66,7 +53,7 @@
 ### The sign-in and subscription arc (ADR-104 + ADR-SEC-022)
 - **Locked design: `SIGNIN-DESIGN.md`.** Clerk OAuth public client with PKCE on a loopback port; the refresh token in Windows Credential Manager; an Ed25519 lease from a Cloudflare Worker, verified offline for up to 30 days; Paddle as merchant of record; the keeper as the one gate; export always available.
 - **Business model:** a 30-day trial with no card, then $5/month or $48/year (BRD §1.6 amendment 1). Beta testers get a per-person `comp_until` date.
-- **S0 spike: done** (session 43). **S1: merged** (session 44, `main` `99ff08e`). **S2: steps 1 and 2 built** (session 45: the Worker's offline core, merged as `8b99454`, and its endpoints; `SIGNIN-DESIGN.md` §8.29–§8.30). Step 3 (`/pay` and the first deploy) is next.
+- **S0 spike: done** (session 43). **S1: merged** (session 44, `main` `99ff08e`). **S2: done** (session 45: the Worker's offline core and endpoints, `8b99454` and `5a62e11`, `SIGNIN-DESIGN.md` §8.29–§8.30; session 46: `/pay/`, flood protection and the sandbox deployment at `api-sandbox.zaaheen.com`, live-tested end to end, §8.31). S3 is next.
 - **What S1 is.** `crates/vault-account` (no other crate depends on it yet):
   - `PendingSignIn`: PKCE and the loopback listener, with its adversarial suite.
   - `OAuthClient`: exchange, refresh, revoke, userinfo.
@@ -79,11 +66,21 @@
 
 ### Company, website, accounts (not code in this repo)
 - **Zaaheen is a licensed parent company.** Launch waits on details from the licence, so the aim is readiness, not going live. The readiness checklist is `SEO-HANDOFF.md` §0a (local, gitignored).
-- **Website:** branch `site/production-ready` (`2ccf3f1`) holds the Astro site. Not merged, not deployed; zaaheen.com still shows Hostinger's parked page. Rebasing that branch will conflict on `HANDOFF.md`: take `main`'s version. Its local stash `session-41 docs …` is superseded; drop it.
+- **Website:** branch `site/production-ready` holds the Astro site, now with `/pay/` (session 46; checked out as the worktree `C:\Projects\GitHub\Memory Vault site`). Not merged, not deployed; zaaheen.com still shows Hostinger's parked page. Rebasing that branch will conflict on `HANDOFF.md`: take `main`'s version. Its local stash `session-41 docs …` is superseded; drop it.
 - **Coaching booking app:** separate repo `C:\Projects\GitHub\Training Page` (its own CLAUDE.md, HANDOFF and rules). Parked.
 - **Accounts:** Clerk (dev instance set up), Microsoft 365, Paddle, Cloudflare and the bank. All details live **only** in the local `OPS-HANDOFF.md`; this repo is public.
 
 ### Recent sessions
+- **46 (2026-09-19):**
+  - S2 step 3: `/pay/` built tests first on the site branch (`allowLogout: false`, a CSP measured live and pinned by the audit), flood protection in the Worker, and the sandbox deployment `api-sandbox.zaaheen.com`.
+  - Live test against the Paddle sandbox and Clerk development: trial → paid → active in about 2 s → deletion canceled the subscription. 19 planted bugs, each caught.
+  - Found live: the rate-limit binding does not refuse on the free plan (WAF rule at S6); the strict CSP broke the checkout until Paddle's styles were allowed.
+- **45 (2026-09-18):**
+  - S2 steps 1 and 2 built tests first and merged (PR #68 → `8b99454`, PR #69 → `5a62e11`; 261 Worker tests in workerd, lease vectors checked by Rust).
+  - 49 planted bugs, each caught. Two independent reviews: step 1 caught a real case-(b) deviation, fixed; step 2 found nothing.
+  - The Zaaheen Paddle sandbox, product and prices set up; tax on top.
+  - The user-chosen vault location added to the plan after S3 + S4.
+  - A fake test value tripped the secret scans; the branch was amended.
 - **44 (2026-09-18):** S1 built tests first and merged (PR #67 → `99ff08e`, 205 tests, all CI green on 3 OSes). An independent review caught one real defect (a refused token save), fixed tests-first. CI caught a Windows-only dead constant and five test messages CodeQL flagged; both fixed. The handoff was reset to this file (old one archived word for word; the design moved to `SIGNIN-DESIGN.md`).
 - **43 (2026-09-17):** security PR #64 merged; the silently red secret scan fixed at both root causes; Clerk dev set up; ADR-104 + ADR-SEC-022 locked after three review rounds and a live spike.
 - **42 (2026-09-17):** rmcp 1.5.0 → 2.2.0 and rustls 0.23.45 for advisories (ADR-SEC-021), verified by CI only (founder: no local build).
