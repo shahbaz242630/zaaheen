@@ -2,7 +2,7 @@
 
 > **Live text.** Moved out of `HANDOFF.md` on 2026-09-18 (session 44) so the handoff stays short; the words below are unchanged from HANDOFF §8.26 (locked 2026-09-17, session 43) and §8.27 (amendment 1, session 44). Build S2–S6 against this file, quote it, don't paraphrase it, and record any change here as a numbered amendment. Account identifiers never go here (this repo is public): they live in the local `OPS-HANDOFF.md`.
 
-**Build order:** S0 PKCE spike ✅ · S1 `crates/vault-account` ✅ built (session 44) · S2 Worker + `/pay` page (step 1, the offline core, and step 2, the endpoints: built session 45, §8.29–§8.30) · S3 gate + keeper lock mode + desktop UI · S4 export (ships with S3) · S5 coaching · S6 production + live test.
+**Build order:** S0 PKCE spike ✅ · S1 `crates/vault-account` ✅ built (session 44) · S2 Worker + `/pay` page ✅ (step 1, the offline core, and step 2, the endpoints: built session 45, §8.29–§8.30; step 3, `/pay` and the sandbox deploy, live-tested session 46, §8.31) · S3 gate + keeper lock mode + desktop UI · S4 export (ships with S3) · S5 coaching · S6 production + live test.
 
 ---
 
@@ -376,3 +376,42 @@ Implementation choices §5 left open, each pinned by a test in `workers/account/
 - A live test against the Zaaheen sandbox.
 
 **Evidence:** 261 Worker tests inside workerd. 32 new planted bugs, each caught, then restored byte for byte, and all 17 of step 1's still caught against the full suite: 8 for the clients, config and `/v1/lease`; 6 for checkout; 6 for the Paddle webhook; 7 for the Clerk webhook; 5 for the sweep.
+
+## 8.31 · ADR-104 / ADR-SEC-022 amendment 5 (2026-09-19, session 46) — decisions made in S2 step 3 (the `/pay` page and the sandbox deploy)
+
+Implementation choices §5 and §8.30 left to step 3, and what the first live run found. Account identifiers are in the local `OPS-HANDOFF.md` §G only.
+
+**`/pay`, Paddle's default payment link (`site/`, §2):**
+- Served at `https://zaaheen.com/pay/`. `/pay?_ptxn=…` is redirected there with the query kept, but S3's app should build `https://zaaheen.com/pay/?_ptxn=…` directly.
+- It opens exactly one well-formed `_ptxn` (`^txn_[a-z0-9]{26}$`). Anything else, including a second `_ptxn`, never initialises Paddle.js, so it cannot open whatever else the URL carries. No price IDs or items are taken from the URL.
+- **`allowLogout: false`** in `Paddle.Initialize({ checkout: { settings } })`, which the checkout Paddle.js opens from `_ptxn` inherits (Paddle: "The opened checkout inherits settings from `checkout.settings`"). Found while reading Paddle's docs: by default the buyer can change their email in the checkout. That would make them pay as a different Paddle customer, and §8.30's binding rule would never credit the payment: a payer locked out. Verified live: the email shows as fixed text.
+- **Its CSP is the site's one third-party exception** (founder sign-off 2026-09-19; the site's local rules 2 and 8): `script-src 'self' https://cdn.paddle.com`, `style-src 'self' 'unsafe-inline' https://*.paddle.com`, `connect-src` and `frame-src https://*.paddle.com`, everything else as strict as the rest of the site.
+  - Measured against the sandbox: with `style-src 'self'`, Paddle.js's stylesheet (from `sandbox-cdn.paddle.com`) and its inline overlay styles were blocked, and the checkout rendered as an unstyled box. Hashes would break at Paddle's next release, hence `'unsafe-inline'` for styles only.
+  - The card fields, fonts and fraud checks load inside Paddle's own frame, under Paddle's policy.
+  - No SRI: Paddle updates v2 in place ("Always load Paddle.js directly from https://cdn.paddle.com/").
+- The site audit pins that CSP (a widening is a reviewed code change), allows Paddle.js on `/pay/` only and as a `<script>` only, requires `noindex` there, and refuses a release build unless the page was built for `production` with a `live_` client-side token.
+- The environment and client-side token come from the build environment (`PUBLIC_PADDLE_ENVIRONMENT`, `PUBLIC_PADDLE_CLIENT_TOKEN`; repository variables in CI), never the repo.
+- Observation, no action: Paddle's checkout frame sends a report-only `frame-ancestors` naming the default payment link's origin (on localhost, without the port). It is report-only today, and `zaaheen.com` matches it in production.
+
+**Two deployments, never sharing a key:**
+- `wrangler.jsonc`: `--env sandbox` → `api-sandbox.zaaheen.com` (Paddle sandbox, Clerk development); the top level is production (`api.zaaheen.com`, route added at S6). `workers_dev` is off everywhere, so a deploy without `--env` publishes nothing reachable.
+- **Each deployment has its own lease keys.** A sandbox lease, paid with a test card, must never verify in a production app. The sandbox has its own primary and backup public keys (kids `sandbox-p1`, `sandbox-b1`; S3's development builds carry them, release builds the production pair). **So the founder's offline backup key is a production item and moves to S6.**
+- A Cloudflare account must have a workers.dev subdomain before a cron trigger deploys, even with `workers_dev` off (error 10063).
+- The sandbox Worker uses the Clerk development instance's own secret key. Per-consumer secret keys (§5) stay a production (S6) item.
+
+**Flood protection (§8.30's residual): the binding is in, but measured not refusing.**
+- `src/flood.ts`: `/v1/lease` and `/v1/checkout` only, keyed by `CF-Connecting-IP`, 60 per 60 s, answering 429 with `Retry-After: 60`. The webhooks are never limited. A limiter error lets the request through (flood protection, not a gate); a missing binding is a 503, like any missing configuration. The address is never logged.
+- **§8.28's runtime confirmation failed:** deployed on the free plan, 300 requests in 38 s from one address all passed a 60-per-minute limit. A Cloudflare community report of the same behaviour (2026-08-28) went unanswered and closed.
+- So the binding stays as a harmless second layer, and **the enforced flood protection is a Cloudflare WAF rate-limiting rule, added at S6** (the free plan has one): the API hosts' two `/v1` paths, per IP. It acts before the Worker runs, so refused requests cost no Worker quota either. The sandbox gets no rule: a flood there costs nothing that matters.
+
+**Live test against the sandbox (2026-09-19): every step passed.**
+1. PKCE sign-in with the development OAuth app, as a Clerk test user (`state` and `iss` checked).
+2. `/v1/lease` → a signed `trial` of 30 days; `client_time` echoed exactly; `offline_days` 30. The signature verified against the sandbox public key with the `zaaheen-lease-v1\0` prefix.
+3. `/v1/checkout` monthly → a transaction. `/pay/` opened it with the email locked, and Paddle's test card paid it: $5.00, with VAT added on top.
+4. Paddle delivered `subscription.created` and `subscription.activated` to `/paddle/webhook` on the first attempt (200). `/v1/lease` turned `active` about 2 s after the payment, with `active_until` = the period's end + 3 days (§5).
+5. `/v1/checkout` again → the customer portal (already subscribed).
+6. Deleting the Clerk user → `/clerk/webhook` → the subscription canceled at Paddle within a second.
+- Also: an unknown path gives 404. No token, or a bogus one, gives 401; a bogus token reaching Clerk proves the Worker's Clerk key works, because a refused key would be 503. Webhooks without a signature give 401. Every answer is `Cache-Control: no-store`.
+- Clerk's bot protection (Turnstile) stops automated **sign-up**, and it was not bypassed: the test user was created through BAPI, and sign-in has no challenge.
+
+**Evidence:** Worker: 273 tests inside workerd (12 new). 7 planted bugs in the flood code, each caught. Site: 12 page-logic tests and 31 audit tests (13 new). 12 planted bugs, each caught. Each bug was restored byte for byte.

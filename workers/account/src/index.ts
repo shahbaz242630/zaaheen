@@ -4,11 +4,14 @@
 //   POST /paddle/webhook  subscription.* notifications from Paddle
 //   POST /clerk/webhook   user.deleted from Clerk (cancels billing)
 // and a daily cron, the renewal sweep (wrangler.jsonc `triggers.crons`).
-// Everything else is a 404. A missing or inconsistent configuration is a
-// 503 ("try later") for every route, and any unexpected failure is a 503 too:
-// the app keeps its lease on a 5xx and never signs anyone out for one.
+// Everything else is a 404. The two /v1 routes are flood-limited per client
+// address (src/flood.ts) before anything else runs. A missing or inconsistent
+// configuration is a 503 ("try later") for every route, and any unexpected
+// failure is a 503 too: the app keeps its lease on a 5xx and never signs
+// anyone out for one.
 
 import { readConfig } from "./config";
+import { floodCheck } from "./flood";
 import { errorResponse } from "./http";
 import { handleCheckout } from "./routes/checkout";
 import { handleClerkWebhook } from "./routes/clerk-webhook";
@@ -28,8 +31,11 @@ const ROUTES: Record<string, Handler> = {
 
 export default {
   async fetch(request, env): Promise<Response> {
-    const handler = ROUTES[new URL(request.url).pathname];
+    const path = new URL(request.url).pathname;
+    const handler = ROUTES[path];
     if (handler === undefined) return errorResponse(404, "not_found");
+    const flooded = await floodCheck(request, path, (env as Partial<Env>).FLOOD);
+    if (flooded !== null) return flooded;
     const config = readConfig(env as unknown as Record<string, unknown>);
     if (config === null) {
       console.warn(JSON.stringify({ event: "config_incomplete" }));
