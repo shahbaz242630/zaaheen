@@ -81,3 +81,7 @@ thiserror = { workspace = true }
 # `model_fetch` path-resolution tests assert against a real temp directory to
 # prove the lookup helper creates nothing on disk.
 tempfile = { workspace = true }
+# The guard's tests supply their own `EntitlementCheck`, which is an
+# `#[async_trait]` trait. Dev-only, and no new supply-chain weight: the same
+# pinned version already arrives with `vault-mcp`.
+async-trait = { workspace = true }

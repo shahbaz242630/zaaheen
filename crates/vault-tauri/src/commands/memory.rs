@@ -11,6 +11,8 @@ use vault_core::{Boundary, MemoryId, MemoryType, NewMemory};
 use vault_mcp::{Adapter, ToolInvokeDetails};
 use vault_retrieval::{RetrievalOptions, RetrievalQuery};
 
+use crate::guard::{Entitled, Entitlement};
+
 /// Upper bound on `list_recent_memories`' page size.
 ///
 /// BRD §11.7.1 requires a bound on every input; without one, a caller could
@@ -21,6 +23,7 @@ pub const MAX_RECENT_MEMORIES: usize = 200;
 /// for testability.
 pub async fn add_memory_inner(
     app: &Application,
+    _entitled: &Entitled,
     content: String,
     memory_type: String,
     boundary: String,
@@ -75,11 +78,13 @@ pub async fn add_memory_inner(
 #[tauri::command]
 pub async fn add_memory(
     state: State<'_, Application>,
+    entitlement: State<'_, Entitlement>,
     content: String,
     memory_type: String,
     boundary: String,
 ) -> Result<String, String> {
-    add_memory_inner(state.inner(), content, memory_type, boundary)
+    let entitled = entitlement.require().await?;
+    add_memory_inner(state.inner(), &entitled, content, memory_type, boundary)
         .await
         .map(|id| id.to_string())
 }
@@ -87,6 +92,7 @@ pub async fn add_memory(
 /// Inner search_memories implementation.
 pub async fn search_memories_inner(
     app: &Application,
+    _entitled: &Entitled,
     query: String,
     limit: usize,
     authorized_boundaries: Vec<Boundary>,
@@ -150,9 +156,14 @@ pub async fn search_memories_inner(
 #[tauri::command]
 pub async fn search_memories(
     state: State<'_, Application>,
+    entitlement: State<'_, Entitlement>,
     query: String,
     limit: usize,
 ) -> Result<Vec<serde_json::Value>, String> {
+    // Asked BEFORE the boundary listing below: a locked computer must not
+    // reach the vault at all, not even to enumerate boundary names.
+    let entitled = entitlement.require().await?;
+
     // ADR-SEC-003: the desktop UI acts as the vault OWNER, so search spans
     // every registered boundary rather than the hardcoded `default` it used
     // before UI slice 2. A boundary the owner cannot search is a boundary the
@@ -164,12 +175,13 @@ pub async fn search_memories(
         // narrowest slice that keeps search working rather than widening.
         Err(_) => vec![Boundary::default_name()],
     };
-    search_memories_inner(state.inner(), query, limit, boundaries).await
+    search_memories_inner(state.inner(), &entitled, query, limit, boundaries).await
 }
 
 /// Inner update_memory implementation.
 pub async fn update_memory_inner(
     app: &Application,
+    _entitled: &Entitled,
     id_str: String,
     content: String,
     memory_type: String,
@@ -229,12 +241,14 @@ pub async fn update_memory_inner(
 #[tauri::command]
 pub async fn update_memory(
     state: State<'_, Application>,
+    entitlement: State<'_, Entitlement>,
     id: String,
     content: String,
     memory_type: String,
     boundary: String,
 ) -> Result<(), String> {
-    update_memory_inner(state.inner(), id, content, memory_type, boundary).await
+    let entitled = entitlement.require().await?;
+    update_memory_inner(state.inner(), &entitled, id, content, memory_type, boundary).await
 }
 
 /// Inner delete_memory implementation. Note: ADR-025 amendment auth-
@@ -242,7 +256,11 @@ pub async fn update_memory(
 /// operates as founder/User actor and bypasses that gate (V0.1
 /// founder-only context). V0.2 alpha-cohort will revisit per
 /// ADR-029-implied multi-user trust context.
-pub async fn delete_memory_inner(app: &Application, id_str: String) -> Result<(), String> {
+pub async fn delete_memory_inner(
+    app: &Application,
+    _entitled: &Entitled,
+    id_str: String,
+) -> Result<(), String> {
     let adapter = app.adapter();
     let start = Instant::now();
 
@@ -276,8 +294,13 @@ pub async fn delete_memory_inner(app: &Application, id_str: String) -> Result<()
 }
 
 #[tauri::command]
-pub async fn delete_memory(state: State<'_, Application>, id: String) -> Result<(), String> {
-    delete_memory_inner(state.inner(), id).await
+pub async fn delete_memory(
+    state: State<'_, Application>,
+    entitlement: State<'_, Entitlement>,
+    id: String,
+) -> Result<(), String> {
+    let entitled = entitlement.require().await?;
+    delete_memory_inner(state.inner(), &entitled, id).await
 }
 
 /// Inner list_recent_memories implementation.
@@ -287,6 +310,7 @@ pub async fn delete_memory(state: State<'_, Application>, id: String) -> Result<
 /// the home screen even though search found it fine.
 pub async fn list_recent_memories_inner(
     app: &Application,
+    _entitled: &Entitled,
     limit: usize,
 ) -> Result<Vec<serde_json::Value>, String> {
     let adapter = app.adapter();
@@ -340,9 +364,11 @@ pub async fn list_recent_memories_inner(
 #[tauri::command]
 pub async fn list_recent_memories(
     state: State<'_, Application>,
+    entitlement: State<'_, Entitlement>,
     limit: usize,
 ) -> Result<Vec<serde_json::Value>, String> {
-    list_recent_memories_inner(state.inner(), limit).await
+    let entitled = entitlement.require().await?;
+    list_recent_memories_inner(state.inner(), &entitled, limit).await
 }
 
 #[cfg(test)]

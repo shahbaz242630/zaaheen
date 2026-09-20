@@ -34,6 +34,10 @@
 
 pub mod commands;
 
+/// The entitlement guard: the token every gated command must hold, and the
+/// one door that hands it out (`SIGNIN-DESIGN.md` §8.26 §6.4).
+pub mod guard;
+
 /// First-run model acquisition, re-exported from `vault-app`.
 ///
 /// The module itself moved down to `vault-app` (ADR-100) so the CLI can

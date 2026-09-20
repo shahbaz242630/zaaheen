@@ -5,9 +5,23 @@
 
 // Guard the bridge so the UI still renders (with failing commands) when
 // opened outside Tauri — e.g. design review in a plain browser.
-const invoke = window.__TAURI__ && window.__TAURI__.core
+const rawInvoke = window.__TAURI__ && window.__TAURI__.core
   ? window.__TAURI__.core.invoke
   : async () => { throw new Error("vault engine not connected (running outside Tauri)"); };
+
+// Every gated command can reject with one of the `locked_*` codes, and there
+// are ~15 places that render a caught error straight into the page. Rather
+// than teach each of them about entitlement, translate once here: a locked
+// person never sees a raw code, whichever button they pressed. Anything that
+// is not a lock code is re-thrown untouched.
+async function invoke(...args) {
+  try {
+    return await rawInvoke(...args);
+  } catch (err) {
+    const line = friendlyLockError(String(err && err.message ? err.message : err));
+    throw line === null ? err : new Error(line);
+  }
+}
 
 // Same guard for the event bridge. Used only for first-run acquisition
 // progress; outside Tauri this is a no-op so the UI still renders.
@@ -1155,6 +1169,36 @@ function friendlyMaintError(code) {
       return "the schedule couldn't be updated";
     default:
       return code;
+  }
+}
+
+// Plain-English line for a locked vault (SIGNIN-DESIGN.md §8.26 §6.4).
+//
+// A code with no arm here falls through to showing the user the raw code, so
+// every code ships with its line — pinned by the Rust-side test
+// `every_lock_code_has_a_plain_english_line_in_the_app`.
+//
+// Deliberately NOT the wording the MCP gate sends an agent: that text says
+// "Open the Zaaheen app on this computer", which is nonsense shown inside the
+// app itself. These lines are provisional — the lock screen's full copy is
+// designed in step 4d.
+function friendlyLockError(code) {
+  switch (code) {
+    case "locked_signed_out":
+      return "Sign in to use your memories";
+    case "locked_cannot_confirm":
+      return "we couldn't confirm your subscription — check your internet connection";
+    case "locked_trial_ended":
+      return "your free trial has ended. Subscribe to keep using your memories — nothing has been deleted";
+    case "locked_subscription_ended":
+      return "your subscription has ended. Subscribe to keep using your memories — nothing has been deleted";
+    case "locked_unlocking":
+      return "unlocking — try again in a moment";
+    default:
+      // null, NOT the code: the `invoke` wrapper uses null to mean "not a
+      // lock error, re-throw it untouched". Returning the code here would
+      // swallow every other error into a fake lock message.
+      return null;
   }
 }
 

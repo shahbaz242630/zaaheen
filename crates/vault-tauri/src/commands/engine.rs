@@ -44,6 +44,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 use tauri::{Emitter, State};
 
+use crate::guard::Entitlement;
 use crate::model_fetch;
 
 /// Event channel the frontend listens on for acquisition progress.
@@ -133,7 +134,10 @@ impl RecallEngineFetch {
 pub async fn ensure_recall_engine(
     app: tauri::AppHandle,
     state: State<'_, RecallEngineFetch>,
+    entitlement: State<'_, Entitlement>,
 ) -> Result<(), String> {
+    // A locked computer must not download 2.86 GB of models.
+    let _entitled = entitlement.require().await?;
     let models_dir = state.models_dir.clone();
 
     let result = state
@@ -190,7 +194,11 @@ pub async fn ensure_recall_engine(
 /// No audit row, for the same reason [`ensure_recall_engine`] writes none —
 /// this touches no vault state and reads no memory (BRD §11.9.1).
 #[tauri::command]
-pub async fn recall_engine_state(app: State<'_, vault_app::Application>) -> Result<String, String> {
+pub async fn recall_engine_state(
+    app: State<'_, vault_app::Application>,
+    entitlement: State<'_, Entitlement>,
+) -> Result<String, String> {
+    let _entitled = entitlement.require().await?;
     Ok(app.reranker_state().as_wire_str().to_string())
 }
 
@@ -209,7 +217,11 @@ pub async fn recall_engine_state(app: State<'_, vault_app::Application>) -> Resu
 /// outcome. Infallible by design — "no reranker configured" is a legitimate
 /// vault shape, not an error.
 #[tauri::command]
-pub async fn warm_recall_engine(app: State<'_, vault_app::Application>) -> Result<bool, String> {
+pub async fn warm_recall_engine(
+    app: State<'_, vault_app::Application>,
+    entitlement: State<'_, Entitlement>,
+) -> Result<bool, String> {
+    let _entitled = entitlement.require().await?;
     let warming = app.spawn_reranker_warmup();
     tracing::info!(warming, "ranking model warm-up requested (ADR-090)");
     Ok(warming)
