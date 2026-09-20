@@ -266,6 +266,26 @@ pub const OPEN_COMMANDS: &[&str] = &[
     "get_maintenance_schedule",
     "erase_everything",
     "export_logs",
+    // The **account** slot of the same locked allowlist, filled by S3 step
+    // 4b. Not a widening: 8.26 6.4 has always read "account, export,
+    // erasure, logs, settings, maintenance status" -- this slot was empty
+    // only because the commands did not exist yet.
+    //
+    // They have to be open. Somebody whose trial has ended must still be
+    // able to sign in and subscribe, and a gate on these would lock a paying
+    // customer out of paying.
+    //
+    // What makes that safe is not this list. It is that none of them is
+    // given the vault: see `no_account_command_receives_the_vault` below.
+    "account_status",
+    "account_sign_in",
+    "account_sign_out",
+    "account_subscribe",
+    "account_refresh_now",
+    // The **export** slot, filled by S3 step 4c. Unlike the five above, this
+    // one DOES read the vault, so it cannot lean on their "holds nothing"
+    // argument -- see `commands/export.rs`, which carries its own.
+    "export_memories",
 ];
 
 #[cfg(test)]
@@ -590,6 +610,82 @@ mod tests {
         }
     }
 
+    /// **No account command may receive the vault.**
+    ///
+    /// These five run for somebody who is *not* entitled, and the only reason
+    /// that is safe is that they cannot reach a memory: `AccountOps` holds no
+    /// `Application`, so there is nothing to read one with. This is the other
+    /// half of that guarantee -- that no command in `account.rs` asks Tauri
+    /// for the vault either.
+    ///
+    /// A source test, because the guarantee is an *absence*: no runtime
+    /// assertion can observe a parameter that is not there. If somebody adds
+    /// `State<Application>` to a sign-in command, this is what objects.
+    ///
+    /// (Founder decision, 2026-09-20: "never give them the vault", chosen
+    /// over relying on the allowlist plus review.)
+    #[test]
+    fn no_account_command_receives_the_vault() {
+        const ACCOUNT_RS: &str = include_str!("commands/account.rs");
+
+        // Comments first, exactly as `registered_commands` does. That
+        // module's own doc says "no `Application`, no adapter, no key" --
+        // scanning the raw text makes the test fire on the sentence
+        // promising the thing it is checking for. `main.rs` carries the same
+        // note about ADR-030's own forbidden-term list.
+        let code: String = ACCOUNT_RS
+            .lines()
+            .map(|line| line.split("//").next().unwrap_or(line))
+            .collect::<Vec<_>>()
+            .join(
+                "
+",
+            );
+
+        for forbidden in ["Application", "Adapter", "MasterKey", "adapter()"] {
+            assert!(
+                !code.contains(forbidden),
+                "commands/account.rs names `{forbidden}`. These commands are ungated by                  design, and what makes that safe is that they cannot reach a memory.                  Handing them the vault removes the guarantee, whatever the list says."
+            );
+        }
+    }
+
+    /// The export is the one ungated command that reads the vault, so it
+    /// carries its own reasoning rather than the account commands'.
+    ///
+    /// This test is what that reminder became. It pins the two things the
+    /// argument in `commands/export.rs` rests on: the export **reads** and
+    /// never writes back, and it makes no network call. A future edit that
+    /// added either would make an ungated command a way to change or send the
+    /// vault while somebody is locked out.
+    #[test]
+    fn the_export_only_reads_and_sends_nothing() {
+        const EXPORT_RS: &str = include_str!("commands/export.rs");
+        let code: String = EXPORT_RS
+            .lines()
+            .map(|line| line.split("//").next().unwrap_or(line))
+            .collect::<Vec<_>>()
+            .join(
+                "
+",
+            );
+
+        for forbidden in [
+            ".write(",
+            ".update(",
+            ".delete(",
+            "erase",
+            "reqwest",
+            "http",
+            "LeaseClient",
+        ] {
+            assert!(
+                !code.contains(forbidden),
+                "commands/export.rs names `{forbidden}`. The export is ungated because it                  only reads and sends nothing; writing to the vault or reaching the network                  from here breaks the argument that makes it safe."
+            );
+        }
+    }
+
     /// The open list is the locked allowlist, and stays that size without a
     /// deliberate decision to widen it.
     #[test]
@@ -601,8 +697,14 @@ mod tests {
                 "get_maintenance_schedule",
                 "erase_everything",
                 "export_logs",
+                "account_status",
+                "account_sign_in",
+                "account_sign_out",
+                "account_subscribe",
+                "account_refresh_now",
+                "export_memories",
             ],
-            "widening the allowlist is a founder decision, not a refactor"
+            "widening the allowlist is a founder decision, not a refactor. The five              account entries fill 8.26 6.4's existing `account` slot (S3 step 4b); the              `export` slot is still empty and belongs to step 4c."
         );
     }
 }

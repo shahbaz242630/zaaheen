@@ -25,6 +25,12 @@
     "allow-set-maintenance-schedule",
     "allow-run-maintenance-now",
     "allow-erase-everything",
-    "allow-export-logs"
+    "allow-export-logs",
+    "allow-account-status",
+    "allow-account-sign-in",
+    "allow-account-sign-out",
+    "allow-account-subscribe",
+    "allow-account-refresh-now",
+    "allow-export-memories"
   ]
 }

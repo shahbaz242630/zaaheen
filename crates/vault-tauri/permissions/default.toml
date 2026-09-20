@@ -126,3 +126,33 @@ commands.allow = ["export_logs"]
 identifier = "allow-erase-everything"
 description = "Allow invoking the erase_everything command (permanently destroy every memory in this vault by destroying its encryption key in the operating system credential store, then removing the vault's data files). Irreversible."
 commands.allow = ["erase_everything"]
+
+[[permission]]
+identifier = "allow-account-status"
+description = "Allow invoking the account_status command (report whether somebody is signed in on this computer, the state of their subscription, and how many days of it remain). Reads the account folder only; it is never given the vault, so it cannot reach a memory."
+commands.allow = ["account_status"]
+
+[[permission]]
+identifier = "allow-account-sign-in"
+description = "Allow invoking the account_sign_in command (open the person's browser to sign in, and finish the exchange when it returns). The authorization code and its verifier never cross into the webview. Never given the vault."
+commands.allow = ["account_sign_in"]
+
+[[permission]]
+identifier = "allow-account-sign-out"
+description = "Allow invoking the account_sign_out command (revoke this computer's token, delete it from the credential store, and clear the account folder). Never given the vault; signing out removes no memories."
+commands.allow = ["account_sign_out"]
+
+[[permission]]
+identifier = "allow-account-subscribe"
+description = "Allow invoking the account_subscribe command (start a subscription, or open the billing portal for one that already exists). Takes a plan name, never a URL: where it leads is decided, validated and opened by the application. Never given the vault."
+commands.allow = ["account_subscribe"]
+
+[[permission]]
+identifier = "allow-account-refresh-now"
+description = "Allow invoking the account_refresh_now command (\"I've paid\": check the subscription again straight away rather than waiting for the daily check). Never given the vault."
+commands.allow = ["account_refresh_now"]
+
+[[permission]]
+identifier = "allow-export-memories"
+description = "Allow invoking the export_memories command (write every memory to one readable Markdown file at a location the person chooses). This is the one ungated command that reads the vault, and it is ungated on purpose: it is how somebody who is locked out gets their own memories back. It only reads, writes one local file, and sends nothing anywhere."
+commands.allow = ["export_memories"]

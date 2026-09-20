@@ -53,6 +53,13 @@ vault-mcp = { path = "../vault-mcp" }
 # (SIGNIN-DESIGN.md §8.26 §2: vault-app -> {vault-account, vault-mcp}).
 # vault-mcp does NOT depend on vault-account: the gate asks a trait.
 vault-account = { path = "../vault-account" }
+# Opening the sign-in page, the pay page and the billing portal in the
+# person's browser (S3 step 4b). Called only from Rust: no Tauri command ever
+# takes a URL, so nothing the frontend says can reach the operating system.
+open = { workspace = true }
+# Parsing and building those links. Already in the lockfile via
+# vault-account; declared here because `external_link` names it directly.
+url = { workspace = true }
 
 # rmcp — used directly by `Application::start_with_mcp` (T0.1.10 Phase 2)
 # to bind `rmcp::transport::stdio()` and call `ServiceExt::serve` on a

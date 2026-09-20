@@ -43,6 +43,7 @@
 //! supplied.
 
 mod account;
+mod checkout_client;
 mod config;
 mod entitlement;
 mod error;
@@ -59,6 +60,7 @@ mod token_store;
 pub use account::{
     Account, AccountTimings, RefreshOutcome, SignOutReason, SignedIn, SkipReason, Status, Trigger,
 };
+pub use checkout_client::{CheckoutAnswer, CheckoutClient, Plan, PortalUrl, TransactionId};
 pub use config::{AccountConfig, SCOPES};
 pub use entitlement::{
     assess, clock_looks_wrong, refresh_allowed, stale_at_start, unused_too_long, Assessment,

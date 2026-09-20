@@ -18,8 +18,9 @@ async function invoke(...args) {
   try {
     return await rawInvoke(...args);
   } catch (err) {
-    const line = friendlyLockError(String(err && err.message ? err.message : err));
-    throw line === null ? err : new Error(line);
+    const raw = String(err && err.message ? err.message : err);
+    const line = friendlyLockError(raw) || friendlyAccountError(raw);
+    throw line === null || line === undefined ? err : new Error(line);
   }
 }
 
@@ -1198,6 +1199,60 @@ function friendlyLockError(code) {
       // null, NOT the code: the `invoke` wrapper uses null to mean "not a
       // lock error, re-throw it untouched". Returning the code here would
       // swallow every other error into a fake lock message.
+      return null;
+  }
+}
+
+// Plain-English line for an account failure (S3 step 4b).
+//
+// Same rule as the lock codes: a code with no arm here falls through to
+// showing the user the raw code, so every arm ships with its code. Pinned by
+// `every_account_code_has_a_plain_english_line_in_the_app`.
+function friendlyAccountError(code) {
+  switch (code) {
+    case "account_sign_in_did_not_finish":
+      return "signing in didn't finish — try again";
+    case "account_busy":
+      return "something else on this computer is using your account — try again in a moment";
+    case "account_unreachable":
+      return "we couldn't reach the internet — check your connection and try again";
+    case "account_refused":
+      return "that didn't go through — try again in a moment";
+    case "account_bad_plan":
+      return "that plan isn't one we offer";
+    case "export_bad_destination":
+      return "that isn't somewhere we can save the file — try choosing a different folder";
+    case "export_read_failed":
+      return "your memories couldn't be read just now — try again in a moment";
+    case "export_write_failed":
+      return "the file couldn't be saved — check there's room on the disk and try again";
+    default:
+      return null;
+  }
+}
+
+// What each account state says on screen (S3 step 4b).
+//
+// Provisional, like the lock lines: the account panel and the lock screen are
+// designed in step 4d. These exist so no raw state string can reach a person.
+// Pinned by `every_account_state_has_a_plain_english_line_in_the_app`.
+function friendlyAccountState(state) {
+  switch (state) {
+    case "signed_out":
+      return "Not signed in";
+    case "no_lease":
+      return "Checking your subscription…";
+    case "trial":
+      return "Free trial";
+    case "active":
+      return "Subscribed";
+    case "payment_failed":
+      return "Your last payment didn't go through";
+    case "ended":
+      return "Subscription ended";
+    case "cannot_confirm":
+      return "We couldn't confirm your subscription";
+    default:
       return null;
   }
 }
