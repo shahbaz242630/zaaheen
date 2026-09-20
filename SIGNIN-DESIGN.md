@@ -2,7 +2,7 @@
 
 > **Live text.** Moved out of `HANDOFF.md` on 2026-09-18 (session 44) so the handoff stays short; the words below are unchanged from HANDOFF §8.26 (locked 2026-09-17, session 43) and §8.27 (amendment 1, session 44). Build S2–S6 against this file, quote it, don't paraphrase it, and record any change here as a numbered amendment. Account identifiers never go here (this repo is public): they live in the local `OPS-HANDOFF.md`.
 
-**Build order:** S0 PKCE spike ✅ · S1 `crates/vault-account` ✅ built (session 44) · S2 Worker + `/pay` page ✅ (step 1, the offline core, and step 2, the endpoints: built session 45, §8.29–§8.30; step 3, `/pay` and the sandbox deploy, live-tested session 46, §8.31) · S3 gate + keeper lock mode + desktop UI · S4 export (ships with S3) · S5 coaching · S6 production + live test.
+**Build order:** S0 PKCE spike ✅ · S1 `crates/vault-account` ✅ built (session 44) · S2 Worker + `/pay` page ✅ (step 1, the offline core, and step 2, the endpoints: built session 45, §8.29–§8.30; step 3, `/pay` and the sandbox deploy, live-tested session 46, §8.31) · S3 gate + keeper lock mode + desktop UI (step 1, the gate in `vault-mcp`: built session 47, §8.32) · S4 export (ships with S3) · S5 coaching · S6 production + live test.
 
 ---
 
@@ -415,3 +415,29 @@ Implementation choices §5 and §8.30 left to step 3, and what the first live ru
 - Clerk's bot protection (Turnstile) stops automated **sign-up**, and it was not bypassed: the test user was created through BAPI, and sign-in has no challenge.
 
 **Evidence:** Worker: 273 tests inside workerd (12 new). 7 planted bugs in the flood code, each caught. Site: 12 page-logic tests and 31 audit tests (13 new). 12 planted bugs, each caught. Each bug was restored byte for byte.
+
+## 8.32 · ADR-104 / ADR-SEC-022 amendment 6 (2026-09-19, session 47) — decisions made in S3 step 1 (the gate, `vault_mcp::gate`)
+
+Implementation choices §8.26 §6.1 left open, each pinned by a test in `crates/vault-mcp/tests/entitlement_gate.rs`. One wording change to §6.1, marked below. BRD §11 was re-read before the step (§11.15).
+
+**S3's steps:** 1 the gate in `vault-mcp` (this amendment) · 2 the real check in `vault-app` over `vault-account`, and the gate wired into the keeper, direct mode and the daemon · 3 keeper lock mode, `ModeChanged`, the relay short-circuit and the maintenance runner · 4 the desktop (sign-in step, account panel, lock screen, banners, the `Entitled` token) · with S4, "Download my memories".
+
+**The shape:**
+- `EntitlementCheck` (async, one method) answers a `Verdict`: `Entitled` or `Locked(LockReason)`. `LockReason` is `SignedOut`, `CannotConfirm`, `TrialEnded`, `SubscriptionEnded` or `Unlocking`, and owns §6's fixed words verbatim (`LockReason::message`). `vault-mcp` still does not depend on `vault-account`; `vault-app` maps account state to a reason (step 2).
+- `EntitledService<S: Service<RoleServer>>` sorts each request with one `match` over all 18 `ClientRequest` variants of rmcp 2.2.0, with no catch-all arm. A test fails if a `_ =>` ever appears in `gate.rs`.
+- A locked plain tool call answers `CallToolResult::error` with the reason's words. Every other refused request is a JSON-RPC error with the crate's existing access-denied code (-32001) and the same words.
+
+**§6.1 wording change — the three empty lists do not ask.** §6.1 has `ListPrompts`, `ListResources` and `ListResourceTemplates` ask the check and then "delegate (empty lists)" whether entitled or not. Asking cannot change the answer and can only add a refresh (up to 5 s) to a list request, so they pass without asking, like `ping`, `initialize` and `tools/list`. Pinned: the check is asked 0 times.
+
+**A locked task-style tool call** gets rmcp's own answer to a task-style call of a tool that forbids tasks (invalid params, "Tool does not support task-based invocation"), built by the gate rather than by passing the call on, so a locked request never reaches the server. The test compares the gate's answer with the server's real one, so an rmcp change there fails a test instead of drifting.
+
+**Calls in flight (for §6.2):**
+- `InFlight` counts a request from its arrival, before the check decides: otherwise the keeper could see zero and change mode between a "yes" and the call starting.
+- The count is held by a guard, not decremented after the call, so a request whose future is dropped (a panic unwinding, an aborted task) stops being counted. rmcp 2.2.0 does not drop a cancelled request's future; it only cancels its token, so a cancelled call stays counted until it answers, which is what §6.2 wants.
+- One `InFlight` is shared by every connection the keeper serves; `wait_idle()` resolves when it reaches zero.
+
+**Logging (§6.6):** a refusal is one `info` line, target `vault_mcp::gate`, with the request kind (`tools/call` or `other`) and the reason. Nothing the client sent is logged, not even the tool name. No audit row and no adapter call.
+
+**Observation, no action:** a task-style call naming a tool that does not exist gets, from the server, rmcp's default `enqueue_task` answer (an internal error), and from the gate while locked the invalid-params answer above. Both refuse, nothing reaches the vault, and nothing leaks; only the code differs. Raised by the step's independent review as below its reporting threshold.
+
+**Evidence:** 19 tests in `entitlement_gate.rs`, driven over raw JSON-RPC lines against the real `StdioServer` and the recording `MockAdapter`. Run first against an empty gate that passed everything: 12 failed, each for the reason it names. Then 19 pass. 16 planted bugs, each caught and restored byte for byte (the 7 tests the empty gate already passed are among those caught): the handshake or the lists asking, the in-flight guard dropped at once, not covering unwinding, or counting only after a "yes", a list or `tools/list` gated, notifications swallowed, a catch-all arm, an entitled request not passed on, `wait_idle` ignoring the current value, the refusal log carrying the request, a locked task-style call passed on, one word of the locked text changed, a locked tool call not flagged `isError`, and tool calls or other requests never asking. An independent read-only review against this design and rmcp 2.2.0's source found no defects.

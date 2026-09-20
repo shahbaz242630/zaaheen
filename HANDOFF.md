@@ -1,6 +1,6 @@
 # Zaaheen (Memory Vault) — Build Handoff
 
-**Current version:** V0.2 Closed Beta (BRD §6.2). **Last updated:** 2026-09-19, session 46.
+**Current version:** V0.2 Closed Beta (BRD §6.2). **Last updated:** 2026-09-19, session 47 (in progress).
 
 > **How to read this file.** §1 is what to do next; act on it. §2 is where things stand. §3–§7 are the working rules and reference. Everything older, including every full ADR, lives in the archives (§8): cross-link to them and quote them, never paraphrase. This file was reset to this short form in session 44 (founder request); the previous 2,632-line version is `HANDOFF_V0.2_PART4_ARCHIVE.md`, word for word.
 >
@@ -18,9 +18,17 @@
 - **The founder's offline backup key moved to S6:** the sandbox has its own throwaway keys, so a test-card lease can never unlock a real app.
 - **Machine:** Node 24 via fnm; wrangler 4.132.0 is signed in to the founder's Cloudflare account. The Claude Code auto-mode classifier refuses secret-store writes from me: the founder runs those scripts with `!` (or a clipboard script is allowed).
 
+**Session 47 (2026-09-19), in progress:**
+- **PR #70 merged** (rebase, auto-merge pinned to the head sha, founder yes) → `main` `53a22a1`; every PR check green on 3 OSes. `main`'s own push runs are green too (CI 35431951486, CodeQL, secret scan; checked session 47).
+- **S3 step 1, the gate, is built on `feat/s3-gate`, not committed yet** (the branch was cut from `add49b6`; `git rebase origin/main` drops that commit as already applied). New: `crates/vault-mcp/src/gate.rs` (`EntitlementCheck`, `Verdict`, `LockReason`, `InFlight`, `EntitledService`), its re-export in `lib.rs`, `crates/vault-mcp/tests/entitlement_gate.rs` (19 tests), `SIGNIN-DESIGN.md` §8.32 (amendment 6, with one §6.1 wording change: the three empty lists do not ask). Proof: 12 red on an empty gate, 19 green, 16 planted bugs each caught, an independent review found no defects.
+- **DoD: all four gates passed** (`gates26.ps1`, logs in `C:\Projects\MemoryVault-artifacts\gate-logs\`): `build --workspace` 61.1 min, `clippy --workspace --all-targets -D warnings` 55.7 min, `test -p vault-mcp` 75.4 min (78 tests over 13 binaries), `fmt --check`. Zero warnings anywhere. `RUSTFLAGS='-D warnings'`, line-tables-only for dev **and** test, `-j 2` for build and clippy, `-j 1` for the test step.
+- **Disk and memory on this machine:** the wipe of `target\debug` freed 33 GB (20.8 → 53.6); the run ended at 17.8 GB free, and `target` is back to ~36 GB. The RAM ran critically low several times (background watchers were reaped three times; the detached gate run was never affected). The pagefile is 16 GB and the machine was not restarted.
+- **Docker: do not delete `docker_data.vhdx` (58 GB).** The founder uses Docker for another project. Compacting it (Docker closed, admin `diskpart`) keeps the data; only on his say-so.
+- The founder's standing yes covers small `cargo test -p` runs of the crate in hand once its dependencies are warm. A `-p` run can still compile cold (different feature unification): the first vault-mcp run rebuilt the stack in ~35 min.
+
 **Do, in order:**
-0. **CI** (§6): this session's branch `feat/s2-step3-deploy` (the Worker, this file, `SIGNIN-DESIGN.md`) and `main` after its merge. The site commit is on `site/production-ready`: a branch push runs no workflow, so its proof is the local `npm test` (12 + 31 pass).
-1. **S3 + S4**, one release. The build order and every rule is in `SIGNIN-DESIGN.md` (S3's wiring rules §8.27; the app builds `https://zaaheen.com/pay/?_ptxn=…` with the trailing slash, §8.31; development builds carry the sandbox lease public keys from `OPS-HANDOFF.md` §G). Re-read BRD §11 first: S3 touches vault-mcp and the Tauri IPC layer.
+0. **S3 step 1 close-out:** the DoD gates are done; what is left is the PR (CI on 3 OSes, CodeQL, the cron workflows) and, once green, **ask the founder before merging**.
+1. **S3 + S4**, one release. Step 2 next: the real check in `vault-app` over `vault-account`, and the gate wired into the keeper (`keeper/runtime.rs` `handle_connection`), direct mode (`application.rs` `start_with_mcp`) and the daemon (`daemon.rs` `call_tool`, after `authorize`). The step plan is in `SIGNIN-DESIGN.md` §8.32. The build order and every rule is in `SIGNIN-DESIGN.md` (S3's wiring rules §8.27; the app builds `https://zaaheen.com/pay/?_ptxn=…` with the trailing slash, §8.31; development builds carry the sandbox lease public keys from `OPS-HANDOFF.md` §G). Re-read BRD §11 first: S3 touches vault-mcp and the Tauri IPC layer.
 2. **The user chooses where their memories live** (founder, 2026-09-18: "add it to the plan after S3 + S4"). S2 is finished, so its design (ADR-105 + an ADR-SEC, BRD §11 re-read) can be written now; it is built right after S3 + S4, whose onboarding it adds a step to.
    - **Onboarding:** "Your memories will be saved here: [default] — Change…". The native folder picker (drives, "New folder"); the default is preselected. Settings gets "Move my memories".
    - **One location for every process:** the desktop app, the keeper, every relay and the nightly maintenance runner (so consolidation follows the vault). Today they all resolve `%APPDATA%\com.zaaheen.app` (`vault-app/src/install_paths.rs::data_dir`, Tauri's `app_data_dir`), so a pointer at the default location is the likely shape. Models stay where they are.
@@ -30,7 +38,7 @@
      - a folder on exFAT/FAT32 has no Windows permissions, so the ADR-SEC-019 ACL cannot apply there (the files stay encrypted).
    - **Say it plainly in the UI:** a USB drive does not carry memories to another computer (the key stays in this computer's Credential Manager). That needs the BRD §11.5.4 backup and restore.
 3. Then **S5** (coaching) and **S6** (production and the live test). **S6 now also carries:** the WAF rate-limiting rule for the API hosts' two `/v1` paths; production lease keys (the primary for Cloudflare, the founder's offline backup); a per-consumer Clerk secret key; the live default payment link `https://zaaheen.com/pay/` and the repository variables `PADDLE_ENVIRONMENT=production` + a `live_` `PADDLE_CLIENT_TOKEN` for the site build.
-4. **In parallel, the founder's own account-side items** are in the local `OPS-HANDOFF.md` §F (the live Paddle company account takes days on Paddle's side).
+4. **In parallel, the founder's own account-side items** are in the local `OPS-HANDOFF.md` §F–§G. The live Paddle company account is already approved; only its domain approval waits for zaaheen.com to go live (S6).
 5. **Optional, the founder's call:** add "account Worker (types + tests)" and "Analyse (TypeScript)" to the "main protection" ruleset's required checks. Open Dependabot PRs #45–#49 are still untouched.
 
 **Lessons from session 46:**
@@ -71,6 +79,7 @@
 - **Accounts:** Clerk (dev instance set up), Microsoft 365, Paddle, Cloudflare and the bank. All details live **only** in the local `OPS-HANDOFF.md`; this repo is public.
 
 ### Recent sessions
+- **47 (2026-09-19/20):** PR #70 merged (`main` `53a22a1`, all green). S3 step 1, the gate (`vault_mcp::gate`), built tests first: 19 tests, 12 red on an empty gate, 16 planted bugs each caught, an independent review found no defects, all four DoD gates green. `SIGNIN-DESIGN.md` §8.32 records the decisions, including the one §6.1 wording change (the three empty lists do not ask the check). Learned: a file restored from a copy keeps its old timestamp, so cargo reuses the previous binary — touch it and check each log says "Compiling".
 - **46 (2026-09-19):**
   - S2 step 3: `/pay/` built tests first on the site branch (`allowLogout: false`, a CSP measured live and pinned by the audit), flood protection in the Worker, and the sandbox deployment `api-sandbox.zaaheen.com`.
   - Live test against the Paddle sandbox and Clerk development: trial → paid → active in about 2 s → deletion canceled the subscription. 19 planted bugs, each caught.
