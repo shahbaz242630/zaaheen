@@ -1145,6 +1145,8 @@ function friendlyMaintError(code) {
   switch (code) {
     case "maintenance_vault_busy":
       return "an agent was connected, so it will run at the next opportunity";
+    case "maintenance_paused_not_subscribed":
+      return "paused until you subscribe";
     case "maintenance_engine_unavailable":
       return "the consolidation engine is still downloading";
     case "maintenance_run_failed":

@@ -30,7 +30,9 @@ use tokio::sync::mpsc;
 use tokio::task::AbortHandle;
 use tokio::time::Instant;
 use vault_core::{VaultError, VaultResult};
-use vault_mcp::{Adapter, Gate, StdioServer};
+use vault_mcp::{Adapter, EntitlementCheck, Gate, InFlight, StdioServer, Verdict};
+
+use crate::entitlement::{Flip, LockModeCheck, ModeCheck};
 
 use super::discovery::{self, Discovery};
 use super::handshake::{
@@ -81,6 +83,78 @@ pub enum KeeperExit {
     Yielded,
     HandedOver,
     Shutdown,
+    /// Entitlement flipped, so this process is the wrong mode to serve it
+    /// (§8.26 §6.2). Full to lock frees the models instead of holding them
+    /// while relays stay connected; lock to full lets the next relay start a
+    /// keeper that can actually serve.
+    ModeChanged,
+}
+
+/// Which mode this keeper is running in (§8.26 §6.2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeeperMode {
+    /// The vault is open and calls are served.
+    Full,
+    /// The user is locked: the same MCP surface over `NoVaultAdapter`, with no
+    /// `Application` and no models behind it.
+    Lock,
+}
+
+/// The subscription this keeper serves behind, and what it re-evaluates on
+/// each tick (§8.35).
+///
+/// One value rather than a gate and a mode side by side: two `Option`s that
+/// must agree is a defect waiting to happen.
+pub struct Subscription {
+    /// Gates every session. The real check in full mode; [`LockModeCheck`] in
+    /// lock mode, which never serves a call.
+    gate: Gate,
+    mode: KeeperMode,
+    /// Asked on each tick, and never the always-deny check: a locked keeper
+    /// has to be able to notice that the user is entitled again.
+    check: Arc<dyn ModeCheck>,
+    /// Raised by a lock-mode call that found the user entitled, so the keeper
+    /// leaves at once instead of waiting for the next tick.
+    flip: Flip,
+}
+
+impl Subscription {
+    /// A keeper serving the vault: the one check both serves calls and
+    /// answers ticks.
+    pub fn full<C>(check: Arc<C>, in_flight: InFlight) -> Self
+    where
+        C: EntitlementCheck + ModeCheck,
+    {
+        Self {
+            gate: Gate::new(check.clone(), in_flight),
+            mode: KeeperMode::Full,
+            check,
+            // Nothing to unlock: only lock mode raises it.
+            flip: Flip::new(),
+        }
+    }
+
+    /// A locked keeper: calls are answered by [`LockModeCheck`], which never
+    /// serves one and raises the flip when entitlement returns.
+    pub fn lock<C>(check: Arc<C>, in_flight: InFlight) -> Self
+    where
+        C: EntitlementCheck + ModeCheck,
+    {
+        let flip = Flip::new();
+        let locked: Arc<dyn EntitlementCheck> =
+            Arc::new(LockModeCheck::new(check.clone(), flip.clone()));
+        Self {
+            gate: Gate::new(locked, in_flight),
+            mode: KeeperMode::Lock,
+            check,
+            flip,
+        }
+    }
+
+    /// Which mode this keeper is running in.
+    pub fn mode(&self) -> KeeperMode {
+        self.mode
+    }
 }
 
 /// Serve until idle, yield, handover or shutdown.
@@ -94,13 +168,14 @@ pub async fn serve<F>(
     adapter: Arc<dyn Adapter>,
     keys: HandshakeKeys,
     settings: KeeperSettings,
-    gate: Option<Gate>,
+    subscription: Option<Subscription>,
     shutdown: F,
 ) -> VaultResult<KeeperExit>
 where
     F: std::future::Future<Output = ()> + Send,
 {
     let keys = Arc::new(keys);
+    let gate = subscription.as_ref().map(|s| s.gate.clone());
     let (mut listener, mut identity) = bind_fresh(&settings)?;
     publish(&settings, &identity)?;
     // The tenure the discovery file currently describes — what cleanup must
@@ -121,6 +196,15 @@ where
     let mut connections: Vec<AbortHandle> = Vec::new();
     let mut idle_since = Some(Instant::now());
     let mut idle_tick = tokio::time::interval(settings.idle_check);
+    // At most one mode evaluation at a time: a refresh can take 5 s, and
+    // ticks come every `idle_check`.
+    let deciding = Arc::new(AtomicBool::new(false));
+    // Lock mode only, and acted on once: a raised flip stays raised, so
+    // selecting on it again would spin the loop.
+    let mut pending_flip = subscription
+        .as_ref()
+        .filter(|s| s.mode == KeeperMode::Lock)
+        .map(|s| s.flip.clone());
     tokio::pin!(shutdown);
 
     let exit = loop {
@@ -132,6 +216,7 @@ where
                 Err(e) => Event::ListenerFailed(e),
             },
             _ = idle_tick.tick() => Event::Tick,
+            () = next_flip(pending_flip.as_ref()) => Event::Flip,
             Some(reason) = stop_rx.recv() => Event::Stop(reason),
             () = &mut shutdown => Event::Stop(KeeperExit::Shutdown),
         };
@@ -201,6 +286,27 @@ where
                 } else {
                     idle_since = None;
                 }
+                // §6.2: both modes re-evaluate entitlement on each tick, off
+                // the loop, and exit only when it has flipped.
+                if let Some(sub) = subscription.as_ref() {
+                    if !deciding.swap(true, Ordering::SeqCst) {
+                        spawn_mode_evaluation(
+                            sub.mode,
+                            Arc::clone(&sub.check),
+                            sub.gate.in_flight().clone(),
+                            Arc::clone(&deciding),
+                            stop_tx.clone(),
+                        );
+                    }
+                }
+            }
+            Event::Flip => {
+                // A call has already established that the user is entitled;
+                // all that is left is to let calls in flight finish.
+                pending_flip = None;
+                if let Some(sub) = subscription.as_ref() {
+                    spawn_mode_exit(sub.gate.in_flight().clone(), stop_tx.clone());
+                }
             }
             Event::Stop(reason) => break Ok(reason),
         }
@@ -233,7 +339,69 @@ enum Event {
     Accepted(ServerStream),
     ListenerFailed(std::io::Error),
     Tick,
+    /// A lock-mode call found the user entitled again.
+    Flip,
     Stop(KeeperExit),
+}
+
+/// Lock mode's flip, until it has been acted on. A future that never resolves
+/// otherwise, so a full keeper never selects on it and an acted-on flip does
+/// not spin the loop.
+async fn next_flip(flip: Option<&Flip>) {
+    match flip {
+        Some(flip) => flip.wait().await,
+        None => std::future::pending().await,
+    }
+}
+
+/// Re-evaluate entitlement off the serve loop, and exit if it has flipped.
+///
+/// Spawned rather than run in the loop: `refresh_and_peek` can take 5 s and
+/// the loop also owns `accept`, so evaluating inline would stop the keeper
+/// answering new connections for as long as a refresh takes.
+fn spawn_mode_evaluation(
+    mode: KeeperMode,
+    check: Arc<dyn ModeCheck>,
+    in_flight: InFlight,
+    deciding: Arc<AtomicBool>,
+    stop_tx: mpsc::Sender<KeeperExit>,
+) {
+    tokio::spawn(async move {
+        let flipped = match mode {
+            // Locked now? A lease that is merely stale is not a reason to
+            // unload and reload 2.86 GB, so refresh before deciding (§6.2).
+            KeeperMode::Full => match check.peek().await {
+                Verdict::Entitled => false,
+                Verdict::Locked(_) => {
+                    matches!(check.refresh_and_peek().await, Verdict::Locked(_))
+                }
+            },
+            // Entitled again? A read is enough: a lease arrives through a
+            // call or through the desktop app, never through this tick.
+            KeeperMode::Lock => check.peek().await == Verdict::Entitled,
+        };
+        if flipped {
+            in_flight.wait_idle().await;
+            let _ = stop_tx.try_send(KeeperExit::ModeChanged);
+            // Latched on purpose. The keeper is leaving, so no later
+            // evaluation can mean anything — and `interval` bursts the ticks
+            // it missed during a slow refresh, so releasing the latch here
+            // would start a second refresh before the loop has even read the
+            // stop message.
+            return;
+        }
+        deciding.store(false, Ordering::SeqCst);
+    });
+}
+
+/// Leave as soon as every call in flight has answered (§6.2: the idle exit
+/// requires zero connections, `ModeChanged` does not, so it must not cut a
+/// write off mid-way).
+fn spawn_mode_exit(in_flight: InFlight, stop_tx: mpsc::Sender<KeeperExit>) {
+    tokio::spawn(async move {
+        in_flight.wait_idle().await;
+        let _ = stop_tx.try_send(KeeperExit::ModeChanged);
+    });
 }
 
 /// Everything one connection's task needs.

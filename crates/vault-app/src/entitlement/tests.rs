@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use vault_account::{AccountError, AccountResult, Denial, Entitlement, RefreshOutcome, Trigger};
 use vault_mcp::{EntitlementCheck, LockReason, Verdict};
 
-use super::{AccountAccess, AccountCheck, AccountState, Clock};
+use super::{AccountAccess, AccountCheck, AccountState, Clock, ModeCheck};
 
 const ENTITLED: AccountState = AccountState::Leased(Entitlement::Entitled {
     payment_failed: false,
@@ -375,4 +375,158 @@ async fn a_refresh_that_signs_out_is_told_to_sign_in() {
         check_over(account, 1_000).check().await,
         Verdict::Locked(LockReason::SignedOut)
     );
+}
+
+// ---------------------------------------------------------------------------
+// The keeper's own question: `ModeCheck` (§8.26 §6.2, §8.35)
+//
+// The tick asks whether entitlement has FLIPPED, which is not the same
+// question a call asks. It reads, and it must not refresh, must not write,
+// and must not record a use: `record_use` feeds the 30-day unused rule, so a
+// keeper that recorded one every few seconds would stop that rule ever
+// firing.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn peek_answers_from_disk_without_refreshing() {
+    let account = FakeAccount::steady(trial_ended());
+    let verdict = check_over(account.clone(), 1_000).peek().await;
+    assert_eq!(verdict, Verdict::Locked(LockReason::TrialEnded));
+    assert!(
+        account.refreshes().is_empty(),
+        "the tick must not reach the network"
+    );
+}
+
+/// The one that matters: a tick is not a use of the vault. Before this test
+/// existed, reusing the serving check for the tick would have recorded a use
+/// every `idle_check` and quietly cancelled the 30-day unused sign-out.
+#[tokio::test]
+async fn peek_never_records_a_use_however_often_it_is_asked() {
+    let account = FakeAccount::steady(ENTITLED);
+    let check = check_over(account.clone(), 1_000);
+    for _ in 0..20 {
+        assert_eq!(check.peek().await, Verdict::Entitled);
+    }
+    assert!(
+        account.uses().is_empty(),
+        "a mode re-evaluation is not somebody using their vault"
+    );
+    assert!(account.refreshes().is_empty());
+}
+
+/// §8.27 and §8.33: only a signed `ended` may say "ended". A folder that
+/// cannot be read must never tell a paying user their trial is over — on the
+/// tick path just as on the call path.
+#[tokio::test]
+async fn peek_calls_an_unreadable_folder_could_not_confirm() {
+    let account = FakeAccount::new(
+        vec![StateAnswer::Unreadable],
+        OnRefresh::Answer(Arc::new(|| {
+            Ok(RefreshOutcome::Skipped(
+                vault_account::SkipReason::RateLimited,
+            ))
+        })),
+    );
+    assert_eq!(
+        check_over(account, 1_000).peek().await,
+        Verdict::Locked(LockReason::CannotConfirm)
+    );
+}
+
+/// The tick and a call must never disagree about what the same state means:
+/// a keeper that changed mode on a reason a call would not refuse (or the
+/// reverse) would flap. Checked over every state the account can report.
+#[tokio::test]
+async fn peek_and_a_served_call_agree_on_every_state() {
+    let states = [
+        ENTITLED,
+        PAYMENT_FAILED,
+        AccountState::SignedOut,
+        AccountState::NoLease,
+        trial_ended(),
+        subscription_ended(),
+        denied(Denial::DeadlinePassed),
+        denied(Denial::OfflineTooLong),
+        denied(Denial::ClockBehind),
+    ];
+    for state in states {
+        let peeked = check_over(FakeAccount::steady(state), 1_000).peek().await;
+        // A steady account answers the same after a refresh, so a served
+        // call ends on the same verdict the tick read.
+        let served = check_over(FakeAccount::steady(state), 1_000).check().await;
+        assert_eq!(peeked, served, "{state:?} reads differently on the tick");
+    }
+}
+
+/// §6.2: a full keeper that finds the user locked refreshes FIRST, because a
+/// merely stale lease must not unload and reload 2.86 GB of models.
+#[tokio::test]
+async fn refresh_and_peek_refreshes_once_then_answers_from_disk() {
+    let account = FakeAccount::new(
+        // Locked on the first read, entitled once the refresh has landed.
+        vec![
+            StateAnswer::Reads(denied(Denial::DeadlinePassed)),
+            StateAnswer::Reads(ENTITLED),
+        ],
+        OnRefresh::Answer(Arc::new(|| {
+            Ok(RefreshOutcome::Skipped(
+                vault_account::SkipReason::RateLimited,
+            ))
+        })),
+    );
+    // The keeper's real sequence: the tick reads a denial, and only then is a
+    // refresh worth 5 s.
+    let check = check_over(account.clone(), 1_000);
+    assert_eq!(
+        check.peek().await,
+        Verdict::Locked(LockReason::CannotConfirm),
+        "the tick reads the stale lease"
+    );
+    assert_eq!(
+        check.refresh_and_peek().await,
+        Verdict::Entitled,
+        "a stale lease that a refresh fixes must not change the keeper's mode"
+    );
+    assert_eq!(
+        account.refreshes(),
+        vec![Trigger::Denial],
+        "exactly one refresh, as a denial"
+    );
+}
+
+/// A refresh that fails changes nothing: the answer still comes from disk,
+/// and a network error never reports "ended" (§8.33).
+#[tokio::test]
+async fn refresh_and_peek_answers_from_disk_when_the_refresh_fails() {
+    let account = FakeAccount::new(
+        vec![StateAnswer::Reads(AccountState::NoLease)],
+        OnRefresh::Answer(Arc::new(|| {
+            Err(AccountError::Keychain("no network".into()))
+        })),
+    );
+    assert_eq!(
+        check_over(account.clone(), 1_000).refresh_and_peek().await,
+        Verdict::Locked(LockReason::CannotConfirm)
+    );
+    assert_eq!(account.refreshes().len(), 1);
+}
+
+/// Deciding the keeper's mode is not somebody using their vault either, even
+/// when the refresh restored entitlement.
+#[tokio::test]
+async fn refresh_and_peek_records_no_use() {
+    let account = FakeAccount::new(
+        vec![
+            StateAnswer::Reads(denied(Denial::DeadlinePassed)),
+            StateAnswer::Reads(ENTITLED),
+        ],
+        OnRefresh::Answer(Arc::new(|| {
+            Ok(RefreshOutcome::Skipped(
+                vault_account::SkipReason::RateLimited,
+            ))
+        })),
+    );
+    let _ = check_over(account.clone(), 1_000).refresh_and_peek().await;
+    assert!(account.uses().is_empty());
 }

@@ -51,6 +51,12 @@ pub const OUTCOME_BUSY: &str = "maintenance_vault_busy";
 /// Recorded when a run failed for any reason other than a held lock.
 pub const OUTCOME_FAILED: &str = "maintenance_run_failed";
 
+/// Recorded when a run did not start because the subscription is not active
+/// (`SIGNIN-DESIGN.md` §8.26 §6.5: "paused until you subscribe"). Like
+/// [`OUTCOME_BUSY`], nothing ran, so it is not a success — and nothing is
+/// wrong, so it is not a failure either.
+pub const OUTCOME_PAUSED: &str = "maintenance_paused_not_subscribed";
+
 /// The persisted schedule choice plus the most recent outcome.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MaintenanceConfig {
@@ -141,6 +147,8 @@ pub enum RunOutcome {
     Completed(RunSummary),
     /// Another writer held the vault lock, so nothing ran.
     Busy,
+    /// The subscription is not active, so nothing ran (§8.26 §6.5).
+    Paused,
     /// The run failed. No detail is recorded here on purpose (§11.7.2) — the
     /// detail is in the application log.
     Failed,
@@ -160,6 +168,7 @@ impl RunOutcome {
         match self {
             RunOutcome::Completed(s) => s.to_line(),
             RunOutcome::Busy => OUTCOME_BUSY.to_string(),
+            RunOutcome::Paused => OUTCOME_PAUSED.to_string(),
             RunOutcome::Failed => OUTCOME_FAILED.to_string(),
         }
     }
@@ -547,5 +556,57 @@ mod tests {
         let tmp = temp_sibling(path);
         assert_eq!(tmp.parent(), path.parent());
         assert_ne!(tmp.file_name(), path.file_name());
+    }
+
+    // -----------------------------------------------------------------------
+    // Maintenance while the subscription is not active (§8.26 §6.5, §8.35)
+    // -----------------------------------------------------------------------
+
+    /// Nothing ran, so it is not a success; nothing is wrong, so it is not a
+    /// failure. The same distinction `Busy` already draws, and it keeps its
+    /// own code so the UI can say something true about it.
+    #[test]
+    fn a_paused_run_is_neither_a_success_nor_a_failure() {
+        assert!(!RunOutcome::Paused.ok(), "nothing ran");
+        assert_eq!(RunOutcome::Paused.summary(), OUTCOME_PAUSED);
+        assert_ne!(
+            RunOutcome::Paused.summary(),
+            OUTCOME_FAILED,
+            "a paused run is not something the user has to fix"
+        );
+        assert_ne!(RunOutcome::Paused.summary(), OUTCOME_BUSY);
+    }
+
+    /// What is written is a code, never free text (§11.7.2): this file sits in
+    /// plaintext beside the encrypted vault.
+    #[test]
+    fn a_paused_run_records_its_code_and_nothing_else() {
+        let tmp = TempDir::new().expect("temp dir");
+        let path = tmp.path().join(CONFIG_FILENAME);
+        record_run(&path, &RunOutcome::Paused, "2026-09-20T10:00:00Z".into()).expect("record");
+
+        let last = load(&path).last_run.expect("an outcome was recorded");
+        assert!(!last.ok);
+        assert_eq!(last.summary, OUTCOME_PAUSED);
+    }
+
+    /// A code with no arm in `friendlyMaintError` falls through to showing the
+    /// user the raw code, so the plain-English line ships with the code.
+    ///
+    /// This lives here, beside the codes themselves, rather than in
+    /// `vault-tauri`: the codes are defined in this file, `vault-account`
+    /// already sets the precedent for pinning an artefact from elsewhere in
+    /// the tree with `include_str!` (`lease/worker_vectors.rs`), and it adds
+    /// no new gate step.
+    #[test]
+    fn every_outcome_code_has_a_plain_english_line_in_the_app() {
+        const APP_JS: &str = include_str!("../../vault-tauri/dist/app.js");
+        for code in [OUTCOME_BUSY, OUTCOME_FAILED, OUTCOME_PAUSED] {
+            assert!(
+                APP_JS.contains(&format!("case \"{code}\":")),
+                "{code} has no plain-English line in friendlyMaintError, so \
+                 the user would be shown the raw code"
+            );
+        }
     }
 }
