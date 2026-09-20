@@ -25,12 +25,20 @@
 #![forbid(unsafe_code)]
 
 pub mod account;
+/// What the desktop asks the account to do, and the rule that it never
+/// holds the vault (S3 step 4b).
+pub mod account_ops;
 mod adapter;
 mod application;
 mod config;
 mod consolidator_lock;
 pub mod entitlement;
 pub mod erasure;
+/// "Download my memories" - the readable file (S4, S3 step 4c).
+pub mod export;
+/// The links this app may hand to the operating system, and the last check
+/// before it does (S3 step 4b).
+pub mod external_link;
 pub mod install_paths;
 pub mod keeper;
 pub mod keychain;

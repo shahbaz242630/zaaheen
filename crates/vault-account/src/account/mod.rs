@@ -44,6 +44,7 @@ mod tests;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
+use crate::checkout_client::{CheckoutAnswer, CheckoutClient, Plan};
 use crate::entitlement::{
     assess, clock_looks_wrong, refresh_allowed, unused_too_long, Assessment, LocalState,
 };
@@ -51,7 +52,7 @@ use crate::error::{AccountError, AccountResult};
 use crate::files::{AccountDir, RefreshLock};
 use crate::lease::{Lease, LeaseState, LeaseVerifier};
 use crate::lease_client::LeaseClient;
-use crate::oauth::{OAuthClient, RefreshToken, UserInfo};
+use crate::oauth::{AccessToken, OAuthClient, RefreshToken, UserInfo};
 use crate::signin::AuthorizedCode;
 use crate::token_store::TokenStore;
 
@@ -118,6 +119,18 @@ pub enum RefreshOutcome {
     Skipped(SkipReason),
 }
 
+/// What [`Account::rotate_under_lock`] produced. Private: an access token is
+/// not something this crate hands out.
+enum Rotated {
+    /// A live access token, and the refresh token now in the store.
+    Tokens {
+        access: AccessToken,
+        refresh: RefreshToken,
+    },
+    /// This computer is now signed out; everything local is cleared.
+    SignedOut(SignOutReason),
+}
+
 /// Why a refresh signed the user out.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SignOutReason {
@@ -164,6 +177,9 @@ pub struct Account {
     /// A rotated refresh token the credential store has not accepted yet
     /// (point 7 of the module docs). Newer than the stored one.
     unsaved: Mutex<Option<RefreshToken>>,
+    /// Starts checkouts. `None` in the many tests that never subscribe, and
+    /// set by [`Account::with_checkout`] in a real build.
+    checkout: Option<CheckoutClient>,
 }
 
 impl Account {
@@ -184,7 +200,20 @@ impl Account {
             verifier,
             timings,
             unsaved: Mutex::new(None),
+            checkout: None,
         }
+    }
+
+    /// Give this account the checkout client, so `/v1/checkout` is called
+    /// from inside the type that owns the token lifecycle.
+    ///
+    /// Deliberately a builder rather than a seventh parameter to
+    /// [`Account::new`]: the crate's existing tests do not subscribe, and a
+    /// signature change would have edited a hundred call sites for nothing.
+    #[must_use]
+    pub fn with_checkout(mut self, checkout: CheckoutClient) -> Self {
+        self.checkout = Some(checkout);
+        self
     }
 
     /// What is on disk now, judged at `now`. No network, no writes.
@@ -268,63 +297,11 @@ impl Account {
         let state = state.with_refresh_attempt(now);
         self.write_state(&lock, state).await?;
 
-        // A token the store refused earlier is the live one: store it now if
-        // the store has recovered, and use it either way.
-        if let Some(pending) = self.unsaved_token() {
-            match self.save_token(pending).await {
-                Ok(_) => self.set_unsaved(None),
-                Err(e) => {
-                    tracing::warn!(error = %e, "the credential store still refuses the newer token")
-                }
-            }
-        }
-        let token = match self.unsaved_token() {
-            Some(pending) => Some(pending),
-            None => self.load_token_twice().await?,
-        };
-        let Some(token) = token else {
-            self.sign_out_locally(&lock).await;
-            return Ok(RefreshOutcome::SignedOut(SignOutReason::NoToken));
-        };
-        let tokens = match self.oauth.refresh(&token).await {
-            Ok(tokens) => tokens,
-            Err(AccountError::InvalidGrant) => {
-                // §8.26 §15: another process may have rotated a moment ago.
-                let again = self.load_token().await?;
-                let retried = match again {
-                    Some(again) if again.expose() != token.expose() => {
-                        self.oauth.refresh(&again).await
-                    }
-                    _ => Err(AccountError::InvalidGrant),
-                };
-                match retried {
-                    Ok(tokens) => tokens,
-                    Err(AccountError::InvalidGrant) => {
-                        tracing::info!("refresh grant has ended; signing out locally");
-                        self.sign_out_locally(&lock).await;
-                        return Ok(RefreshOutcome::SignedOut(SignOutReason::GrantEnded));
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
-            Err(e) => return Err(e),
-        };
-
-        // The rotated token is stored, and confirmed, before anything else.
-        let (access, fresh) = tokens.into_parts();
-        let fresh = match self.save_token(fresh.clone()).await {
-            Ok(saved) => {
-                self.set_unsaved(None);
-                saved
-            }
-            Err(e) => {
-                tracing::error!(
-                    error = %e,
-                    "the credential store refused the rotated token; keeping it until it can be stored"
-                );
-                self.set_unsaved(Some(fresh));
-                return Err(e);
-            }
+        // One path to a live access token, shared with `start_checkout` so
+        // the rotation rules below exist exactly once.
+        let (access, fresh) = match self.rotate_under_lock(&lock).await? {
+            Rotated::SignedOut(reason) => return Ok(RefreshOutcome::SignedOut(reason)),
+            Rotated::Tokens { access, refresh } => (access, refresh),
         };
 
         let wire = self.api.fetch(&access, now).await?;
@@ -449,6 +426,57 @@ impl Account {
         deleted
     }
 
+    /// Start a subscription, or get the portal for one that already exists.
+    ///
+    /// # Why this lives on `Account` and not on the caller
+    ///
+    /// `/v1/checkout` needs a Bearer access token, and an access token is
+    /// only ever produced by rotating the refresh token under `refresh.lock`
+    /// ([`Account::rotate_under_lock`]). Handing that token out would mean a
+    /// second way to obtain one -- either duplicating the rotation rules or
+    /// bypassing them -- and both fail quietly, as a subscription that
+    /// mysteriously signs somebody out. So the call happens here: the token
+    /// is used and dropped without leaving the type that owns it.
+    ///
+    /// The answer is already validated by [`CheckoutClient`]: a
+    /// [`TransactionId`](crate::TransactionId) matching the locked shape, or
+    /// a [`PortalUrl`](crate::PortalUrl) on an allowed host.
+    ///
+    /// # Errors
+    ///
+    /// [`AccountError::InvalidConfig`] if this build has no checkout client;
+    /// [`AccountError::Busy`] if the folder stayed locked; whatever the
+    /// client reports otherwise.
+    #[tracing::instrument(skip_all)]
+    pub async fn start_checkout(&self, plan: Plan) -> AccountResult<CheckoutAnswer> {
+        let Some(checkout) = self.checkout.as_ref() else {
+            return Err(AccountError::InvalidConfig(
+                "this build cannot start a checkout".into(),
+            ));
+        };
+        // Subscribing is something the person just asked for, so it waits as
+        // long as any other user action rather than giving up quickly.
+        let Some(lock) = self.lock(self.timings.user_lock_wait).await? else {
+            return Err(AccountError::Busy);
+        };
+        let dir = self.dir.clone();
+        let signed_in = blocking(move || Ok(dir.read_marker()?)).await?;
+        if signed_in.is_none() {
+            return Err(AccountError::InvalidConfig(
+                "nobody is signed in on this computer".into(),
+            ));
+        }
+
+        let access = match self.rotate_under_lock(&lock).await? {
+            Rotated::SignedOut(reason) => {
+                tracing::info!(?reason, "checkout found this computer signed out");
+                return Err(AccountError::InvalidGrant);
+            }
+            Rotated::Tokens { access, .. } => access,
+        };
+        checkout.start(&access, plan).await
+    }
+
     /// Bookkeeping after use (a served call, the desktop opening): raise the
     /// floor (at most once a minute) and record activity in server time (at
     /// most hourly). Skipped silently when the folder is locked or there is
@@ -502,6 +530,85 @@ impl Account {
     }
 
     /// Take `refresh.lock` off the async runtime (the wait blocks).
+    /// Rotate the refresh token under the lock and yield a live access
+    /// token. **The one place an access token is produced.**
+    ///
+    /// Extracted from `refresh` in S3 step 4b so that `start_checkout` gets a
+    /// token by the same rules rather than by a second, subtly different
+    /// path. Those rules are not incidental:
+    ///
+    /// * a token the credential store refused earlier is the live one, so it
+    ///   is stored again if the store has recovered and used either way;
+    /// * `invalid_grant` is looked at **twice**, re-reading the store in
+    ///   between, because another process may have rotated a moment ago
+    ///   (§8.26 §15). Only the second refusal means "signed out";
+    /// * the rotated token is **stored, and confirmed, before anything
+    ///   else** -- a token that reached the provider but not the store would
+    ///   otherwise be lost.
+    ///
+    /// The access token is returned, never persisted, and never logged.
+    async fn rotate_under_lock(&self, lock: &Arc<RefreshLock>) -> AccountResult<Rotated> {
+        // A token the store refused earlier is the live one: store it now if
+        // the store has recovered, and use it either way.
+        if let Some(pending) = self.unsaved_token() {
+            match self.save_token(pending).await {
+                Ok(_) => self.set_unsaved(None),
+                Err(e) => {
+                    tracing::warn!(error = %e, "the credential store still refuses the newer token")
+                }
+            }
+        }
+        let token = match self.unsaved_token() {
+            Some(pending) => Some(pending),
+            None => self.load_token_twice().await?,
+        };
+        let Some(token) = token else {
+            self.sign_out_locally(lock).await;
+            return Ok(Rotated::SignedOut(SignOutReason::NoToken));
+        };
+        let tokens = match self.oauth.refresh(&token).await {
+            Ok(tokens) => tokens,
+            Err(AccountError::InvalidGrant) => {
+                // §8.26 §15: another process may have rotated a moment ago.
+                let again = self.load_token().await?;
+                let retried = match again {
+                    Some(again) if again.expose() != token.expose() => {
+                        self.oauth.refresh(&again).await
+                    }
+                    _ => Err(AccountError::InvalidGrant),
+                };
+                match retried {
+                    Ok(tokens) => tokens,
+                    Err(AccountError::InvalidGrant) => {
+                        tracing::info!("refresh grant has ended; signing out locally");
+                        self.sign_out_locally(lock).await;
+                        return Ok(Rotated::SignedOut(SignOutReason::GrantEnded));
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            Err(e) => return Err(e),
+        };
+
+        // The rotated token is stored, and confirmed, before anything else.
+        let (access, fresh) = tokens.into_parts();
+        let refresh = match self.save_token(fresh.clone()).await {
+            Ok(saved) => {
+                self.set_unsaved(None);
+                saved
+            }
+            Err(e) => {
+                tracing::error!(
+                    error = %e,
+                    "the credential store refused the rotated token; keeping it until it can be stored"
+                );
+                self.set_unsaved(Some(fresh));
+                return Err(e);
+            }
+        };
+        Ok(Rotated::Tokens { access, refresh })
+    }
+
     async fn lock(&self, wait: Duration) -> AccountResult<Option<Arc<RefreshLock>>> {
         let dir = self.dir.clone();
         blocking(move || Ok(dir.lock(wait)?.map(Arc::new))).await

@@ -45,6 +45,8 @@ const COMMAND_SOURCES: &[(&str, &str)] = &[
     ),
     ("erasure.rs", include_str!("../src/commands/erasure.rs")),
     ("logs.rs", include_str!("../src/commands/logs.rs")),
+    ("account.rs", include_str!("../src/commands/account.rs")),
+    ("export.rs", include_str!("../src/commands/export.rs")),
 ];
 
 /// The markup, for guards that pin UI structure rather than wiring.

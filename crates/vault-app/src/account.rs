@@ -25,8 +25,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use vault_account::{
-    Account, AccountConfig, AccountDir, AccountTimings, LeaseClient, LeaseKey, LeaseVerifier,
-    OAuthClient, TokenStore,
+    Account, AccountConfig, AccountDir, AccountTimings, CheckoutClient, LeaseClient, LeaseKey,
+    LeaseVerifier, OAuthClient, TokenStore,
 };
 use vault_mcp::{Gate, InFlight};
 
@@ -239,14 +239,43 @@ pub fn build_account(
         LeaseKey::new(&settings.backup.kid, settings.backup.public)?,
     )?;
     let store = TokenStore::platform()?;
-    Ok(Account::new(
-        dir,
-        store,
-        oauth,
-        api,
-        verifier,
-        AccountTimings::default(),
-    ))
+    // The checkout client lives on `Account` so that `/v1/checkout` is called
+    // from inside the type that owns the token lifecycle: an access token is
+    // produced only by rotating the refresh token under `refresh.lock`, and a
+    // second way to get one would either duplicate those rules or bypass them
+    // (S3 step 4b).
+    let checkout = CheckoutClient::new(&settings.api_origin)?;
+    Ok(
+        Account::new(dir, store, oauth, api, verifier, AccountTimings::default())
+            .with_checkout(checkout),
+    )
+}
+
+/// Everything the desktop needs to run the account: sign in, sign out, check
+/// the state, subscribe, refresh.
+///
+/// `None` when this build carries no account settings, exactly as
+/// [`build_check`] does — then the desktop shows no account panel because
+/// there is no account.
+///
+/// # Errors
+///
+/// As [`build_gate`]: broken build-time settings, a folder that cannot be
+/// prepared, or a credential store that cannot be opened.
+pub fn build_account_ops(
+    local_app_data: &Path,
+) -> Result<Option<crate::account_ops::AccountOps>, AccountSetupError> {
+    let Some(settings) = AccountSettings::from_build_env()? else {
+        return Ok(None);
+    };
+    let dir = open_account_dir(local_app_data)?;
+    let config = AccountConfig::new(&settings.issuer, &settings.client_id)?;
+    let account = build_account(&settings, dir)?;
+    Ok(Some(crate::account_ops::AccountOps::new(
+        Arc::new(account),
+        config,
+        Arc::new(SystemClock),
+    )))
 }
 
 /// Where the account folder lives under `local_app_data`.

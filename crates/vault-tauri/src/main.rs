@@ -132,6 +132,17 @@ fn main() {
             vault_tauri::commands::maintenance::run_maintenance_now,
             vault_tauri::commands::erasure::erase_everything,
             vault_tauri::commands::logs::export_logs,
+            // Account (S3 step 4b). Ungated by design -- 8.26 6.4's
+            // `account` slot -- and safe to be, because `AccountOps` holds
+            // no vault. See `guard::no_account_command_receives_the_vault`.
+            vault_tauri::commands::account::account_status,
+            vault_tauri::commands::account::account_sign_in,
+            vault_tauri::commands::account::account_sign_out,
+            vault_tauri::commands::account::account_subscribe,
+            vault_tauri::commands::account::account_refresh_now,
+            // Download my memories (S4). Ungated: the promise it keeps is
+            // that it works when everything else is refused.
+            vault_tauri::commands::export::export_memories,
         ])
         .setup(|app| {
             // 0. File logging FIRST, so every later step in this closure --
@@ -467,6 +478,27 @@ fn main() {
             // always-entitled guard of its own and still satisfy the source
             // test. Found by the step's independent review.
             app.manage(vault_tauri::guard::build());
+
+            // 7c. The account itself (S3 step 4b). A build with no account
+            // settings manages nothing, and the five account commands then
+            // fail with a stable code rather than the app refusing to start
+            // -- the same reasoning as the guard above: a desktop that will
+            // not start is a desktop whose export nobody can reach.
+            match vault_app::install_paths::local_data_dir()
+                .ok_or(())
+                .and_then(|home| {
+                    vault_app::account::build_account_ops(&home).map_err(|e| {
+                        tracing::warn!(error = %e, "the account could not be prepared");
+                    })
+                }) {
+                Ok(Some(ops)) => {
+                    // `manage` answers whether it replaced an earlier value;
+                    // there is none, and the arms must agree on a type.
+                    app.manage(ops);
+                }
+                Ok(None) => tracing::info!("this build carries no account settings"),
+                Err(()) => {}
+            }
 
             // 8. First-run acquisition state (ADR-089). Bound to the same
             //    models directory `resolve_reranker_paths` resolves against,

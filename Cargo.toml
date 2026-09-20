@@ -46,6 +46,16 @@ repository = "https://github.com/shahbaz242630/zaaheen"
 # Async runtime (BRD §4.1)
 tokio = { version = "=1.52.1", features = ["full"] }
 async-trait = "=0.1.89"
+# Hands a link to the person's own browser (S3 step 4b: sign in, Subscribe).
+#
+# `default-features = false` and NEVER the `insecure` feature. Its own docs:
+# "The `insecure` Cargo feature restores the legacy `cmd /c start` launcher on
+# Windows for compatibility ... must not be enabled when paths or URLs may be
+# attacker-controlled." A portal link comes from the account service, so ours
+# may be. The default launcher does not go through a shell.
+#
+# Pure Rust, no system libraries, so it adds nothing to any CI leg's setup.
+open = { version = "=5.4.4", default-features = false }
 # Futures combinators (TryStreamExt for draining lancedb's SendableRecordBatchStream
 # into Vec<RecordBatch>). Added in T0.1.4 Phase 3.
 futures = "=0.3.32"

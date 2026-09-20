@@ -58,21 +58,27 @@
 //! wrapper is a thin glue that converts errors to user-friendly Strings
 //! and cannot be tested without the full Tauri runtime.
 
+pub mod account;
 pub mod agent;
 pub mod boundary;
 pub mod engine;
 pub mod erasure;
+pub mod export;
 pub mod logs;
 pub mod maintenance;
 pub mod memory;
 pub mod settings;
 
+pub use account::{
+    account_refresh_now, account_sign_in, account_sign_out, account_status, account_subscribe,
+};
 pub use agent::{list_agents, list_agents_inner, revoke_agent, revoke_agent_inner};
 pub use boundary::{
     create_boundary, create_boundary_inner, list_boundaries, list_boundaries_inner,
 };
 pub use engine::{ensure_recall_engine, RecallEngineFetch};
 pub use erasure::{erase_everything, erase_everything_inner};
+pub use export::{export_memories, export_memories_inner};
 pub use logs::{export_logs, LogContext};
 pub use maintenance::{MaintenanceContext, MaintenanceEngineFetch};
 pub use memory::{
