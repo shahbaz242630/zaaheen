@@ -24,8 +24,11 @@
 //! failed, a lease that has not arrived yet: none of those may tell the user
 //! their trial is over.
 
+mod lock_mode;
 #[cfg(test)]
 mod tests;
+
+pub use lock_mode::{Flip, LockModeCheck};
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -108,6 +111,26 @@ impl AccountAccess for vault_account::Account {
     }
 }
 
+/// What the keeper asks about its own mode, which is not the question a
+/// request asks (§8.35).
+///
+/// A tick wants to know whether entitlement has **flipped**. It must not
+/// refresh, must not write, and above all must not record a use: `record_use`
+/// feeds `last_active_anchor`, and therefore the 30-day unused sign-out
+/// (§8.26 §4). A keeper that recorded a use every `idle_check` would stop
+/// that rule ever firing.
+#[async_trait]
+pub trait ModeCheck: Send + Sync + 'static {
+    /// What the files say now: no network, no writes, no use recorded.
+    async fn peek(&self) -> Verdict;
+
+    /// One refresh (at most [`REFRESH_DEADLINE`]), then answer from disk
+    /// whatever it did. Asked only by a full keeper that has just read a
+    /// denial, so a merely stale lease does not unload and reload the models
+    /// (§8.26 §6.2).
+    async fn refresh_and_peek(&self) -> Verdict;
+}
+
 /// The real check: reads the account's own files, refreshes when a call would
 /// otherwise be refused, and answers the gate.
 pub struct AccountCheck {
@@ -188,6 +211,21 @@ impl EntitlementCheck for AccountCheck {
             self.note_use(now).await;
         }
         decided
+    }
+}
+
+#[async_trait]
+impl ModeCheck for AccountCheck {
+    async fn peek(&self) -> Verdict {
+        // `read` is the whole of it: no refresh, and — unlike `check` — no
+        // `note_use`. A tick is not somebody using their vault.
+        self.read(self.clock.now()).await
+    }
+
+    async fn refresh_and_peek(&self) -> Verdict {
+        self.refresh_briefly(self.clock.now()).await;
+        // A fresh reading of the clock: the refresh may have taken 5 s.
+        self.read(self.clock.now()).await
     }
 }
 

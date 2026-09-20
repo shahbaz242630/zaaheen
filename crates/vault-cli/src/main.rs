@@ -1000,6 +1000,24 @@ async fn dispatch_consolidate(
     // stale within minutes).
     let _maintenance_record = MaintenanceRecord::publish(vault_root);
 
+    // §8.26 §6.5: maintenance does not run while the subscription is not
+    // active. Decided before the models load, and recorded as its own outcome
+    // so the Maintenance tab says "paused until you subscribe" rather than
+    // showing a failure the user cannot fix by trying again.
+    let gate =
+        vault_app::account::build_gate(&keeper::account_home()?).context("prepare the account")?;
+    if let Some(outcome) = entitlement_pause(gate.as_ref()).await {
+        let ConsolidateAction::Run { record_status } = &action;
+        if let Some(path) = record_status.as_deref() {
+            if let Err(e) =
+                maintenance_state::record_run(path, &outcome, chrono::Utc::now().to_rfc3339())
+            {
+                tracing::warn!(error = %e, "could not record the maintenance outcome");
+            }
+        }
+        return Ok(());
+    }
+
     let app = build_application(
         vault_db,
         vector_dir,
@@ -1016,6 +1034,33 @@ async fn dispatch_consolidate(
     match action {
         ConsolidateAction::Run { record_status } => {
             run_one_consolidation(&app, record_status.as_deref()).await
+        }
+    }
+}
+
+/// Whether maintenance must skip this run because the subscription is not
+/// active (§8.26 §6.5).
+///
+/// `None` means go ahead — including for a build that carries no sign-in at
+/// all, which is every build before this arc. The verdict is the real one
+/// (refresh-then-decide), because a nightly run is exactly the moment a stale
+/// lease should be refreshed rather than assumed dead.
+async fn entitlement_pause(gate: Option<&vault_mcp::Gate>) -> Option<RunOutcome> {
+    pause_for(gate?.verdict().await)
+}
+
+/// The decision, given the verdict. Split from the gate call above so it is
+/// testable without standing up a check — the verdict itself is already
+/// covered by `vault-mcp`'s and `vault-app`'s own tests.
+fn pause_for(verdict: vault_mcp::Verdict) -> Option<RunOutcome> {
+    match verdict {
+        vault_mcp::Verdict::Entitled => None,
+        vault_mcp::Verdict::Locked(reason) => {
+            tracing::info!(
+                reason = ?reason,
+                "maintenance is paused until the subscription is active"
+            );
+            Some(RunOutcome::Paused)
         }
     }
 }
@@ -2865,5 +2910,44 @@ mod tests {
         );
 
         cleanup_keychain_entry(&namespace, vault_id);
+    }
+
+    // -----------------------------------------------------------------------
+    // Maintenance while the subscription is not active (§8.26 §6.5, §8.35)
+    // -----------------------------------------------------------------------
+
+    /// Nothing is consolidated while the trial or subscription has ended.
+    #[test]
+    fn a_locked_computer_pauses_maintenance() {
+        assert_eq!(
+            pause_for(vault_mcp::Verdict::Locked(
+                vault_mcp::LockReason::TrialEnded
+            )),
+            Some(RunOutcome::Paused)
+        );
+    }
+
+    /// "Could not confirm" pauses too: a nightly run is unattended, so it is
+    /// better to skip a night than to work on a vault we are not sure about.
+    #[test]
+    fn a_subscription_that_cannot_be_confirmed_pauses_maintenance() {
+        assert_eq!(
+            pause_for(vault_mcp::Verdict::Locked(
+                vault_mcp::LockReason::CannotConfirm
+            )),
+            Some(RunOutcome::Paused)
+        );
+    }
+
+    #[test]
+    fn a_live_subscription_lets_maintenance_run() {
+        assert_eq!(pause_for(vault_mcp::Verdict::Entitled), None);
+    }
+
+    /// Every build before this arc, and every build made without account
+    /// settings: maintenance runs exactly as it always did.
+    #[tokio::test]
+    async fn a_build_with_no_sign_in_never_pauses_maintenance() {
+        assert_eq!(entitlement_pause(None).await, None);
     }
 }

@@ -25,12 +25,12 @@ use vault_app::keeper::discovery::{self, Discovery};
 use vault_app::keeper::handshake::{HandshakeKeys, WIRE};
 use vault_app::keeper::intent;
 use vault_app::keeper::relay::{KeeperPool, KeeperStarter, KeychainKeySource, RelaySettings};
-use vault_app::keeper::runtime::{self, KeeperSettings};
+use vault_app::keeper::runtime::{self, KeeperSettings, Subscription};
 use vault_app::keychain::{read_existing_master_key, PRODUCTION_NAMESPACE, VAULT_ID};
 use vault_app::model_fetch;
 use vault_app::{ConsolidatorLock, VAULT_LOCKFILE_NAME};
 use vault_core::{Boundary, VaultError};
-use vault_mcp::{RelayServer, Upstream};
+use vault_mcp::{EntitlementCheck, InFlight, NoVaultAdapter, RelayServer, Upstream, Verdict};
 
 /// Version marker for the keeper's Task Scheduler entry. Changing the task's
 /// shape means bumping this, which makes every relay replace the old entry.
@@ -139,6 +139,69 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
         let _ = discovery::write(&vault_root, &failed);
     };
 
+    // The subscription (ADR-104). A build with no account settings has no
+    // check at all and serves as it always did; a build whose settings are
+    // broken refuses to start, because a gate that silently disappeared would
+    // turn a broken build into a free one.
+    let check = match vault_app::account::build_check(&account_home()?) {
+        Ok(check) => check,
+        Err(e) => {
+            publish_failure();
+            return Err(anyhow!("the account could not be prepared: {e}"));
+        }
+    };
+
+    // §8.26 §6.2: entitlement is decided BEFORE the vault is opened and the
+    // models load, because a locked computer is served by lock mode instead —
+    // the same MCP surface with no `Application` behind it.
+    let locked = match &check {
+        Some(check) => match check.check().await {
+            Verdict::Entitled => None,
+            Verdict::Locked(reason) => Some(reason),
+        },
+        None => None,
+    };
+
+    if let (Some(check), Some(reason)) = (&check, locked) {
+        tracing::info!(
+            reason = ?reason,
+            "the vault is locked; serving lock mode without loading any models"
+        );
+        // The relay handshake is authenticated with a key derived from the
+        // master key, and only a full keeper may ever create one, so a locked
+        // computer with no key has no channel to deliver the locked message on
+        // (§6.2: "none => publish `failed`").
+        let keys = match read_existing_master_key(PRODUCTION_NAMESPACE, VAULT_ID) {
+            Ok(Some(master_key)) => HandshakeKeys::derive(&master_key),
+            Ok(None) | Err(_) => {
+                publish_failure();
+                return Err(anyhow!("authentication failed"));
+            }
+        };
+        let adapter: Arc<dyn vault_mcp::Adapter> = Arc::new(NoVaultAdapter);
+        let exit = runtime::serve(
+            adapter,
+            keys,
+            KeeperSettings::production(vault_root.clone(), env!("CARGO_PKG_VERSION")),
+            Some(Subscription::lock(Arc::clone(check), InFlight::new())),
+            shutdown_signal(exit_on_stdin_eof),
+        )
+        .await;
+        let code = match exit {
+            Ok(exit) => {
+                tracing::info!(exit = ?exit, "locked keeper stopped");
+                0
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "locked keeper stopped on an error");
+                publish_failure();
+                1
+            }
+        };
+        // As in the full path: exit with `vault_lock` still held.
+        std::process::exit(code)
+    }
+
     let models_dir = install_paths::models_dir_in(&vault_root);
     let reranker = model_fetch::reranker_paths_in(&models_dir);
     let app = match crate::build_application(
@@ -176,17 +239,9 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
     let adapter: Arc<dyn vault_mcp::Adapter> = app.adapter().clone();
     let settings = KeeperSettings::production(vault_root.clone(), env!("CARGO_PKG_VERSION"));
 
-    // The subscription gate (ADR-104). A build with no account settings has
-    // none and serves as before; a build whose settings are broken refuses to
-    // start, because a gate that silently disappears is worse than a keeper
-    // that says why.
-    let gate = match vault_app::account::build_gate(&account_home()?) {
-        Ok(gate) => gate,
-        Err(e) => {
-            publish_failure();
-            return Err(anyhow!("the account could not be prepared: {e}"));
-        }
-    };
+    // Entitled (or a build with no sign-in at all): the full keeper, with the
+    // one check both serving calls and answering each tick.
+    let subscription = check.map(|check| Subscription::full(check, InFlight::new()));
 
     // ADR-100: fetch the reranker concurrently with serving; reads use the
     // cosine gate until it lands. Raced rather than joined: when serving ends
@@ -197,7 +252,7 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
         adapter,
         keys,
         settings,
-        gate,
+        subscription,
         shutdown_signal(exit_on_stdin_eof),
     );
     tokio::pin!(serve);
@@ -241,7 +296,7 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
 /// # Errors
 ///
 /// The local app data directory could not be determined.
-fn account_home() -> Result<PathBuf> {
+pub(crate) fn account_home() -> Result<PathBuf> {
     install_paths::local_data_dir()
         .ok_or_else(|| anyhow!("could not determine the local application data directory"))
 }
@@ -305,8 +360,16 @@ pub async fn run_relay(vault_root: PathBuf, boundaries: Vec<Boundary>) -> Result
     // before taking the lock), and the start mechanism is resolved on the
     // first start request — a failure there only makes that request fail.
     let starter: Arc<dyn KeeperStarter> = Arc::new(LazyStarter::default());
+    // §8.26 §6.3: a build that carries a sign-in reads the marker, so a
+    // signed-out computer is answered here instead of starting a keeper that
+    // could only say the same thing. `option_env!` is resolved at compile
+    // time, so this costs nothing at startup and never touches the folder.
+    let account_dir = vault_app::account::has_account_settings()
+        .then(account_home)
+        .transpose()?
+        .map(|home| vault_app::account::account_dir_path(&home));
     let pool = KeeperPool::new(
-        RelaySettings::production(vault_root, boundaries),
+        RelaySettings::production(vault_root, boundaries).with_account_dir(account_dir),
         starter,
         Arc::new(KeychainKeySource),
     );

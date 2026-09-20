@@ -59,6 +59,31 @@ fn setting(index: usize) -> AccountSetupError {
     AccountSetupError::Setting(SETTING_NAMES[index])
 }
 
+/// The seven values this build was compiled with, in [`SETTING_NAMES`] order.
+/// `option_env!` is resolved at compile time, so this reads nothing at run
+/// time. One definition, so the names cannot drift apart.
+fn build_env_values() -> [Option<&'static str>; 7] {
+    [
+        option_env!("ZAAHEEN_ACCOUNT_ISSUER"),
+        option_env!("ZAAHEEN_ACCOUNT_CLIENT_ID"),
+        option_env!("ZAAHEEN_ACCOUNT_API"),
+        option_env!("ZAAHEEN_LEASE_PRIMARY_KID"),
+        option_env!("ZAAHEEN_LEASE_PRIMARY_KEY"),
+        option_env!("ZAAHEEN_LEASE_BACKUP_KID"),
+        option_env!("ZAAHEEN_LEASE_BACKUP_KEY"),
+    ]
+}
+
+/// Whether this build carries a sign-in at all, without validating anything or
+/// touching the disk.
+///
+/// The relay asks this (§8.26 §6.3): it must not fail on a build with a broken
+/// setting — only the keeper refuses to start for that — and nothing that can
+/// fail may run before it serves stdio.
+pub fn has_account_settings() -> bool {
+    build_env_values().iter().any(Option::is_some)
+}
+
 /// One key: its id at `kid_index` and its 64 hex characters at `kid_index+1`.
 fn lease_key(kid: &str, key: &str, kid_index: usize) -> Result<LeaseKeySetting, AccountSetupError> {
     LeaseKey::new(kid, [0u8; 32]).map_err(|_| setting(kid_index))?;
@@ -112,15 +137,7 @@ impl AccountSettings {
     /// a build that carries a broken setting must fail loudly, not sign in
     /// against the wrong instance.
     pub fn from_build_env() -> Result<Option<Self>, AccountSetupError> {
-        Self::from_values([
-            option_env!("ZAAHEEN_ACCOUNT_ISSUER"),
-            option_env!("ZAAHEEN_ACCOUNT_CLIENT_ID"),
-            option_env!("ZAAHEEN_ACCOUNT_API"),
-            option_env!("ZAAHEEN_LEASE_PRIMARY_KID"),
-            option_env!("ZAAHEEN_LEASE_PRIMARY_KEY"),
-            option_env!("ZAAHEEN_LEASE_BACKUP_KID"),
-            option_env!("ZAAHEEN_LEASE_BACKUP_KEY"),
-        ])
+        Self::from_values(build_env_values())
     }
 
     /// The seven values, in [`SETTING_NAMES`] order. All absent means this
@@ -237,6 +254,31 @@ pub fn account_dir_path(local_app_data: &Path) -> PathBuf {
     local_app_data.join(ACCOUNT_DIR_NAME)
 }
 
+/// Whether somebody is signed in on this computer, for a reader that must not
+/// touch the folder (§8.26 §6.3): `Some(false)` only when nobody is.
+///
+/// A relay uses this to answer the sign-in message itself rather than start a
+/// keeper that could only say the same thing. It never creates or hardens the
+/// folder — only the keeper and the desktop write here (§8.26 §4) — and a
+/// folder it could not read gives `None`, because telling somebody to sign in
+/// when the true answer is "could not confirm" would be the wrong message.
+pub fn sign_in_marker(account_dir: &Path) -> Option<bool> {
+    marker_verdict(AccountDir::open(account_dir).and_then(|dir| dir.read_marker()))
+}
+
+/// The decision, given whatever the folder said. Split from the I/O above so
+/// the "could not read it" branch can be proven without an unreadable folder,
+/// which no portable test can make.
+fn marker_verdict(read: std::io::Result<Option<String>>) -> Option<bool> {
+    match read {
+        Ok(marker) => Some(marker.is_some()),
+        // No folder at all, or a path that is not one: nobody has ever signed
+        // in on this computer, which is a definite answer.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Some(false),
+        Err(_) => None,
+    }
+}
+
 /// The subscription gate for this build, or `None` when the build carries no
 /// account settings — then the vault serves as it did before this arc.
 ///
@@ -250,17 +292,34 @@ pub fn account_dir_path(local_app_data: &Path) -> PathBuf {
 /// refuse to start or to serve ungated; the keeper refuses, because a gate
 /// that silently disappears is worse than a keeper that says why.
 pub fn build_gate(local_app_data: &Path) -> Result<Option<Gate>, AccountSetupError> {
+    Ok(build_check(local_app_data)?.map(|check| Gate::new(check, InFlight::new())))
+}
+
+/// The check itself, for a caller that needs more than a gate.
+///
+/// The keeper does: it asks the check which mode to start in before it opens
+/// the vault, and the same check then both serves calls and answers each tick
+/// (`Subscription`, §8.35). `None` means this build carries no account
+/// settings, so there is no sign-in at all.
+///
+/// # Errors
+///
+/// As [`build_gate`]: broken build-time settings, a folder that cannot be
+/// prepared, or a credential store that cannot be opened.
+pub fn build_check(local_app_data: &Path) -> Result<Option<Arc<AccountCheck>>, AccountSetupError> {
     let Some(settings) = AccountSettings::from_build_env()? else {
         tracing::info!("this build carries no account settings; the vault serves ungated");
         return Ok(None);
     };
     let dir = open_account_dir(local_app_data)?;
     let account = build_account(&settings, dir)?;
-    let check = AccountCheck::new(Arc::new(account), Arc::new(SystemClock));
     tracing::info!(
         issuer = settings.issuer(),
         api = settings.api_origin(),
         "the subscription gate is on"
     );
-    Ok(Some(Gate::new(Arc::new(check), InFlight::new())))
+    Ok(Some(Arc::new(AccountCheck::new(
+        Arc::new(account),
+        Arc::new(SystemClock),
+    ))))
 }

@@ -30,7 +30,7 @@ use rmcp::service::{Peer, RunningService, ServiceError};
 use rmcp::{RoleClient, ServiceExt};
 use tokio::time::Instant;
 use vault_core::Boundary;
-use vault_mcp::{Upstream, UpstreamError};
+use vault_mcp::{LockReason, Upstream, UpstreamError};
 use zeroize::Zeroizing;
 
 use super::discovery::{self, Role};
@@ -52,6 +52,9 @@ const MAINTENANCE_VALID_FOR: Duration = Duration::from_secs(3 * 60);
 
 /// How often a maintenance run refreshes its record.
 pub const MAINTENANCE_HEARTBEAT: Duration = Duration::from_secs(60);
+
+/// §8.26 §6.3: the marker is checked twice, this far apart.
+pub const MARKER_RECHECK: Duration = Duration::from_millis(200);
 
 /// Agent-facing reasons a call never reached the keeper.
 pub const MSG_STARTING: &str = "the vault is starting; try again in a moment";
@@ -110,6 +113,17 @@ pub struct RelaySettings {
     pub failed_cooldown: Duration,
     pub step_deadline: Duration,
     pub idle_drop: Duration,
+    /// The account folder to read the sign-in marker from, when this build
+    /// carries a sign-in (§8.26 §6.3). `None` — every build before this arc —
+    /// means the relay never short-circuits.
+    ///
+    /// Read-only: only the keeper and the desktop write in this folder
+    /// (§8.26 §4), so the relay must not even create it.
+    pub account_dir: Option<PathBuf>,
+    /// How long between the two marker checks. Sign-in writes the marker, so
+    /// one look at the wrong moment would tell somebody who has just signed in
+    /// to sign in again.
+    pub marker_recheck: Duration,
 }
 
 impl RelaySettings {
@@ -126,7 +140,19 @@ impl RelaySettings {
             failed_cooldown: Duration::from_secs(60),
             step_deadline: Duration::from_secs(5),
             idle_drop: Duration::from_secs(15 * 60),
+            // Set by the caller when the build carries account settings; a
+            // build without them has no sign-in and no marker to read.
+            account_dir: None,
+            marker_recheck: MARKER_RECHECK,
         }
+    }
+
+    /// Read the sign-in marker from `account_dir` (§8.26 §6.3). `None` keeps
+    /// the relay's behaviour exactly as it was before this arc.
+    #[must_use]
+    pub fn with_account_dir(mut self, account_dir: Option<PathBuf>) -> Self {
+        self.account_dir = account_dir;
+        self
     }
 }
 
@@ -247,10 +273,39 @@ impl KeeperPool {
     /// Find, start and authenticate a keeper. Stops at the earlier of the
     /// resolution budget and the call's deadline: resolving past the point the
     /// client has given up would only start a keeper nobody is waiting for.
+    /// Whether this computer is definitely signed out (§8.26 §6.3).
+    ///
+    /// Checked twice, [`RelaySettings::marker_recheck`] apart, because sign-in
+    /// writes the marker: one look at the wrong moment would tell somebody who
+    /// has just signed in to sign in again. Anything other than a definite
+    /// "nobody is signed in" — including a folder that cannot be read — leaves
+    /// the decision to the keeper, which has the real check and can give the
+    /// accurate reason.
+    async fn signed_out(&self) -> bool {
+        let Some(dir) = self.settings.account_dir.as_ref() else {
+            return false;
+        };
+        if crate::account::sign_in_marker(dir) != Some(false) {
+            return false;
+        }
+        tokio::time::sleep(self.settings.marker_recheck).await;
+        crate::account::sign_in_marker(dir) == Some(false)
+    }
+
     async fn resolve(
         &self,
         call_deadline: Instant,
     ) -> Result<RunningService<RoleClient, ()>, &'static str> {
+        // Nobody signed in on this computer: a keeper could only say the same
+        // thing, so say it here and start none (§6.3). Before the discovery
+        // read and before any start request.
+        if self.signed_out().await {
+            tracing::info!(
+                target: "vault_app::relay",
+                "nobody is signed in on this computer; answering without starting a keeper"
+            );
+            return Err(LockReason::SignedOut.message());
+        }
         let s = &self.settings;
         let deadline = (Instant::now() + s.resolve_budget).min(call_deadline);
         let mut last_start: Option<Instant> = None;

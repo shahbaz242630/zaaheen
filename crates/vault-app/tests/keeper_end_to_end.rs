@@ -11,17 +11,18 @@ use async_trait::async_trait;
 use rmcp::model::CallToolRequestParams;
 use rmcp::ServerHandler;
 use tokio::sync::oneshot;
+use vault_app::entitlement::ModeCheck;
 use vault_app::keeper::discovery::{self, Discovery};
 use vault_app::keeper::handshake::{HandshakeKeys, WIRE};
 use vault_app::keeper::relay::{
     KeeperPool, KeeperStarter, MasterKeySource, RelaySettings, MSG_BUSY, MSG_KEY_CHANGED,
 };
-use vault_app::keeper::runtime::{self, KeeperExit, KeeperSettings};
+use vault_app::keeper::runtime::{self, KeeperExit, KeeperMode, KeeperSettings, Subscription};
 use vault_app::keeper::{exclusive, intent};
 use vault_app::{ConsolidatorLock, VAULT_LOCKFILE_NAME};
 use vault_core::{Boundary, MemoryId, NewMemory, VaultResult};
 use vault_mcp::{
-    Adapter, EntitlementCheck, Gate, InFlight, LockReason, NoVaultAdapter, StdioServer,
+    Adapter, EntitlementCheck, InFlight, LockReason, NoVaultAdapter, StdioServer,
     ToolInvokeDetails, Upstream, UpstreamError, Verdict,
 };
 use vault_retrieval::{
@@ -37,6 +38,12 @@ const MASTER_KEY: [u8; 32] = [0x42; 32];
 #[derive(Default)]
 struct RecordingAdapter {
     searches: Mutex<Vec<Vec<Boundary>>>,
+    /// Searches that ran to the END. `searches` is recorded on arrival, so it
+    /// counts a call that was cut off half way through just the same — which
+    /// made `a_call_in_flight_finishes_before_the_mode_changes` pass with the
+    /// in-flight wait deleted. Anything asserting that a call *completed* must
+    /// use this.
+    completed: AtomicUsize,
     search_delay: Duration,
 }
 
@@ -51,6 +58,10 @@ impl RecordingAdapter {
     fn searches(&self) -> Vec<Vec<Boundary>> {
         self.searches.lock().unwrap().clone()
     }
+
+    fn completed(&self) -> usize {
+        self.completed.load(Ordering::SeqCst)
+    }
 }
 
 #[async_trait]
@@ -63,6 +74,7 @@ impl Adapter for RecordingAdapter {
         if !self.search_delay.is_zero() {
             tokio::time::sleep(self.search_delay).await;
         }
+        self.completed.fetch_add(1, Ordering::SeqCst);
         Ok(Vec::new())
     }
 
@@ -180,6 +192,10 @@ fn relay_settings(root: std::path::PathBuf, boundaries: &[&str]) -> RelaySetting
         failed_cooldown: Duration::from_secs(60),
         step_deadline: Duration::from_secs(2),
         idle_drop: Duration::from_secs(60),
+        // No sign-in unless a test asks for one, so every test that predates
+        // this arc behaves exactly as it did.
+        account_dir: None,
+        marker_recheck: Duration::from_millis(50),
     }
 }
 
@@ -205,26 +221,55 @@ async fn start_keeper(
     oneshot::Sender<()>,
     tokio::task::JoinHandle<VaultResult<KeeperExit>>,
 ) {
-    start_keeper_with_gate(root, adapter, idle_exit, None).await
+    start_keeper_in_mode(root, adapter, idle_exit, None).await
 }
 
-/// The same, behind the subscription gate (ADR-104).
-async fn start_keeper_with_gate(
+/// The same, behind the subscription gate (ADR-104). A lock-mode keeper is
+/// this with `NoVaultAdapter` in place of the recording one — see
+/// [`start_lock_mode_keeper`].
+async fn start_keeper_in_mode(
     root: &std::path::Path,
     adapter: Arc<RecordingAdapter>,
     idle_exit: Duration,
-    gate: Option<Gate>,
+    subscription: Option<Subscription>,
+) -> (
+    oneshot::Sender<()>,
+    tokio::task::JoinHandle<VaultResult<KeeperExit>>,
+) {
+    let adapter: Arc<dyn Adapter> = adapter;
+    start_keeper_serving(root, adapter, idle_exit, subscription).await
+}
+
+/// A locked keeper, exactly as `vault-cli` starts one: the same serve loop
+/// over [`NoVaultAdapter`], with no `Application` and no models behind it.
+async fn start_lock_mode_keeper(
+    root: &std::path::Path,
+    idle_exit: Duration,
+    subscription: Subscription,
+) -> (
+    oneshot::Sender<()>,
+    tokio::task::JoinHandle<VaultResult<KeeperExit>>,
+) {
+    assert_eq!(subscription.mode(), KeeperMode::Lock);
+    let adapter: Arc<dyn Adapter> = Arc::new(NoVaultAdapter);
+    start_keeper_serving(root, adapter, idle_exit, Some(subscription)).await
+}
+
+async fn start_keeper_serving(
+    root: &std::path::Path,
+    adapter: Arc<dyn Adapter>,
+    idle_exit: Duration,
+    subscription: Option<Subscription>,
 ) -> (
     oneshot::Sender<()>,
     tokio::task::JoinHandle<VaultResult<KeeperExit>>,
 ) {
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
-    let adapter: Arc<dyn Adapter> = adapter;
     let handle = tokio::spawn(runtime::serve(
         adapter,
         HandshakeKeys::derive(&MASTER_KEY),
         keeper_settings(root.to_path_buf(), idle_exit),
-        gate,
+        subscription,
         async {
             let _ = stop_rx.await;
         },
@@ -665,45 +710,60 @@ impl EntitlementCheck for FixedCheck {
     }
 }
 
-fn gate_answering(verdict: Verdict) -> (Gate, InFlight) {
+#[async_trait]
+impl ModeCheck for FixedCheck {
+    async fn peek(&self) -> Verdict {
+        self.0
+    }
+
+    async fn refresh_and_peek(&self) -> Verdict {
+        self.0
+    }
+}
+
+/// A full keeper's subscription that always answers `verdict`, with the shared
+/// counter handed back so a test can prove a call stopped being counted.
+fn gate_answering(verdict: Verdict) -> (Subscription, InFlight) {
     let in_flight = InFlight::new();
     (
-        Gate::new(Arc::new(FixedCheck(verdict)), in_flight.clone()),
+        Subscription::full(Arc::new(FixedCheck(verdict)), in_flight.clone()),
         in_flight,
     )
 }
 
-/// What an AI app sees when the trial has ended: the keeper's answer, relayed
-/// as a readable tool error, and nothing touched in the vault.
+/// What an AI app sees when the trial ends under a keeper that is already
+/// running: the fixed words as a readable tool error, and nothing touched in
+/// the vault.
+///
+/// This is the transient window §6.2 creates. A full keeper never *stays*
+/// locked — it refreshes and then leaves (`ModeChanged`) — but a call arriving
+/// while it is on its way out must still be refused rather than served. The
+/// refresh here is deliberately slower than the call, which is what makes the
+/// window deterministic instead of a race.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_locked_keeper_refuses_the_call_and_never_touches_the_vault() {
+async fn a_keeper_whose_trial_ends_refuses_the_call_and_never_touches_the_vault() {
     let tmp = tempfile::TempDir::new().unwrap();
     let adapter = Arc::new(RecordingAdapter::default());
-    let (gate, in_flight) = gate_answering(Verdict::Locked(LockReason::TrialEnded));
-    let (stop, keeper) = start_keeper_with_gate(
+    let check = SwitchableCheck::slow_refresh(Verdict::Entitled, Duration::from_secs(3));
+    let in_flight = InFlight::new();
+    let (stop, keeper) = start_keeper_in_mode(
         tmp.path(),
         adapter.clone(),
         Duration::from_secs(30),
-        Some(gate),
+        Some(Subscription::full(check.clone(), in_flight.clone())),
     )
     .await;
 
-    let pool = KeeperPool::new(
-        relay_settings(tmp.path().to_path_buf(), &["work"]),
-        Arc::new(NoStart),
-        Arc::new(FixedKey(MASTER_KEY)),
-    );
+    // The trial ends under the running keeper.
+    check.set(Verdict::Locked(LockReason::TrialEnded));
+
+    let pool = pool_for(tmp.path());
     let result = pool
         .call_tool(search_call(), soon())
         .await
         .expect("a locked call comes back as a tool result");
     assert_eq!(result.is_error, Some(true));
-    let text: String = result
-        .content
-        .iter()
-        .filter_map(|c| c.as_text().map(|t| t.text.clone()))
-        .collect();
-    assert_eq!(text, LockReason::TrialEnded.message());
+    assert_eq!(result_text(&result), LockReason::TrialEnded.message());
     assert!(
         adapter.searches().is_empty(),
         "a locked call reached the vault"
@@ -720,12 +780,12 @@ async fn a_locked_keeper_refuses_the_call_and_never_touches_the_vault() {
 async fn an_entitled_keeper_serves_the_call_as_before() {
     let tmp = tempfile::TempDir::new().unwrap();
     let adapter = Arc::new(RecordingAdapter::default());
-    let (gate, in_flight) = gate_answering(Verdict::Entitled);
-    let (stop, keeper) = start_keeper_with_gate(
+    let (subscription, in_flight) = gate_answering(Verdict::Entitled);
+    let (stop, keeper) = start_keeper_in_mode(
         tmp.path(),
         adapter.clone(),
         Duration::from_secs(30),
-        Some(gate),
+        Some(subscription),
     )
     .await;
 
@@ -744,4 +804,758 @@ async fn an_entitled_keeper_serves_the_call_as_before() {
 
     let _ = stop.send(());
     let _ = keeper.await;
+}
+
+// ---------------------------------------------------------------------------
+// Keeper modes: lock mode and `ModeChanged` (§8.26 §6.2, §8.35)
+//
+// The keeper here is the real serve loop on a real pipe, so these prove what
+// an AI app actually gets. `idle_check` is 100 ms in `keeper_settings`, so a
+// tick happens several times a second and no test sleeps for long.
+// ---------------------------------------------------------------------------
+
+/// A check whose answer the test changes while the keeper runs, recording
+/// every question the keeper asked and which kind it was.
+struct SwitchableCheck {
+    verdict: Mutex<Verdict>,
+    /// What a *call* is answered with, when that must differ from what a tick
+    /// reads. Separating the two is what lets a test prove which of the two
+    /// paths — the call or the tick — triggered a mode change.
+    call_verdict: Mutex<Option<Verdict>>,
+    /// What a refresh changes the answer to, if anything.
+    on_refresh: Mutex<Option<Verdict>>,
+    /// Makes `refresh_and_peek` slow, like a real refresh waiting on a server.
+    refresh_delay: Duration,
+    peeks: AtomicUsize,
+    refreshes: AtomicUsize,
+    calls: AtomicUsize,
+}
+
+impl SwitchableCheck {
+    fn answering(verdict: Verdict) -> Arc<Self> {
+        Arc::new(Self {
+            verdict: Mutex::new(verdict),
+            call_verdict: Mutex::new(None),
+            on_refresh: Mutex::new(None),
+            refresh_delay: Duration::ZERO,
+            peeks: AtomicUsize::new(0),
+            refreshes: AtomicUsize::new(0),
+            calls: AtomicUsize::new(0),
+        })
+    }
+
+    /// Reads as `peek` on a tick, but answers `call` to a request.
+    fn splitting(peek: Verdict, call: Verdict) -> Arc<Self> {
+        let check = Self::answering(peek);
+        *check.call_verdict.lock().unwrap() = Some(call);
+        check
+    }
+
+    /// Reads as `verdict`, but a refresh finds `after_refresh`.
+    fn refreshing_to(verdict: Verdict, after_refresh: Verdict) -> Arc<Self> {
+        let check = Self::answering(verdict);
+        *check.on_refresh.lock().unwrap() = Some(after_refresh);
+        check
+    }
+
+    fn slow_refresh(verdict: Verdict, delay: Duration) -> Arc<Self> {
+        Arc::new(Self {
+            verdict: Mutex::new(verdict),
+            call_verdict: Mutex::new(None),
+            on_refresh: Mutex::new(None),
+            refresh_delay: delay,
+            peeks: AtomicUsize::new(0),
+            refreshes: AtomicUsize::new(0),
+            calls: AtomicUsize::new(0),
+        })
+    }
+
+    fn set(&self, verdict: Verdict) {
+        *self.verdict.lock().unwrap() = verdict;
+    }
+
+    fn now(&self) -> Verdict {
+        *self.verdict.lock().unwrap()
+    }
+
+    fn peeks(&self) -> usize {
+        self.peeks.load(Ordering::SeqCst)
+    }
+
+    fn refreshes(&self) -> usize {
+        self.refreshes.load(Ordering::SeqCst)
+    }
+
+    fn calls(&self) -> usize {
+        self.calls.load(Ordering::SeqCst)
+    }
+}
+
+#[async_trait]
+impl EntitlementCheck for SwitchableCheck {
+    async fn check(&self) -> Verdict {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        self.call_verdict
+            .lock()
+            .unwrap()
+            .unwrap_or_else(|| self.now())
+    }
+}
+
+#[async_trait]
+impl ModeCheck for SwitchableCheck {
+    async fn peek(&self) -> Verdict {
+        self.peeks.fetch_add(1, Ordering::SeqCst);
+        self.now()
+    }
+
+    async fn refresh_and_peek(&self) -> Verdict {
+        self.refreshes.fetch_add(1, Ordering::SeqCst);
+        if !self.refresh_delay.is_zero() {
+            tokio::time::sleep(self.refresh_delay).await;
+        }
+        if let Some(after) = *self.on_refresh.lock().unwrap() {
+            self.set(after);
+        }
+        self.now()
+    }
+}
+
+/// Wait up to `limit` for the keeper to stop, and say how it stopped.
+async fn exit_within(
+    keeper: tokio::task::JoinHandle<VaultResult<KeeperExit>>,
+    limit: Duration,
+) -> Option<KeeperExit> {
+    match tokio::time::timeout(limit, keeper).await {
+        Ok(Ok(Ok(exit))) => Some(exit),
+        Ok(other) => panic!("the keeper failed rather than exiting: {other:?}"),
+        Err(_) => None,
+    }
+}
+
+/// A relay pool pointed at `root`, which never asks for a keeper to start.
+fn pool_for(root: &std::path::Path) -> Arc<KeeperPool> {
+    KeeperPool::new(
+        relay_settings(root.to_path_buf(), &["work"]),
+        Arc::new(NoStart),
+        Arc::new(FixedKey(MASTER_KEY)),
+    )
+}
+
+/// The text of a tool result, however many blocks it came in.
+fn result_text(result: &rmcp::model::CallToolResult) -> String {
+    result
+        .content
+        .iter()
+        .filter_map(|c| c.as_text().map(|t| t.text.clone()))
+        .collect()
+}
+
+// ---- a full keeper -------------------------------------------------------
+
+/// The quiet case, and the one that must cost nothing: while the subscription
+/// is live the keeper ticks on and never reaches the network.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_full_keeper_stays_while_the_user_is_entitled() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::default());
+    let check = SwitchableCheck::answering(Verdict::Entitled);
+    let (stop, keeper) = start_keeper_in_mode(
+        tmp.path(),
+        adapter.clone(),
+        Duration::from_secs(30),
+        Some(Subscription::full(check.clone(), InFlight::new())),
+    )
+    .await;
+
+    // Several ticks (idle_check is 100 ms).
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert!(
+        check.peeks() >= 2,
+        "the keeper must re-evaluate on its ticks, saw {}",
+        check.peeks()
+    );
+    assert_eq!(
+        check.refreshes(),
+        0,
+        "an entitled tick must not reach the network"
+    );
+    assert!(
+        exit_within(keeper, Duration::from_millis(200))
+            .await
+            .is_none(),
+        "an entitled keeper must keep serving"
+    );
+    let _ = stop.send(());
+}
+
+/// The subscription lapses while the keeper is running: it refreshes first
+/// (the lease might merely be stale), then leaves, so the 2.86 GB it holds is
+/// freed instead of sitting behind relays that stay connected.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_full_keeper_whose_entitlement_lapses_exits_mode_changed() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::default());
+    let check = SwitchableCheck::answering(Verdict::Entitled);
+    let (_stop, keeper) = start_keeper_in_mode(
+        tmp.path(),
+        adapter.clone(),
+        Duration::from_secs(30),
+        Some(Subscription::full(check.clone(), InFlight::new())),
+    )
+    .await;
+
+    check.set(Verdict::Locked(LockReason::TrialEnded));
+    assert_eq!(
+        exit_within(keeper, Duration::from_secs(5)).await,
+        Some(KeeperExit::ModeChanged),
+        "a keeper whose user is locked must change mode"
+    );
+    assert!(
+        check.refreshes() >= 1,
+        "§6.2: it refreshes before it decides to unload the models"
+    );
+}
+
+/// The reason the refresh comes first: a lease that is merely stale must not
+/// cost an unload and reload of 2.86 GB of models.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_stale_lease_that_a_refresh_fixes_does_not_change_mode() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::default());
+    // Reads as "could not confirm", but a refresh finds a live subscription.
+    let check = SwitchableCheck::refreshing_to(
+        Verdict::Locked(LockReason::CannotConfirm),
+        Verdict::Entitled,
+    );
+    let (stop, keeper) = start_keeper_in_mode(
+        tmp.path(),
+        adapter.clone(),
+        Duration::from_secs(30),
+        Some(Subscription::full(check.clone(), InFlight::new())),
+    )
+    .await;
+
+    assert!(
+        exit_within(keeper, Duration::from_secs(2)).await.is_none(),
+        "a stale lease the refresh fixed must not change the keeper's mode"
+    );
+    assert_eq!(check.refreshes(), 1, "and it refreshes once, not per tick");
+    let _ = stop.send(());
+}
+
+/// §6.2: `ModeChanged` does not require zero connections, so it must not cut
+/// a write off mid-way. The call started before the flip finishes normally.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_call_in_flight_finishes_before_the_mode_changes() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::slow(Duration::from_millis(700)));
+    let check = SwitchableCheck::answering(Verdict::Entitled);
+    let (_stop, keeper) = start_keeper_in_mode(
+        tmp.path(),
+        adapter.clone(),
+        Duration::from_secs(30),
+        Some(Subscription::full(check.clone(), InFlight::new())),
+    )
+    .await;
+
+    let pool = pool_for(tmp.path());
+    let calling = {
+        let pool = pool.clone();
+        tokio::spawn(async move { pool.call_tool(search_call(), soon()).await })
+    };
+    // The call is in the vault; now the subscription lapses under it.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    check.set(Verdict::Locked(LockReason::SubscriptionEnded));
+
+    // THE assertion, and the only one that can pin this: `serve` must not
+    // RETURN while a call is in flight.
+    //
+    // Everything softer passes with the wait deleted. rmcp runs each request in
+    // a DETACHED task, so the call still answers after the keeper has gone —
+    // asserting that the call completed proves nothing. What makes the wait
+    // necessary is that `dispatch_keeper` calls `std::process::exit` the moment
+    // serving ends, killing those detached tasks mid-write; no in-process test
+    // can survive to observe that. So the ordering IS the invariant.
+    //
+    // Timeline: the search takes 700 ms, the mode change is decided around
+    // 300 ms, so at 450 ms the keeper must still be serving.
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    assert!(
+        !keeper.is_finished(),
+        "the keeper left while a call was still in flight; a save would have \
+         been cut off mid-write"
+    );
+
+    let answered = calling.await.expect("the calling task");
+    let result = answered.expect("a call already in flight must still answer");
+    assert_ne!(
+        result.is_error,
+        Some(true),
+        "a call that was already running must not be turned into an error"
+    );
+    assert_eq!(adapter.searches().len(), 1, "the search really started");
+    // The assertion that actually pins the in-flight wait: `searches` is
+    // recorded on arrival, so it would still be 1 for a call the keeper cut
+    // off. Only `completed` proves the work finished before the keeper left.
+    assert_eq!(
+        adapter.completed(),
+        1,
+        "the keeper must let a call in flight FINISH before it changes mode"
+    );
+    assert_eq!(
+        exit_within(keeper, Duration::from_secs(5)).await,
+        Some(KeeperExit::ModeChanged),
+        "and only then does the keeper leave"
+    );
+}
+
+/// A slow refresh must not make ticks pile up: the `deciding` latch means one
+/// evaluation at a time, however many ticks arrive while it runs.
+///
+/// **What this does and does not prove.** It catches a missing or broken latch:
+/// without one, a 600 ms refresh with a 100 ms tick spawns an evaluation — and
+/// a network refresh — every tick. It does **not** prove the narrower rule that
+/// the latch stays held once a mode change is decided (the `return` in
+/// `spawn_mode_evaluation`). A planted bug removing that `return` was NOT caught
+/// here, at 150 ms or 600 ms, with one attempt or eight: the stop message is
+/// queued before the latch is released, so the serve loop nearly always breaks
+/// before a burst tick can start a second evaluation. That `return` is
+/// therefore defensive and reasoned, not test-proven, and it is recorded that
+/// way in `SIGNIN-DESIGN.md` §8.35 rather than claimed as covered.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ticks_never_pile_up_behind_a_slow_evaluation() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::default());
+    // Locked, so every tick wants to refresh, and each refresh outlasts the
+    // 100 ms tick six times over.
+    let check = SwitchableCheck::slow_refresh(
+        Verdict::Locked(LockReason::CannotConfirm),
+        Duration::from_millis(600),
+    );
+    let (_stop, keeper) = start_keeper_in_mode(
+        tmp.path(),
+        adapter.clone(),
+        Duration::from_secs(30),
+        Some(Subscription::full(check.clone(), InFlight::new())),
+    )
+    .await;
+
+    assert_eq!(
+        exit_within(keeper, Duration::from_secs(5)).await,
+        Some(KeeperExit::ModeChanged)
+    );
+    assert_eq!(
+        check.refreshes(),
+        1,
+        "six ticks passed during one refresh; only one evaluation may run"
+    );
+}
+
+/// A build with no account settings has no subscription at all, and every
+/// tick must stay exactly as inert as it was before this arc.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_keeper_with_no_subscription_never_changes_mode() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::default());
+    let (stop, keeper) =
+        start_keeper_in_mode(tmp.path(), adapter.clone(), Duration::from_secs(30), None).await;
+
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert!(
+        exit_within(keeper, Duration::from_millis(200))
+            .await
+            .is_none(),
+        "a build with no sign-in must serve as it always did"
+    );
+    let _ = stop.send(());
+}
+
+/// Every exit removes the discovery file first, so no relay dials a keeper
+/// that has gone. A new exit reason must not miss that cleanup.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_mode_change_removes_the_discovery_file() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::default());
+    // Entitled at first, so the keeper publishes and settles; then it lapses.
+    let check = SwitchableCheck::answering(Verdict::Entitled);
+    let (_stop, keeper) = start_keeper_in_mode(
+        tmp.path(),
+        adapter.clone(),
+        Duration::from_secs(30),
+        Some(Subscription::full(check.clone(), InFlight::new())),
+    )
+    .await;
+    assert!(
+        discovery::read(tmp.path()).unwrap().is_some(),
+        "the keeper published before it changed mode"
+    );
+
+    check.set(Verdict::Locked(LockReason::TrialEnded));
+    assert_eq!(
+        exit_within(keeper, Duration::from_secs(5)).await,
+        Some(KeeperExit::ModeChanged)
+    );
+    assert!(
+        discovery::read(tmp.path()).unwrap().is_none(),
+        "a keeper that changed mode left its discovery file behind"
+    );
+}
+
+// ---- lock mode ----------------------------------------------------------
+
+/// What an AI app gets from a locked computer: the fixed words, over the same
+/// tool surface, with no vault open behind the keeper at all. `NoVaultAdapter`
+/// is the proof — it fails every vault call, so a served call could not have
+/// looked like this.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_lock_mode_keeper_answers_the_locked_message_through_a_relay() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let check = SwitchableCheck::answering(Verdict::Locked(LockReason::TrialEnded));
+    let in_flight = InFlight::new();
+    let (stop, keeper) = start_lock_mode_keeper(
+        tmp.path(),
+        Duration::from_secs(30),
+        Subscription::lock(check.clone(), in_flight.clone()),
+    )
+    .await;
+
+    let pool = pool_for(tmp.path());
+    let result = pool
+        .call_tool(search_call(), soon())
+        .await
+        .expect("a locked call comes back as a readable tool result");
+    assert_eq!(result.is_error, Some(true));
+    assert_eq!(result_text(&result), LockReason::TrialEnded.message());
+    assert_eq!(in_flight.count(), 0, "the call is no longer counted");
+    assert!(check.calls() >= 1, "the real check decided it");
+
+    let _ = stop.send(());
+    let _ = keeper.await;
+}
+
+/// §6.2 asks for an identical tool list in lock mode. It is identical by
+/// construction — the contract does not depend on the adapter behind it — and
+/// this pins that, so nobody can make the locked surface drift.
+#[test]
+fn the_tool_contract_does_not_depend_on_the_adapter_behind_it() {
+    fn contract<A: vault_mcp::Adapter + 'static>(adapter: A) -> String {
+        let server = StdioServer::new(Arc::new(adapter), Vec::new());
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(
+            server
+                .get_info()
+                .instructions
+                .unwrap_or_default()
+                .as_bytes(),
+        );
+        for name in [
+            "memory_delete",
+            "memory_read",
+            "memory_search",
+            "memory_update",
+            "memory_write",
+        ] {
+            let tool = server
+                .get_tool(name)
+                .unwrap_or_else(|| panic!("{name} missing"));
+            hasher.update(&serde_json::to_vec(&tool).unwrap());
+        }
+        hasher.finalize().to_hex().to_string()
+    }
+    assert_eq!(
+        contract(NoVaultAdapter),
+        contract(RecordingAdapter::default()),
+        "lock mode must present the same tools as a full keeper"
+    );
+}
+
+/// The user pays, then asks their agent something. §6.2: the call answers
+/// "unlocking" and triggers the exit, so the next call reaches a full keeper.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_lock_mode_call_that_finds_the_user_entitled_unlocks_the_keeper() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    // A tick still reads "locked", so nothing but the CALL can end this
+    // keeper — which is what this test is about (§6.2's call path, not its
+    // tick). The real check would see both change together.
+    let check =
+        SwitchableCheck::splitting(Verdict::Locked(LockReason::TrialEnded), Verdict::Entitled);
+    let (_stop, keeper) = start_lock_mode_keeper(
+        tmp.path(),
+        Duration::from_secs(30),
+        Subscription::lock(check.clone(), InFlight::new()),
+    )
+    .await;
+
+    let pool = pool_for(tmp.path());
+    let result = pool
+        .call_tool(search_call(), soon())
+        .await
+        .expect("the call is answered, not dropped");
+    assert_eq!(result.is_error, Some(true));
+    assert_eq!(result_text(&result), LockReason::Unlocking.message());
+    assert_eq!(
+        exit_within(keeper, Duration::from_secs(5)).await,
+        Some(KeeperExit::ModeChanged),
+        "an entitled call in lock mode must end the locked keeper"
+    );
+}
+
+/// With no call at all — nobody is using their agent — the tick alone must
+/// notice that the subscription came back.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_lock_mode_keeper_exits_when_entitlement_returns_with_no_call_at_all() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let check = SwitchableCheck::answering(Verdict::Locked(LockReason::TrialEnded));
+    let (_stop, keeper) = start_lock_mode_keeper(
+        tmp.path(),
+        Duration::from_secs(30),
+        Subscription::lock(check.clone(), InFlight::new()),
+    )
+    .await;
+
+    check.set(Verdict::Entitled);
+    assert_eq!(
+        exit_within(keeper, Duration::from_secs(5)).await,
+        Some(KeeperExit::ModeChanged)
+    );
+    assert_eq!(
+        check.calls(),
+        0,
+        "no call was made, so the tick found it by reading"
+    );
+}
+
+/// A locked keeper whose user is still locked stays put: it is cheap, and
+/// restarting it for nothing would only make the next call wait.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_lock_mode_keeper_stays_while_the_user_is_still_locked() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let check = SwitchableCheck::answering(Verdict::Locked(LockReason::SubscriptionEnded));
+    let (stop, keeper) = start_lock_mode_keeper(
+        tmp.path(),
+        Duration::from_secs(30),
+        Subscription::lock(check.clone(), InFlight::new()),
+    )
+    .await;
+
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert!(
+        exit_within(keeper, Duration::from_millis(200))
+            .await
+            .is_none(),
+        "a still-locked keeper must not restart itself"
+    );
+    assert!(check.peeks() >= 2, "it was re-evaluating all along");
+    let _ = stop.send(());
+}
+
+// ---------------------------------------------------------------------------
+// The relay's sign-in short-circuit (§8.26 §6.3, §8.35)
+//
+// Nobody signed in on this computer means no keeper can do anything useful:
+// the relay says so itself rather than asking Task Scheduler to start one that
+// could only say the same thing. `CountingStarter` is the proof — a
+// short-circuit that still asked for a keeper would show up here.
+// ---------------------------------------------------------------------------
+
+/// A local app data folder with an account folder inside it, and optionally a
+/// marker saying somebody is signed in.
+fn account_home(root: &std::path::Path, signed_in: bool) -> std::path::PathBuf {
+    let home = root.join("localappdata");
+    std::fs::create_dir_all(&home).unwrap();
+    if signed_in {
+        write_marker(&home);
+    } else {
+        // The folder exists but holds no marker.
+        vault_app::account::open_account_dir(&home).unwrap();
+    }
+    vault_app::account::account_dir_path(&home)
+}
+
+fn write_marker(home: &std::path::Path) {
+    let dir = vault_app::account::open_account_dir(home).unwrap();
+    let lock = dir
+        .lock(Duration::from_secs(2))
+        .unwrap()
+        .expect("the refresh lock is free");
+    dir.write_marker(&lock, "user_2abc").unwrap();
+}
+
+fn relay_settings_for_account(
+    root: std::path::PathBuf,
+    account_dir: Option<std::path::PathBuf>,
+    marker_recheck: Duration,
+) -> RelaySettings {
+    RelaySettings {
+        account_dir,
+        marker_recheck,
+        ..relay_settings(root, &["work"])
+    }
+}
+
+/// The whole point of §6.3: no marker, no keeper start. On a signed-out
+/// computer every AI app that is open would otherwise ask Task Scheduler for a
+/// keeper on every call.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_signed_out_computer_answers_the_sign_in_message_and_starts_no_keeper() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let account_dir = account_home(tmp.path(), false);
+    let starter = Arc::new(CountingStarter::default());
+    let pool = KeeperPool::new(
+        relay_settings_for_account(
+            tmp.path().to_path_buf(),
+            Some(account_dir),
+            Duration::from_millis(50),
+        ),
+        starter.clone(),
+        Arc::new(FixedKey(MASTER_KEY)),
+    );
+
+    // At this layer a call that never left the process is `NotSent`; it is
+    // `RelayServer` that turns it into the `isError` tool result the agent
+    // reads (ADR-103 D2), which `vault-mcp`'s own tests cover.
+    match pool.call_tool(search_call(), soon()).await {
+        Err(UpstreamError::NotSent(reason)) => {
+            assert_eq!(reason, LockReason::SignedOut.message());
+        }
+        other => panic!("a signed-out computer must answer the sign-in message, got {other:?}"),
+    }
+    assert_eq!(
+        starter.0.load(Ordering::SeqCst),
+        0,
+        "a signed-out computer must not ask for a keeper"
+    );
+}
+
+/// The reason §6.3 says "checked twice, 200 ms apart": sign-in writes the
+/// marker, and a relay that looked once at the wrong moment would tell a user
+/// who has just signed in to sign in again.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_marker_that_appears_between_the_two_checks_is_not_a_signed_out_computer() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let home = tmp.path().join("localappdata");
+    std::fs::create_dir_all(&home).unwrap();
+    vault_app::account::open_account_dir(&home).unwrap();
+    let account_dir = vault_app::account::account_dir_path(&home);
+
+    let writing = {
+        let home = home.clone();
+        tokio::task::spawn_blocking(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            write_marker(&home);
+        })
+    };
+
+    let starter = Arc::new(CountingStarter::default());
+    let pool = KeeperPool::new(
+        relay_settings_for_account(
+            tmp.path().to_path_buf(),
+            Some(account_dir),
+            Duration::from_millis(400),
+        ),
+        starter.clone(),
+        Arc::new(FixedKey(MASTER_KEY)),
+    );
+
+    // No keeper exists, so this ends in "starting" — the point is that it got
+    // as far as asking for one instead of short-circuiting.
+    let _ = pool.call_tool(search_call(), soon()).await;
+    writing.await.unwrap();
+    assert!(
+        starter.0.load(Ordering::SeqCst) >= 1,
+        "a marker written between the two checks means somebody IS signed in"
+    );
+}
+
+/// Signed in but no lease yet (the first fetch failed, or it is a brand new
+/// account): that is a normal keeper start, which retries the fetch. Only the
+/// marker decides here — the relay never reads the lease.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_marker_with_no_lease_starts_a_keeper_as_usual() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let account_dir = account_home(tmp.path(), true);
+    let starter = Arc::new(CountingStarter::default());
+    let pool = KeeperPool::new(
+        relay_settings_for_account(
+            tmp.path().to_path_buf(),
+            Some(account_dir),
+            Duration::from_millis(50),
+        ),
+        starter.clone(),
+        Arc::new(FixedKey(MASTER_KEY)),
+    );
+
+    let _ = pool.call_tool(search_call(), soon()).await;
+    assert!(
+        starter.0.load(Ordering::SeqCst) >= 1,
+        "a signed-in computer asks for a keeper as it always did"
+    );
+}
+
+/// Every build before this arc: no account settings, so no folder to read and
+/// no short-circuit, ever.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_build_with_no_sign_in_never_short_circuits() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let starter = Arc::new(CountingStarter::default());
+    let pool = KeeperPool::new(
+        relay_settings_for_account(tmp.path().to_path_buf(), None, Duration::from_millis(50)),
+        starter.clone(),
+        Arc::new(FixedKey(MASTER_KEY)),
+    );
+
+    let _ = pool.call_tool(search_call(), soon()).await;
+    assert!(
+        starter.0.load(Ordering::SeqCst) >= 1,
+        "a build with no sign-in must behave exactly as it did before"
+    );
+}
+
+/// "Delete everything" from a locked computer. Somebody whose trial has just
+/// ended is exactly the person most likely to ask for their memories back and
+/// then delete them — and a lock-mode keeper holds `.vault.lock` just as a
+/// full one does, so the handover has to work from lock mode too (§6.2 asks
+/// for an "identical ... erasure intent and handover path", and this is what
+/// proves it rather than arguing it from shared code).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn erasure_takes_the_vault_from_a_lock_mode_keeper() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let root = tmp.path().to_path_buf();
+    let check = SwitchableCheck::answering(Verdict::Locked(LockReason::TrialEnded));
+
+    // As `zaaheen keeper` does: the process holds the vault lock while it
+    // serves, and its exit is what releases it.
+    let keeper_lock = ConsolidatorLock::try_acquire_named(&root, VAULT_LOCKFILE_NAME).unwrap();
+    let (_stop, serving) = start_lock_mode_keeper(
+        &root,
+        Duration::from_secs(30),
+        Subscription::lock(check, InFlight::new()),
+    )
+    .await;
+    let keeper = tokio::spawn(async move {
+        let exit = serving.await;
+        drop(keeper_lock);
+        exit
+    });
+
+    let held = exclusive::take_exclusive(
+        &root,
+        &FixedKey(MASTER_KEY),
+        Duration::from_secs(3),
+        Duration::from_secs(1),
+    )
+    .await
+    .expect("a locked keeper must hand the vault over too");
+    assert_eq!(
+        keeper.await.unwrap().unwrap().unwrap(),
+        KeeperExit::HandedOver,
+        "the handover path is the same one a full keeper takes"
+    );
+    assert!(discovery::read(&root).unwrap().is_none());
+    assert!(
+        intent::is_held(&root),
+        "no new keeper may start while the erasure runs"
+    );
+    drop(held);
 }

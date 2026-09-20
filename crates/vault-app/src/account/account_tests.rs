@@ -205,3 +205,79 @@ fn the_account_is_built_from_the_settings_and_the_folder() {
         .expect("status reads");
     assert_eq!(status, vault_account::Status::SignedOut);
 }
+
+// ---------------------------------------------------------------------------
+// The sign-in marker, read the way a relay must read it (§8.26 §6.3, §8.35)
+//
+// A relay never writes in the account folder, so it must not create or harden
+// one either. And it may only short-circuit when it KNOWS nobody is signed in:
+// a folder it could not read is not an empty one, and telling somebody to sign
+// in when the real answer is "could not confirm" would be the wrong message.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_marker_means_somebody_is_signed_in() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let dir = open_account_dir(tmp.path()).unwrap();
+    let lock = dir
+        .lock(std::time::Duration::from_secs(1))
+        .unwrap()
+        .expect("the lock is free");
+    dir.write_marker(&lock, "user_2abc").unwrap();
+    assert_eq!(sign_in_marker(&account_dir_path(tmp.path())), Some(true));
+}
+
+#[test]
+fn an_account_folder_with_no_marker_is_a_signed_out_computer() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let _dir = open_account_dir(tmp.path()).unwrap();
+    assert_eq!(sign_in_marker(&account_dir_path(tmp.path())), Some(false));
+}
+
+/// The commonest signed-out case by far: a fresh install where nobody has ever
+/// signed in, so the folder does not exist yet. A definite answer — and
+/// reading it must not bring the folder into being.
+#[test]
+fn a_missing_account_folder_is_a_signed_out_computer() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let never_created = account_dir_path(tmp.path());
+    assert!(!never_created.exists());
+    assert_eq!(sign_in_marker(&never_created), Some(false));
+    assert!(
+        !never_created.exists(),
+        "reading the marker must not create the account folder"
+    );
+}
+
+/// A path that is not a folder cannot hold a marker, so nobody is signed in
+/// there either. `AccountDir::open` reports this as `NotFound`, which is the
+/// right reading: there is no account folder.
+#[test]
+fn a_path_that_is_not_a_folder_is_a_signed_out_computer() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let in_the_way = account_dir_path(tmp.path());
+    std::fs::write(&in_the_way, b"not a folder").unwrap();
+    assert_eq!(sign_in_marker(&in_the_way), Some(false));
+}
+
+/// The branch that keeps the message honest. Split from the I/O so it can be
+/// proven without an unreadable folder, which no portable test can make.
+#[test]
+fn a_folder_it_could_not_read_leaves_the_decision_to_the_keeper() {
+    let denied = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
+    assert_eq!(
+        marker_verdict(Err(denied)),
+        None,
+        "an unreadable account folder must not be reported as signed out"
+    );
+    // And the two answers it may give.
+    assert_eq!(marker_verdict(Ok(Some("user_2abc".into()))), Some(true));
+    assert_eq!(marker_verdict(Ok(None)), Some(false));
+    assert_eq!(
+        marker_verdict(Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "no folder"
+        ))),
+        Some(false)
+    );
+}
