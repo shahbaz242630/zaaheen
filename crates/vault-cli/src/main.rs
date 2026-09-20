@@ -52,7 +52,7 @@ use rmcp::transport::streamable_http_server::session::local::LocalSessionManager
 use rmcp::transport::{StreamableHttpServerConfig, StreamableHttpService};
 use tokio::net::TcpListener;
 use uuid::Uuid;
-use vault_mcp::DaemonServer;
+use vault_mcp::{DaemonServer, Gate};
 
 use vault_app::install_paths;
 use vault_app::maintenance_state::{self, RunOutcome, RunSummary};
@@ -1093,6 +1093,22 @@ impl Drop for MaintenanceRecord {
     }
 }
 
+/// The subscription gate for this build (ADR-104), or `None` when the build
+/// carries no account settings — then the vault serves as it did before that
+/// arc, which is what every earlier build does.
+///
+/// # Errors
+///
+/// A build whose settings are broken, a folder that cannot be prepared, or a
+/// credential store that cannot be opened. Serving ungated in those cases
+/// would turn a broken build into a free one, silently.
+fn build_gate_or_fail() -> Result<Option<Gate>> {
+    let home = install_paths::local_data_dir()
+        .ok_or_else(|| anyhow!("could not determine the local application data directory"))?;
+    vault_app::account::build_gate(&home)
+        .map_err(|e| anyhow!("the account could not be prepared: {e}"))
+}
+
 /// Dispatch the `mcp` subcommand. Constructs a full [`Application`] and
 /// hands it to [`Application::start_with_mcp`] which binds rmcp's stdio
 /// transport. Blocks until the client (e.g. Claude Desktop) disconnects
@@ -1220,8 +1236,10 @@ async fn run_mcp_serve(
             "ies"
         },
     );
+    // The subscription gate (ADR-104), when this build carries a sign-in.
+    let gate = build_gate_or_fail()?;
     let handle = app
-        .start_with_mcp(authorized_boundaries, consolidation_run_at)
+        .start_with_mcp(authorized_boundaries, consolidation_run_at, gate)
         .await
         .context("MCP transport bind failed")?;
 
@@ -1315,9 +1333,10 @@ async fn dispatch_daemon(
     // shutdown asks the worker to exit.
     let _worker_shutdown = app.spawn_retry_worker();
 
-    // Wrap the REAL adapter in the auth-gating multi-agent handler.
+    // Wrap the REAL adapter in the auth-gating multi-agent handler, behind
+    // the subscription gate when this build carries a sign-in (ADR-104).
     let adapter: Arc<dyn vault_mcp::Adapter> = app.adapter().clone();
-    let daemon = DaemonServer::new(adapter);
+    let daemon = DaemonServer::new(adapter, build_gate_or_fail()?);
 
     // rmcp streamable-HTTP service over the daemon handler. The per-session
     // factory hands each connection a clone (all share the one inner adapter →

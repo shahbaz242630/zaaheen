@@ -944,6 +944,7 @@ impl Application {
         &self,
         authorized_boundaries: Vec<Boundary>,
         consolidation_run_at: Option<chrono::NaiveTime>,
+        gate: Option<vault_mcp::Gate>,
     ) -> VaultResult<ApplicationHandle> {
         use rmcp::ServiceExt;
 
@@ -957,6 +958,10 @@ impl Application {
         //    let-binding via DST coercion since `VaultAdapter: Adapter`.
         let adapter_dyn: Arc<dyn Adapter> = self.adapter.clone();
         let server = StdioServer::new(adapter_dyn, authorized_boundaries);
+        // The subscription gate (ADR-104), when this build carries a sign-in.
+        // Direct mode serves one AI app straight from this process, so the
+        // gate goes around the same server the keeper wraps.
+        let server = vault_mcp::maybe_gated(gate.as_ref(), server);
 
         // 3. Bind stdio transport synchronously — McpBindFailed propagates
         //    here if rmcp's serve() setup errs. Awaiting serve() returns

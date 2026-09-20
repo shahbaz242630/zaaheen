@@ -20,7 +20,10 @@ use vault_app::keeper::runtime::{self, KeeperExit, KeeperSettings};
 use vault_app::keeper::{exclusive, intent};
 use vault_app::{ConsolidatorLock, VAULT_LOCKFILE_NAME};
 use vault_core::{Boundary, MemoryId, NewMemory, VaultResult};
-use vault_mcp::{Adapter, NoVaultAdapter, StdioServer, ToolInvokeDetails, Upstream, UpstreamError};
+use vault_mcp::{
+    Adapter, EntitlementCheck, Gate, InFlight, LockReason, NoVaultAdapter, StdioServer,
+    ToolInvokeDetails, Upstream, UpstreamError, Verdict,
+};
 use vault_retrieval::{
     HealthInfo, HealthStatus, ReadQuery, RetrievalQuery, RetrievedMemory, StructuredReadResponse,
 };
@@ -144,6 +147,7 @@ impl KeeperStarter for SpawningStarter {
                 adapter,
                 HandshakeKeys::derive(&MASTER_KEY),
                 settings,
+                None,
                 std::future::pending::<()>(),
             ));
         }
@@ -201,12 +205,26 @@ async fn start_keeper(
     oneshot::Sender<()>,
     tokio::task::JoinHandle<VaultResult<KeeperExit>>,
 ) {
+    start_keeper_with_gate(root, adapter, idle_exit, None).await
+}
+
+/// The same, behind the subscription gate (ADR-104).
+async fn start_keeper_with_gate(
+    root: &std::path::Path,
+    adapter: Arc<RecordingAdapter>,
+    idle_exit: Duration,
+    gate: Option<Gate>,
+) -> (
+    oneshot::Sender<()>,
+    tokio::task::JoinHandle<VaultResult<KeeperExit>>,
+) {
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
     let adapter: Arc<dyn Adapter> = adapter;
     let handle = tokio::spawn(runtime::serve(
         adapter,
         HandshakeKeys::derive(&MASTER_KEY),
         keeper_settings(root.to_path_buf(), idle_exit),
+        gate,
         async {
             let _ = stop_rx.await;
         },
@@ -631,4 +649,99 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
          builds must not disagree about it silently: bump WIRE in \
          vault_app::keeper::handshake and set PINNED to {actual}."
     );
+}
+
+// ---------------------------------------------------------------------------
+// The subscription gate, end to end through a relay (ADR-104)
+// ---------------------------------------------------------------------------
+
+/// A check that answers the same verdict every time.
+struct FixedCheck(Verdict);
+
+#[async_trait]
+impl EntitlementCheck for FixedCheck {
+    async fn check(&self) -> Verdict {
+        self.0
+    }
+}
+
+fn gate_answering(verdict: Verdict) -> (Gate, InFlight) {
+    let in_flight = InFlight::new();
+    (
+        Gate::new(Arc::new(FixedCheck(verdict)), in_flight.clone()),
+        in_flight,
+    )
+}
+
+/// What an AI app sees when the trial has ended: the keeper's answer, relayed
+/// as a readable tool error, and nothing touched in the vault.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_locked_keeper_refuses_the_call_and_never_touches_the_vault() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::default());
+    let (gate, in_flight) = gate_answering(Verdict::Locked(LockReason::TrialEnded));
+    let (stop, keeper) = start_keeper_with_gate(
+        tmp.path(),
+        adapter.clone(),
+        Duration::from_secs(30),
+        Some(gate),
+    )
+    .await;
+
+    let pool = KeeperPool::new(
+        relay_settings(tmp.path().to_path_buf(), &["work"]),
+        Arc::new(NoStart),
+        Arc::new(FixedKey(MASTER_KEY)),
+    );
+    let result = pool
+        .call_tool(search_call(), soon())
+        .await
+        .expect("a locked call comes back as a tool result");
+    assert_eq!(result.is_error, Some(true));
+    let text: String = result
+        .content
+        .iter()
+        .filter_map(|c| c.as_text().map(|t| t.text.clone()))
+        .collect();
+    assert_eq!(text, LockReason::TrialEnded.message());
+    assert!(
+        adapter.searches().is_empty(),
+        "a locked call reached the vault"
+    );
+    assert_eq!(in_flight.count(), 0, "the call is no longer counted");
+
+    let _ = stop.send(());
+    let _ = keeper.await;
+}
+
+/// With a live subscription the keeper serves exactly as it did before the
+/// gate existed, and the call is no longer counted once it has answered.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_entitled_keeper_serves_the_call_as_before() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::default());
+    let (gate, in_flight) = gate_answering(Verdict::Entitled);
+    let (stop, keeper) = start_keeper_with_gate(
+        tmp.path(),
+        adapter.clone(),
+        Duration::from_secs(30),
+        Some(gate),
+    )
+    .await;
+
+    let pool = KeeperPool::new(
+        relay_settings(tmp.path().to_path_buf(), &["work"]),
+        Arc::new(NoStart),
+        Arc::new(FixedKey(MASTER_KEY)),
+    );
+    let result = pool
+        .call_tool(search_call(), soon())
+        .await
+        .expect("an entitled call is served");
+    assert_ne!(result.is_error, Some(true));
+    assert_eq!(adapter.searches().len(), 1);
+    assert_eq!(in_flight.count(), 0);
+
+    let _ = stop.send(());
+    let _ = keeper.await;
 }

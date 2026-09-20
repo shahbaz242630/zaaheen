@@ -18,7 +18,14 @@
 - **The founder's offline backup key moved to S6:** the sandbox has its own throwaway keys, so a test-card lease can never unlock a real app.
 - **Machine:** Node 24 via fnm; wrangler 4.132.0 is signed in to the founder's Cloudflare account. The Claude Code auto-mode classifier refuses secret-store writes from me: the founder runs those scripts with `!` (or a clipboard script is allowed).
 
-**Session 47 (2026-09-19), in progress:**
+**Session 47 (2026-09-19/20), in progress:**
+- **S3 step 1 is merged** (PR #71 → `main` `4bf1c1a`, every check green on 3 OSes; `main`'s own push runs were started at 02:58Z — check them).
+- **S3 step 2 is built on `feat/s3-step2` (from `4bf1c1a`), not committed yet.** 2a `vault-app/src/entitlement/` — `AccountCheck` over a new `AccountAccess` trait, refresh-then-decide, the §8.27 denial mapping. 2b `vault-app/src/account.rs` — the build-time account settings (`option_env!`, seven names, all-absent means no sign-in), the account folder with its ACL, and `build_account`. `vault-app` now depends on `vault-account` and `thiserror`. 28 tests, 25 planted bugs each caught, `SIGNIN-DESIGN.md` §8.33 (amendment 7) and §8.34 (amendment 8, the founder's app-vs-coaching rule).
+- **The wiring (2c) is done:** the keeper (`keeper/runtime.rs::serve` takes `Option<Gate>`), direct mode (`application.rs::start_with_mcp`) and the daemon (`daemon.rs::call_tool`, after `authorize`) all take the gate; `vault_app::account::build_gate` builds the one per process and `vault-cli` calls it in all three commands. A build with no account settings serves as before; a build whose settings are broken refuses to start. 5 wiring tests over the real transports, `SIGNIN-DESIGN.md` §8.33.
+- **All six DoD gates passed** from a wiped `target\debug` (`gates27.ps1`): build 40.7 min, clippy 30.2, `test -p vault-mcp` 45.8, `-p vault-app` 8.8, `-p vault-cli` 15.4, fmt. **344 tests over 28 binaries, zero warnings.**
+- **Disk lesson (cost ~1 h):** `cargo build --workspace --all-targets` on top of an existing `target\debug` drove free space from 33 GB to 7.4 GB and the build died. Wiping `target\debug` returned 61 GB. Build the workspace, then let each `test -p` build its own targets; never `--all-targets` on a tight disk.
+
+**Earlier in session 47:**
 - **PR #70 merged** (rebase, auto-merge pinned to the head sha, founder yes) → `main` `53a22a1`; every PR check green on 3 OSes. `main`'s own push runs are green too (CI 35431951486, CodeQL, secret scan; checked session 47).
 - **S3 step 1, the gate, is built on `feat/s3-gate`, not committed yet** (the branch was cut from `add49b6`; `git rebase origin/main` drops that commit as already applied). New: `crates/vault-mcp/src/gate.rs` (`EntitlementCheck`, `Verdict`, `LockReason`, `InFlight`, `EntitledService`), its re-export in `lib.rs`, `crates/vault-mcp/tests/entitlement_gate.rs` (19 tests), `SIGNIN-DESIGN.md` §8.32 (amendment 6, with one §6.1 wording change: the three empty lists do not ask). Proof: 12 red on an empty gate, 19 green, 16 planted bugs each caught, an independent review found no defects.
 - **DoD: all four gates passed** (`gates26.ps1`, logs in `C:\Projects\MemoryVault-artifacts\gate-logs\`): `build --workspace` 61.1 min, `clippy --workspace --all-targets -D warnings` 55.7 min, `test -p vault-mcp` 75.4 min (78 tests over 13 binaries), `fmt --check`. Zero warnings anywhere. `RUSTFLAGS='-D warnings'`, line-tables-only for dev **and** test, `-j 2` for build and clippy, `-j 1` for the test step.
@@ -144,6 +151,7 @@ Roughly in priority order; the founder picks. Full context for each is in `HANDO
 - **Zero-knowledge:** the server can never read vault contents. Sign-in never touches the vault key. Re-read BRD §11 and add an ADR-SEC before any crypto, auth or IPC change.
 - **One keeper owns the vault;** relays forward.
 - **One codebase, three modes** (Local / BYOK / Managed). Sync is deferred until there are paying users.
+- **The app subscription and a coaching session are separate purchases** (founder, 2026-09-20; `SIGNIN-DESIGN.md` §8.34). One account identifies the person in both and grants nothing across them: an app subscriber pays for a session like anyone else, and a coaching client gets no app entitlement. The app side already enforces it (only our app product's Paddle subscriptions count); S5 must build the coaching side the same way.
 - **White label:** no model, vendor or stack names in anything a user sees.
 - **Free plans and provider defaults until traction.**
 

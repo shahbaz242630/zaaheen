@@ -25,12 +25,12 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use rmcp::ServiceExt;
+use rmcp::{RoleServer, Service, ServiceExt};
 use tokio::sync::mpsc;
 use tokio::task::AbortHandle;
 use tokio::time::Instant;
 use vault_core::{VaultError, VaultResult};
-use vault_mcp::{Adapter, StdioServer};
+use vault_mcp::{Adapter, Gate, StdioServer};
 
 use super::discovery::{self, Discovery};
 use super::handshake::{
@@ -94,6 +94,7 @@ pub async fn serve<F>(
     adapter: Arc<dyn Adapter>,
     keys: HandshakeKeys,
     settings: KeeperSettings,
+    gate: Option<Gate>,
     shutdown: F,
 ) -> VaultResult<KeeperExit>
 where
@@ -153,6 +154,7 @@ where
                         keys: keys.clone(),
                         identity: identity.clone(),
                         adapter: adapter.clone(),
+                        gate: gate.clone(),
                         active: active.clone(),
                         authed: authed.clone(),
                         stop_tx: stop_tx.clone(),
@@ -239,6 +241,10 @@ struct ConnectionContext {
     keys: Arc<HandshakeKeys>,
     identity: KeeperIdentity,
     adapter: Arc<dyn Adapter>,
+    /// The subscription gate, when this build carries a sign-in (ADR-104).
+    /// Every connection shares the one gate, so the whole keeper counts its
+    /// calls in flight together (§8.26 §6.2).
+    gate: Option<Gate>,
     active: Arc<AtomicUsize>,
     authed: Arc<AtomicBool>,
     stop_tx: mpsc::Sender<KeeperExit>,
@@ -280,14 +286,7 @@ async fn handle_connection(mut stream: ServerStream, ctx: ConnectionContext) {
             ctx.active.fetch_add(1, Ordering::SeqCst);
             let _guard = ActiveGuard(ctx.active.clone());
             let server = StdioServer::new(ctx.adapter, boundaries);
-            match server.serve(stream).await {
-                Ok(running) => {
-                    let _ = running.waiting().await;
-                }
-                Err(e) => {
-                    tracing::warn!(target: "vault_app::keeper", error = %e, "session setup failed");
-                }
-            }
+            serve_session(vault_mcp::maybe_gated(ctx.gate.as_ref(), server), stream).await;
         }
         Ok(KeeperAccept::Yield) => {
             tracing::info!(target: "vault_app::keeper", "a newer relay asked this keeper to yield");
@@ -298,6 +297,21 @@ async fn handle_connection(mut stream: ServerStream, ctx: ConnectionContext) {
             let _ = ctx.stop_tx.try_send(KeeperExit::HandedOver);
         }
         Err(e) => note_rejection(&e, &ctx.last_warn),
+    }
+}
+
+/// Serve one authenticated session until its stream closes.
+async fn serve_session<S>(service: S, stream: ServerStream)
+where
+    S: Service<RoleServer>,
+{
+    match service.serve(stream).await {
+        Ok(running) => {
+            let _ = running.waiting().await;
+        }
+        Err(e) => {
+            tracing::warn!(target: "vault_app::keeper", error = %e, "session setup failed");
+        }
     }
 }
 

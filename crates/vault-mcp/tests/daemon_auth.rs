@@ -16,6 +16,7 @@
 
 mod common;
 
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
@@ -31,7 +32,9 @@ use rmcp::transport::{
 use rmcp::ServiceExt;
 use tokio::net::TcpListener;
 use vault_core::{Boundary, MemoryId, NewMemory, VaultResult};
-use vault_mcp::{Adapter, DaemonServer, ToolInvokeDetails};
+use vault_mcp::{
+    Adapter, DaemonServer, EntitlementCheck, Gate, InFlight, LockReason, ToolInvokeDetails, Verdict,
+};
 use vault_retrieval::{
     HealthInfo, HealthStatus, ReadQuery, RetrievalQuery, RetrievedMemory, StructuredReadResponse,
 };
@@ -155,7 +158,7 @@ fn search_call(query: &str) -> CallToolRequestParams {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn valid_token_scopes_request_to_its_boundaries() {
     let adapter = Arc::new(AuthMockAdapter::default());
-    let daemon = DaemonServer::new(adapter.clone() as Arc<dyn Adapter>);
+    let daemon = DaemonServer::new(adapter.clone() as Arc<dyn Adapter>, None);
     let addr = spawn_daemon(daemon).await;
     let url = format!("http://127.0.0.1:{}/mcp", addr.port());
 
@@ -197,7 +200,7 @@ async fn valid_token_scopes_request_to_its_boundaries() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn missing_token_is_denied_before_the_adapter() {
     let adapter = Arc::new(AuthMockAdapter::default());
-    let daemon = DaemonServer::new(adapter.clone() as Arc<dyn Adapter>);
+    let daemon = DaemonServer::new(adapter.clone() as Arc<dyn Adapter>, None);
     let addr = spawn_daemon(daemon).await;
     let url = format!("http://127.0.0.1:{}/mcp", addr.port());
 
@@ -225,7 +228,7 @@ async fn missing_token_is_denied_before_the_adapter() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn forged_token_is_denied_before_the_adapter() {
     let adapter = Arc::new(AuthMockAdapter::default());
-    let daemon = DaemonServer::new(adapter.clone() as Arc<dyn Adapter>);
+    let daemon = DaemonServer::new(adapter.clone() as Arc<dyn Adapter>, None);
     let addr = spawn_daemon(daemon).await;
     let url = format!("http://127.0.0.1:{}/mcp", addr.port());
 
@@ -247,4 +250,127 @@ async fn forged_token_is_denied_before_the_adapter() {
         adapter.recorded_searches().is_empty(),
         "a forged-token request must NEVER reach the adapter"
     );
+}
+
+// ---------------------------------------------------------------------------
+// The subscription gate (ADR-104; SIGNIN-DESIGN.md 8.26 6.1)
+// ---------------------------------------------------------------------------
+
+/// A check that answers the same verdict every time and counts the asking.
+struct FixedCheck {
+    verdict: Verdict,
+    asked: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl EntitlementCheck for FixedCheck {
+    async fn check(&self) -> Verdict {
+        self.asked.fetch_add(1, Ordering::SeqCst);
+        self.verdict
+    }
+}
+
+fn gate_answering(verdict: Verdict) -> (Gate, Arc<AtomicUsize>) {
+    let asked = Arc::new(AtomicUsize::new(0));
+    let check = Arc::new(FixedCheck {
+        verdict,
+        asked: asked.clone(),
+    });
+    (Gate::new(check, InFlight::new()), asked)
+}
+
+/// A locked vault answers the agent in words it can read, and the call never
+/// reaches the adapter.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_locked_daemon_refuses_an_authenticated_call() {
+    let adapter = Arc::new(AuthMockAdapter::default());
+    let (gate, asked) = gate_answering(Verdict::Locked(LockReason::TrialEnded));
+    let daemon = DaemonServer::new(adapter.clone() as Arc<dyn Adapter>, Some(gate));
+    let addr = spawn_daemon(daemon).await;
+    let url = format!("http://127.0.0.1:{}/mcp", addr.port());
+
+    let client = ()
+        .serve(StreamableHttpClientTransport::from_config(
+            StreamableHttpClientTransportConfig::with_uri(url).auth_header(VALID_TOKEN),
+        ))
+        .await
+        .expect("the agent initializes");
+
+    let result = client
+        .peer()
+        .call_tool(search_call("anything"))
+        .await
+        .expect("a locked call is a tool result, not a protocol error");
+    assert_eq!(result.is_error, Some(true));
+    let text: String = result
+        .content
+        .iter()
+        .filter_map(|c| c.as_text().map(|t| t.text.clone()))
+        .collect();
+    assert_eq!(text, LockReason::TrialEnded.message());
+    drop(client);
+
+    assert_eq!(asked.load(Ordering::SeqCst), 1, "the check is asked once");
+    assert!(
+        adapter.recorded_searches().is_empty(),
+        "a locked call must never reach the adapter"
+    );
+}
+
+/// An entitled vault serves exactly as before the gate existed.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_entitled_daemon_serves_the_call() {
+    let adapter = Arc::new(AuthMockAdapter::default());
+    let (gate, asked) = gate_answering(Verdict::Entitled);
+    let daemon = DaemonServer::new(adapter.clone() as Arc<dyn Adapter>, Some(gate));
+    let addr = spawn_daemon(daemon).await;
+    let url = format!("http://127.0.0.1:{}/mcp", addr.port());
+
+    let client = ()
+        .serve(StreamableHttpClientTransport::from_config(
+            StreamableHttpClientTransportConfig::with_uri(url).auth_header(VALID_TOKEN),
+        ))
+        .await
+        .expect("the agent initializes");
+
+    let result = client
+        .peer()
+        .call_tool(search_call("anything"))
+        .await
+        .expect("an entitled search dispatches");
+    assert_ne!(result.is_error, Some(true));
+    drop(client);
+
+    assert_eq!(asked.load(Ordering::SeqCst), 1);
+    assert_eq!(adapter.recorded_searches().len(), 1);
+}
+
+/// BRD 11.4.4: authentication comes first. An unknown token is refused
+/// without the subscription ever being consulted, so it learns nothing about
+/// the account.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_unknown_token_is_refused_before_the_subscription_is_consulted() {
+    let adapter = Arc::new(AuthMockAdapter::default());
+    let (gate, asked) = gate_answering(Verdict::Entitled);
+    let daemon = DaemonServer::new(adapter.clone() as Arc<dyn Adapter>, Some(gate));
+    let addr = spawn_daemon(daemon).await;
+    let url = format!("http://127.0.0.1:{}/mcp", addr.port());
+
+    let client = ()
+        .serve(StreamableHttpClientTransport::from_config(
+            StreamableHttpClientTransportConfig::with_uri(url).auth_header("not-a-real-token"),
+        ))
+        .await
+        .expect("the client completes the un-gated initialize");
+
+    let result = client.peer().call_tool(search_call("anything")).await;
+    assert!(result.is_err(), "an unknown token must be rejected");
+    drop(client);
+
+    assert_eq!(
+        asked.load(Ordering::SeqCst),
+        0,
+        "the check must not be asked for a request that never authenticated"
+    );
+    assert!(adapter.recorded_searches().is_empty());
 }
