@@ -32,15 +32,15 @@
 use std::sync::Arc;
 
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, ListToolsResult, PaginatedRequestParams, ServerInfo,
-    Tool,
+    CallToolRequestParams, CallToolResult, ContentBlock, ListToolsResult, PaginatedRequestParams,
+    ServerInfo, Tool,
 };
 use rmcp::service::RequestContext;
 use rmcp::{ErrorData as McpError, RoleServer, ServerHandler};
 use vault_core::Boundary;
 
 use crate::server::{vault_error_to_mcp, StdioServer, ERROR_CODE_ACCESS_DENIED};
-use crate::Adapter;
+use crate::{Adapter, Gate, Verdict};
 
 /// HTTP-daemon MCP handler. Authenticates each request via a bearer capability
 /// token, then dispatches through a boundary-scoped [`StdioServer`]. Cheap to
@@ -48,12 +48,17 @@ use crate::Adapter;
 #[derive(Clone)]
 pub struct DaemonServer {
     adapter: Arc<dyn Adapter>,
+    gate: Option<Gate>,
 }
 
 impl DaemonServer {
-    /// Construct from the shared adapter (the same one the stdio server uses).
-    pub fn new(adapter: Arc<dyn Adapter>) -> Self {
-        Self { adapter }
+    /// Construct from the shared adapter (the same one the stdio server uses)
+    /// and, when this build carries a sign-in, the subscription gate
+    /// (ADR-104; `SIGNIN-DESIGN.md` §8.26 §6.1: the gate is consulted **after**
+    /// the agent is authenticated, so an unknown token is still refused first
+    /// and learns nothing about the subscription).
+    pub fn new(adapter: Arc<dyn Adapter>, gate: Option<Gate>) -> Self {
+        Self { adapter, gate }
     }
 
     /// Resolve the per-request authorized boundaries from the bearer token in
@@ -128,6 +133,23 @@ impl ServerHandler for DaemonServer {
     ) -> Result<CallToolResult, McpError> {
         // Authenticate + resolve boundaries BEFORE any dispatch (BRD §11.4.4).
         let (agent_name, boundaries) = self.authorize(&context).await?;
+        // Then the subscription gate, so a locked vault answers with words the
+        // agent can read and nothing reaches the adapter (§8.26 §6.1). The
+        // daemon dispatches per request rather than wrapping a server, so it
+        // asks the check itself; calls in flight are the keeper's concern.
+        if let Some(gate) = &self.gate {
+            if let Verdict::Locked(reason) = gate.verdict().await {
+                tracing::info!(
+                    target: "vault_mcp::gate",
+                    request = "tools/call",
+                    reason = ?reason,
+                    "refused: the vault is locked"
+                );
+                return Ok(CallToolResult::error(vec![ContentBlock::text(
+                    reason.message(),
+                )]));
+            }
+        }
         // Step 5 — per-agent operational attribution (§11.9.2): which agent ran
         // which tool. (Threading the name into the PERSISTENT audit row's
         // `actor_name` is a focused follow-up — it touches the ADR-024

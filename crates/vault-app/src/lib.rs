@@ -24,10 +24,12 @@
 
 #![forbid(unsafe_code)]
 
+pub mod account;
 mod adapter;
 mod application;
 mod config;
 mod consolidator_lock;
+pub mod entitlement;
 pub mod erasure;
 pub mod install_paths;
 pub mod keeper;

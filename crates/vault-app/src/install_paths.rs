@@ -142,6 +142,36 @@ pub fn log_dir() -> Option<PathBuf> {
     }
 }
 
+/// The app's local (never roaming) directory, which holds the logs and the
+/// account folder (`SIGNIN-DESIGN.md` §8.26 §4):
+/// - Windows: `%LOCALAPPDATA%\com.zaaheen.app`
+/// - macOS: `~/Library/Logs/com.zaaheen.app`'s parent-equivalent,
+///   `~/Library/Application Support/com.zaaheen.app`
+/// - Linux: `$XDG_DATA_HOME/com.zaaheen.app`, else `~/.local/share/...`
+///
+/// `None` when the environment names no base directory.
+pub fn local_data_dir() -> Option<PathBuf> {
+    if cfg!(windows) {
+        std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .filter(|p| !p.as_os_str().is_empty())
+            .map(|p| p.join(APP_IDENTIFIER))
+    } else if cfg!(target_os = "macos") {
+        std::env::var_os("HOME").filter(|h| !h.is_empty()).map(|h| {
+            PathBuf::from(h)
+                .join("Library/Application Support")
+                .join(APP_IDENTIFIER)
+        })
+    } else {
+        std::env::var_os("XDG_DATA_HOME")
+            .map(PathBuf::from)
+            .filter(|p| !p.as_os_str().is_empty())
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))
+            .filter(|p| !p.as_os_str().is_empty())
+            .map(|p| p.join(APP_IDENTIFIER))
+    }
+}
+
 /// The directory holding this executable — Tauri's `BaseDirectory::Resource`.
 ///
 /// Resolved from [`std::env::current_exe`] rather than a `PATH` lookup, so a

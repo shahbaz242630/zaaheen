@@ -22,6 +22,11 @@ tokio = { workspace = true }
 # tracing — structured logs at the application boundary.
 tracing.workspace = true
 
+# thiserror — `account::AccountSetupError` (BRD §2: thiserror per crate).
+# Already in the lockfile via vault-core and vault-account; no new crate
+# enters the tree.
+thiserror = { workspace = true }
+
 # tracing-subscriber — backs `logging::init`, the shared on-disk application
 # log (ADR-SEC-014, moved here by ADR-SEC-015 so the desktop app and the
 # windowless maintenance path write one file through one implementation).
@@ -41,6 +46,13 @@ vault-core = { path = "../vault-core" }
 
 # vault-mcp Adapter trait — VaultAdapter is the production impl.
 vault-mcp = { path = "../vault-mcp" }
+
+# vault-account — the Zaaheen account on this computer (ADR-104 +
+# ADR-SEC-022). `entitlement::AccountCheck` is the join between it and
+# vault-mcp's gate, which is this crate's job as the composition root
+# (SIGNIN-DESIGN.md §8.26 §2: vault-app -> {vault-account, vault-mcp}).
+# vault-mcp does NOT depend on vault-account: the gate asks a trait.
+vault-account = { path = "../vault-account" }
 
 # rmcp — used directly by `Application::start_with_mcp` (T0.1.10 Phase 2)
 # to bind `rmcp::transport::stdio()` and call `ServiceExt::serve` on a

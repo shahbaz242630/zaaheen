@@ -438,6 +438,50 @@ Implementation choices §8.26 §6.1 left open, each pinned by a test in `crates/
 
 **Logging (§6.6):** a refusal is one `info` line, target `vault_mcp::gate`, with the request kind (`tools/call` or `other`) and the reason. Nothing the client sent is logged, not even the tool name. No audit row and no adapter call.
 
+## 8.33 · ADR-104 / ADR-SEC-022 amendment 7 (2026-09-20, session 47) — decisions made in S3 step 2 (the check, and where a build's account settings come from)
+
+**The check (`vault_app::entitlement`, step 2a).** `AccountCheck` implements `vault_mcp::EntitlementCheck` over `vault-account`. It asks the account for what is on disk; entitled, it serves the call and records the use (the 30-day unused rule, §8.26 §4). Otherwise it applies refresh-then-decide and answers from disk afterwards, whatever the refresh did.
+- The refresh runs in **its own task** and is waited on for at most 5 s; it is never dropped (§8.27: cancelling one between the server rotating the refresh token and the store writing it loses the live token).
+- **Signed out short-circuits**: nothing a refresh could change, and §6.3's relay short-circuit counts on it being cheap.
+- **Only a signed `ended` says "ended"** (§8.27). A folder that cannot be read, a failed refresh, a lease that has not arrived: all say "could not confirm". A wrong clock or a dead network must never tell a paying user their trial is over.
+- The gate asks with `Trigger::Denial`; every rate limit stays inside `vault-account`.
+- `AccountAccess` is a trait in `vault-app` (`state`, `refresh`, `record_use`), implemented for `vault_account::Account`. `AccountState` is `Status` without the lease, which only `vault-account` can build — that is what lets the tests run with no credential store and no network.
+
+**Where a build's account settings come from (step 2b).** §8.26 never said, and the values (issuer, OAuth client id, account-service origin) are account identifiers, which this public repo must not carry.
+- They are read with `option_env!`, so they are baked in **at build time**, like the site's `PUBLIC_PADDLE_*` (§8.31). The names: `ZAAHEEN_ACCOUNT_ISSUER`, `ZAAHEEN_ACCOUNT_CLIENT_ID`, `ZAAHEEN_ACCOUNT_API`, `ZAAHEEN_LEASE_PRIMARY_KID`, `ZAAHEEN_LEASE_PRIMARY_KEY`, `ZAAHEEN_LEASE_BACKUP_KID`, `ZAAHEEN_LEASE_BACKUP_KEY`. The lease keys are 64 hex characters (32 bytes).
+- **All seven absent means this build has no sign-in** — which is what every build before this arc is. **Any one missing or malformed is refused by name**, so no build can sign in against one instance and verify leases with another's key. The error never carries the value.
+- Development builds carry the sandbox pair, release builds the production pair (§8.31). **S6 gains:** the production values in the release build's environment, and a release-build guard that fails when they are absent (the site's audit does the same for its live token).
+- The account folder `%LOCALAPPDATA%\com.zaaheen.app\account` is created and restricted to its owner (ADR-SEC-019) before `AccountDir::open`, per §8.27. A failed restriction is logged, not fatal, as for the vault folder.
+
+**The wiring (step 2c).** Every server that faces an AI app takes the gate, and a build without account settings passes `None` and serves exactly as before:
+- **The keeper** (`keeper/runtime.rs`): `serve` takes `Option<Gate>` and every authenticated session is wrapped, so the one gate — and the one `InFlight` — covers the whole process (§6.2).
+- **Direct mode** (`application.rs::start_with_mcp`): the same wrapping around its `StdioServer`.
+- **The daemon** (`vault-mcp/src/daemon.rs`): it dispatches per request rather than wrapping a server, so it asks the gate itself, **after `authorize`** (BRD §11.4.4: an unknown token is refused first and learns nothing about the account). Calls in flight are the keeper's concern, so the daemon does not count them.
+- `vault_mcp::MaybeGated` / `maybe_gated` give both cases one type at the transport.
+- `vault_app::account::build_gate` builds the one gate per process; `vault-cli` calls it for the keeper, direct mode and the daemon. **A build whose settings are broken refuses to start** rather than serving ungated: a gate that silently disappears would turn a broken build into a free one.
+- The account folder is found through the new `install_paths::local_data_dir()` (`%LOCALAPPDATA%\com.zaaheen.app`), beside the logs.
+
+**Evidence:** 28 unit tests in `vault-app` (14 for the check, 14 for the settings and the folder), with stand-ins for the account so none touches the network; the Windows-only pair opens Credential Manager and writes nothing. 5 wiring tests over the real transports: a locked and an entitled keeper through a real relay over a real pipe (the locked one proves nothing reaches the vault and the counter returns to zero), and a locked, an entitled, and an unknown-token daemon over real loopback HTTP (the last proves the check is never asked for a request that failed to authenticate). 14 planted bugs on the check and 11 on the settings, each turning the intended test red and restored byte for byte. Honest note: the check was run failing first against a stub (12 of 14 red); the settings and the wiring were written tests-first but run only after the implementation, so their proof is the planted-bug pass and the wiring tests, not a red run.
+
+**DoD:** `build --workspace` (40.7 min), `clippy --workspace --all-targets -D warnings` (30.2 min), `test -p vault-mcp` (45.8 min), `test -p vault-app` (8.8 min), `test -p vault-cli` (15.4 min), `fmt --check` — all green from a wiped `target\debug`: 344 tests over 28 binaries, zero warnings.
+
+## 8.34 · ADR-104 amendment 8 (2026-09-20, session 47) — the app subscription and coaching are separate purchases (FOUNDER-LOCKED)
+
+**Founder, 2026-09-20:** "we need to make sure someone with monthly membership via paddle for zaaheen also does not gets automatically free access to the coaching sessions... they should pay for the session ..and vice verca.. a coaching session payment shouldnt allow them to automaticlaly become member of zaaheen".
+
+One Zaaheen account identifies the person in both places (§0). It grants nothing across them. Two purchases, two entitlements, neither derived from the other.
+
+**Coaching payment → no app access (already enforced, verified 2026-09-20).**
+- The Worker counts a Paddle subscription only when one of its items' `price.product_id` is **our app product** (`workers/account/src/billing.ts::isOurs`, §8.29). A coaching purchase is a different product, so it never reaches `active_until`.
+- `/v1/checkout` maps `plan` to the app's allowlisted price ids only (§5), so an app checkout can never buy coaching or vice versa.
+- `private_metadata.zaaheen_memory` is written by the account Worker alone (§5) and describes the app subscription only.
+
+**App subscription → no free coaching (S5 must build it this way).**
+- A booking is entitled by its **own** payment. The coaching app never reads the lease, `zaaheen_memory`, or any app subscription state to decide whether a session is paid.
+- Coaching keeps its own record under its own key, and its own Paddle product and prices.
+- `comp_until` (§5) is the app's beta comp only. A coached client gets no app entitlement from it, and a comped app user gets no session.
+- **Gap to close at S5:** §9 of this document is still only a pointer ("As v2 §9"). S5 writes the real section, and it must state this rule and its enforcement points.
+
 **Observation, no action:** a task-style call naming a tool that does not exist gets, from the server, rmcp's default `enqueue_task` answer (an internal error), and from the gate while locked the invalid-params answer above. Both refuse, nothing reaches the vault, and nothing leaks; only the code differs. Raised by the step's independent review as below its reporting threshold.
 
 **Evidence:** 19 tests in `entitlement_gate.rs`, driven over raw JSON-RPC lines against the real `StdioServer` and the recording `MockAdapter`. Run first against an empty gate that passed everything: 12 failed, each for the reason it names. Then 19 pass. 16 planted bugs, each caught and restored byte for byte (the 7 tests the empty gate already passed are among those caught): the handshake or the lists asking, the in-flight guard dropped at once, not covering unwinding, or counting only after a "yes", a list or `tools/list` gated, notifications swallowed, a catch-all arm, an entitled request not passed on, `wait_idle` ignoring the current value, the refusal log carrying the request, a locked task-style call passed on, one word of the locked text changed, a locked tool call not flagged `isError`, and tool calls or other requests never asking. An independent read-only review against this design and rmcp 2.2.0's source found no defects.

@@ -214,6 +214,97 @@ fn log_refusal(request: &'static str, reason: LockReason) {
     );
 }
 
+/// The check and the counter, travelling together.
+///
+/// A build that carries no sign-in has no gate at all (`Option<Gate>` at each
+/// place a server is built), which is what every build before this arc is.
+/// Licensing is a business control, not a security boundary (§6.7).
+#[derive(Clone)]
+pub struct Gate {
+    check: Arc<dyn EntitlementCheck>,
+    in_flight: InFlight,
+}
+
+impl Gate {
+    /// Build one. The same `in_flight` is shared by every server the keeper
+    /// creates, so it counts the whole process's work (§6.2).
+    pub fn new(check: Arc<dyn EntitlementCheck>, in_flight: InFlight) -> Self {
+        Self { check, in_flight }
+    }
+
+    /// Put `inner` behind this gate.
+    pub fn wrap<S>(&self, inner: S) -> EntitledService<S> {
+        EntitledService::new(inner, Arc::clone(&self.check), self.in_flight.clone())
+    }
+
+    /// Ask the check directly, for a server that dispatches per request
+    /// rather than being wrapped (the daemon).
+    pub async fn verdict(&self) -> Verdict {
+        self.check.check().await
+    }
+
+    /// The shared counter.
+    pub fn in_flight(&self) -> &InFlight {
+        &self.in_flight
+    }
+}
+
+/// A server that may or may not stand behind the gate, so a build with a
+/// sign-in and one without have the same type at the transport.
+pub enum MaybeGated<S> {
+    /// Behind the gate.
+    Gated(EntitledService<S>),
+    /// Served directly (a build with no account settings).
+    Plain(S),
+}
+
+/// Put `inner` behind `gate` when there is one.
+pub fn maybe_gated<S>(gate: Option<&Gate>, inner: S) -> MaybeGated<S> {
+    match gate {
+        Some(gate) => MaybeGated::Gated(gate.wrap(inner)),
+        None => MaybeGated::Plain(inner),
+    }
+}
+
+impl<S: Service<RoleServer>> Service<RoleServer> for MaybeGated<S> {
+    async fn handle_request(
+        &self,
+        request: ClientRequest,
+        context: RequestContext<RoleServer>,
+    ) -> Result<ServerResult, McpError> {
+        match self {
+            MaybeGated::Gated(server) => server.handle_request(request, context).await,
+            MaybeGated::Plain(server) => server.handle_request(request, context).await,
+        }
+    }
+
+    async fn handle_notification(
+        &self,
+        notification: ClientNotification,
+        context: NotificationContext<RoleServer>,
+    ) -> Result<(), McpError> {
+        match self {
+            MaybeGated::Gated(server) => server.handle_notification(notification, context).await,
+            MaybeGated::Plain(server) => server.handle_notification(notification, context).await,
+        }
+    }
+
+    fn get_info(&self) -> ServerInfo {
+        match self {
+            MaybeGated::Gated(server) => server.get_info(),
+            MaybeGated::Plain(server) => server.get_info(),
+        }
+    }
+}
+
+impl std::fmt::Debug for Gate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Gate")
+            .field("in_flight", &self.in_flight.count())
+            .finish_non_exhaustive()
+    }
+}
+
 /// The gate: an MCP service that serves `inner` only while entitled.
 pub struct EntitledService<S> {
     inner: S,

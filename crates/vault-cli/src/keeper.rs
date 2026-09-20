@@ -176,12 +176,30 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
     let adapter: Arc<dyn vault_mcp::Adapter> = app.adapter().clone();
     let settings = KeeperSettings::production(vault_root.clone(), env!("CARGO_PKG_VERSION"));
 
+    // The subscription gate (ADR-104). A build with no account settings has
+    // none and serves as before; a build whose settings are broken refuses to
+    // start, because a gate that silently disappears is worse than a keeper
+    // that says why.
+    let gate = match vault_app::account::build_gate(&account_home()?) {
+        Ok(gate) => gate,
+        Err(e) => {
+            publish_failure();
+            return Err(anyhow!("the account could not be prepared: {e}"));
+        }
+    };
+
     // ADR-100: fetch the reranker concurrently with serving; reads use the
     // cosine gate until it lands. Raced rather than joined: when serving ends
     // the acquisition is abandoned, so a stopping keeper never holds the vault
     // for the ~20 s re-hash (or a first-run download) of a model it will not
     // use again.
-    let serve = runtime::serve(adapter, keys, settings, shutdown_signal(exit_on_stdin_eof));
+    let serve = runtime::serve(
+        adapter,
+        keys,
+        settings,
+        gate,
+        shutdown_signal(exit_on_stdin_eof),
+    );
     tokio::pin!(serve);
     let acquire = async {
         match model_fetch::ensure_reranker(&models_dir).await {
@@ -215,6 +233,17 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
     // See the function docs: exit with `vault_lock` still held (it is never
     // dropped; the OS releases it with the process).
     std::process::exit(code)
+}
+
+/// Where the account folder lives: `%LOCALAPPDATA%\com.zaaheen.app`, the same
+/// place the logs go (§8.26 §4).
+///
+/// # Errors
+///
+/// The local app data directory could not be determined.
+fn account_home() -> Result<PathBuf> {
+    install_paths::local_data_dir()
+        .ok_or_else(|| anyhow!("could not determine the local application data directory"))
 }
 
 /// Resolves when the keeper should stop: Ctrl-C, or — when launched by the
