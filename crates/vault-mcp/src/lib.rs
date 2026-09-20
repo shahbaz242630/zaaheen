@@ -68,12 +68,14 @@
 mod adapter;
 mod audit;
 mod daemon;
+mod gate;
 mod relay;
 mod server;
 
 pub use adapter::Adapter;
 pub use audit::{ToolInvokeDetails, ToolInvokeError};
 pub use daemon::DaemonServer;
+pub use gate::{EntitledService, EntitlementCheck, InFlight, LockReason, Verdict};
 pub use relay::{
     NoVaultAdapter, RelayServer, Upstream, UpstreamError, MSG_OUTCOME_UNKNOWN, MSG_TIMED_OUT,
     MSG_TIMED_OUT_SAVE, RELAY_CALL_BUDGET,
