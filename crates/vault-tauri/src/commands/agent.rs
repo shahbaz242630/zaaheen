@@ -17,13 +17,18 @@ use tauri::State;
 use vault_app::Application;
 use vault_mcp::ToolInvokeDetails;
 
+use crate::guard::{Entitled, Entitlement};
+
 /// Upper bound on an agent name, mirroring the boundary-name cap in
 /// BRD §11.7.1 — the closest specified analogue for a short identifier.
 pub const MAX_AGENT_NAME_LEN: usize = 64;
 
 /// Inner list_agents implementation. Returns active AND revoked agents —
 /// revocation is soft so the history stays auditable.
-pub async fn list_agents_inner(app: &Application) -> Result<Vec<serde_json::Value>, String> {
+pub async fn list_agents_inner(
+    app: &Application,
+    _entitled: &Entitled,
+) -> Result<Vec<serde_json::Value>, String> {
     let adapter = app.adapter();
     let start = Instant::now();
 
@@ -71,8 +76,12 @@ pub async fn list_agents_inner(app: &Application) -> Result<Vec<serde_json::Valu
 }
 
 #[tauri::command]
-pub async fn list_agents(state: State<'_, Application>) -> Result<Vec<serde_json::Value>, String> {
-    list_agents_inner(state.inner()).await
+pub async fn list_agents(
+    state: State<'_, Application>,
+    entitlement: State<'_, Entitlement>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let entitled = entitlement.require().await?;
+    list_agents_inner(state.inner(), &entitled).await
 }
 
 /// Inner revoke_agent implementation.
@@ -80,7 +89,11 @@ pub async fn list_agents(state: State<'_, Application>) -> Result<Vec<serde_json
 /// Returns `false` when no ACTIVE agent of that name existed. Revocation takes
 /// effect on the agent's next request: the daemon's auth lookup filters
 /// `revoked_at IS NULL` (ADR-SEC-001), so a revoked token stops resolving.
-pub async fn revoke_agent_inner(app: &Application, agent_name: String) -> Result<bool, String> {
+pub async fn revoke_agent_inner(
+    app: &Application,
+    _entitled: &Entitled,
+    agent_name: String,
+) -> Result<bool, String> {
     let adapter = app.adapter();
     let start = Instant::now();
 
@@ -119,9 +132,11 @@ pub async fn revoke_agent_inner(app: &Application, agent_name: String) -> Result
 #[tauri::command]
 pub async fn revoke_agent(
     state: State<'_, Application>,
+    entitlement: State<'_, Entitlement>,
     agent_name: String,
 ) -> Result<bool, String> {
-    revoke_agent_inner(state.inner(), agent_name).await
+    let entitled = entitlement.require().await?;
+    revoke_agent_inner(state.inner(), &entitled, agent_name).await
 }
 
 #[cfg(test)]

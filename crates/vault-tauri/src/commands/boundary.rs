@@ -14,8 +14,13 @@ use vault_app::Application;
 use vault_core::Boundary;
 use vault_mcp::ToolInvokeDetails;
 
+use crate::guard::{Entitled, Entitlement};
+
 /// Inner list_boundaries implementation.
-pub async fn list_boundaries_inner(app: &Application) -> Result<Vec<serde_json::Value>, String> {
+pub async fn list_boundaries_inner(
+    app: &Application,
+    _entitled: &Entitled,
+) -> Result<Vec<serde_json::Value>, String> {
     let adapter = app.adapter();
     let start = Instant::now();
 
@@ -61,8 +66,10 @@ pub async fn list_boundaries_inner(app: &Application) -> Result<Vec<serde_json::
 #[tauri::command]
 pub async fn list_boundaries(
     state: State<'_, Application>,
+    entitlement: State<'_, Entitlement>,
 ) -> Result<Vec<serde_json::Value>, String> {
-    list_boundaries_inner(state.inner()).await
+    let entitled = entitlement.require().await?;
+    list_boundaries_inner(state.inner(), &entitled).await
 }
 
 /// Inner create_boundary implementation.
@@ -72,6 +79,7 @@ pub async fn list_boundaries(
 /// caller's desired end state already holds.
 pub async fn create_boundary_inner(
     app: &Application,
+    _entitled: &Entitled,
     name: String,
     description: Option<String>,
 ) -> Result<bool, String> {
@@ -114,10 +122,12 @@ pub async fn create_boundary_inner(
 #[tauri::command]
 pub async fn create_boundary(
     state: State<'_, Application>,
+    entitlement: State<'_, Entitlement>,
     name: String,
     description: Option<String>,
 ) -> Result<bool, String> {
-    create_boundary_inner(state.inner(), name, description).await
+    let entitled = entitlement.require().await?;
+    create_boundary_inner(state.inner(), &entitled, name, description).await
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 # Zaaheen (Memory Vault) — Build Handoff
 
-**Current version:** V0.2 Closed Beta (BRD §6.2). **Last updated:** 2026-09-20, session 48.
+**Current version:** V0.2 Closed Beta (BRD §6.2). **Last updated:** 2026-09-20, session 49.
 
 > **How to read this file.** §1 is what to do next; act on it. §2 is where things stand. §3–§7 are the working rules and reference. Everything older, including every full ADR, lives in the archives (§8): cross-link to them and quote them, never paraphrase. This file was reset to this short form in session 44 (founder request); the previous 2,632-line version is `HANDOFF_V0.2_PART4_ARCHIVE.md`, word for word.
 >
@@ -18,12 +18,22 @@
 - **The founder's offline backup key moved to S6:** the sandbox has its own throwaway keys, so a test-card lease can never unlock a real app.
 - **Machine:** Node 24 via fnm; wrangler 4.132.0 is signed in to the founder's Cloudflare account. The Claude Code auto-mode classifier refuses secret-store writes from me: the founder runs those scripts with `!` (or a clipboard script is allowed).
 
-**At close (2026-09-20, session 48):**
-- **S3 step 2 is merged**: PR #72 → `main` `654c1ed` (rebase, auto-merge); every PR check green on 3 OSes, and `main`'s own CI, CodeQL and secret scan green too (verified this session).
-- **S3 step 3 is built on `feat/s3-step3`** (cut from `654c1ed`), not committed yet. Keeper lock mode, `KeeperExit::ModeChanged`, the relay sign-in short-circuit and the maintenance pause. Decisions in `SIGNIN-DESIGN.md` §8.35 (amendment 9).
-- **Founder, this session:** "no permission required partner.. lets start", and a standing yes to wiping `target\debug` for the gate run. §6's rule stands for the commit and the push.
-- **Disk: watch it, and do not diagnose it.** The founder runs Docker for another project on this machine, so free space moves for reasons unrelated to cargo (it fell 8.0 → 3.9 GB mid-session for exactly that reason). Reclaim our own space instead: `cargo clean -p vault-app` returned 14.5 GB and then 14.1 GB, twice, in minutes.
-- **Docker was wiped completely this session, on the founder's instruction** (asked three times; I recommended against it once the space was no longer needed, and he confirmed). `wsl --unregister docker-desktop` plus deleting the 78.5 GB `docker_data.vhdx` returned **78.4 GB** (19.1 → 97.5 GB free). **Every image, container and volume is gone**, including what he called "agent x data"; Docker Desktop recreates an empty store on next launch and his other project needs its images re-pulled. The old "do not delete `docker_data.vhdx`" rule is retired — there is nothing left to protect. Compaction (`compact-docker-vhdx.ps1`) needs an elevated shell, which is why it aborted when run with `!`.
+**At close (2026-09-20, session 49):**
+- **S3 step 3 is merged**: PR #73 → `main` `84b5d43` (rebase, auto-merge), 14 checks green on 3 OSes. Confirmed this session, which was session 48's stated first job.
+- **S3 step 4 is split into four commits** (founder-approved this session): **4a** the guard · **4b** the account commands (sign in / out / status / Subscribe / "I've paid", plus §4's missing refresh triggers) · **4c** the export (S4) · **4d** the screens (lock screen, onboarding sign-in step, account panel, trial and payment-failed banners). Rationale: 4a is where a mistake is expensive, so it lands alone and gets its own review; 4d goes last because building a lock screen before the lock works means testing against pretend data.
+- **4a is built and green, NOT yet committed.** `vault_tauri::guard` + all 15 gated commands + `guard::build()` wiring in `main.rs` + `friendlyLockError` in `dist/app.js`. Decisions and ADR-SEC-023 in `SIGNIN-DESIGN.md` §8.36 (amendment 10).
+- **S4's shape is founder-locked: one readable `.md` file** ("Download my memories"). Recorded in §8.36; build it at 4c.
+- **Next session, before staging anything:** confirm `main`'s own runs on `84b5d43` are green — `gh run list --commit 84b5d43...` for **every** workflow, not just ci.yml (§6). They were still in progress at close.
+
+**What session 49 built (S3 step 4a — the desktop entitlement guard):**
+- **`vault_tauri::guard`** — `Entitled` (private field, so a gated function that never asked cannot compile), `Entitlement` (the one door), five stable `ERR_LOCKED_*` codes mapped from `LockReason`, and the `GATED_COMMANDS` / `OPEN_COMMANDS` classification with a source test over `main.rs`.
+- **All 15 gated commands ask before doing anything.** Nine (`memory`, `boundary`, `agent`) pass an `&Entitled` the compiler demands; six (`engine`, `maintenance`) have no inner to hand one to, so their gate is the `require()` call, held by a source test. **That asymmetry is deliberate and documented** — do not read "the compiler enforces the guard" as covering all fifteen.
+- **§8.35's obligation discharged:** `run_maintenance_now` is gated, so it can no longer report a run as done on a locked computer.
+- **ADR-SEC-023:** a desktop whose account check cannot be built serves **locked**, not refused and not open. Refusing would take away the export, which is the one thing that must survive a lock.
+- **Evidence:** 17 guard tests (run failing first: 11 passed / 3 failed, each for the reason it names), 64 passed / 0 failed for the whole `vault-tauri` lib suite, **13 planted bugs all 13 caught**.
+- **The independent review found two defects that 17 tests and 13 plants all missed**, both written up in §8.36: (1) the constructors were `pub`, so a future command could have minted an always-open guard and still passed the source test — fixed by making them private behind `guard::build()`; (2) `friendlyLockError` was never called, so the test pinning it gave false comfort while a locked user would still see a raw code — fixed by wrapping `app.js`'s central `invoke`. **Steps 4b–4d get the same review; §8.36 records it as not optional.**
+- **Founder, this session:** "take the lead partner whatever needs to be done in order", and he chose the close-out order planted bugs → review → gates. §6's rule stands for the commit and the push.
+- **Disk: watch it, and do not diagnose it.** The founder runs Docker for another project, so free space moves for reasons unrelated to cargo. Reclaim our own instead: `cargo clean -p <crate>` returns tens of GB in seconds. Docker was wiped entirely in session 48 (78.4 GB back), so the old "never delete `docker_data.vhdx`" rule is retired.
 
 **What session 48 built (S3 step 3):**
 - **`vault_app::entitlement::ModeCheck`** — a second contract beside `EntitlementCheck`: `peek` (what the files say, no network, no writes, **no use recorded**) and `refresh_and_peek` (one refresh, then answer from disk). The keeper's tick asks this, never the serving check. §8.35 opens with why that distinction is a correctness matter, not a tidiness one.
@@ -34,9 +44,12 @@
 - **The maintenance pause** — `RunOutcome::Paused` with its own code, `pause_for` in `vault-cli`, and the plain-English line in `dist/app.js`.
 
 **Do, in order:**
-0. **Confirm this step's PR merged and `main` is green** before staging anything else (§6).
-1. **S3 step 4 + S4 — the desktop** (§8.26 §3, §6.4, §7): the onboarding sign-in step, the account panel, the lock screen with **Subscribe** and **Download my memories**, the trial banners (day 23; `health.warnings` in the last 5 days), the payment-failed banner, and the typed `Entitled` guard on every gated Tauri command with the source test over the ungated allowlist. **S4 is the export itself and ships with S3** — it does not exist yet (BRD §1.6 amendment 1). The export's shape is a **founder decision** still to take: what the downloaded file looks like.
-   - **Step 4 inherits two obligations from step 3** (§8.35): gate `run_maintenance_now`, which today would report "Done ✓" on a locked computer although nothing ran; and ship §4's remaining refresh triggers — `Trigger::Routine` (keeper start, desktop open, the daily jittered timer) and `Trigger::UserAction` (checkout polling, "I have paid") still have **no production caller**.
+0. **Confirm `main`'s own runs on `84b5d43` are green** before staging anything else — every workflow, not just ci.yml (§6). A red check is a regression: fix it that session.
+1. **Commit 4a** (built and green at close; see "What session 49 built"). Then **4b → 4c → 4d**, each with its own failing-tests-first cycle, planted-bug campaign, **independent review (not optional, §8.36)** and DoD gates.
+   - **4b — the account commands:** sign in (PKCE via `vault-account`), sign out, account status, Subscribe (`/v1/checkout` → validate `txn` against `^txn_[a-z0-9]{26}$` → open `https://zaaheen.com/pay/?_ptxn=…` with the trailing slash, §8.31), "I've paid". **Ships §4's missing refresh triggers**, inherited from step 3 (§8.35): `Trigger::Routine` (keeper start, desktop open, the daily jittered timer) and `Trigger::UserAction` (checkout polling every 10 s for 10 min, "I have paid") still have **no production caller**.
+   - **4c — S4, the export.** **Founder-locked shape (§8.36): one readable `.md` file**, grouped by topic, each memory with its date and topic, and a header saying it came from the person's own computer and nothing was sent anywhere. It must work on a *locked* computer, where a lock-mode keeper holds `.vault.lock` — the handover path erasure already uses (`erasure_takes_the_vault_from_a_lock_mode_keeper`, §8.35).
+   - **4d — the screens:** lock screen with **Subscribe** and **Download my memories** plus the support email, the onboarding sign-in step, the account panel, the trial banners (day 23; `health.warnings` in the last 5 days), the payment-failed banner. **The lock screen's real copy is a founder decision** — the five lines in `friendlyLockError` are provisional placeholders (§8.36).
+   - **Before 4b, re-read BRD §11** — it touches the Tauri IPC layer — and the vault key's roaming-persistence fix (§3 item 6) rides with this work.
    - The app builds `https://zaaheen.com/pay/?_ptxn=…` with the trailing slash (§8.31), and validates `txn` against `^txn_[a-z0-9]{26}$`.
    - **Before any of it, re-read BRD §11** — this touches the Tauri IPC layer — and the vault key's roaming-persistence fix (§3 item 6) rides with this work.
 2. **A live run needs the sandbox values** (`OPS-HANDOFF.md` §G) in the seven `ZAAHEEN_ACCOUNT_*` / `ZAAHEEN_LEASE_*` build variables (§8.33). Without them a build simply has no sign-in, which is why every test above passes with the gate off.
@@ -96,6 +109,7 @@
 - **Accounts:** Clerk (dev instance set up), Microsoft 365, Paddle, Cloudflare and the bank. All details live **only** in the local `OPS-HANDOFF.md`; this repo is public.
 
 ### Recent sessions
+- **49 (2026-09-20):** PR #73 merged (`main` `84b5d43`). **S3 step 4 split into 4a–4d** (founder-approved). **S4's shape founder-locked: one readable `.md` file.** **4a, the desktop entitlement guard**, built tests-first: 17 tests (11/3 red against an inert guard), 64 passed / 0 failed for the `vault-tauri` lib suite, 13 planted bugs all caught, ADR-SEC-023. An independent review found **two defects the tests and plants both missed** — public constructors that let a command forge an always-open guard, and a plain-English mapping that was never called — both fixed, both written up in `SIGNIN-DESIGN.md` §8.36, which also makes the review mandatory for 4b–4d.
 - **47 (2026-09-19/20):** PR #70 merged (`main` `53a22a1`). **S3 step 1**, the gate (`vault_mcp::gate`): 19 tests, 12 red on an empty gate, 16 planted bugs each caught, an independent review, four DoD gates green → PR #71 merged (`main` `4bf1c1a`). **S3 step 2**, the check (`vault_app::entitlement`), the build-time account settings and the account folder (`vault_app::account`), and the wiring into the keeper, direct mode and the daemon: 28 unit tests + 5 wiring tests over the real transports, 25 planted bugs each caught, an independent review found no defects, all six DoD gates green (344 tests over 28 binaries) → PR #72, auto-merge queued at close. Decisions in `SIGNIN-DESIGN.md` §8.32 (the gate), §8.33 (the check and where a build's account settings come from) and §8.34 (**founder-locked:** the app subscription and a coaching session are separate purchases).
 - **46 (2026-09-19):**
   - S2 step 3: `/pay/` built tests first on the site branch (`allowLogout: false`, a CSP measured live and pinned by the audit), flood protection in the Worker, and the sandbox deployment `api-sandbox.zaaheen.com`.
@@ -148,6 +162,7 @@ Roughly in priority order; the founder picks. Full context for each is in `HANDO
   - a relay closed before `initialize` logs a normal event as an error;
   - `get_info` doesn't name the authorized boundaries;
   - audit which direct-mode failures should be `isError`.
+- **`set_maintenance_schedule` carries `#[allow(clippy::too_many_arguments)]`** (8 args, one past the limit, because the guard added `State<'_, Entitlement>`). The structural fix — collapsing the five schedule fields into one `#[derive(Deserialize)]` struct — changes the command's wire contract and needs a matching change in `dist/app.js`, so it belongs with step 4d's frontend work, not with a security gate.
 - **The workspace `rust-version` (1.81) is stale** against the pinned 1.92 toolchain. `File::try_lock` sites carry `#[allow(clippy::incompatible_msrv)]`.
 - **The lance NaN-distance upstream issue:** file a minimal repro.
 

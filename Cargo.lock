@@ -10190,6 +10190,7 @@ dependencies = [
 name = "vault-tauri"
 version = "0.2.2"
 dependencies = [
+ "async-trait",
  "chrono",
  "serde",
  "serde_json",

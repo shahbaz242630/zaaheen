@@ -61,6 +61,7 @@ use vault_app::Application;
 use vault_mcp::ToolInvokeDetails;
 use vault_scheduler::{platform_scheduler, Frequency, ScheduleSpec, SchedulerError, TaskId};
 
+use crate::guard::Entitlement;
 use crate::model_fetch;
 
 /// Stable OS task id for the maintenance schedule (safe charset per
@@ -406,7 +407,10 @@ fn recorded_summary(config_path: &Path) -> String {
 pub async fn ensure_maintenance_engine(
     app: tauri::AppHandle,
     state: State<'_, MaintenanceEngineFetch>,
+    entitlement: State<'_, Entitlement>,
 ) -> Result<(), String> {
+    // As the recall engine: no model downloads on a locked computer.
+    let _entitled = entitlement.require().await?;
     let models_dir = state.models_dir.clone();
     let result = state
         .once
@@ -474,16 +478,31 @@ pub async fn get_maintenance_schedule(
 ///
 /// Registers (or removes) the per-user OS task and persists the choice. A
 /// settings change per §11.9.1, so it writes an audit row.
+// The guard's `State<'_, Entitlement>` is the eighth argument, one past
+// clippy's limit. The lint is about a human-factors problem this signature
+// does not have: five of the eight are the schedule's own fields, named
+// identically on the frontend side, and the three `State`s are injected by
+// Tauri rather than passed by any caller.
+//
+// The structural fix -- collapsing the five schedule fields into one
+// `#[derive(Deserialize)]` struct -- changes the command's wire contract and
+// so needs a matching change in `dist/app.js`. That belongs with step 4d's
+// frontend work, not with a security gate; logged under Tech debt.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn set_maintenance_schedule(
     app: State<'_, Application>,
     ctx: State<'_, MaintenanceContext>,
+    entitlement: State<'_, Entitlement>,
     enabled: bool,
     frequency: String,
     weekday: u8,
     hour: u8,
     minute: u8,
 ) -> Result<(), String> {
+    // Reading the schedule is on the allowlist (maintenance *status*);
+    // changing it is not.
+    let _entitled = entitlement.require().await?;
     let start = Instant::now();
 
     let mut config = load_config(&ctx.config_path);
@@ -560,7 +579,11 @@ pub async fn set_maintenance_schedule(
 pub async fn run_maintenance_now(
     app: State<'_, Application>,
     ctx: State<'_, MaintenanceContext>,
+    entitlement: State<'_, Entitlement>,
 ) -> Result<String, String> {
+    // Session 48's obligation: ungated, this reports the run as done on a
+    // locked computer although the runner paused and nothing ran.
+    let _entitled = entitlement.require().await?;
     let start = Instant::now();
     let args = consolidate_args(&ctx);
 

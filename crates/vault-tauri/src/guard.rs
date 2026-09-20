@@ -1,0 +1,608 @@
+//! The desktop's entitlement guard (`SIGNIN-DESIGN.md` §8.26 §6.4).
+//!
+//! # What this module guarantees
+//!
+//! A desktop command that serves vault data cannot run for somebody who is
+//! not entitled. Not "is unlikely to" — cannot, because the guarantee is
+//! carried by the type system rather than by a runtime check every future
+//! command has to remember to write.
+//!
+//! [`Entitled`] is proof. Its one field is private, and this module hands one
+//! out from exactly one place: [`Entitlement::require`]. A gated function
+//! takes `&Entitled`, so a command that never asked has nothing to pass and
+//! **does not compile**.
+//!
+//! # Why that is not the whole story
+//!
+//! Three legs hold this up, and each covers what the others cannot:
+//!
+//! 1. **The compiler** — no gated function runs without a token.
+//! 2. **This module's tests** — no token is handed out while locked.
+//! 3. **The source test over `main.rs`** ([`GATED_COMMANDS`] /
+//!    [`OPEN_COMMANDS`]) — no *new* command is registered without somebody
+//!    deciding which side it is on. The compiler cannot catch that one: a
+//!    brand-new command with a brand-new inner function compiles perfectly
+//!    well while serving memories to a locked user.
+//!
+//! **The residual**, stated plainly because no test closes it: a command put
+//! on [`OPEN_COMMANDS`] that should have been gated is a human misjudgement,
+//! and nothing here objects. What the source test guarantees is that the
+//! judgement is *made and visible*, not defaulted into by accident.
+//!
+//! # Fail-secure, without being cruel
+//!
+//! `vault_app::account::build_check` can fail at startup — build settings that
+//! do not parse, or a credential store that will not open. The keeper's answer
+//! to that is to refuse to start (a gate that silently disappears is worse
+//! than a keeper that says why). **The desktop must not copy it.** Refusing to
+//! start takes away the export, and "your memories are always yours" is the
+//! promise the export exists to keep (BRD §1.6 amendment 1).
+//!
+//! So a setup failure is [`Source::Unavailable`]: locked, with
+//! [`ERR_LOCKED_CANNOT_CONFIRM`] — never "ended", never silently open. The
+//! person still reaches the lock screen, can still download their memories,
+//! and can still sign in and subscribe. It is the same reading §8.33 applies
+//! to the keeper: only a signed `ended` ever says ended.
+
+use std::sync::Arc;
+
+use vault_mcp::{EntitlementCheck, LockReason, Verdict};
+
+/// Proof that whoever is using this computer may reach their vault right now.
+///
+/// Construct it **only** through [`Entitlement::require`]. The unit field is
+/// private, so no other module — including the rest of this crate — can make
+/// one:
+///
+/// ```compile_fail
+/// // `Entitled`'s field is private, so this does not build.
+/// let _forged = vault_tauri::guard::Entitled(());
+/// ```
+#[derive(Debug)]
+pub struct Entitled(());
+
+// There is deliberately no test-only constructor. No test in this crate calls
+// a gated `*_inner` function directly — they exercise the wrappers — so one
+// would be an unused way to mint a token, which is the one thing this type
+// exists to prevent. A future test that does need to call an inner directly
+// should add a `#[cfg(test)] pub(crate) fn for_test()` at that point, and not
+// before.
+
+/// Nobody is signed in on this computer.
+pub const ERR_LOCKED_SIGNED_OUT: &str = "locked_signed_out";
+/// The subscription could not be confirmed (offline, a stale lease, a clock
+/// that moved backwards, or an account folder that could not be read).
+pub const ERR_LOCKED_CANNOT_CONFIRM: &str = "locked_cannot_confirm";
+/// The free trial ended without a subscription.
+pub const ERR_LOCKED_TRIAL_ENDED: &str = "locked_trial_ended";
+/// A paid subscription ended.
+pub const ERR_LOCKED_SUBSCRIPTION_ENDED: &str = "locked_subscription_ended";
+/// Entitlement has returned and the vault is being opened again. Reachable
+/// only from a lock-mode keeper, never from this crate's own check — mapped
+/// anyway so the match stays exhaustive and a future reason cannot be
+/// forgotten.
+pub const ERR_LOCKED_UNLOCKING: &str = "locked_unlocking";
+
+/// The stable code the frontend reads for each reason.
+///
+/// Deliberately **not** [`LockReason::message`]: that wording is written for
+/// an AI agent to relay and says "Open the Zaaheen app on this computer",
+/// which is nonsense shown inside the app itself. The desktop's own
+/// plain-English lines live in `dist/app.js` and are pinned by
+/// `every_lock_code_has_a_plain_english_line_in_the_app`.
+#[must_use]
+pub fn code_for(reason: LockReason) -> &'static str {
+    match reason {
+        LockReason::SignedOut => ERR_LOCKED_SIGNED_OUT,
+        LockReason::CannotConfirm => ERR_LOCKED_CANNOT_CONFIRM,
+        LockReason::TrialEnded => ERR_LOCKED_TRIAL_ENDED,
+        LockReason::SubscriptionEnded => ERR_LOCKED_SUBSCRIPTION_ENDED,
+        LockReason::Unlocking => ERR_LOCKED_UNLOCKING,
+    }
+}
+
+/// Where this build's answer comes from.
+enum Source {
+    /// No sign-in configured in this build: every command runs, exactly as it
+    /// did before the guard existed. This is what keeps the existing suite
+    /// passing untouched, and what a developer build uses.
+    Open,
+    /// The real check, over the account folder and the lease.
+    Check(Arc<dyn EntitlementCheck>),
+    /// The check could not be built at startup. Locked as "could not
+    /// confirm" — see this module's header.
+    Unavailable,
+}
+
+/// The one door that hands out [`Entitled`].
+pub struct Entitlement {
+    source: Source,
+}
+
+/// Build the guard this application runs with. **The only way a binary can
+/// obtain an [`Entitlement`].**
+///
+/// The three constructors below are deliberately private. An independent
+/// review of this step found that, while they were public, any future command
+/// could have written
+///
+/// ```text
+/// let _entitled = crate::guard::Entitlement::open().require().await?;
+/// ```
+///
+/// which compiles, mints a real [`Entitled`], never asks the account check,
+/// and **satisfies `every_gated_command_asks_before_it_serves`** — that test
+/// looks for a `.require().await` call, not for which value it is called on.
+/// None of the module's three legs distinguished a genuine guard from a
+/// locally forged always-open one. Making the constructors private closes it
+/// at the language level rather than by hoping nobody writes that line.
+///
+/// This function stays public because what it returns is always honest: on a
+/// machine with account settings it is a real check or a locked
+/// [`Source::Unavailable`], never [`Source::Open`].
+#[must_use]
+pub fn build() -> Entitlement {
+    let Some(home) = vault_app::install_paths::local_data_dir() else {
+        tracing::warn!(
+            "no local application data directory; serving locked as 'could not confirm'"
+        );
+        return Entitlement::unavailable();
+    };
+
+    match vault_app::account::build_check(&home) {
+        Ok(Some(check)) => Entitlement::checked(check),
+        // No account settings compiled in: today's ungated path.
+        Ok(None) => Entitlement::open(),
+        // Deliberately NOT the keeper's answer, which is to refuse to start.
+        // See this module's header: refusing would take away the export.
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                "the account check could not be built; serving locked as 'could not \
+                 confirm'. Export, sign-in and erasure stay open."
+            );
+            Entitlement::unavailable()
+        }
+    }
+}
+
+impl Entitlement {
+    /// A build with no sign-in configured. Private: see [`build`].
+    fn open() -> Self {
+        Self {
+            source: Source::Open,
+        }
+    }
+
+    /// The real check. Private: see [`build`].
+    fn checked(check: Arc<dyn EntitlementCheck>) -> Self {
+        Self {
+            source: Source::Check(check),
+        }
+    }
+
+    /// The check could not be built. Private: see [`build`].
+    fn unavailable() -> Self {
+        Self {
+            source: Source::Unavailable,
+        }
+    }
+
+    /// Ask for permission to serve one command.
+    ///
+    /// # Errors
+    ///
+    /// One of this module's `ERR_LOCKED_*` codes. The frontend turns it into
+    /// a plain-English line; nothing here reaches the user as raw text
+    /// (BRD §11.7.2).
+    pub async fn require(&self) -> Result<Entitled, String> {
+        // Asked exactly once. A refresh inside the check can take five
+        // seconds (§8.26 §4), so asking twice would double that and would
+        // record two uses where the person took one action.
+        //
+        // Note for anyone making this fail on purpose, because the two
+        // directions are not alike:
+        //   * asking TWICE is plantable, and
+        //     `the_check_is_asked_exactly_once_per_call` catches it (bug
+        //     4a09);
+        //   * never asking AT ALL is not plantable by deletion — `-D
+        //     warnings` rejects the then-unread `Source::Check` field, so the
+        //     broken version does not compile. That direction is held by the
+        //     compiler, which is stronger than a test but is not one.
+        match &self.source {
+            Source::Open => Ok(Entitled(())),
+            Source::Unavailable => Err(ERR_LOCKED_CANNOT_CONFIRM.to_string()),
+            Source::Check(check) => match check.check().await {
+                Verdict::Entitled => Ok(Entitled(())),
+                Verdict::Locked(reason) => Err(code_for(reason).to_string()),
+            },
+        }
+    }
+}
+
+// ---------------------------------------------------------------- the lists
+//
+// Every command registered in `main.rs` must appear in exactly one of these.
+// The source test below fails otherwise, which is the whole point: a future
+// command cannot be added without somebody deciding whether it serves vault
+// data.
+
+/// Commands that require an [`Entitled`] token.
+pub const GATED_COMMANDS: &[&str] = &[
+    "add_memory",
+    "search_memories",
+    "update_memory",
+    "delete_memory",
+    "list_recent_memories",
+    "list_boundaries",
+    "create_boundary",
+    "list_agents",
+    "revoke_agent",
+    "ensure_recall_engine",
+    "recall_engine_state",
+    "warm_recall_engine",
+    "ensure_maintenance_engine",
+    "set_maintenance_schedule",
+    "run_maintenance_now",
+];
+
+/// Commands that run whatever the entitlement answer is.
+///
+/// This is §8.26 §6.4's allowlist verbatim — account, export, erasure, logs,
+/// settings and maintenance *status* — and nothing else. Two readings worth
+/// recording, because both could reasonably have gone the other way:
+///
+/// - `revoke_agent` is **gated**. There is an argument that revoking an
+///   agent's access belongs beside erasure as a safety action anybody should
+///   be able to take. The locked allowlist does not include it, and widening
+///   a locked list is not a decision this module gets to make on its own. It
+///   is moot in practice: a locked computer shows the lock screen, so the
+///   Agents tab is not reachable.
+/// - `set_maintenance_schedule` is **gated** while `get_maintenance_schedule`
+///   is open. The allowlist says maintenance *status*, which is the reading
+///   half of that pair.
+pub const OPEN_COMMANDS: &[&str] = &[
+    "get_settings_info",
+    "get_maintenance_schedule",
+    "erase_everything",
+    "export_logs",
+];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// Every lock reason there is, written out so that adding a variant to
+    /// `LockReason` makes `code_for`'s exhaustive `match` fail to compile
+    /// until it is handled here too.
+    const ALL_REASONS: &[LockReason] = &[
+        LockReason::SignedOut,
+        LockReason::CannotConfirm,
+        LockReason::TrialEnded,
+        LockReason::SubscriptionEnded,
+        LockReason::Unlocking,
+    ];
+
+    struct FakeCheck {
+        verdict: Verdict,
+        asked: Arc<AtomicUsize>,
+    }
+
+    impl FakeCheck {
+        fn new(verdict: Verdict) -> (Arc<Self>, Arc<AtomicUsize>) {
+            let asked = Arc::new(AtomicUsize::new(0));
+            let check = Arc::new(Self {
+                verdict,
+                asked: Arc::clone(&asked),
+            });
+            (check, asked)
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl EntitlementCheck for FakeCheck {
+        async fn check(&self) -> Verdict {
+            self.asked.fetch_add(1, Ordering::SeqCst);
+            self.verdict
+        }
+    }
+
+    /// A build with no account settings is today's path: the guard is
+    /// transparent, which is why the existing suite passes untouched.
+    #[tokio::test]
+    async fn a_build_with_no_sign_in_hands_out_a_token() {
+        assert!(Entitlement::open().require().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn an_entitled_person_gets_a_token() {
+        let (check, _) = FakeCheck::new(Verdict::Entitled);
+        assert!(Entitlement::checked(check).require().await.is_ok());
+    }
+
+    /// The one that matters: no token, for any reason, ever.
+    #[tokio::test]
+    async fn a_locked_person_gets_no_token_for_any_reason() {
+        for &reason in ALL_REASONS {
+            let (check, _) = FakeCheck::new(Verdict::Locked(reason));
+            let answer = Entitlement::checked(check).require().await;
+            assert_eq!(
+                answer.err().as_deref(),
+                Some(code_for(reason)),
+                "{reason:?} must refuse, with its own code"
+            );
+        }
+    }
+
+    #[test]
+    fn each_lock_reason_maps_to_its_own_code() {
+        let codes: Vec<&str> = ALL_REASONS.iter().copied().map(code_for).collect();
+        let mut unique = codes.clone();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!(
+            unique.len(),
+            codes.len(),
+            "two reasons share a code, so the frontend cannot tell them apart: {codes:?}"
+        );
+    }
+
+    #[test]
+    fn every_lock_code_is_a_non_empty_stable_string() {
+        for &reason in ALL_REASONS {
+            let code = code_for(reason);
+            assert!(!code.is_empty(), "{reason:?} has an empty code");
+            assert!(
+                code.starts_with("locked_"),
+                "{code} does not read as a lock code"
+            );
+        }
+    }
+
+    /// A refresh can take five seconds. Asking twice for one command would
+    /// double that, and would record two uses where the user took one action.
+    #[tokio::test]
+    async fn the_check_is_asked_exactly_once_per_call() {
+        let (check, asked) = FakeCheck::new(Verdict::Entitled);
+        let entitlement = Entitlement::checked(check);
+
+        let _ = entitlement.require().await;
+        assert_eq!(asked.load(Ordering::SeqCst), 1);
+
+        let _ = entitlement.require().await;
+        assert_eq!(
+            asked.load(Ordering::SeqCst),
+            2,
+            "one ask per call, no cache"
+        );
+    }
+
+    /// A build with no sign-in must not consult anything at all.
+    #[tokio::test]
+    async fn a_build_with_no_sign_in_never_asks_a_check() {
+        let (check, asked) = FakeCheck::new(Verdict::Locked(LockReason::TrialEnded));
+        drop(check);
+        let _ = Entitlement::open().require().await;
+        assert_eq!(asked.load(Ordering::SeqCst), 0);
+    }
+
+    /// A check that could not be built is "could not confirm" - never
+    /// "ended", and never silently open. See this module's header.
+    #[tokio::test]
+    async fn a_check_that_could_not_be_built_reads_as_could_not_confirm() {
+        let answer = Entitlement::unavailable().require().await;
+        assert_eq!(answer.err().as_deref(), Some(ERR_LOCKED_CANNOT_CONFIRM));
+    }
+
+    /// A code with no arm in the frontend falls through to showing the user
+    /// the raw code, so the plain-English line ships with the code. Same
+    /// mechanism as `vault_app::maintenance_state`'s outcome codes.
+    #[test]
+    fn every_lock_code_has_a_plain_english_line_in_the_app() {
+        const APP_JS: &str = include_str!("../dist/app.js");
+        for &reason in ALL_REASONS {
+            let code = code_for(reason);
+            assert!(
+                APP_JS.contains(&format!("case \"{code}\":")),
+                "{code} has no plain-English line in the desktop bundle, so the user \
+                 would be shown the raw code"
+            );
+        }
+    }
+
+    /// Having the lines is not the same as showing them.
+    ///
+    /// The first version of this step defined `friendlyLockError` and never
+    /// called it, so every code still reached the screen raw while the test
+    /// above passed — false comfort of exactly the kind this project has been
+    /// bitten by twice. Found by the step's independent review. The mapping
+    /// must therefore be *reachable*, not merely present.
+    #[test]
+    fn the_plain_english_lines_are_actually_used() {
+        const APP_JS: &str = include_str!("../dist/app.js");
+        let uses = APP_JS.matches("friendlyLockError(").count();
+        assert!(
+            uses >= 2,
+            "`friendlyLockError` appears {uses} time(s) — definition only, with no \
+             caller. A locked person would be shown the raw code."
+        );
+    }
+
+    // ------------------------------------------------------------ the lists
+
+    /// The command names `main.rs` actually registers, read out of its source.
+    fn registered_commands() -> Vec<String> {
+        const MAIN_RS: &str = include_str!("main.rs");
+        const OPEN_MARKER: &str = "generate_handler![";
+
+        let start = MAIN_RS
+            .find(OPEN_MARKER)
+            .expect("main.rs registers its commands")
+            + OPEN_MARKER.len();
+
+        // Strip `//` comments BEFORE looking for the closing bracket. The
+        // block opens with five lines of prose that mention
+        // `#[tauri::command]`, and scanning the raw text finds *that* `]`
+        // two lines in, ending the list before a single command is read.
+        let cleaned: String = MAIN_RS[start..]
+            .lines()
+            .map(|line| line.split("//").next().unwrap_or(line))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let end = cleaned.find(']').expect("the handler list is closed");
+
+        cleaned[..end]
+            .split(',')
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+            // `vault_tauri::commands::memory::add_memory` -> `add_memory`
+            .map(|item| item.rsplit("::").next().unwrap_or(item).to_string())
+            .collect()
+    }
+
+    #[test]
+    fn every_registered_command_is_classified() {
+        let registered = registered_commands();
+        assert!(
+            !registered.is_empty(),
+            "parsed no commands out of main.rs, so this test proves nothing"
+        );
+
+        for name in &registered {
+            let gated = GATED_COMMANDS.contains(&name.as_str());
+            let open = OPEN_COMMANDS.contains(&name.as_str());
+            assert!(
+                gated || open,
+                "`{name}` is registered but classified nowhere. Decide: does it serve \
+                 vault data (add it to GATED_COMMANDS and give its inner function an \
+                 `&Entitled`), or is it one of the allowlisted six (add it to \
+                 OPEN_COMMANDS)? Defaulting is how a locked vault leaks."
+            );
+        }
+    }
+
+    /// A rename that updates `main.rs` but not the lists would otherwise leave
+    /// a name here guarding nothing.
+    #[test]
+    fn every_classified_command_is_actually_registered() {
+        let registered = registered_commands();
+        for name in GATED_COMMANDS.iter().chain(OPEN_COMMANDS.iter()) {
+            assert!(
+                registered.iter().any(|r| r == name),
+                "`{name}` is classified but no longer registered in main.rs"
+            );
+        }
+    }
+
+    #[test]
+    fn the_gated_and_open_lists_do_not_overlap() {
+        for name in GATED_COMMANDS {
+            assert!(
+                !OPEN_COMMANDS.contains(name),
+                "`{name}` is on both lists, so what it does depends on which is read first"
+            );
+        }
+    }
+
+    /// Session 48 left this as step 4's obligation: on a locked computer
+    /// `run_maintenance_now` reports the run as done although it was paused.
+    /// Gating it is the fix, so the classification is pinned rather than left
+    /// to be noticed.
+    #[test]
+    fn run_maintenance_now_is_gated() {
+        assert!(GATED_COMMANDS.contains(&"run_maintenance_now"));
+        assert!(!OPEN_COMMANDS.contains(&"run_maintenance_now"));
+    }
+
+    /// Every gated command must actually ask before it serves.
+    ///
+    /// The compiler already covers the nine that have an `*_inner`: those
+    /// cannot be called without an [`Entitled`], which only
+    /// [`Entitlement::require`] mints. The other six — the engine and
+    /// maintenance commands — *are* their own body, with no inner to hand a
+    /// token to, so for them the gate is the `require()` call itself and this
+    /// test is what holds it.
+    ///
+    /// Stated plainly because the asymmetry matters: for those six the
+    /// guarantee is a source test, not the type system. It is weaker, and it
+    /// is the honest description.
+    #[test]
+    fn every_gated_command_asks_before_it_serves() {
+        const SOURCES: &[&str] = &[
+            include_str!("commands/memory.rs"),
+            include_str!("commands/boundary.rs"),
+            include_str!("commands/agent.rs"),
+            include_str!("commands/engine.rs"),
+            include_str!("commands/maintenance.rs"),
+        ];
+
+        for name in GATED_COMMANDS {
+            // The trailing `(` keeps `add_memory(` from matching
+            // `add_memory_inner(`.
+            let needle = format!("pub async fn {name}(");
+            let from_fn = SOURCES
+                .iter()
+                .find_map(|src| src.find(&needle).map(|at| &src[at..]))
+                .unwrap_or_else(|| {
+                    panic!("`{name}` is on GATED_COMMANDS but no command module defines it")
+                });
+            // A command body ends at the next `}` in column 0.
+            let end = from_fn.find("\n}\n").unwrap_or(from_fn.len());
+
+            assert!(
+                from_fn[..end].contains(".require().await"),
+                "`{name}` is classified as gated but its body never asks. A gated \
+                 command must call `entitlement.require().await?` before it does \
+                 anything else."
+            );
+        }
+    }
+
+    /// No command module may build an [`Entitlement`] of its own.
+    ///
+    /// The constructors are private, so this cannot compile today — but the
+    /// test states the intent where a future reader will see it, and would
+    /// fail loudly if somebody made one `pub` again to "fix" a build error.
+    /// `every_gated_command_asks_before_it_serves` cannot catch this on its
+    /// own: it checks that `.require().await` appears, not what it is called
+    /// on.
+    #[test]
+    fn no_command_module_builds_a_guard_of_its_own() {
+        const SOURCES: &[(&str, &str)] = &[
+            ("memory.rs", include_str!("commands/memory.rs")),
+            ("boundary.rs", include_str!("commands/boundary.rs")),
+            ("agent.rs", include_str!("commands/agent.rs")),
+            ("engine.rs", include_str!("commands/engine.rs")),
+            ("maintenance.rs", include_str!("commands/maintenance.rs")),
+        ];
+
+        for (name, src) in SOURCES {
+            for forbidden in ["Entitlement::", "guard::build"] {
+                assert!(
+                    !src.contains(forbidden),
+                    "{name} names `{forbidden}`. A command takes the one guard the \
+                     application built, as `State<'_, Entitlement>`; building its own \
+                     would ask a check nobody configured."
+                );
+            }
+        }
+    }
+
+    /// The open list is the locked allowlist, and stays that size without a
+    /// deliberate decision to widen it.
+    #[test]
+    fn the_open_list_is_exactly_the_locked_allowlist() {
+        assert_eq!(
+            OPEN_COMMANDS,
+            &[
+                "get_settings_info",
+                "get_maintenance_schedule",
+                "erase_everything",
+                "export_logs",
+            ],
+            "widening the allowlist is a founder decision, not a refactor"
+        );
+    }
+}

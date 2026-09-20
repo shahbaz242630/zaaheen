@@ -459,6 +459,15 @@ fn main() {
             app.manage(application);
             app.manage(_shutdown_sender);
 
+            // 7b. The entitlement guard (SIGNIN-DESIGN.md §8.26 §6.4).
+            //
+            // The decision itself lives in `guard::build`, not here, so that
+            // `Entitlement`'s constructors can stay private: a public
+            // `Entitlement::open()` would let any command mint an
+            // always-entitled guard of its own and still satisfy the source
+            // test. Found by the step's independent review.
+            app.manage(vault_tauri::guard::build());
+
             // 8. First-run acquisition state (ADR-089). Bound to the same
             //    models directory `resolve_reranker_paths` resolves against,
             //    so what the download writes is exactly what the reranker
