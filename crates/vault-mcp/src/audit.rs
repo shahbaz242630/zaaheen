@@ -275,6 +275,18 @@ impl ToolInvokeError {
                 category: "KeychainProvenance".to_string(),
                 message: message.clone(),
             },
+            // ADR-SEC-029: same class as KeychainProvenance — a startup
+            // failure before any tool dispatch. The kind carries no path,
+            // credential or key material.
+            VaultError::VaultKey(kind) => Self::Internal {
+                category: "VaultKey".to_string(),
+                message: kind.to_string(),
+            },
+            // ADR-105: the vault folder could not be found; no path is carried.
+            VaultError::VaultLocation(kind) => Self::Internal {
+                category: "VaultLocation".to_string(),
+                message: kind.to_string(),
+            },
             // T0.3.x Batch A (2026-05-26): consolidator safety-wrapper
             // errors. Surface via `Application::run_consolidation_with_safety`
             // (vault-cli `consolidate run` subcommand) — never via MCP tool

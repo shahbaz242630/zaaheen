@@ -50,7 +50,7 @@ pub use vault_app::model_fetch;
 use std::path::PathBuf;
 
 use thiserror::Error;
-use vault_core::VaultError;
+use vault_core::{VaultError, VaultKeyFailure};
 
 /// Configuration errors surfaced before the Tauri runtime starts.
 ///
@@ -100,46 +100,154 @@ pub fn env_override_for(env_var_name: &str) -> Option<PathBuf> {
     }
 }
 
-/// Format a [`VaultError::KeychainProvenance`] as the fatal-dialog body
-/// shown by `main.rs::show_fatal_dialog_and_exit` when keychain access
-/// fails before Application::new is reached.
+/// The support address on every key-failure message (founder, session 51).
+pub const SUPPORT_EMAIL: &str = "customerservice@zaaheen.com";
+
+/// Title of the fatal dialog when the vault key cannot be opened.
+pub const KEY_ERROR_DIALOG_TITLE: &str = "Zaaheen can't open your memories";
+
+/// Shown when another Zaaheen window is moving or deleting the memories
+/// (ADR-105 L5): this window must not open them meanwhile. Founder-approved
+/// with the location screens (session 54).
+pub const MSG_MEMORIES_BUSY: &str = "Another Zaaheen window is busy with your memories \
+     right now.\n\nWait a minute, then open Zaaheen again.";
+
+/// The missing-location dialog's button that offers ADR-105 L6, and the
+/// one that closes the app instead.
+pub const START_AGAIN_BUTTON: &str = "Start again";
+pub const CLOSE_BUTTON: &str = "Close";
+
+/// L6's confirmation, shown before anything changes. The locked text asks
+/// the person to confirm "The memories on that drive can't be opened from
+/// here".
+pub const START_AGAIN_TITLE: &str = "Start again with no memories?";
+pub const START_AGAIN_CONFIRMATION: &str = "The memories on that drive can't be opened from \
+     here. Zaaheen will keep new memories in its usual folder on this computer.\n\n\
+     If you find the drive later, keep it, and write to customerservice@zaaheen.com so we \
+     can help.";
+pub const CANCEL_BUTTON: &str = "Cancel";
+
+/// Why the memories cannot be found where the record says (ADR-105 L1), as
+/// the startup dialog says it. Only a folder that is not there at all is
+/// offered "Start again" (L6); one that is there may hold the memories, so
+/// it gets help instead. The folder is shown as the person reads it.
+pub fn format_location_problem_dialog(problem: &vault_app::location::missing::Problem) -> String {
+    use vault_app::location::display_path;
+    use vault_app::location::missing::Problem;
+    match problem {
+        Problem::FolderAbsent(folder) => format!(
+            "Zaaheen keeps your memories in:\n{}\n\n\
+             That folder isn't there right now. If it's on a drive that isn't plugged in, \
+             plug it in and open Zaaheen again. Please don't delete anything.\n\n\
+             If that drive is lost for good, you can start again with no memories.",
+            display_path(folder)
+        ),
+        Problem::FolderUnusable(folder) => format!(
+            "Zaaheen keeps your memories in:\n{}\n\n\
+             The folder there isn't the one Zaaheen expects. If you use more than one drive, \
+             plug in the one you chose for Zaaheen and open it again. Please don't delete \
+             anything.\n\n\
+             For help, write to {SUPPORT_EMAIL}.",
+            display_path(folder)
+        ),
+        Problem::RecordUnreadable => format!(
+            "Zaaheen can't read where your memories are kept.\n\n\
+             Please don't delete anything. Write to {SUPPORT_EMAIL} so we can help."
+        ),
+    }
+}
+
+/// Why "Start again" did not happen (nothing changed in any case).
+pub fn format_start_again_refusal(
+    refusal: vault_app::location::missing::StartAgainRefusal,
+) -> String {
+    use vault_app::location::missing::StartAgainRefusal;
+    match refusal {
+        StartAgainRefusal::NotOffered => {
+            "The folder with your memories is back. Open Zaaheen again to use them.".to_owned()
+        }
+        StartAgainRefusal::DefaultFolderHoldsMemories => format!(
+            "Zaaheen can't start again in its usual folder, because there are memories in it \
+             already. Please don't delete anything. Write to {SUPPORT_EMAIL} so we can help."
+        ),
+        StartAgainRefusal::Busy => "Zaaheen is finishing another task with your memories, \
+             such as deleting them. Wait a minute, then open Zaaheen again."
+            .to_owned(),
+        StartAgainRefusal::KeyUnchecked | StartAgainRefusal::WriteFailed => format!(
+            "Zaaheen couldn't start again just now, and nothing was changed.\n\n\
+             Restart your computer and open Zaaheen again. If this keeps happening, write to \
+             {SUPPORT_EMAIL}."
+        ),
+    }
+}
+
+/// The fatal-dialog body shown by `main.rs::show_fatal_dialog_and_exit` when
+/// the vault key cannot be opened, before `Application::new` is reached.
 ///
-/// Per ADR-040 + ADR-040 amendment (T0.2.0 Phase 1, 2026-05-09):
-/// keychain provenance replaces the V0.1 VAULT_KEY env-var provenance.
-/// The dialog body explains the failure category + suggests the standard
-/// recovery path (Credential Manager inspection on Windows, reinstall on
-/// non-Windows where keychain is not yet supported in V0.2 Phase 1).
+/// **ADR-SEC-029 U1 (`VAULT-KEY-AND-LOCATION.md`).** One message per cause,
+/// each saying only what the person can do:
+/// - [`VaultKeyFailure::Missing`] — the key is gone but the memories are
+///   not: don't delete them; restart, or go back to the computer and Windows
+///   account used before;
+/// - [`VaultError::KeychainProvenance`] — Windows' password store is failing:
+///   restart;
+/// - [`VaultKeyFailure::FolderUnavailable`] — the folder can't be reached or
+///   cleared: plug the drive in, close the program using it;
+/// - [`VaultKeyFailure::Unusable`] — a stored key this app could not have
+///   written: delete nothing, write to support;
+/// - [`VaultKeyFailure::Busy`] — another task (a deletion) holds the key:
+///   wait a minute.
 ///
-/// **The dialog text deliberately does NOT name ADR-040, and a test must not
-/// require it to** (ADR-100). The reference belongs here, where a developer
-/// tracing the behaviour will look, not in front of a user whose app has just
-/// failed to start — "Per ADR-040 (T0.2.0 Phase 1)" tells them nothing they can
-/// act on and reads as leaked internals at the worst possible moment. What the
-/// dialog owes the user is the credential namespace to inspect, which
-/// `format_keychain_error_dialog_for_keychain_provenance_variant` pins.
+/// **It never tells anyone to delete the key.** The text this replaces did
+/// ("delete it and relaunch Zaaheen (a new master_key will be generated on
+/// first run)"), and following it would have made every memory permanently
+/// unreadable. It also shows no internal names (ADR-100) and no error
+/// detail (BRD §11.7.2): the caller logs the detail.
 ///
-/// **Defensive fallback for non-`KeychainProvenance` variants:** the
-/// function accepts any `&VaultError` so the call site can pass through
-/// without prior pattern-matching, but only `KeychainProvenance` variants
-/// produce a tailored message; other variants render via the generic
-/// `format_startup_failure_dialog` path.
+/// Other variants fall through to [`format_startup_failure_dialog`].
 pub fn format_keychain_error_dialog(err: &VaultError) -> String {
     match err {
-        VaultError::KeychainProvenance(msg) => format!(
-            "Zaaheen cannot start: keychain access failed.\n\n\
-             Details: {msg}\n\n\
-             Zaaheen sources its master \
-             encryption key from the OS keychain (Windows Credential Manager).\n\n\
-             Recovery options:\n\
-             1. On Windows, open Control Panel → User Accounts → Credential \
-                Manager → Windows Credentials and inspect entries under \
-                'com.zaaheen.v0.2'. If an entry exists with a corrupted \
-                or unexpected secret, delete it and relaunch Zaaheen \
-                (a new master_key will be generated on first run).\n\
-             2. On macOS or Linux, note that Zaaheen currently stores its key \
-                in the Windows Credential Manager only. Support for the macOS \
-                and Linux keychains is coming.\n\
-             3. Reinstall Zaaheen if the failure persists."
+        VaultError::VaultKey(VaultKeyFailure::Missing) => format!(
+            "Zaaheen can't open your memories. The key that unlocks them is missing \
+             from this computer's Windows account.\n\n\
+             Your memories are still on this computer. Please don't delete them.\n\n\
+             If you haven't changed computer or Windows account, restart your computer \
+             and open Zaaheen again. If you have, go back to the computer and Windows \
+             account you used before.\n\n\
+             For help, write to {SUPPORT_EMAIL}."
+        ),
+        VaultError::KeychainProvenance(_) => format!(
+            "Zaaheen can't reach Windows' secure password store right now, so it can't \
+             unlock your memories.\n\n\
+             Restart your computer and open Zaaheen again. Your memories are still on \
+             this computer. Please don't delete them.\n\n\
+             If this keeps happening, write to {SUPPORT_EMAIL}."
+        ),
+        VaultError::VaultKey(VaultKeyFailure::FolderUnavailable) => format!(
+            "Zaaheen can't reach the folder where your memories are kept.\n\n\
+             If they're on a drive that isn't plugged in, plug it in and open Zaaheen \
+             again. If another program is using the folder, close it and try again.\n\n\
+             For help, write to {SUPPORT_EMAIL}."
+        ),
+        VaultError::VaultKey(VaultKeyFailure::Unusable) => format!(
+            "Zaaheen found the key that unlocks your memories, but it can't use it.\n\n\
+             Please don't delete anything: your memories are still on this computer. \
+             Write to {SUPPORT_EMAIL} so we can help."
+        ),
+        VaultError::VaultKey(VaultKeyFailure::Busy) => {
+            "Zaaheen is finishing another task with your memories, such as \
+             deleting them. Wait a minute, then open Zaaheen again."
+                .to_owned()
+        }
+        // ADR-105 L1: the recorded folder is missing or is not this vault,
+        // when the reason could not be told (`main.rs` tells the reasons
+        // apart with `format_location_problem_dialog`, and offers "Start
+        // again" only there).
+        VaultError::VaultLocation(_) => format!(
+            "Zaaheen can't find your memories where they're kept.\n\n\
+             If they're on a drive that isn't plugged in, plug it in and open \
+             Zaaheen again. Please don't delete anything.\n\n\
+             For help, write to {SUPPORT_EMAIL}."
         ),
         other => format_startup_failure_dialog(other),
     }
@@ -263,52 +371,401 @@ mod tests {
     // T0.2.0 Phase 1 — ADR-040 keychain-failure-dialog formatting
     // -----------------------------------------------------------------
 
-    /// ADR-040: KeychainProvenance variant produces a dialog body that
-    /// names the failure cause + cites ADR-040 + lists recovery steps
-    /// (Credential Manager inspection on Windows; reinstall fallback).
-    /// Pinning the body here prevents drift between the dialog text and
-    /// what HANDOFF.md ADR-040 specified.
-    #[test]
-    fn format_keychain_error_dialog_for_keychain_provenance_variant() {
-        let err = VaultError::KeychainProvenance(
-            "Store::new failed: simulated keychain unavailable".to_string(),
-        );
-        let dialog = format_keychain_error_dialog(&err);
+    /// Every key failure, with the text that must be in its message.
+    fn key_failures() -> Vec<(VaultError, &'static str)> {
+        vec![
+            (
+                VaultError::VaultKey(VaultKeyFailure::Missing),
+                "The key that unlocks them is missing",
+            ),
+            (
+                VaultError::KeychainProvenance(
+                    "Store::new failed: simulated keychain unavailable".into(),
+                ),
+                "secure password store",
+            ),
+            (
+                VaultError::VaultKey(VaultKeyFailure::FolderUnavailable),
+                "can't reach the folder",
+            ),
+            (
+                VaultError::VaultKey(VaultKeyFailure::Unusable),
+                "can't use it",
+            ),
+            (VaultError::VaultKey(VaultKeyFailure::Busy), "Wait a minute"),
+            (
+                VaultError::VaultLocation(vault_core::VaultLocationFailure::Missing),
+                "can't find your memories where they're kept",
+            ),
+        ]
+    }
 
+    /// ADR-SEC-029 U1: each cause gets its own message, routed by the error.
+    #[test]
+    fn each_key_failure_gets_its_own_message() {
+        let mut seen = std::collections::HashSet::new();
+        for (err, says) in key_failures() {
+            let dialog = format_keychain_error_dialog(&err);
+            assert!(dialog.contains(says), "{err}: {dialog}");
+            assert!(seen.insert(dialog), "{err} shares another cause's message");
+        }
+    }
+
+    /// ADR-SEC-029 U1: the old text told people to delete the key, which
+    /// would have destroyed every memory. No message may ever again.
+    #[test]
+    fn no_key_failure_message_advises_deleting_the_key() {
+        for (err, _) in key_failures() {
+            let dialog = format_keychain_error_dialog(&err).to_lowercase();
+            for bad in [
+                "delete it",
+                "delete the key",
+                "delete the entry",
+                "delete your key",
+                "remove the key",
+                "new master_key",
+                "will be generated",
+                "credential manager",
+                "reinstall",
+            ] {
+                assert!(!dialog.contains(bad), "{err}: says {bad:?}: {dialog}");
+            }
+        }
+    }
+
+    /// No internal names, no error detail, the support address where help
+    /// is offered, and "don't delete" wherever memories are at stake.
+    #[test]
+    fn key_failure_messages_show_no_internals() {
+        for (err, _) in key_failures() {
+            let dialog = format_keychain_error_dialog(&err);
+            for internal in [
+                "ADR-",
+                "com.zaaheen",
+                "master_key",
+                "keychain",
+                "Store::new",
+                "simulated keychain unavailable",
+                "VAULT_KEY",
+            ] {
+                assert!(
+                    !dialog.contains(internal),
+                    "{err}: shows {internal:?}: {dialog}"
+                );
+            }
+            if !matches!(err, VaultError::VaultKey(VaultKeyFailure::Busy)) {
+                assert!(dialog.contains(SUPPORT_EMAIL), "{err}: {dialog}");
+            }
+        }
+        for err in [
+            VaultError::VaultKey(VaultKeyFailure::Missing),
+            VaultError::KeychainProvenance("x".into()),
+        ] {
+            assert!(
+                format_keychain_error_dialog(&err).contains("Please don't delete them"),
+                "{err}"
+            );
+        }
         assert!(
-            dialog.contains("keychain access failed"),
-            "KeychainProvenance dialog must announce the failure category; got: {dialog}"
+            format_keychain_error_dialog(&VaultError::VaultKey(VaultKeyFailure::Unusable))
+                .contains("Please don't delete anything")
         );
+        assert_eq!(KEY_ERROR_DIALOG_TITLE, "Zaaheen can't open your memories");
+    }
+
+    /// ADR-105 L5: a window started while another moves or deletes the
+    /// memories is told only what to do.
+    #[test]
+    fn the_busy_message_says_what_to_do_and_shows_no_internals() {
+        assert!(MSG_MEMORIES_BUSY.contains("Wait a minute"));
+        let lower = MSG_MEMORIES_BUSY.to_lowercase();
+        for internal in ["adr-", "com.zaaheen", "vault", "lock", "keeper", "intent"] {
+            assert!(!lower.contains(internal), "shows {internal:?}");
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // ADR-105 L1/L6 — the memories are not where the record says
+    // -----------------------------------------------------------------
+
+    fn problems() -> Vec<vault_app::location::missing::Problem> {
+        use vault_app::location::missing::Problem;
+        vec![
+            Problem::FolderAbsent(PathBuf::from(r"\\?\E:\Zaaheen Memories")),
+            Problem::FolderUnusable(PathBuf::from(r"\\?\E:\Zaaheen Memories")),
+            Problem::RecordUnreadable,
+        ]
+    }
+
+    /// Each reason its own words; the folder as the person reads it.
+    #[test]
+    fn each_location_problem_gets_its_own_message() {
+        let mut seen = std::collections::HashSet::new();
+        for problem in problems() {
+            let dialog = format_location_problem_dialog(&problem);
+            assert!(seen.insert(dialog.clone()), "{problem:?} shares a message");
+            assert!(!dialog.contains(r"\\?\"), "{problem:?}: {dialog}");
+            if !matches!(
+                problem,
+                vault_app::location::missing::Problem::RecordUnreadable
+            ) {
+                assert!(dialog.contains(r"E:\Zaaheen Memories"), "{dialog}");
+            }
+            assert!(dialog.contains("Please don't delete anything"), "{dialog}");
+        }
+    }
+
+    /// L6 is offered only when the folder itself is not there: one that is
+    /// there may hold the memories.
+    #[test]
+    fn only_a_folder_that_is_not_there_is_offered_a_fresh_start() {
+        for problem in problems() {
+            let offers = format_location_problem_dialog(&problem)
+                .to_lowercase()
+                .contains("start again");
+            let absent = matches!(
+                problem,
+                vault_app::location::missing::Problem::FolderAbsent(_)
+            );
+            assert_eq!(offers, absent, "{problem:?}");
+        }
+        assert!(START_AGAIN_CONFIRMATION
+            .contains("The memories on that drive can't be opened from here"));
+        assert!(START_AGAIN_CONFIRMATION.contains(SUPPORT_EMAIL));
+    }
+
+    /// Same rules as the key messages: no internals, no advice to delete,
+    /// and help where help is offered.
+    #[test]
+    fn location_messages_show_no_internals_and_never_advise_deleting() {
+        use vault_app::location::missing::StartAgainRefusal;
+        let mut texts: Vec<String> = problems()
+            .iter()
+            .map(format_location_problem_dialog)
+            .collect();
+        texts.extend(
+            [
+                StartAgainRefusal::NotOffered,
+                StartAgainRefusal::DefaultFolderHoldsMemories,
+                StartAgainRefusal::KeyUnchecked,
+                StartAgainRefusal::Busy,
+                StartAgainRefusal::WriteFailed,
+            ]
+            .map(format_start_again_refusal),
+        );
+        texts.push(START_AGAIN_CONFIRMATION.to_owned());
+        texts.push(MSG_MEMORIES_BUSY.to_owned());
+        for text in &texts {
+            let lower = text.to_lowercase();
+            for internal in [
+                "adr-",
+                "com.zaaheen",
+                "vault-id",
+                ".json",
+                "pointer",
+                "marker",
+                "keychain",
+                "credential",
+                "details:",
+            ] {
+                assert!(!lower.contains(internal), "shows {internal:?}: {text}");
+            }
+            for bad in [
+                "delete it",
+                "delete the folder",
+                "delete the key",
+                "reinstall",
+            ] {
+                assert!(!lower.contains(bad), "says {bad:?}: {text}");
+            }
+        }
+    }
+
+    /// The startup words, founder-approved 2026-09-22 (session 54: *"yes all
+    /// good"*). Pinned so an edit is a decision, not a drift.
+    #[test]
+    fn the_location_startup_words_are_the_founders() {
+        use vault_app::location::missing::Problem;
+        let absent = format_location_problem_dialog(&Problem::FolderAbsent(PathBuf::from(
+            r"\\?\E:\Zaaheen Memories",
+        )));
+        assert_eq!(
+            absent,
+            "Zaaheen keeps your memories in:\nE:\\Zaaheen Memories\n\n\
+             That folder isn't there right now. If it's on a drive that isn't plugged in, \
+             plug it in and open Zaaheen again. Please don't delete anything.\n\n\
+             If that drive is lost for good, you can start again with no memories."
+        );
+        assert_eq!(START_AGAIN_BUTTON, "Start again");
+        assert_eq!(CLOSE_BUTTON, "Close");
+        assert_eq!(START_AGAIN_TITLE, "Start again with no memories?");
+        assert_eq!(
+            START_AGAIN_CONFIRMATION,
+            "The memories on that drive can't be opened from here. Zaaheen will keep new \
+             memories in its usual folder on this computer.\n\n\
+             If you find the drive later, keep it, and write to customerservice@zaaheen.com \
+             so we can help."
+        );
+        assert_eq!(
+            MSG_MEMORIES_BUSY,
+            "Another Zaaheen window is busy with your memories right now.\n\n\
+             Wait a minute, then open Zaaheen again."
+        );
+    }
+
+    /// ADR-105 L6 in the desktop: offered only for a folder that is not
+    /// there, only after the person confirms, and before the key opens.
+    #[test]
+    fn the_desktop_starts_again_only_when_offered_and_confirmed() {
+        let main = include_str!("main.rs").replace("\r\n", "\n");
+        let body = main
+            .split_once("fn when_the_memories_are_missing(")
+            .expect("main.rs handles missing memories in one place")
+            .1
+            .split_once("\n}\n")
+            .expect("that function is closed")
+            .0;
+        let at = |needle: &str| {
+            body.find(needle)
+                .unwrap_or_else(|| panic!("when_the_memories_are_missing has no {needle}"))
+        };
+        let absent = at("Problem::FolderAbsent(");
+        let offered = at("START_AGAIN_BUTTON");
+        let declined = at("if !wants_to {\n        std::process::exit(EXIT_STARTUP_FAILURE);");
+        let confirmed = at("START_AGAIN_CONFIRMATION");
+        let cancelled = at("if !confirmed {\n        std::process::exit(EXIT_STARTUP_FAILURE);");
+        let started = at("missing::start_again(");
         assert!(
-            dialog.contains("simulated keychain unavailable"),
-            "KeychainProvenance dialog must propagate the underlying error \
-             detail for diagnostics; got: {dialog}"
+            absent < offered
+                && offered < declined
+                && declined < confirmed
+                && confirmed < cancelled
+                && cancelled < started,
+            "offered, then asked, and Close or Cancel leaves before anything changes"
         );
-        // ADR-100 REMOVED the old `dialog.contains("ADR-040")` assertion here.
-        // It required an internal document number to appear in text a user
-        // reads when their app will not start. The source-of-truth reference it
-        // was protecting now lives in this function's doc comment, which is
-        // where a developer tracing the behaviour actually looks. What the user
-        // needs is asserted immediately below: the credential namespace.
+        assert_eq!(body.matches("start_again(").count(), 1);
+
+        let prepared = main.find("location::prepare(").expect("prepare");
+        let handled = main
+            .find("when_the_memories_are_missing(app,")
+            .expect("prepare's failure goes through it");
+        let key = main
+            .find("bridge_or_init_master_key(&key_location")
+            .expect("the key opens");
+        assert!(prepared < handled && handled < key);
+    }
+
+    /// ADR-105 L5 and amendment 1 (L-f): a waiting move is finished before
+    /// anything opens the vault or the key, on both paths through the start
+    /// (the setup thread, and the thread beside the window); a window told
+    /// "busy" reaches neither; and the page is told the start is ready only
+    /// after every piece of state is managed.
+    #[test]
+    fn the_desktop_finishes_a_move_before_it_opens_the_vault() {
+        let main = include_str!("main.rs").replace("\r\n", "\n");
+        let body_of = |name: &str| -> String {
+            main.split_once(&format!("\nfn {name}("))
+                .unwrap_or_else(|| panic!("main.rs has no fn {name}"))
+                .1
+                .split_once("\n}\n")
+                .unwrap_or_else(|| panic!("fn {name} is not closed"))
+                .0
+                .to_owned()
+        };
+        let find = |text: &str, needle: &str| {
+            text.find(needle)
+                .unwrap_or_else(|| panic!("no {needle} where it belongs"))
+        };
+
+        // The move, and "busy", before anything else.
+        let finish = body_of("finish_the_move");
+        let moved = find(&finish, "location::moving::run_pending_reporting(");
+        let busy = find(&finish, "MoveOutcome::Busy");
+        assert!(moved < busy);
+        assert!(finish[busy..].contains("show_fatal_dialog_and_exit("));
+        assert!(finish[busy..].contains("MSG_MEMORIES_BUSY"));
+
+        // Everything after the move, in order, with "ready" last.
+        let open = body_of("open_the_vault");
+        let prepared = find(&open, "location::prepare(");
+        let key = find(&open, "bridge_or_init_master_key(&key_location");
+        let opened = find(&open, "Application::new(&config)");
+        let guarded = find(&open, "guard::build()");
+        let ready = find(&open, "startup.ready();");
+        assert!(prepared < key && key < opened && opened < guarded && guarded < ready);
         assert!(
-            !dialog.contains("ADR-"),
-            "user-facing dialog MUST NOT quote internal ADR numbers; got: {dialog}"
+            !open[ready..].contains(".manage("),
+            "every piece of state is managed before the page is told ready"
         );
+        for once in [
+            "Application::new(",
+            "location::prepare(",
+            "bridge_or_init_master_key(",
+        ] {
+            assert_eq!(main.matches(once).count(), 1, "{once} in one place only");
+        }
+
+        // The thread beside the window: the move, then the rest.
+        let then_open = body_of("move_then_open");
+        let m = find(&then_open, "finish_the_move(");
+        let f = find(&then_open, "startup.move_finished();");
+        let o = find(&then_open, "open_the_vault(");
+        assert!(m < f && f < o);
+
+        // The setup: a move waiting goes to that thread and returns; the
+        // other path makes the move (or cleans an old copy), then opens.
+        let setup = main
+            .split_once(".setup(|app| {")
+            .expect("main.rs has a setup hook")
+            .1
+            .split_once("\n        });\n")
+            .expect("the setup hook closes")
+            .0;
+        let waiting = find(setup, "waiting_move(");
+        let managed = find(setup, "app.manage(startup.clone());");
+        let spawned = find(setup, ".name(MOVE_THREAD.to_owned())");
+        let on_thread = find(
+            setup,
+            "move_then_open(&handle, on_thread, &reporting, &told);",
+        );
+        let returned = find(setup, "return Ok(());");
+        assert!(spawned < on_thread && on_thread < returned);
         assert!(
-            dialog.contains("Credential Manager"),
-            "KeychainProvenance dialog must point Windows users at Credential \
-             Manager for recovery; got: {dialog}"
+            setup[spawned..returned].contains("std::panic::catch_unwind(run).is_err()"),
+            "a panic on the thread ends the app rather than leaving the page waiting"
         );
-        assert!(
-            dialog.contains("com.zaaheen.v0.2"),
-            "KeychainProvenance dialog must include the production namespace \
-             so users can find the entry in Credential Manager; got: {dialog}"
+        let normal_move = find(&setup[returned..], "finish_the_move(") + returned;
+        let normal_open = find(&setup[returned..], "open_the_vault(") + returned;
+        assert!(waiting < managed && managed < spawned && spawned < returned);
+        assert!(normal_move < normal_open);
+        assert_eq!(
+            main.matches("open_the_vault(").count(),
+            3,
+            "defined once, and called once on each path"
         );
-        assert!(
-            dialog.contains("Reinstall"),
-            "KeychainProvenance dialog must include reinstall fallback for \
-             unrecoverable failures; got: {dialog}"
+    }
+
+    /// L-f's review: a startup dialog shown from the move's thread is set in
+    /// front of the window, which is drawn by then; from the setup thread it
+    /// never is, because there the window's own thread is the one waiting for
+    /// the answer. Every startup dialog is built in that one place.
+    #[test]
+    fn startup_dialogs_sit_in_front_only_from_the_moves_thread() {
+        let main = include_str!("main.rs").replace("\r\n", "\n");
+        assert_eq!(
+            main.matches(".dialog()").count(),
+            1,
+            "one place builds a startup dialog"
         );
+        let body = main
+            .split_once("\nfn startup_dialog(")
+            .expect("main.rs builds its dialogs in startup_dialog")
+            .1
+            .split_once("\n}\n")
+            .expect("startup_dialog is closed")
+            .0;
+        assert!(body.contains("std::thread::current().name() == Some(MOVE_THREAD)"));
+        assert!(body.contains("Some(window) if on_move_thread => dialog.parent(&window),"));
     }
 
     /// `format_keychain_error_dialog` falls through to

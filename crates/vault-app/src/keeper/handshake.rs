@@ -67,7 +67,14 @@ pub const MAGIC: &[u8; 4] = b"ZKH1";
 /// 2 (ADR-SEC-021): rmcp 2.x stops publishing each tool's top-level input
 /// schema `title` and `description`, and carries the pipe on a different
 /// rmcp major, so a wire-1 relay must be told to restart, not served.
-pub const WIRE: u16 = 2;
+///
+/// 3 (S3 step 4d-3, `SIGNIN-DESIGN.md` §8.40; ADR-054 Contract 2
+/// amendment 3): `memory_read`'s description now tells the agent how to
+/// pass on the `SUBSCRIPTION_*` warnings, so the tool contract changed and
+/// a wire-2 relay must be told to restart. Found by
+/// `the_tool_contract_is_pinned_to_the_wire_version` in session 52; 4d-3's
+/// own runs did not include that test binary.
+pub const WIRE: u16 = 3;
 
 /// Fresh random bytes each side contributes per connection.
 pub const CHALLENGE_LEN: usize = 32;

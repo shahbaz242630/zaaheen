@@ -203,13 +203,29 @@ pub enum VaultError {
     /// — vault-app exits non-zero rather than proceeding with a
     /// partially-recovered or empty key.
     ///
-    /// `NotFound` is NOT carried via this variant. The keychain helper
-    /// `vault_app::keychain::read_or_init_master_key` handles `NotFound`
-    /// internally as the first-run signal: it generates a new master_key
-    /// via `getrandom`, persists via `set_secret`, and returns the
-    /// newly-persisted key.
+    /// `NotFound` is NOT carried via this variant. `vault_app::keychain`
+    /// treats a confirmed "no entry" as a fresh install only when no data
+    /// sealed under a key exists (ADR-SEC-029 D4); otherwise it returns
+    /// [`Self::VaultKey`] with [`VaultKeyFailure::Missing`].
+    ///
+    /// Since ADR-SEC-029 this variant means one thing to the user: the
+    /// credential store itself is failing (startup message 2).
     #[error("keychain provenance error: {0}")]
     KeychainProvenance(String),
+
+    /// The vault's master key could not be opened for a reason the user can
+    /// act on (ADR-SEC-029 U1). Each [`VaultKeyFailure`] has its own startup
+    /// message. It carries no text: the detail is logged where it happens,
+    /// and nothing here can name a path, a credential or key material.
+    #[error("vault key: {0}")]
+    VaultKey(VaultKeyFailure),
+
+    /// The vault's folder could not be found (ADR-105 L1). No process ever
+    /// creates a folder or falls back to a default in answer to this: that is
+    /// how a second, empty vault gets made. Carries no path; the detail is
+    /// logged where it happens.
+    #[error("vault location: {0}")]
+    VaultLocation(VaultLocationFailure),
 
     /// Registering, querying, or removing an OS-level scheduled task failed
     /// (Windows Task Scheduler, macOS launchd, Linux systemd/cron).
@@ -227,6 +243,59 @@ pub enum VaultError {
     /// the API boundary (ADR-SEC-005), caught before any OS call is made.
     #[error("scheduler error: {0}")]
     Scheduler(String),
+}
+
+/// Why the vault's master key could not be opened (ADR-SEC-029 U1).
+///
+/// A credential store that is itself failing is
+/// [`VaultError::KeychainProvenance`]; these are the other four cases, each
+/// with its own startup message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VaultKeyFailure {
+    /// There is no key on this Windows account, but data sealed under a key
+    /// exists (D4). A new key would not open it, so none is made.
+    Missing,
+    /// The vault folder, or the folder holding the key's lock and marker,
+    /// could not be checked or cleared.
+    FolderUnavailable,
+    /// A key is stored but is not one this app could have written (the
+    /// wrong size). Nothing is overwritten.
+    Unusable,
+    /// Another process held the key lock for longer than the wait (for
+    /// example, "Delete everything" running).
+    Busy,
+}
+
+impl std::fmt::Display for VaultKeyFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Missing => "the key is missing while keyed data exists",
+            Self::FolderUnavailable => "the vault or key folder could not be checked or cleared",
+            Self::Unusable => "the stored key is not usable",
+            Self::Busy => "the key lock is held by another process",
+        })
+    }
+}
+
+/// Why the vault's folder could not be found (ADR-105 L1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VaultLocationFailure {
+    /// No location has been recorded yet: the first run of this build, which
+    /// only the setup (ADR-105 L2) may answer — a relay asks for a keeper.
+    Unset,
+    /// A location is recorded, but its folder, its `.vault-id`, or the ID
+    /// itself is not there or not right (an unplugged drive, another stick at
+    /// the same letter, a damaged record).
+    Missing,
+}
+
+impl std::fmt::Display for VaultLocationFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Unset => "no vault location has been recorded yet",
+            Self::Missing => "the recorded vault folder is missing or is not this vault",
+        })
+    }
 }
 
 /// Standard result alias used throughout the workspace.
@@ -331,6 +400,36 @@ mod tests {
         assert!(s.contains("def456"), "display should mention actual: {s}");
         let matched = matches!(err, VaultError::ModelIntegrityFailed { .. });
         assert!(matched);
+    }
+
+    #[test]
+    fn vault_key_failure_is_structured_and_prefixed() {
+        let err = VaultError::VaultKey(VaultKeyFailure::Missing);
+        assert!(err.to_string().starts_with("vault key:"), "{err}");
+        assert!(matches!(
+            err,
+            VaultError::VaultKey(VaultKeyFailure::Missing)
+        ));
+        for kind in [
+            VaultKeyFailure::Missing,
+            VaultKeyFailure::FolderUnavailable,
+            VaultKeyFailure::Unusable,
+            VaultKeyFailure::Busy,
+        ] {
+            assert!(!kind.to_string().is_empty());
+        }
+    }
+
+    #[test]
+    fn vault_location_failure_is_structured_and_prefixed() {
+        for kind in [VaultLocationFailure::Unset, VaultLocationFailure::Missing] {
+            let err = VaultError::VaultLocation(kind);
+            assert!(err.to_string().starts_with("vault location:"), "{err}");
+        }
+        assert_ne!(
+            VaultLocationFailure::Unset.to_string(),
+            VaultLocationFailure::Missing.to_string()
+        );
     }
 
     #[test]

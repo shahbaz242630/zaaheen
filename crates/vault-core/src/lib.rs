@@ -22,5 +22,5 @@ pub use entity::{
     Entity, EntityId, EntityType, NewEntity, Relationship, RelationshipId, MAX_ENTITY_NAME_BYTES,
     MAX_RELATION_TYPE_BYTES,
 };
-pub use error::{VaultError, VaultResult};
+pub use error::{VaultError, VaultKeyFailure, VaultLocationFailure, VaultResult};
 pub use memory::{Memory, MemoryId, MemoryType, NewMemory, MAX_MEMORY_CONTENT_BYTES};

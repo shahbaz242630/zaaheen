@@ -128,3 +128,43 @@ fn every_constructor_refuses_a_link_that_is_not_https_without_credentials() {
         }
     }
 }
+
+// ------------------------------------------ Cursor's install request (ADR-106)
+
+/// The link is Cursor's documented form, carrying exactly the manual
+/// snippet's server, and survives parsing unchanged (no escaping needed).
+#[test]
+fn the_cursor_link_installs_exactly_the_zaaheen_server() {
+    use base64::Engine as _;
+
+    let link = ExternalLink::install_in_cursor().expect("the fixed link passes its gate");
+    assert_eq!(
+        link.as_str(),
+        CURSOR_INSTALL_LINK,
+        "parsing changed the link"
+    );
+    let url = Url::parse(CURSOR_INSTALL_LINK).unwrap();
+    let pairs: Vec<(String, String)> = url.query_pairs().into_owned().collect();
+    assert_eq!(pairs.len(), 2);
+    assert_eq!(pairs[0], ("name".to_owned(), "zaaheen".to_owned()));
+    assert_eq!(pairs[1].0, "config");
+    let config = base64::engine::general_purpose::STANDARD
+        .decode(&pairs[1].1)
+        .expect("the config is base64");
+    let server: serde_json::Value = serde_json::from_slice(&config).unwrap();
+    assert_eq!(
+        server,
+        serde_json::json!({ "command": "zaaheen", "args": ["mcp", "serve"] }),
+        "the same server the manual snippet gives, and nothing else"
+    );
+    assert!(
+        !pairs[1].1.contains('+') && !pairs[1].1.contains('/'),
+        "a '+' would be read as a space in a query"
+    );
+}
+
+#[test]
+fn debug_names_where_the_cursor_link_points() {
+    let shown = format!("{:?}", ExternalLink::install_in_cursor().unwrap());
+    assert!(shown.contains("cursor://anysphere.cursor-deeplink/mcp/install"));
+}

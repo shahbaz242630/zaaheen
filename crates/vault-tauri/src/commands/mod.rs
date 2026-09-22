@@ -61,16 +61,20 @@
 pub mod account;
 pub mod agent;
 pub mod boundary;
+pub mod connect;
 pub mod engine;
 pub mod erasure;
 pub mod export;
+pub mod location;
 pub mod logs;
 pub mod maintenance;
 pub mod memory;
 pub mod settings;
+pub mod startup;
 
 pub use account::{
-    account_refresh_now, account_sign_in, account_sign_out, account_status, account_subscribe,
+    account_access, account_refresh_now, account_sign_in, account_sign_out, account_status,
+    account_subscribe, AccountSlot,
 };
 pub use agent::{list_agents, list_agents_inner, revoke_agent, revoke_agent_inner};
 pub use boundary::{
@@ -79,6 +83,7 @@ pub use boundary::{
 pub use engine::{ensure_recall_engine, RecallEngineFetch};
 pub use erasure::{erase_everything, erase_everything_inner};
 pub use export::{export_memories, export_memories_inner};
+pub use location::LocationContext;
 pub use logs::{export_logs, LogContext};
 pub use maintenance::{MaintenanceContext, MaintenanceEngineFetch};
 pub use memory::{
@@ -87,3 +92,4 @@ pub use memory::{
     update_memory_inner,
 };
 pub use settings::{get_settings_info, get_settings_info_inner};
+pub use startup::Startup;

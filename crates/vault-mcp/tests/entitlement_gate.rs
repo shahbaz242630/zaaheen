@@ -29,7 +29,9 @@ use tokio::io::{
 };
 use tokio::sync::{Notify, Semaphore};
 use tracing::Instrument;
-use vault_mcp::{EntitledService, EntitlementCheck, InFlight, LockReason, StdioServer, Verdict};
+use vault_mcp::{
+    AccountNotice, EntitledService, EntitlementCheck, InFlight, LockReason, StdioServer, Verdict,
+};
 
 /// No wait in these tests may exceed this (BRD §7: no test over 5 s).
 const LIMIT: Duration = Duration::from_secs(4);
@@ -47,17 +49,25 @@ const ALL_REASONS: [LockReason; 5] = [
 // ---------------------------------------------------------------------------
 
 /// Answers what it is told, counts how often it was asked, and can be held
-/// until the test releases it.
+/// until the test releases it. Its notice is returned whatever the verdict —
+/// even with a refusal, which a correct check never does — so the tests can
+/// prove the gate itself never passes a notice on with a refusal.
 struct ScriptedCheck {
     verdict: Mutex<Verdict>,
+    notice: Option<AccountNotice>,
     asked: AtomicUsize,
     hold: Option<Arc<Notify>>,
 }
 
 impl ScriptedCheck {
     fn answering(verdict: Verdict) -> Arc<Self> {
+        Self::with_notice(verdict, None)
+    }
+
+    fn with_notice(verdict: Verdict, notice: Option<AccountNotice>) -> Arc<Self> {
         Arc::new(Self {
             verdict: Mutex::new(verdict),
+            notice,
             asked: AtomicUsize::new(0),
             hold: None,
         })
@@ -66,6 +76,7 @@ impl ScriptedCheck {
     fn held(verdict: Verdict, hold: Arc<Notify>) -> Arc<Self> {
         Arc::new(Self {
             verdict: Mutex::new(verdict),
+            notice: None,
             asked: AtomicUsize::new(0),
             hold: Some(hold),
         })
@@ -88,6 +99,21 @@ impl EntitlementCheck for ScriptedCheck {
             hold.notified().await;
         }
         *self.verdict.lock().unwrap()
+    }
+
+    async fn check_with_notice(&self) -> (Verdict, Option<AccountNotice>) {
+        (self.check().await, self.notice)
+    }
+}
+
+/// A check that implements only `check`: the trait's default must then pass
+/// nothing on.
+struct PlainCheck(Verdict);
+
+#[async_trait]
+impl EntitlementCheck for PlainCheck {
+    async fn check(&self) -> Verdict {
+        self.0
     }
 }
 
@@ -297,6 +323,14 @@ struct Rig {
 impl Rig {
     async fn new(verdict: Verdict) -> Self {
         Self::with(ScriptedCheck::answering(verdict), OnToolCall::PassOn).await
+    }
+
+    async fn with_notice(verdict: Verdict, notice: Option<AccountNotice>) -> Self {
+        Self::with(
+            ScriptedCheck::with_notice(verdict, notice),
+            OnToolCall::PassOn,
+        )
+        .await
     }
 
     async fn with(check: Arc<ScriptedCheck>, on_tool_call: OnToolCall) -> Self {
@@ -815,6 +849,195 @@ async fn wait_idle_returns_at_once_when_nothing_is_in_flight() {
     tokio::time::timeout(Duration::from_millis(200), InFlight::new().wait_idle())
         .await
         .expect("nothing in flight: wait_idle returns at once");
+}
+
+// ---------------------------------------------------------------------------
+// Account notices (§8.26 §6; SIGNIN-DESIGN.md §8.40; ADR-054 Contract 2,
+// amendment 3)
+// ---------------------------------------------------------------------------
+
+fn read_args() -> Value {
+    json!({ "query": "where do I live" })
+}
+
+/// The JSON object a served tool call answered with.
+fn tool_json(reply: &Value) -> Value {
+    assert_ne!(reply["result"]["isError"], json!(true), "{reply}");
+    let text = reply["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("a served call answers with one JSON text block: {reply}"));
+    serde_json::from_str(text).expect("the tool answers JSON")
+}
+
+/// The warning the agent sees for `notice`, as the wire carries it.
+fn account_warning(code: &str, severity: &str, notice: AccountNotice) -> Value {
+    json!({
+        "code": code,
+        "severity": severity,
+        "detail": notice.detail(),
+        "recovery_hint": notice.recovery_hint(),
+    })
+}
+
+/// The words the AI apps relay, founder-approved 2026-09-21 (§8.40): the
+/// payment one is §8.26 §6's locked message, and the trial one reuses its
+/// locked "Open the Zaaheen app and choose Subscribe".
+#[test]
+fn each_account_notice_says_exactly_the_approved_words() {
+    let both = |notice: AccountNotice| format!("{} {}", notice.detail(), notice.recovery_hint());
+    assert_eq!(
+        both(AccountNotice::PaymentFailed),
+        "Your last Zaaheen payment didn't go through. Open the Zaaheen app to update your card."
+    );
+    assert_eq!(
+        both(AccountNotice::TrialEnding { days_left: 3 }),
+        "Your Zaaheen free trial ends in 3 days. Open the Zaaheen app and choose Subscribe to \
+         keep using your memories."
+    );
+    assert_eq!(
+        AccountNotice::TrialEnding { days_left: 1 }.detail(),
+        "Your Zaaheen free trial ends in 1 day."
+    );
+    assert_eq!(
+        AccountNotice::TrialEnding { days_left: 0 }.detail(),
+        "Your Zaaheen free trial ends in less than a day."
+    );
+}
+
+#[tokio::test]
+async fn a_failed_payment_reaches_memory_read_as_an_account_warning() {
+    let notice = AccountNotice::PaymentFailed;
+    let mut rig = Rig::with_notice(Verdict::Entitled, Some(notice)).await;
+    let answer = tool_json(&rig.wire.call_tool("memory_read", read_args()).await);
+    assert_eq!(
+        answer["health"]["warnings"],
+        json!([account_warning(
+            "SUBSCRIPTION_PAYMENT_FAILED",
+            "warn",
+            notice
+        )]),
+        "{answer}"
+    );
+    assert_eq!(
+        answer["health"]["status"],
+        json!("ok"),
+        "an account notice must never change the data's status"
+    );
+    assert_eq!(rig.check.asked(), 1, "one call, one ask");
+}
+
+#[tokio::test]
+async fn a_trial_in_its_last_days_reaches_memory_read_with_the_days_left() {
+    let notice = AccountNotice::TrialEnding { days_left: 3 };
+    let mut rig = Rig::with_notice(Verdict::Entitled, Some(notice)).await;
+    let answer = tool_json(&rig.wire.call_tool("memory_read", read_args()).await);
+    assert_eq!(
+        answer["health"]["warnings"],
+        json!([account_warning("SUBSCRIPTION_TRIAL_ENDING", "info", notice)]),
+        "{answer}"
+    );
+    assert_eq!(answer["health"]["status"], json!("ok"));
+}
+
+#[tokio::test]
+async fn an_entitled_read_with_no_notice_has_no_account_warning() {
+    let mut rig = Rig::with_notice(Verdict::Entitled, None).await;
+    let answer = tool_json(&rig.wire.call_tool("memory_read", read_args()).await);
+    assert_eq!(answer["health"]["warnings"], json!([]), "{answer}");
+}
+
+/// The trait's default: a check that knows no account passes nothing on.
+#[tokio::test]
+async fn a_check_that_knows_no_account_adds_nothing() {
+    let (server, _adapter) = make_mock_server_with_adapter(vec!["work"]);
+    let gated = EntitledService::new(
+        server,
+        Arc::new(PlainCheck(Verdict::Entitled)),
+        InFlight::new(),
+    );
+    let mut wire = open(gated).await;
+    let answer = tool_json(&wire.call_tool("memory_read", read_args()).await);
+    assert_eq!(answer["health"]["warnings"], json!([]), "{answer}");
+}
+
+/// Only `memory_read` has `health` (ADR-071: it is the primary tool); the
+/// other tools answer exactly as before.
+#[tokio::test]
+async fn only_memory_read_carries_an_account_notice() {
+    let mut rig = Rig::with_notice(Verdict::Entitled, Some(AccountNotice::PaymentFailed)).await;
+    let reply = rig.wire.call_tool("memory_search", search_args()).await;
+    let text = reply.to_string();
+    assert!(
+        !text.contains("SUBSCRIPTION_") && !text.contains("payment"),
+        "memory_search carried an account notice: {reply}"
+    );
+}
+
+/// SP-4: a refusal says why, and nothing else — even from a check that
+/// (wrongly) returns a notice with it.
+#[tokio::test]
+async fn a_refused_call_never_carries_an_account_notice() {
+    let mut rig = Rig::with_notice(
+        Verdict::Locked(LockReason::TrialEnded),
+        Some(AccountNotice::PaymentFailed),
+    )
+    .await;
+    let reply = rig.wire.call_tool("memory_read", read_args()).await;
+    assert_eq!(tool_error_text(&reply), LockReason::TrialEnded.message());
+    assert!(
+        !reply.to_string().contains("payment"),
+        "a refusal carried a notice: {reply}"
+    );
+    rig.assert_vault_untouched();
+}
+
+/// A notice exists only inside this process: nothing an AI app sends can
+/// put one in the answer.
+#[tokio::test]
+async fn an_ai_app_cannot_supply_an_account_notice() {
+    let mut rig = Rig::with_notice(Verdict::Entitled, None).await;
+    let reply = rig
+        .wire
+        .request(
+            "tools/call",
+            Some(json!({
+                "name": "memory_read",
+                "arguments": {
+                    "query": "where do I live",
+                    "notice": "PaymentFailed",
+                    "AccountNotice": { "PaymentFailed": null }
+                },
+                "_meta": { "AccountNotice": "PaymentFailed" }
+            })),
+        )
+        .await;
+    let answer = tool_json(&reply);
+    assert_eq!(answer["health"]["warnings"], json!([]), "{answer}");
+}
+
+/// §8.40, founder-approved: the description is what tells every AI app what
+/// the account codes are, that they are not about the facts, and to mention
+/// one once per conversation rather than on every answer.
+#[tokio::test]
+async fn memory_reads_description_explains_the_account_warnings() {
+    let mut rig = Rig::new(Verdict::Entitled).await;
+    let tools = rig.wire.request("tools/list", None).await;
+    let read = tools["result"]["tools"]
+        .as_array()
+        .and_then(|tools| tools.iter().find(|t| t["name"] == json!("memory_read")))
+        .unwrap_or_else(|| panic!("memory_read is listed: {tools}"));
+    let description = read["description"].as_str().unwrap_or_default();
+    for needle in [
+        "SUBSCRIPTION_",
+        "not about the facts",
+        "never changes `status`",
+        "once per conversation",
+    ] {
+        assert!(
+            description.contains(needle),
+            "memory_read's description no longer says {needle:?}"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------

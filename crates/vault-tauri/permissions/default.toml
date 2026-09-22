@@ -124,8 +124,13 @@ commands.allow = ["export_logs"]
 
 [[permission]]
 identifier = "allow-erase-everything"
-description = "Allow invoking the erase_everything command (permanently destroy every memory in this vault by destroying its encryption key in the operating system credential store, then removing the vault's data files). Irreversible."
+description = "Allow invoking the erase_everything command (permanently destroy every memory in this vault by destroying its encryption key in the operating system credential store, then removing the vault's data files, and then sign this computer out). Irreversible."
 commands.allow = ["erase_everything"]
+
+[[permission]]
+identifier = "allow-account-access"
+description = "Allow invoking the account_access command (report whether this build has sign-in at all, and whether this computer is locked and why, asked of the same check that locks the vault). Given that check and nothing else; never given the vault."
+commands.allow = ["account_access"]
 
 [[permission]]
 identifier = "allow-account-status"
@@ -152,7 +157,49 @@ identifier = "allow-account-refresh-now"
 description = "Allow invoking the account_refresh_now command (\"I've paid\": check the subscription again straight away rather than waiting for the daily check). Never given the vault."
 commands.allow = ["account_refresh_now"]
 
+# Where the memories live (ADR-105 L-e). All four are gated.
+
+[[permission]]
+identifier = "allow-location-status"
+description = "Allow invoking the location_status command (report the folder the memories are kept in, a move waiting for the next start, an earlier move's old copy still to be removed, and what this start did about a move). Reads only."
+commands.allow = ["location_status"]
+
+[[permission]]
+identifier = "allow-location-check"
+description = "Allow invoking the location_check command (check a folder the person picked: where the memories would go and what to tell them, or why the folder cannot be used). Records nothing."
+commands.allow = ["location_check"]
+
+[[permission]]
+identifier = "allow-location-move"
+description = "Allow invoking the location_move command (record a move of the memories to a checked folder, then restart the app so the next start makes it before anything opens them). Copies encrypted files only, on this computer."
+commands.allow = ["location_move"]
+
+[[permission]]
+identifier = "allow-location-forget-old-copy"
+description = "Allow invoking the location_forget_old_copy command (stop waiting to remove an earlier move's old copy from a folder that cannot be seen, such as a drive that never comes back). Removes nothing."
+commands.allow = ["location_forget_old_copy"]
+
 [[permission]]
 identifier = "allow-export-memories"
 description = "Allow invoking the export_memories command (write every memory to one readable Markdown file at a location the person chooses). This is the one ungated command that reads the vault, and it is ungated on purpose: it is how somebody who is locked out gets their own memories back. It only reads, writes one local file, and sends nothing anywhere."
 commands.allow = ["export_memories"]
+
+# "Connect it for me" (ADR-106). Gated.
+
+[[permission]]
+identifier = "allow-connect-app"
+description = "Allow invoking the connect_app command (ask an AI app from a fixed list, Cursor or Claude Desktop, to install Zaaheen through its own install route: Cursor's install link, or a Claude extension saved to the Downloads folder; the app asks the person and writes its own settings). Takes only the app's name; no path, link or program comes from the page."
+commands.allow = ["connect_app"]
+
+[[permission]]
+identifier = "allow-show-claude-extension"
+description = "Allow invoking the show_claude_extension command (open the Downloads folder the Claude extension was saved in). Takes nothing from the page."
+commands.allow = ["show_claude_extension"]
+
+# Where this start is (ADR-105 amendment 1, L-f). Open before the lock,
+# founder-approved (ADR-SEC-030 amendment 1).
+
+[[permission]]
+identifier = "allow-startup-state"
+description = "Allow invoking the startup_state command (whether this start is still moving the memories and how far it has got: the stage, the move's phase, bytes done of the total, and the folder they are going to). Given nothing but the start's own progress; never the vault, an account or the key. Takes no argument."
+commands.allow = ["startup_state"]

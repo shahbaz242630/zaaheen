@@ -21,7 +21,7 @@ use crate::files::{LEASE_FILE, LOCK_FILE, MARKER_FILE, STATE_FILE};
 use crate::lease::LeaseState;
 use crate::oauth::RefreshToken;
 use crate::test_support::{json_response, sign_with, FakeService, Seen, TestKeys};
-use crate::token_store::{SERVICE, USER};
+use crate::token_store::{ADDRESS_USER, SERVICE, USER};
 
 pub(super) const SUB: &str = "user_2abcDEF";
 pub(super) const EMAIL: &str = "sam@example.com";
@@ -57,6 +57,7 @@ pub(super) struct World {
     worker_mode: Arc<Mutex<WorkerMode>>,
     on_refresh: Arc<Mutex<OnRefresh>>,
     revoke_status: Arc<Mutex<u16>>,
+    keys: Arc<TestKeys>,
     pub account: Account,
 }
 
@@ -304,8 +305,49 @@ impl World {
             worker_mode,
             on_refresh,
             revoke_status,
+            keys,
             account,
         }
+    }
+
+    /// A second `Account` over the same folder and credential store, as the
+    /// next app open builds: it shares nothing in memory with the first.
+    pub fn reopened(&self) -> Account {
+        Account::new(
+            self.dir.clone(),
+            self.store.clone(),
+            OAuthClient::for_loopback_test(AccountConfig::for_loopback_test(self.oauth.port)),
+            LeaseClient::for_loopback_test(self.worker.port),
+            self.keys.verifier(),
+            TIMINGS,
+        )
+    }
+
+    /// What sits in the address credential, bypassing every rule.
+    pub fn raw_address(&self) -> Option<String> {
+        self.mock
+            .build(SERVICE, ADDRESS_USER, None)
+            .unwrap()
+            .get_password()
+            .ok()
+    }
+
+    /// Put a raw value in the address credential.
+    pub fn plant_address(&self, raw: &str) {
+        self.mock
+            .build(SERVICE, ADDRESS_USER, None)
+            .unwrap()
+            .set_password(raw)
+            .unwrap();
+    }
+
+    /// Make the next call on the address credential fail.
+    pub fn fail_next_address_call(&self) {
+        let entry = self.mock.build(SERVICE, ADDRESS_USER, None).unwrap();
+        let cred: &mock::Cred = entry.as_any().downcast_ref().unwrap();
+        cred.set_error(keyring_core::Error::PlatformFailure(Box::new(
+            std::io::Error::other("store busy"),
+        )));
     }
 
     /// Signed in at server time T0 with a correct clock.
@@ -572,6 +614,111 @@ async fn sign_out_waits_for_the_lock_and_reports_busy() {
     assert!(world.has(MARKER_FILE), "nothing changed while busy");
     drop(held);
     world.account.sign_out().await.unwrap();
+}
+
+// ---- the signed-in address (ADR-SEC-027) -------------------------------------------
+
+#[tokio::test]
+async fn the_address_is_remembered_for_the_next_app_open() {
+    let world = World::signed_in().await;
+    assert_eq!(
+        world.account.signed_in_email().await.as_deref(),
+        Some(EMAIL)
+    );
+    assert_eq!(
+        world.reopened().signed_in_email().await.as_deref(),
+        Some(EMAIL),
+        "a second app open, sharing nothing in memory, must still know the address"
+    );
+    assert_eq!(
+        world.raw_address().as_deref(),
+        Some(format!("{SUB}\n{EMAIL}").as_str())
+    );
+}
+
+#[tokio::test]
+async fn sign_out_forgets_the_address() {
+    let world = World::signed_in().await;
+    world.account.sign_out().await.unwrap();
+    assert_eq!(
+        world.raw_address(),
+        None,
+        "the address outlived the sign-out"
+    );
+    assert_eq!(world.account.signed_in_email().await, None);
+}
+
+/// The other way a computer signs out: the server ended the grant.
+#[tokio::test]
+async fn a_dead_grant_forgets_the_address_too() {
+    let world = World::signed_in().await;
+    world.on_refresh(|_| invalid_grant());
+    let outcome = world
+        .account
+        .refresh(Trigger::UserAction, T0 + HOUR)
+        .await
+        .unwrap();
+    assert!(
+        matches!(outcome, RefreshOutcome::SignedOut(_)),
+        "{}",
+        outcome_kind(&outcome)
+    );
+    assert_eq!(
+        world.raw_address(),
+        None,
+        "the address outlived the sign-out"
+    );
+}
+
+/// Bound to the `sub`: whatever is left in the store from an earlier person
+/// is never shown under this one's sign-in.
+#[tokio::test]
+async fn an_address_left_by_somebody_else_is_never_shown() {
+    let world = World::signed_in().await;
+    world.plant_address("user_OTHER\nsomeone.else@example.com");
+    assert_eq!(world.account.signed_in_email().await, None);
+}
+
+#[tokio::test]
+async fn nobody_signed_in_means_no_address_whatever_the_store_holds() {
+    let world = World::new().await;
+    world.plant_address(&format!("{SUB}\n{EMAIL}"));
+    assert_eq!(world.account.signed_in_email().await, None);
+}
+
+#[tokio::test]
+async fn signing_in_replaces_an_earlier_address() {
+    let world = World::new().await;
+    world.plant_address("user_OTHER\nsomeone.else@example.com");
+    world.sign_in(T0).await;
+    assert_eq!(
+        world.account.signed_in_email().await.as_deref(),
+        Some(EMAIL)
+    );
+}
+
+/// A label is not worth a failed sign-in: the sign-in is the token.
+#[tokio::test]
+async fn a_refused_address_save_still_signs_in() {
+    let world = World::new().await;
+    world.fail_next_address_call();
+    let signed = world.sign_in(T0).await;
+    assert_eq!(signed.user.email, EMAIL);
+    assert_eq!(world.token().as_deref(), Some("rt_1"));
+    assert_eq!(world.dir.read_marker().unwrap().as_deref(), Some(SUB));
+    assert_eq!(world.account.signed_in_email().await, None);
+}
+
+#[tokio::test]
+async fn an_address_that_cannot_be_read_shows_nothing_rather_than_failing() {
+    let world = World::signed_in().await;
+    world.fail_next_address_call();
+    assert_eq!(world.account.signed_in_email().await, None);
+    // Once the store recovers, the address is back.
+    assert_eq!(
+        world.account.signed_in_email().await.as_deref(),
+        Some(EMAIL)
+    );
 }
 
 // ---- use bookkeeping ---------------------------------------------------------------

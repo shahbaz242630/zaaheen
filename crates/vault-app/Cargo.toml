@@ -40,6 +40,8 @@ tracing-subscriber = { workspace = true }
 # this crate; the production declaration makes the shared type buildable.
 serde = { workspace = true }
 serde_json = { workspace = true }
+# Free space on a chosen folder's drive (ADR-105 L4.5); see the workspace entry.
+fs4 = { workspace = true }
 
 # Domain types: Memory, MemoryId, NewMemory, Boundary, VaultError.
 vault-core = { path = "../vault-core" }
@@ -60,6 +62,11 @@ open = { workspace = true }
 # Parsing and building those links. Already in the lockfile via
 # vault-account; declared here because `external_link` names it directly.
 url = { workspace = true }
+# ADR-106: the Claude desktop extension ("Zaaheen for Claude.mcpb") is a
+# small zip made at the click. Already in the lockfile at this exact version
+# (libduckdb-sys builds with it); no compression features, since the three
+# entries are stored as they are.
+zip = { version = "=6.0.0", default-features = false }
 
 # rmcp — used directly by `Application::start_with_mcp` (T0.1.10 Phase 2)
 # to bind `rmcp::transport::stdio()` and call `ServiceExt::serve` on a
@@ -172,6 +179,10 @@ test-helpers = []
 [dev-dependencies]
 tokio = { workspace = true, features = ["full", "test-util"] }
 tempfile.workspace = true
+# ADR-106: the Cursor install link's test decodes its base64 `config` to prove
+# it carries exactly the manual snippet's server. Already in the tree through
+# vault-account (same workspace pin); no new crate.
+base64 = { workspace = true }
 
 # Multi-agent daemon SPIKE Stage B (next-arc, 2026-06-23) — DEV-ONLY.
 # `tests/concurrent_multiagent_stage_b.rs` proves the REAL three-store stack

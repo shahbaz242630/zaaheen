@@ -11,16 +11,29 @@ const rawInvoke = window.__TAURI__ && window.__TAURI__.core
 
 // Every gated command can reject with one of the `locked_*` codes, and there
 // are ~15 places that render a caught error straight into the page. Rather
-// than teach each of them about entitlement, translate once here: a locked
-// person never sees a raw code, whichever button they pressed. Anything that
-// is not a lock code is re-thrown untouched.
+// than teach each of them about entitlement, handle it once here:
+//
+// * a lock code sends the person to the lock screen, whichever button they
+//   pressed — so a subscription that lapses while the app is open reaches
+//   the lock screen on the next action (SIGNIN-DESIGN.md §8.38) — and the
+//   call site still gets a plain line to show;
+// * an account or export code becomes its plain line;
+// * anything else is re-thrown untouched.
+//
+// Lines are thrown as strings, the way Tauri itself rejects, so a call site's
+// `${err}` reads the line rather than "Error: …".
 async function invoke(...args) {
   try {
     return await rawInvoke(...args);
   } catch (err) {
     const raw = String(err && err.message ? err.message : err);
-    const line = friendlyLockError(raw) || friendlyAccountError(raw);
-    throw line === null || line === undefined ? err : new Error(line);
+    const lockLine = friendlyLockError(raw);
+    if (lockLine !== null) {
+      showLock(raw);
+      throw lockLine;
+    }
+    const line = friendlyAccountError(raw);
+    throw line === null ? err : line;
   }
 }
 
@@ -145,18 +158,18 @@ function confirmAction({ title, body, confirmLabel }) {
 // welcome animation replays them, it does not fake them.
 const CHECK_DEFS = [
   {
-    phases: ["locating vault store", "deriving key — Credential Manager", "unsealing store — AES-256"],
-    done: "vault unsealed — AES-256, key in Windows Credential Manager",
+    phases: ["locating vault store", "deriving key from Credential Manager", "unsealing store with AES-256"],
+    done: "vault unsealed with AES-256, key in Windows Credential Manager",
   },
   // White-label rule (founder, 2026-07-11): never name the underlying
   // models or stack in the UI — the user-facing promise is "on-device".
   {
     phases: ["waking the recall engine", "loading on-device intelligence", "indexing your memory space"],
-    done: "recall engine ready — runs entirely on this device",
+    done: "recall engine ready, runs entirely on this device",
   },
   {
     phases: ["attaching audit log", "opening default boundary"],
-    done: "audit log active — every read & write recorded",
+    done: "audit log active, every read and write recorded",
   },
 ];
 const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -321,9 +334,9 @@ function renderMaintEngineStatus() {
     const note = $("maint-onboard-note");
     if (note && !maintFetch.done && !note.textContent.startsWith("Finishing")) {
       note.textContent = maintFetch.failed
-        ? "The consolidation engine will finish downloading later — you can still turn this on."
+        ? "The consolidation engine will finish downloading later, and you can still turn this on."
         : (maintFetch.active
-            ? `Preparing the consolidation engine in the background — ${maintFetch.percent}%. You can finish now either way.`
+            ? `Preparing the consolidation engine in the background (${maintFetch.percent}%). You can finish now either way.`
             : "");
     }
   }
@@ -335,9 +348,9 @@ function renderMaintEngineStatus() {
       } else {
         note.classList.remove("hidden");
         if (maintFetch.failed) {
-          note.textContent = "The consolidation engine didn't finish downloading — it will retry when you turn consolidation on, or on the next scheduled run.";
+          note.textContent = "The consolidation engine didn't finish downloading. It will retry when you turn consolidation on, or on the next scheduled run.";
         } else if (maintFetch.active) {
-          note.textContent = `Preparing the consolidation engine — ${maintFetch.percent}%. Step 3 becomes available once it is ready.`;
+          note.textContent = `Preparing the consolidation engine (${maintFetch.percent}%). Step 3 becomes available once it is ready.`;
         } else {
           note.textContent = "Consolidation uses a one-time on-device engine (~2.5 GB). It downloads when you turn consolidation on.";
         }
@@ -366,17 +379,152 @@ const SNIPPET_TOML = `[mcp_servers.zaaheen]
 command = "zaaheen"
 args = ["mcp", "serve"]`;
 
+// Plain words for people, not developers (founder's walk-through, session 55):
+// "AI app", as the welcome says, and where each app keeps the setting.
 const AGENTS = [
-  { name: "Claude Code", desc: "CLI agent, connects over stdio", hint: "Add this to your MCP settings, then restart Claude Code:", snippet: SNIPPET_JSON },
-  { name: "Claude Desktop", desc: "Edit its MCP config file", hint: "Add this to claude_desktop_config.json:", snippet: SNIPPET_JSON },
-  { name: "Codex", desc: "OpenAI's coding agent", hint: "Add this to ~/.codex/config.toml as an MCP server:", snippet: SNIPPET_TOML },
-  { name: "Cursor", desc: "AI code editor with MCP support", hint: "Add this to Cursor's MCP settings (mcp.json):", snippet: SNIPPET_JSON },
-  { name: "Antigravity", desc: "Google's agentic IDE", hint: "Add this to Antigravity's MCP config:", snippet: SNIPPET_JSON },
-  { name: "Custom client", desc: "Any MCP-compatible agent", hint: "Point your client at the vault's stdio server:", snippet: SNIPPET_JSON },
+  { name: "Claude Desktop", desc: "The Claude app for your computer", hint: "In Claude, open Settings, then Developer, then Edit Config. Add this to the file it shows you, save it, then quit Claude and open it again:", snippet: SNIPPET_JSON, connect: "claude_desktop" },
+  { name: "Cursor", desc: "AI code editor", hint: "Add this to Cursor's settings file, mcp.json, in the .cursor folder in your home folder. Save it, then restart Cursor:", snippet: SNIPPET_JSON, connect: "cursor" },
+  { name: "Claude Code", desc: "Claude in your terminal", hint: "Add this to Claude Code's settings, then restart Claude Code:", snippet: SNIPPET_JSON },
+  { name: "Codex", desc: "OpenAI's coding assistant", hint: "Add this to Codex's settings file, config.toml, in the .codex folder in your home folder. Save it, then restart Codex:", snippet: SNIPPET_TOML },
+  { name: "Antigravity", desc: "Google's AI code editor", hint: "Add this to Antigravity's settings for connected apps, then restart it:", snippet: SNIPPET_JSON },
+  { name: "Another app", desc: "Any AI app that can connect to Zaaheen", hint: "Give your app this setting:", snippet: SNIPPET_JSON },
 ];
 
+// "Connect it for me" (ADR-106): Zaaheen asks the app through its own
+// install route and never writes the app's settings, so the app asks the
+// person. One entry per `connect` value above; one line per answer of
+// `connect_app`.
+const CONNECT_WORDS = {
+  claude_desktop: {
+    note: "Zaaheen saves a small Claude extension, and Claude asks you to install it.",
+    asked: "Claude should now be asking you to install Zaaheen. Click Install, and it's connected.",
+    saved: "Zaaheen saved the extension to your Downloads folder. In Claude, open Settings, then Extensions, then Advanced settings, then Install Extension, and choose \"Zaaheen for Claude.mcpb\".",
+    app_not_found: "Zaaheen couldn't find Claude on this computer. If it's installed, you can add the setting yourself below.",
+    could_not_save: "Zaaheen couldn't save the Claude extension. You can add the setting yourself below.",
+    could_not_open: "Zaaheen couldn't open Claude. You can add the setting yourself below.",
+  },
+  cursor: {
+    note: "Cursor will ask you to install Zaaheen. Click Install there.",
+    asked: "Cursor should now be asking you to install Zaaheen. Click Install, and it's connected.",
+    app_not_found: "Zaaheen couldn't find Cursor on this computer. If it's installed, you can add the setting yourself below.",
+    could_not_open: "Zaaheen couldn't open Cursor. You can add the setting yourself below.",
+  },
+};
+
+// ------------------------------------------------------ account and the lock
+//
+// Sign-in, the lock screen, the account panel and the banners (S3 step 4d-2,
+// SIGNIN-DESIGN.md §8.38 and §8.39). The Rust side decides and this side
+// shows: every gated command asks the lock itself, so the worst a mistake in
+// this file can do is show the wrong screen, never open a locked vault.
+
+// Onboarding. Sign-in comes straight after the welcome, before anything
+// gated: the recall-engine download and the first memory both need the lock
+// to say yes. Where the memories live comes next (ADR-105 L-e): choosing a
+// folder is gated too. A build with no sign-in starts at that step.
+const ONBOARDING = ["welcome", "location", "connect", "memory", "maintenance"];
+const ONBOARDING_WITH_SIGN_IN = ["welcome", "signin", "location", "connect", "memory", "maintenance"];
+
+// Set just before a move asked for during setup: Zaaheen restarts to make
+// it, and the setup carries on from the location step afterwards, saying
+// what happened. Holds which of the two step lists the setup was on.
+const RESUME_KEY = "mv_resume_location";
+
+// §8.26 §6: the trial banner shows from day 23 of 30.
+const TRIAL_BANNER_DAYS = 7;
+// §8.26 §4: after a checkout, refresh every 10 s for 10 min.
+const CHECKOUT_POLL_MS = 10 * 1000;
+const CHECKOUT_POLL_FOR_MS = 10 * 60 * 1000;
+// A returning computer shows nothing until the lock answers, so a locked one
+// never flashes its memories. The answer is a file read when all is well; a
+// refusal refreshes first, which can take a few seconds (§8.26 §4), so after
+// this long the lock screen says what it is doing.
+const CHECKING_AFTER_MS = 400;
+
+const account = {
+  signIn: false,       // does this build have sign-in at all (account_access)
+  locked: null,        // the last lock code, or null while the lock is open
+  view: null,          // the last account view (account_status and friends)
+  ready: null,         // the first answer at open, for "Begin set up"
+  signingIn: false,
+  subscribing: false,
+  checkingPaid: false,
+  checkout: null,      // { startState } while waiting for a payment to arrive
+  lockCode: null,      // what the lock screen is showing, and why
+  lockVariant: null,
+};
+
+// Which lock screen each refusal shows. The code comes from the lock itself —
+// account_access, or a gated command's refusal — and nothing here infers it.
+const LOCK_VARIANT = {
+  locked_signed_out: "signed_out",
+  locked_trial_ended: "trial_ended",
+  locked_subscription_ended: "subscription_ended",
+  locked_cannot_confirm: "cannot_confirm",
+  locked_unlocking: "unlocking",
+};
+
+// The lock screen's words, founder-approved 2026-09-21 (§8.39). `action`
+// picks the buttons; `who` adds "Signed in as …" where somebody may have
+// paid under another account.
+const LOCK_COPY = {
+  checking: {
+    heading: "",
+    text: "Checking your subscription…",
+    action: null,
+  },
+  signed_out: {
+    heading: "Sign in to open your memories.",
+    // "on the next page" dropped with the Create an account button (§8.41).
+    text: "Your memories are on this computer, encrypted, just as you left them. Sign in to your Zaaheen account to open them. New to Zaaheen? Create an account, and your 30-day free trial starts straight away. No card is needed.",
+    action: "sign_in",
+  },
+  trial_ended: {
+    heading: "Your free trial has ended.",
+    text: "Subscribe to keep using your memories. Nothing has been deleted. Everything you kept is still here on this computer.",
+    action: "subscribe",
+    who: true,
+  },
+  subscription_ended: {
+    heading: "Your subscription has ended.",
+    text: "Subscribe again to keep using your memories. Nothing has been deleted. Everything you kept is still here on this computer.",
+    action: "subscribe",
+    who: true,
+  },
+  cannot_confirm: {
+    heading: "We couldn't confirm your subscription.",
+    text: "Zaaheen couldn't reach us to check your subscription. Check your internet connection, then try again. Only your subscription is checked, never your memories.",
+    action: "retry",
+  },
+  reopen: {
+    heading: "Zaaheen couldn't open your account on this computer.",
+    text: "Closing Zaaheen and opening it again usually fixes this. If it keeps happening, email us at the address below.",
+    action: "close",
+  },
+  // Reachable only from a lock-mode keeper, never from this app's own check.
+  // The words are §8.26 §6's.
+  unlocking: {
+    heading: "Zaaheen is unlocking.",
+    text: "Try again in a moment.",
+    action: "retry",
+  },
+};
+
+// The lock screen's passing lines, approved with the rest (§8.39).
+const LOCK_LINES = {
+  signingIn: "Finish signing in in your browser, then come back here.",
+  signingUp: "Finish creating your account in your browser, then come back here.",
+  notPaidYet: "We haven't seen your payment yet. It can take a minute, so try again shortly.",
+  stillOffline: "Still couldn't connect. Check your internet connection and try again in a moment.",
+};
+
 const state = {
-  screen: store.get("mv_onboarded", false) ? "home" : "welcome",
+  // "boot": a returning computer waiting for the lock's first answer, with
+  // nothing on screen yet (see CHECKING_AFTER_MS) — and a setup resuming
+  // after the restart a move needs, which goes on at the location step.
+  screen: store.get("mv_onboarded", false) || store.get(RESUME_KEY, null) ? "boot" : "welcome",
+  // ONBOARDING_WITH_SIGN_IN on a signed-out computer.
+  onboardSteps: store.get(RESUME_KEY, null) === "with_sign_in" ? ONBOARDING_WITH_SIGN_IN : ONBOARDING,
   checksDone: 0,
   agentPicked: null,
   memType: "semantic",
@@ -404,18 +552,28 @@ const state = {
 
 function showScreen(name) {
   state.screen = name;
-  for (const s of ["welcome", "connect", "memory", "maintenance", "home"]) {
+  for (const s of ["welcome", "signin", "location", "connect", "memory", "maintenance", "home", "lock", "moving"]) {
     $(`screen-${s}`).classList.toggle("hidden", s !== name);
   }
-  const steps = ["welcome", "connect", "memory", "maintenance"];
+  // The dots and the "STEP n OF m" kickers follow this setup's own steps:
+  // six with the sign-in step, five without.
+  const steps = state.onboardSteps;
   const idx = steps.indexOf(name);
-  $("progress-dots").classList.toggle("hidden", idx === -1);
+  const dots = $("progress-dots");
+  dots.classList.toggle("hidden", idx === -1);
   if (idx !== -1) {
-    [...$("progress-dots").children].forEach((el, i) => el.classList.toggle("on", i <= idx));
+    if (dots.children.length !== steps.length) {
+      dots.replaceChildren(...steps.map(() => document.createElement("span")));
+    }
+    [...dots.children].forEach((el, i) => el.classList.toggle("on", i <= idx));
+    const kicker = $(`screen-${name}`).querySelector(".kicker[data-step]");
+    if (kicker) kicker.textContent = `STEP ${idx + 1} OF ${steps.length}`;
   }
   if (name === "welcome") runChecks();
+  if (name === "location") renderLocationStep();
   if (name === "maintenance") renderMaintEngineStatus();
   if (name === "home") renderHome();
+  if (name === "lock") renderLockExport();
 }
 
 // -- welcome boot checks ----------------------------------------------------
@@ -524,12 +682,12 @@ function renderEngineRow() {
   if (engineFetch.failed) {
     row.className = "check-item done";
     ico.textContent = "[!]";
-    lbl.textContent = "couldn't finish preparing the recall engine — you can retry in a moment";
+    lbl.textContent = "couldn't finish preparing the recall engine, you can retry in a moment";
     return;
   }
   row.className = "check-item active";
   ico.textContent = SPIN[engineFetch.tick % SPIN.length];
-  lbl.textContent = `preparing recall engine — ${engineFetch.percent}%`;
+  lbl.textContent = `preparing recall engine, ${engineFetch.percent}%`;
 }
 
 // The honest "still getting ready" line on the home screen (ADR-090).
@@ -546,7 +704,7 @@ function renderEngineReady() {
   note.classList.toggle("hidden", !preparing);
   if (preparing) {
     note.textContent =
-      "Getting your recall engine ready — you can search now, results sharpen up in a moment.";
+      "Getting your recall engine ready. You can search now, and results sharpen up in a moment.";
   }
 }
 
@@ -555,9 +713,31 @@ function renderBeginState() {
   // The Begin button stays invisible (space reserved) until every check
   // has finished, then fades in (founder feedback 2026-07-11).
   $("begin-btn").classList.toggle("reveal", ready);
+  // No step count here (founder, session 55): the count depends on whether
+  // this computer needs the sign-in step, known only after Begin.
+  const signingIn = account.locked === "locked_signed_out";
   $("begin-hint").textContent = ready
-    ? "Three gentle steps — about two minutes."
-    : "Establishing your vault — nothing leaves this device…";
+    ? (signingIn ? "A few short steps, about three minutes." : "A few short steps, about two minutes.")
+    : "Establishing your vault on this device…";
+}
+
+// "Begin set up". A computer nobody has signed in on goes to the sign-in
+// step first; one whose lock is shut for another reason (a trial that ended
+// on an earlier install, no internet) goes to the lock screen, and on into
+// setup once it opens.
+async function beginSetup() {
+  if (state.checksDone < CHECK_DEFS.length) return;
+  await account.ready;
+  state.onboardSteps = account.locked === "locked_signed_out" ? ONBOARDING_WITH_SIGN_IN : ONBOARDING;
+  if (account.locked === null) {
+    showScreen("location");
+    return;
+  }
+  if (account.locked === "locked_signed_out") {
+    showScreen("signin");
+    return;
+  }
+  showLock(account.locked);
 }
 
 // -- connect agent ----------------------------------------------------------
@@ -570,12 +750,42 @@ function renderAgentCards() {
     </div>`).join("");
   const picked = state.agentPicked;
   $("snippet-wrap").classList.toggle("hidden", picked === null);
+  const auto = picked === null ? null : AGENTS[picked].connect || null;
+  $("connect-auto").classList.toggle("hidden", auto === null);
+  $("connect-auto-status").textContent = "";
+  $("connect-auto-show").classList.add("hidden");
+  if (auto !== null) $("connect-auto-note").textContent = CONNECT_WORDS[auto].note;
   if (picked !== null) {
-    $("snippet-hint").textContent = AGENTS[picked].hint;
+    const hint = AGENTS[picked].hint;
+    $("snippet-hint").textContent = auto === null ? hint : `Or add it yourself. ${hint}`;
     $("snippet-code").textContent = AGENTS[picked].snippet;
-    $("connect-cta").textContent = "I've added it — continue";
+    $("connect-cta").textContent = "I've added it, continue";
   } else {
     $("connect-cta").textContent = "Continue";
+  }
+}
+
+// "Connect it for me" (ADR-106): the page names only the app; the link and
+// everything else are fixed on the Rust side.
+async function onConnectAuto() {
+  const agent = state.agentPicked === null ? null : AGENTS[state.agentPicked];
+  if (!agent || !agent.connect) return;
+  const words = CONNECT_WORDS[agent.connect];
+  const button = $("connect-auto-btn");
+  button.disabled = true;
+  $("connect-auto-status").textContent = "";
+  $("connect-auto-show").classList.add("hidden");
+  try {
+    const answer = await invoke("connect_app", { app: agent.connect });
+    const outcome = answer && answer.outcome;
+    $("connect-auto-status").textContent = words[outcome] || words.could_not_open;
+    // Saved, not opened: the person installs it from Claude's settings, and
+    // may want to see where it is.
+    $("connect-auto-show").classList.toggle("hidden", outcome !== "saved");
+  } catch (err) {
+    $("connect-auto-status").textContent = String(err);
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -650,8 +860,8 @@ function renderFinishWait() {
   const err = $("mem-err");
   if (err) {
     err.textContent = engineFetch.failed
-      ? "Couldn't finish preparing the recall engine. Check your connection — retrying."
-      : `Finishing setup — preparing your recall engine (${engineFetch.percent}%)…`;
+      ? "Couldn't finish preparing the recall engine. Check your connection. Retrying…"
+      : `Finishing setup. Preparing your recall engine (${engineFetch.percent}%)…`;
   }
 }
 
@@ -682,7 +892,7 @@ async function finishOnboarding(withToast) {
       renderFinishWait();
       const err = $("mem-err");
       if (err) {
-        err.textContent = "Couldn't finish preparing the recall engine — continuing anyway. Recall will sharpen once it completes.";
+        err.textContent = "Couldn't finish preparing the recall engine, so setup carries on anyway. Recall will sharpen once it completes.";
       }
     }
     engineFetch.waiting = false;
@@ -709,6 +919,10 @@ function renderHome() {
   renderNav();
   renderTab();
   renderFooter();
+  // The banners: read from disk, no network, and no use recorded.
+  refreshAccountView();
+  // What this start did about a move, said once (ADR-105 L-e).
+  refreshLocationNotice();
   // The footer reports how many agents hold access, so it needs the registry
   // even when the user never opens the Agents tab. Fire-and-forget: a failed
   // read leaves the footer at its last known value rather than blocking home.
@@ -767,7 +981,7 @@ async function renderMemList() {
       if (rseq !== state.recentSeq || state.query.trim()) return; // superseded
       renderMemRows(recent.map((m) => ({
         id: m.id, memory_type: m.memory_type, content: m.content, when: relTime(m.created_at),
-      })), "Nothing here yet — keep a memory below, or connect an agent and let it remember for you.");
+      })), "Nothing here yet. Keep a memory below, or connect an agent and let it remember for you.");
     } catch (err) {
       if (rseq !== state.recentSeq) return;
       $("mem-rows").innerHTML = `<div class="empty-note">Couldn't load your memories: ${esc(String(err))}</div>`;
@@ -781,7 +995,7 @@ async function renderMemList() {
     $("mem-list-title").textContent = "Recalled";
     renderMemRows(results.map((r) => ({
       id: r.id, memory_type: r.memory_type, content: r.content, when: relTime(r.created_at),
-    })), "Nothing recalled for that — yet.");
+    })), "Nothing recalled for that yet.");
   } catch (err) {
     if (seq !== state.searchSeq) return;
     $("mem-list-title").textContent = "Recall failed";
@@ -950,7 +1164,7 @@ async function renderAgents() {
         <span class="nm">${esc(a.name)}</span>
         <span class="tr">${esc(scope)}</span>
         <span class="ac">${esc(when)}</span>
-        ${a.active ? `<button class="revoke">revoke</button>` : `<span class="ac">—</span>`}
+        ${a.active ? `<button class="revoke">revoke</button>` : `<span class="ac"></span>`}
       </div>`;
     }).join("");
     [...$("agent-rows").querySelectorAll(".revoke")].forEach((btn) => {
@@ -982,7 +1196,34 @@ async function renderAgents() {
 
 // -- settings tab --
 
+// Settings' sections down the left, the chosen one on the right (founder,
+// session 55). Account shows only in a build with sign-in, and is where
+// Settings opens there; elsewhere it opens on "Your memories".
+function renderSettingsNav() {
+  const accountShown = !$("account-section").classList.contains("hidden");
+  const nav = $("settings-nav");
+  nav.querySelector("[data-section=\"account\"]").classList.toggle("hidden", !accountShown);
+  if (!state.settingsSection) state.settingsSection = account.signIn ? "account" : "memories";
+  // Account asked for before its panel has drawn: it shows once it has.
+  const shown = state.settingsSection === "account" && !accountShown ? "memories" : state.settingsSection;
+  for (const button of nav.querySelectorAll("button[data-section]")) {
+    button.classList.toggle("on", button.dataset.section === shown);
+  }
+  for (const section of document.querySelectorAll("#tab-settings .settings-section")) {
+    section.classList.toggle("on", section.dataset.section === shown);
+  }
+}
+
+function onSettingsNav(e) {
+  const button = e.target.closest("button[data-section]");
+  if (!button) return;
+  state.settingsSection = button.dataset.section;
+  renderSettingsNav();
+}
+
 async function renderSettings() {
+  renderSettingsNav();
+  refreshAccountView();
   $("settings-rows").innerHTML = `<div class="empty-note">Loading…</div>`;
   let info = null;
   try {
@@ -1007,7 +1248,7 @@ async function renderSettings() {
     // user needs to know rather than see a reassuring constant.
     info.audit_chain_verified
       ? { label: "Audit log", value: "recorded locally · history verified", good: true }
-      : { label: "Audit log", value: "history could not be verified — the record may have been altered", good: false },
+      : { label: "Audit log", value: "history could not be verified, so the record may have been altered", good: false },
     { label: "Version", value: `zaaheen ${info.version} · V0.2 beta` },
   ];
   $("settings-rows").innerHTML = rows.map((r) => `
@@ -1020,6 +1261,7 @@ async function renderSettings() {
   // "uninstalling does not remove them" is a checkable statement.
   // textContent, not markup — this is a filesystem path from the backend.
   $("data-location").textContent = info.data_dir || "";
+  renderMoveSection();
 }
 
 // -- delete everything (ADR-SEC-008) --
@@ -1037,6 +1279,12 @@ function resetEraseConfirm() {
 function revealEraseConfirm() {
   $("erase-reveal").classList.add("hidden");
   $("erase-confirm").classList.remove("hidden");
+  // §8.26 §7: a subscription outlives the memories, so somebody paying is
+  // told so, with the way to cancel, before they type DELETE.
+  const view = account.view;
+  const subscriber = !!(account.signIn && view
+    && (view.state === "active" || view.state === "payment_failed"));
+  $("erase-subscription").classList.toggle("hidden", !subscriber);
   $("erase-phrase").value = "";
   $("erase-confirm-btn").disabled = true;
   $("erase-phrase").focus();
@@ -1143,6 +1391,946 @@ async function exportLogs() {
   }
 }
 
+// -- the lock, sign-in and the subscription (S3 step 4d-2) --
+
+// The ONLY place this app asks the lock whether it is open (§8.38). A served
+// ask records a use (§4), so it is asked when the app opens and after an
+// account action, and never on a timer: a window that polled it would keep
+// somebody "active" for as long as it stayed open, and the 30-days-unused
+// sign-out would never fire. `account_access_is_never_asked_on_a_timer` holds
+// this, and lists every caller with its reason.
+async function askAccess() {
+  let answer;
+  try {
+    answer = await invoke("account_access");
+  } catch {
+    // It does not fail inside the app. Outside it (a design review in a
+    // plain browser) there is no lock to ask, and the try-again screen is the
+    // honest thing to show.
+    answer = { sign_in: true, locked: "locked_cannot_confirm" };
+  }
+  account.signIn = !!answer.sign_in;
+  account.locked = answer.locked || null;
+  return account.locked;
+}
+
+// When the app opens: ask the lock once, then go where it says.
+async function enterApp() {
+  account.ready = askAccess();
+  routeAfterAccess(await account.ready);
+}
+
+// -- moving your memories (ADR-105 L-f) --------------------------------------
+
+// A start that moves the memories serves this page before it opens them: until
+// `startup_state` says "ready", nothing else is asked (the vault, the key and
+// the lock open after the move). A normal start answers "ready" at once and
+// nothing is shown. The question cannot fail in the app (its state is in
+// place before the page loads); if it does anyway, it is asked again for a
+// few seconds, and only then does the page carry on: every gated command
+// still asks the lock. Outside the app (a plain browser) there is no start.
+const MOVING_POLL_MS = 250;
+const STARTUP_TRIES = 20;
+
+async function untilStarted() {
+  if (!(window.__TAURI__ && window.__TAURI__.core)) return;
+  const before = state.screen;
+  let shown = false;
+  let failed = 0;
+  for (;;) {
+    let answer;
+    try {
+      answer = await invoke("startup_state");
+      failed = 0;
+    } catch {
+      failed += 1;
+      if (failed >= STARTUP_TRIES) break;
+      await sleep(MOVING_POLL_MS);
+      continue;
+    }
+    if (!answer || typeof answer !== "object" || answer.stage === "ready") break;
+    renderMoving(answer);
+    if (!shown) {
+      shown = true;
+      showScreen("moving");
+    }
+    await sleep(MOVING_POLL_MS);
+  }
+  // The screen stays up until the lock answers (routeAfterAccess moves on
+  // from "boot"), so the person never sees an empty window in between.
+  if (shown) {
+    if (before === "welcome") showScreen("welcome");
+    else state.screen = "boot";
+  }
+}
+
+// The move's own words, founder-approved (session 55). Only what the move
+// reports is shown: the phase, bytes done of the total, the folder.
+function renderMoving(answer) {
+  let words = "Getting ready to move them.";
+  let percent = 0;
+  let amount = "";
+  const total = Number(answer.total) || 0;
+  const done = Math.min(Number(answer.done) || 0, total);
+  const part = total > 0 ? done / total : 1;
+  if (answer.stage === "opening") {
+    words = "Opening your memories.";
+    percent = 100;
+  } else if (answer.phase === "copying") {
+    words = `Copying them to ${answer.to || "the new folder"}.`;
+    percent = part * 50;
+    amount = `${formatBytes(done)} of ${formatBytes(total)} copied`;
+  } else if (answer.phase === "checking") {
+    words = "Checking that every memory arrived safely.";
+    percent = 50 + part * 50;
+    amount = `${formatBytes(done)} of ${formatBytes(total)} checked`;
+  } else if (answer.phase === "finishing") {
+    words = "Almost done.";
+    percent = 100;
+  }
+  $("moving-phase").textContent = words;
+  $("moving-amount").textContent = amount;
+  // "Your memories stay safe where they were" holds until the switch; from
+  // "Almost done." on they are already in the new folder.
+  const beforeTheSwitch = answer.stage === "moving"
+    && ["waiting", "copying", "checking"].includes(answer.phase);
+  $("moving-note").classList.toggle("hidden", !beforeTheSwitch);
+  const rounded = Math.round(percent);
+  $("moving-fill").style.width = `${rounded}%`;
+  document.querySelector("#screen-moving .moving-bar").setAttribute("aria-valuenow", String(rounded));
+}
+
+// Sizes as Windows shows them (1 MB = 1,048,576 bytes).
+function formatBytes(bytes) {
+  const mb = bytes / 1048576;
+  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
+  if (mb >= 10) return `${Math.round(mb)} MB`;
+  return `${mb.toFixed(1)} MB`;
+}
+
+// Where the app goes once the lock has answered — at open, from the lock
+// screen, after an account action. The gated background work starts here, on
+// the branch where the lock said yes, and nowhere else.
+function routeAfterAccess(locked) {
+  if (locked === null) {
+    startEntitledWork();
+    refreshAccountView();
+    if (state.screen === "boot" || state.screen === "lock" || state.screen === "signin") {
+      // The setup's first gated step is where the memories live.
+      showScreen(store.get("mv_onboarded", false) ? "home" : "location");
+    }
+    return;
+  }
+  // A new install still watching its welcome: "Begin set up" routes it.
+  if (state.screen === "welcome") return;
+  // Already on the setup's sign-in step, which is where this belongs.
+  if (state.screen === "signin" && locked === "locked_signed_out") return;
+  showLock(locked);
+}
+
+// Everything that calls a gated command in the background. Before the lock
+// says yes each of these is refused, which is how a fresh install's first
+// download was being turned away before anybody could sign in. Started once.
+let entitledWorkStarted = false;
+function startEntitledWork() {
+  if (entitledWorkStarted) return;
+  entitledWorkStarted = true;
+
+  // First-run acquisition. Started for EVERY entitled launch, not just
+  // onboarding ones: a returning user whose files were never fetched (or
+  // were removed) has no onboarding gate to pass through, so this is their
+  // only route to a fully prepared engine. It short-circuits once the files
+  // are present and verified, and runs entirely in the background.
+  startEngineFetch()
+    .then(() => {
+      // ADR-090: files on disk is not the same as engine ready. Ask for the
+      // load explicitly here — on a genuine first run the files were still
+      // downloading when `main.rs` made its startup attempt, so without this
+      // the model stays cold until the user's first search.
+      warmEngine();
+    })
+    .catch(() => {
+      // Swallowed here on purpose: a background failure must not throw. It
+      // is surfaced where it matters — the onboarding gate retries and
+      // reports, and search degrades gracefully meanwhile (ADR-089).
+    });
+
+  // Warm-launch case: the files were already present, so `main.rs` started
+  // the load before the window existed. Nothing to request — just watch for
+  // it to finish so the "getting ready" line clears itself (ADR-090).
+  pollEngineReady();
+
+  // Maintenance engine acquisition — downloads DURING ONBOARDING for new
+  // users (founder 2026-07-24), never gating it. A returning user does NOT
+  // auto-download 2.5 GB on every launch; they get the engine when they turn
+  // maintenance on (see saveMaintenance), and a scheduled or catch-up run
+  // self-heals by fetching it if absent.
+  if (!store.get("mv_onboarded", false)) startMaintenanceFetch();
+
+  // Missed-run catch-up (task 10): if maintenance is on and overdue, run a
+  // background pass. Also re-checked when the engine download completes.
+  catchUpMaintenanceIfDue();
+}
+
+// Show the lock screen for a code from the lock. For "could not confirm"
+// the account view picks the remedy: a computer whose account could not be
+// read at all needs the app reopened; one that is signed in but offline
+// needs the internet. The view also carries "Signed in as …".
+async function showLock(code) {
+  account.lockCode = code;
+  const view = await readAccountView();
+  if (account.lockCode !== code) return; // a newer answer arrived meanwhile
+  renderLock(lockVariant(code, view));
+  if (state.screen !== "lock") showScreen("lock");
+}
+
+function lockVariant(code, view) {
+  const variant = LOCK_VARIANT[code] || "cannot_confirm";
+  if (variant === "cannot_confirm" && view && !view.signed_in && view.state === "cannot_confirm") {
+    return "reopen";
+  }
+  return variant;
+}
+
+// Draw one lock screen. Only the reason's own part changes: the foot, with
+// the export and the support address, is the same whatever the reason.
+function renderLock(variant) {
+  const copy = LOCK_COPY[variant] || LOCK_COPY.cannot_confirm;
+  const changed = account.lockVariant !== variant;
+  account.lockVariant = variant;
+  $("lock-heading").textContent = copy.heading;
+  $("lock-heading").classList.toggle("hidden", !copy.heading);
+  $("lock-text").textContent = copy.text;
+  const paying = copy.action === "subscribe" && account.checkout !== null;
+  $("lock-signin").classList.toggle("hidden", copy.action !== "sign_in");
+  $("lock-subscribe").classList.toggle("hidden", copy.action !== "subscribe" || paying);
+  $("lock-paying").classList.toggle("hidden", !paying);
+  $("lock-retry").classList.toggle("hidden", copy.action !== "retry");
+  $("lock-close").classList.toggle("hidden", copy.action !== "close");
+  if (changed) $("lock-status").textContent = "";
+  const view = copy.who ? account.view : null;
+  const who = !!(view && view.signed_in);
+  $("lock-who").classList.toggle("hidden", !who);
+  if (who) showWho($("lock-email"), view);
+}
+
+// A returning computer whose lock has not answered yet.
+function showChecking() {
+  if (state.screen !== "boot") return;
+  renderLock("checking");
+  showScreen("lock");
+}
+
+// "Signed in as … Not you?" The address came from the account service, so it
+// is shown as text and never as markup.
+function showWho(el, view) {
+  el.textContent = view && view.email ? `Signed in as ${view.email}. Not you?` : "Signed in.";
+}
+
+// The account as it stands on disk: no network, no lock asked, no use
+// recorded, so it is safe to read whenever a screen is drawn.
+async function readAccountView() {
+  if (!account.signIn) return null;
+  try {
+    account.view = await invoke("account_status");
+  } catch {
+    // Keep the last view rather than invent one.
+  }
+  return account.view;
+}
+
+async function refreshAccountView() {
+  await readAccountView();
+  renderAccountSurfaces();
+}
+
+function renderAccountSurfaces() {
+  renderBanners();
+  renderAccountPanel();
+}
+
+// Where an account action's message goes: the lock screen when it is up,
+// Settings' account panel otherwise.
+function accountStatusEl() {
+  return state.screen === "lock" ? $("lock-status") : $("account-note");
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function setSignInBusy(busy) {
+  for (const id of ["lock-signin-btn", "lock-signup-btn", "signin-btn", "signup-btn"]) {
+    $(id).classList.toggle("disabled", busy);
+  }
+}
+
+// "Sign in" and "Create an account", on the lock screen and the setup step
+// alike (§8.41). Both are the one sign-in: the browser opens on the page the
+// person chose, and comes back here either way. This waits for it (up to the
+// ten minutes of §8.26 §3), then asks the lock where to go.
+async function beginAccount(entry) {
+  if (account.signingIn) return;
+  account.signingIn = true;
+  const status = state.screen === "signin" ? $("signin-status") : $("lock-status");
+  setSignInBusy(true);
+  status.textContent = entry === "sign_up" ? LOCK_LINES.signingUp : LOCK_LINES.signingIn;
+  let signedIn = false;
+  try {
+    await invoke("account_sign_in", { entry });
+    signedIn = true;
+    status.textContent = "";
+  } catch (err) {
+    status.textContent = String(err);
+  } finally {
+    account.signingIn = false;
+    setSignInBusy(false);
+  }
+  if (signedIn) routeAfterAccess(await askAccess());
+}
+
+function onSignIn() {
+  return beginAccount("sign_in");
+}
+
+function onSignUp() {
+  return beginAccount("sign_up");
+}
+
+async function onSignOut() {
+  const ok = await confirmAction({
+    title: "Sign out of Zaaheen?",
+    body: "Your memories stay on this computer, encrypted. You'll need to sign in again to use them.",
+    confirmLabel: "Sign out",
+  });
+  if (!ok) return;
+  try {
+    await invoke("account_sign_out");
+  } catch (err) {
+    accountStatusEl().textContent = String(err);
+    return;
+  }
+  account.checkout = null;
+  routeAfterAccess(await askAccess());
+}
+
+// Subscribe, or manage an existing subscription. The app asks for a plan and
+// the browser opens where the account service says: a checkout for somebody
+// without a subscription, the subscription's own page for somebody with one
+// (§8.26 §5). No address crosses into this page (ADR-SEC-026).
+async function onSubscribe(plan) {
+  if (account.checkout || account.subscribing) return;
+  account.subscribing = true;
+  const status = accountStatusEl();
+  status.textContent = "";
+  let view = null;
+  try {
+    view = await invoke("account_subscribe", { plan });
+  } catch (err) {
+    status.textContent = String(err);
+  } finally {
+    account.subscribing = false;
+  }
+  if (view === null) {
+    // A failed checkout can end with this computer signed out (§8.37).
+    refreshAccountView();
+    return;
+  }
+  account.view = view;
+  await afterCheckout(view);
+}
+
+// After the browser opened: wait for the payment (refreshing only), then ask
+// the lock once. A visit to an existing subscription's own page has nothing
+// to wait for.
+async function afterCheckout(before) {
+  if (before.state !== "active") {
+    const wait = { startState: before.state };
+    account.checkout = wait;
+    renderPaying();
+    const after = await waitForPayment(wait);
+    if (account.checkout === wait) account.checkout = null;
+    if (after) account.view = after;
+  }
+  renderPaying();
+  routeAfterAccess(await askAccess());
+}
+
+// §8.26 §4: after a checkout, refresh every 10 s for 10 min, and stop as soon
+// as the account changes (paid, or signed out) or "I've paid" settles it.
+// It only refreshes: asking the lock is afterCheckout's, once, afterwards.
+async function waitForPayment(wait) {
+  const until = Date.now() + CHECKOUT_POLL_FOR_MS;
+  let view = null;
+  while (Date.now() < until && account.checkout === wait) {
+    await sleep(CHECKOUT_POLL_MS);
+    if (account.checkout !== wait) break;
+    try {
+      view = await invoke("account_refresh_now");
+    } catch {
+      continue;
+    }
+    if (view.state !== wait.startState) break;
+  }
+  return view;
+}
+
+// Redraw whichever surfaces show a checkout in progress.
+function renderPaying() {
+  if (state.screen === "lock" && account.lockVariant) renderLock(account.lockVariant);
+  renderAccountPanel();
+}
+
+// "I've paid": refresh now, then ask the lock. If the payment has not
+// arrived yet, say so and keep waiting.
+async function onPaid() {
+  // One check at a time: a double click must not ask the lock twice.
+  if (account.checkingPaid) return;
+  account.checkingPaid = true;
+  const status = accountStatusEl();
+  status.textContent = "";
+  let view = null;
+  try {
+    view = await invoke("account_refresh_now");
+  } catch {
+    // The lock below decides either way.
+  }
+  const locked = await askAccess();
+  account.checkingPaid = false;
+  const waiting = account.checkout;
+  if (waiting && view && view.state === waiting.startState) {
+    status.textContent = LOCK_LINES.notPaidYet;
+  } else {
+    account.checkout = null;
+  }
+  if (view) account.view = view;
+  renderPaying();
+  routeAfterAccess(locked);
+}
+
+// "Try again", when the subscription could not be confirmed.
+async function onRetry() {
+  const button = $("lock-retry-btn");
+  if (button.classList.contains("disabled")) return;
+  button.classList.add("disabled");
+  $("lock-status").textContent = "";
+  try {
+    await invoke("account_refresh_now");
+  } catch {
+    // The lock below decides either way.
+  }
+  const locked = await askAccess();
+  button.classList.remove("disabled");
+  if (locked === "locked_cannot_confirm") $("lock-status").textContent = LOCK_LINES.stillOffline;
+  routeAfterAccess(locked);
+}
+
+// The plan buttons, on the lock screen and in Settings.
+function onPlanClick(e) {
+  const button = e.target.closest("button[data-plan]");
+  if (button) onSubscribe(button.dataset.plan);
+}
+
+// "Manage subscription". Somebody already subscribed is sent to their
+// subscription's own page whatever plan is named (§8.26 §5: a live check
+// decides "already subscribed"), so the plan here is only the command's
+// required argument.
+function onManage() {
+  onSubscribe("monthly");
+}
+
+function onCloseApp() {
+  try {
+    if (window.__TAURI__ && window.__TAURI__.window) {
+      window.__TAURI__.window.getCurrentWindow().close();
+    }
+  } catch (_) { /* nothing else to do; the words on screen still stand */ }
+}
+
+// -- the account panel and the banners --
+
+function accountStateLine(view) {
+  const base = friendlyAccountState(view.state) || "";
+  if (view.state !== "trial" || view.days_left === null) return base;
+  if (view.days_left <= 0) return `${base}, less than a day left`;
+  return `${base}, ${view.days_left === 1 ? "1 day" : `${view.days_left} days`} left`;
+}
+
+function renderAccountPanel() {
+  const section = $("account-section");
+  if (!account.signIn || !account.view) {
+    section.classList.add("hidden");
+    renderSettingsNav();
+    return;
+  }
+  const view = account.view;
+  section.classList.remove("hidden");
+  renderSettingsNav();
+  // The row is named "Signed in as": just the address under it (session 55).
+  // Text, never markup: the address came from the account service.
+  $("account-who").textContent = view.signed_in
+    ? view.email || "your Zaaheen account"
+    : "Nobody is signed in on this computer.";
+  $("account-signout").classList.toggle("hidden", !view.signed_in);
+  $("account-state").textContent = accountStateLine(view);
+  const subscriber = view.state === "active" || view.state === "payment_failed";
+  const paying = account.checkout !== null;
+  $("account-plans").classList.toggle("hidden", subscriber || paying);
+  $("account-manage").classList.toggle("hidden", !subscriber || paying);
+  $("account-paying").classList.toggle("hidden", !paying);
+}
+
+function trialEndsLine(days) {
+  if (days <= 0) return "Your free trial ends in less than a day.";
+  if (days === 1) return "Your free trial ends in 1 day.";
+  return `Your free trial ends in ${days} days.`;
+}
+
+// The home screen's account notices (§8.26 §4 and §6). Information, never a
+// lock: while any of these shows, everything still works.
+function bannerLines(view) {
+  const lines = [];
+  if (!view) return lines;
+  if (view.state === "trial" && view.days_left !== null && view.days_left <= TRIAL_BANNER_DAYS) {
+    lines.push({ text: trialEndsLine(view.days_left), action: "subscribe", label: "Subscribe" });
+  }
+  if (view.state === "payment_failed") {
+    lines.push({ text: "Your last payment didn't go through.", action: "update_card", label: "Update your card", warn: true });
+  }
+  if (view.clock_wrong) {
+    lines.push({ text: "Your computer's clock is wrong. Set it to update automatically." });
+  }
+  return lines;
+}
+
+function bannerElement(line) {
+  const row = document.createElement("div");
+  row.className = line.warn ? "banner-line warn" : "banner-line";
+  const text = document.createElement("span");
+  text.textContent = line.text;
+  row.append(text);
+  if (line.action) {
+    const button = document.createElement("button");
+    button.className = "link-underline";
+    button.dataset.action = line.action;
+    button.textContent = line.label;
+    row.append(button);
+  }
+  return row;
+}
+
+function renderBanners() {
+  const host = $("account-banner");
+  if (!account.signIn) {
+    host.classList.add("hidden");
+    return;
+  }
+  const lines = bannerLines(account.view);
+  host.replaceChildren(...lines.map(bannerElement));
+  host.classList.toggle("hidden", lines.length === 0);
+}
+
+function onBannerClick(e) {
+  const button = e.target.closest("button[data-action]");
+  if (!button) return;
+  if (button.dataset.action === "update_card") {
+    onManage();
+    return;
+  }
+  // Subscribing from the trial banner happens in Settings, beside the plans.
+  state.tab = "settings";
+  state.settingsSection = "account";
+  renderTab();
+}
+
+// -- download my memories (S4) --
+
+function memoryExportFilename() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `zaaheen-memories-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.md`;
+}
+
+// One readable file, wherever the person chooses. It works locked or not,
+// which is its whole point (BRD §1.6 amendment 1).
+async function exportMemories(status, button) {
+  status.textContent = "";
+  let destination;
+  try {
+    destination = await saveDialog({
+      defaultPath: memoryExportFilename(),
+      filters: [{ name: "Markdown", extensions: ["md"] }],
+    });
+  } catch (_) {
+    status.textContent = "Could not open the save window. Please try again.";
+    return;
+  }
+  // Cancelled. Not an error, and saying nothing is the right response.
+  if (!destination) return;
+
+  button.disabled = true;
+  status.textContent = "Saving…";
+  try {
+    const n = Number(await invoke("export_memories", { destination })) || 0;
+    status.textContent = n === 0
+      ? "Saved. There were no memories to put in it yet."
+      : `Saved ${n === 1 ? "1 memory" : `${n} memories`}.`;
+  } catch (err) {
+    status.textContent = String(err);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function onLockExport() {
+  exportMemories($("lock-export-status"), $("lock-export"));
+}
+
+// The lock screen offers the download whenever there is something to take
+// (founder, session 55; SIGNIN-DESIGN.md §8.42). A computer with no memories
+// yet, such as a new install still in its setup, has nothing to download, so
+// the button is hidden there, and only on a count that reads exactly zero.
+// A count that cannot be read shows it: hiding it from somebody who has
+// memories is the failure that matters (BRD §1.6 amendment 1). The count
+// comes from `get_settings_info`, already on the locked allowlist, and is
+// asked each time the lock screen is entered, never per lock answer.
+async function renderLockExport() {
+  let none = false;
+  try {
+    const info = await invoke("get_settings_info");
+    none = info !== null && typeof info === "object" && info.memory_count === 0;
+  } catch {
+    // Unsure: keep it.
+  }
+  $("lock-export-box").classList.toggle("hidden", none);
+}
+
+function onSettingsExport() {
+  exportMemories($("export-memories-status"), $("export-memories"));
+}
+
+// -- where the memories live (ADR-105 L-e) --
+//
+// The setup's location step, Settings' "Move my memories", and the notice
+// after a start that moved them. The Rust side decides everything — which
+// folders are refused, when a move happens, what is removed — and answers
+// with codes and with folders as the person reads them. This side shows
+// them, always as text. All four commands are gated, so none of this runs
+// before the lock has said yes.
+
+// The folder picker. Guarded like the save dialog, so the page still renders
+// in a plain browser for design review.
+const openDialog = window.__TAURI__ && window.__TAURI__.dialog
+  ? window.__TAURI__.dialog.open
+  : async () => null;
+
+const place = {
+  status: null,       // the last location_status answer
+  pending: null,      // { folder, target, notes }: checked, awaiting "Move them here"
+  busy: false,        // a check or a move in flight
+  noticeShown: false, // this start's outcome is said once
+};
+
+const MOVE_CLOSING = "Zaaheen is closing to move your memories. It opens again by itself once they're moved.";
+
+// Why a folder or a move was refused. Same rule as the lock codes: every
+// code ships with its words (`every_location_code_has_words_in_the_app`).
+function friendlyLocationError(code) {
+  switch (code) {
+    case "location_not_local":
+      return "That isn't a folder on this computer. Choose a folder on this computer, or on a drive plugged into it.";
+    case "location_network":
+      return "That folder is on a network drive. Choose a folder on this computer, or on a drive plugged into it.";
+    case "location_unreachable":
+      return "Zaaheen can't open that folder. Check it's still there, then try again.";
+    case "location_drive_root":
+      return "Choose a folder on that drive, not the drive itself.";
+    case "location_system_folder":
+      return "That folder belongs to Windows or to a program. Choose one of your own folders.";
+    case "location_app_folder":
+      return "That folder is one of Zaaheen's own. Choose one of your own folders.";
+    case "location_cloud_synced":
+      return "A cloud storage app syncs that folder, so your memories would leave this computer, and syncing can damage them. Choose a folder that isn't synced.";
+    case "location_already_exists":
+      return "There's already a folder called \"Zaaheen Memories\" there. Choose another folder, or move that one somewhere else first.";
+    case "location_not_writable":
+      return "Zaaheen can't save files in that folder. Choose another one.";
+    case "location_not_enough_space":
+      return "There isn't enough free space there for your memories. Free up some space, or choose another drive.";
+    case "location_old_copy_waiting":
+      return "Zaaheen is still removing the old copy from your last move. You can move your memories again once it's gone.";
+    case "location_move_waiting":
+      return "A move is already waiting. Close Zaaheen and open it again to finish it.";
+    case "location_erasure_unfinished":
+      return "Zaaheen is still finishing deleting your memories. Close Zaaheen and open it again first.";
+    case "location_unavailable":
+      return "Zaaheen can't reach your memories right now. Close Zaaheen, open it again, and try once more.";
+    case "location_record_failed":
+      return "Zaaheen couldn't save that. Try again in a moment.";
+    case "location_nothing_to_forget":
+      return "There's no old copy waiting any more.";
+    case "location_old_copy_still_there":
+      return "That drive is connected now, so Zaaheen will remove the old copy the next time it opens.";
+    case "location_failed":
+      return "That didn't work. Try again in a moment.";
+    default:
+      return null;
+  }
+}
+
+function locationErrorLine(err) {
+  const raw = String(err);
+  return friendlyLocationError(raw) || raw;
+}
+
+// What to tell the person about a folder that was accepted.
+function locationNoteLine(code) {
+  switch (code) {
+    case "other_drive":
+      return "Memories on another drive only open on this computer, and only while that drive is connected. AI apps can't reach them while it's out.";
+    case "cloud_unchecked":
+      return "Zaaheen couldn't check whether a cloud app syncs this folder. Make sure none does.";
+    default:
+      return null;
+  }
+}
+
+// Why a start's move did not happen.
+function moveFailureLine(code) {
+  switch (code) {
+    case "folder_not_usable":
+      return "The folder you chose can't be used any more.";
+    case "not_enough_space":
+      return "The drive ran out of space.";
+    case "copy_failed":
+      return "Copying them didn't work.";
+    case "copy_did_not_match":
+      return "The copy didn't match your memories, so Zaaheen removed it.";
+    case "interrupted":
+      return "Zaaheen was closed, or the computer went off, while they were moving.";
+    case "memories_erased":
+      return "Your memories are being deleted, so there was nothing to move.";
+    case "record_failed":
+      return "Zaaheen couldn't save where they're kept.";
+    default:
+      return null;
+  }
+}
+
+// What this start did about a move, as sentences; none when there is
+// nothing to say.
+function outcomeLines(atStart) {
+  if (!atStart) return [];
+  switch (atStart.kind) {
+    case "nothing":
+      return [];
+    case "moved": {
+      const lines = [`Your memories are now kept in ${atStart.to}.`];
+      if (atStart.not_restricted) {
+        lines.push("This drive can't lock the folder to your Windows account. Your memories stay encrypted.");
+      }
+      if (atStart.old_copy_waiting) {
+        lines.push("Zaaheen couldn't remove the old copy yet. It will try again the next time it opens.");
+      }
+      return lines;
+    }
+    case "old_copy_removed":
+      return ["The old copy of your memories has now been removed."];
+    case "old_copy_waiting":
+      return ["The old copy of your memories hasn't been removed yet. Zaaheen will try again the next time it opens."];
+    case "failed": {
+      const why = moveFailureLine(atStart.reason);
+      return [
+        "Zaaheen couldn't move your memories.",
+        ...(why ? [why] : []),
+        "They're still where they were, safe and unchanged.",
+        atStart.retrying ? "Zaaheen will try again the next time it opens." : "You can try again.",
+      ];
+    }
+    case "deferred":
+      return ["Zaaheen couldn't move your memories just now, because something else was using them. They're still where they were, and Zaaheen will try again the next time it opens."];
+    default:
+      return [];
+  }
+}
+
+async function refreshLocation() {
+  try {
+    place.status = await invoke("location_status");
+  } catch {
+    // Keep the last answer rather than invent one.
+  }
+  return place.status;
+}
+
+// The setup's step: the folder, and — after the restart for a move asked
+// for here — what happened.
+async function renderLocationStep() {
+  store.set(RESUME_KEY, null);
+  $("location-status").textContent = "";
+  hideMovePanel();
+  const s = await refreshLocation();
+  $("location-folder").textContent = s ? s.folder : "";
+  const lines = s ? outcomeLines(s.at_start) : [];
+  if (lines.length) place.noticeShown = true;
+  $("location-outcome").textContent = lines.join(" ");
+  $("location-outcome").classList.toggle("hidden", lines.length === 0);
+}
+
+// "Choose another folder…" and "Move my memories…": pick, check, then the
+// confirmation. Never a move straight from the picker.
+async function chooseFolder(host, statusEl) {
+  if (place.busy) return;
+  statusEl.textContent = "";
+  hideMovePanel();
+  let folder;
+  try {
+    folder = await openDialog({ directory: true, multiple: false, title: "Choose where to keep your memories" });
+  } catch (_) {
+    statusEl.textContent = "Could not open the folder window. Please try again.";
+    return;
+  }
+  // Cancelled. Not an error, and saying nothing is the right response.
+  if (!folder || typeof folder !== "string") return;
+  place.busy = true;
+  statusEl.textContent = "Checking that folder…";
+  try {
+    const checked = await invoke("location_check", { folder });
+    statusEl.textContent = "";
+    place.pending = { folder, target: checked.target, notes: checked.notes || [] };
+    showMovePanel(host);
+  } catch (err) {
+    statusEl.textContent = locationErrorLine(err);
+  } finally {
+    place.busy = false;
+  }
+}
+
+function showMovePanel(host) {
+  const pending = place.pending;
+  const panel = $("move-panel");
+  host.appendChild(panel);
+  $("move-target").textContent = pending.target;
+  $("move-notes").replaceChildren(...pending.notes.map((code) => {
+    const line = document.createElement("p");
+    line.className = "move-note";
+    line.textContent = locationNoteLine(code) || code;
+    return line;
+  }));
+  // ADR-105 L4.3: the cloud check could not run, so the person confirms.
+  const unchecked = pending.notes.includes("cloud_unchecked");
+  $("move-cloud").classList.toggle("hidden", !unchecked);
+  $("move-cloud-ok").checked = false;
+  $("move-go").disabled = unchecked;
+  $("move-cancel").disabled = false;
+  $("move-status").textContent = "";
+  panel.classList.remove("hidden");
+  // In the setup, the step's own buttons step aside: one decision at a time.
+  $("screen-location").classList.toggle("choosing", host === $("location-panel-host"));
+}
+
+function hideMovePanel() {
+  if (place.busy) return;
+  $("move-panel").classList.add("hidden");
+  $("screen-location").classList.remove("choosing");
+  place.pending = null;
+}
+
+function onCloudConfirm() {
+  $("move-go").disabled = !$("move-cloud-ok").checked;
+}
+
+// "Move them here". The move is recorded, then Zaaheen restarts to make it
+// before anything opens the memories; nothing moves if it is refused.
+async function onMoveGo() {
+  const pending = place.pending;
+  if (!pending || place.busy || $("move-go").disabled) return;
+  if (pending.notes.includes("cloud_unchecked") && !$("move-cloud-ok").checked) return;
+  place.busy = true;
+  $("move-go").disabled = true;
+  $("move-cancel").disabled = true;
+  $("move-status").textContent = MOVE_CLOSING;
+  const duringSetup = state.screen === "location" && !store.get("mv_onboarded", false);
+  if (duringSetup) {
+    store.set(RESUME_KEY, state.onboardSteps === ONBOARDING_WITH_SIGN_IN ? "with_sign_in" : "plain");
+  }
+  try {
+    await invoke("location_move", { folder: pending.folder });
+  } catch (err) {
+    if (duringSetup) store.set(RESUME_KEY, null);
+    place.busy = false;
+    $("move-status").textContent = locationErrorLine(err);
+    $("move-go").disabled = false;
+    $("move-cancel").disabled = false;
+  }
+}
+
+function onMoveCancel() {
+  hideMovePanel();
+}
+
+function onLocationContinue() {
+  if (place.busy) return;
+  showScreen("connect");
+}
+
+// Settings: a move waiting for the next start, and an old copy still to go.
+async function renderMoveSection() {
+  hideMovePanel();
+  $("settings-move-status").textContent = "";
+  const s = await refreshLocation();
+  const waiting = s && s.move_waiting;
+  $("move-waiting").classList.toggle("hidden", !waiting);
+  if (waiting) {
+    $("move-waiting").textContent = `A move to ${waiting} is waiting. It happens the next time Zaaheen opens.`;
+  }
+  const old = s && s.old_copy;
+  $("old-copy").classList.toggle("hidden", !old);
+  if (old) {
+    $("old-copy-text").textContent = old.connected
+      ? `An old copy of your memories is still in ${old.from}. Zaaheen removes it the next time it opens.`
+      : `An old copy of your memories is still in ${old.from}, which isn't connected. Zaaheen removes it once that drive is back, and until then your memories can't be moved again.`;
+    $("old-copy-forget").classList.toggle("hidden", old.connected);
+  }
+}
+
+// A drive that never comes back would block every later move (L-d
+// decision 9). Stopping the wait removes nothing.
+async function onForgetOldCopy() {
+  const old = place.status && place.status.old_copy;
+  if (!old || old.connected) return;
+  const ok = await confirmAction({
+    title: "Stop waiting for the old copy?",
+    body: `Zaaheen is waiting for ${old.from} to come back, so it can remove the old copy of your memories there. If that drive is gone for good, you can stop waiting. If it turns up later, you can delete that folder yourself. It's encrypted, and it only opens on this computer.`,
+    confirmLabel: "Stop waiting",
+  });
+  if (!ok) return;
+  let line;
+  try {
+    await invoke("location_forget_old_copy");
+    line = "Done. You can move your memories again whenever you like.";
+  } catch (err) {
+    line = locationErrorLine(err);
+  }
+  await renderMoveSection();
+  $("settings-move-status").textContent = line;
+}
+
+// The home screen's notice: what this start did about a move, once.
+async function refreshLocationNotice() {
+  if (place.noticeShown) return;
+  place.noticeShown = true;
+  const s = await refreshLocation();
+  const lines = s ? outcomeLines(s.at_start) : [];
+  if (!lines.length) return;
+  $("location-notice-text").textContent = lines.join(" ");
+  $("location-notice").classList.remove("hidden");
+}
+
+function onLocationNoticeOk() {
+  $("location-notice").classList.add("hidden");
+}
+
 // -- maintenance tab --
 
 const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -1165,7 +2353,7 @@ function friendlyMaintError(code) {
     case "maintenance_engine_unavailable":
       return "the consolidation engine is still downloading";
     case "maintenance_run_failed":
-      return "it didn't finish — it will try again on schedule";
+      return "it didn't finish, and it will try again on schedule";
     case "maintenance_schedule_failed":
       return "the schedule couldn't be updated";
     default:
@@ -1181,20 +2369,21 @@ function friendlyMaintError(code) {
 //
 // Deliberately NOT the wording the MCP gate sends an agent: that text says
 // "Open the Zaaheen app on this computer", which is nonsense shown inside the
-// app itself. These lines are provisional — the lock screen's full copy is
-// designed in step 4d.
+// app itself. These are the lock screen's headings (founder-approved, §8.39),
+// for the call site that shows a refusal inline while the lock screen takes
+// over.
 function friendlyLockError(code) {
   switch (code) {
     case "locked_signed_out":
-      return "Sign in to use your memories";
+      return "Sign in to open your memories.";
     case "locked_cannot_confirm":
-      return "we couldn't confirm your subscription — check your internet connection";
+      return "We couldn't confirm your subscription.";
     case "locked_trial_ended":
-      return "your free trial has ended. Subscribe to keep using your memories — nothing has been deleted";
+      return "Your free trial has ended.";
     case "locked_subscription_ended":
-      return "your subscription has ended. Subscribe to keep using your memories — nothing has been deleted";
+      return "Your subscription has ended.";
     case "locked_unlocking":
-      return "unlocking — try again in a moment";
+      return "Zaaheen is unlocking. Try again in a moment.";
     default:
       // null, NOT the code: the `invoke` wrapper uses null to mean "not a
       // lock error, re-throw it untouched". Returning the code here would
@@ -1203,38 +2392,39 @@ function friendlyLockError(code) {
   }
 }
 
-// Plain-English line for an account failure (S3 step 4b).
+// Plain-English line for an account or export failure (S3 steps 4b, 4c).
 //
 // Same rule as the lock codes: a code with no arm here falls through to
 // showing the user the raw code, so every arm ships with its code. Pinned by
-// `every_account_code_has_a_plain_english_line_in_the_app`.
+// `every_account_code_has_a_plain_english_line_in_the_app`. Whole sentences
+// since 4d-2, because they now stand on their own under a button.
 function friendlyAccountError(code) {
   switch (code) {
     case "account_sign_in_did_not_finish":
-      return "signing in didn't finish — try again";
+      return "Signing in didn't finish. Try again.";
     case "account_busy":
-      return "something else on this computer is using your account — try again in a moment";
+      return "Something else on this computer is using your account. Try again in a moment.";
     case "account_unreachable":
-      return "we couldn't reach the internet — check your connection and try again";
+      return "Zaaheen couldn't reach the internet. Check your connection and try again.";
     case "account_refused":
-      return "that didn't go through — try again in a moment";
+      return "That didn't go through. Try again in a moment.";
     case "account_bad_plan":
-      return "that plan isn't one we offer";
+      return "That plan isn't one we offer.";
+    case "account_unavailable":
+      return "Zaaheen couldn't reach your account on this computer. Close Zaaheen and open it again.";
     case "export_bad_destination":
-      return "that isn't somewhere we can save the file — try choosing a different folder";
+      return "That isn't somewhere Zaaheen can save the file. Try a different folder.";
     case "export_read_failed":
-      return "your memories couldn't be read just now — try again in a moment";
+      return "Your memories couldn't be read just now. Try again in a moment.";
     case "export_write_failed":
-      return "the file couldn't be saved — check there's room on the disk and try again";
+      return "The file couldn't be saved. Check there's room on the disk and try again.";
     default:
       return null;
   }
 }
 
-// What each account state says on screen (S3 step 4b).
-//
-// Provisional, like the lock lines: the account panel and the lock screen are
-// designed in step 4d. These exist so no raw state string can reach a person.
+// What each account state says on screen: the account panel's state line
+// (S3 step 4b, shown since 4d-2). No raw state string can reach a person.
 // Pinned by `every_account_state_has_a_plain_english_line_in_the_app`.
 function friendlyAccountState(state) {
   switch (state) {
@@ -1308,19 +2498,19 @@ async function renderMaintenance() {
     const when = view.frequency === "weekly"
       ? `every ${WEEKDAY_NAMES[view.weekday] || "week"} at ${friendlyTime(view.hour, view.minute)}`
       : `every day at ${friendlyTime(view.hour, view.minute)}`;
-    html += `<div class="maint-on">On — runs ${esc(when)}.</div>`;
+    html += `<div class="maint-on">On, runs ${esc(when)}.</div>`;
   } else if (view.enabled && !view.registered) {
     html += `<div class="maint-warn">Turned on, but the scheduled run isn't registered. Try saving again.</div>`;
   } else {
-    html += `<div class="maint-off">Off — your vault won't be consolidated automatically.</div>`;
+    html += `<div class="maint-off">Off. Your vault won't be consolidated automatically.</div>`;
   }
   if (view.last_run) {
     const lr = view.last_run;
     if (lr.ok) {
       const what = summariseRun(lr.summary);
-      html += `<div class="maint-last">Last run ${esc(relTime(lr.finished_at))}${what ? " — " + esc(what) : ""}.</div>`;
+      html += `<div class="maint-last">Last run ${esc(relTime(lr.finished_at))}${what ? ": " + esc(what) : ""}.</div>`;
     } else {
-      html += `<div class="maint-last">Last attempt ${esc(relTime(lr.finished_at))} — ${esc(friendlyMaintError(lr.summary))}.</div>`;
+      html += `<div class="maint-last">Last attempt ${esc(relTime(lr.finished_at))}: ${esc(friendlyMaintError(lr.summary))}.</div>`;
     }
   }
   if (status) status.innerHTML = html;
@@ -1344,7 +2534,7 @@ async function saveMaintenance() {
     if (enabled) startMaintenanceFetch();
     renderMaintenance();
   } catch {
-    if (note) note.textContent = "Couldn't save — please try again.";
+    if (note) note.textContent = "Couldn't save. Please try again.";
   }
 }
 
@@ -1355,7 +2545,7 @@ async function runMaintenanceNow() {
   // under "Save schedule".
   const note = $("maint-run-note");
   renderMaintEngineStatus(); // disables the run button while it runs
-  if (note) note.textContent = "Consolidating now — this can take a few minutes…";
+  if (note) note.textContent = "Consolidating now. This can take a few minutes…";
   try {
     await invoke("run_maintenance_now");
     if (note) note.textContent = "Done ✓";
@@ -1395,7 +2585,7 @@ async function catchUpMaintenanceIfDue() {
   const overdue = !last || (Date.now() - last) > intervalMs;
   catchUpDone = true;
   if (!overdue) return;
-  tracingHint("maintenance overdue on launch — running a catch-up pass");
+  tracingHint("maintenance overdue on launch, running a catch-up pass");
   // Fire-and-forget: never block the window, and let the tab reflect the
   // result on its next render.
   invoke("run_maintenance_now").catch(() => {});
@@ -1420,7 +2610,7 @@ async function finishFromMaintenance() {
   }
   $("maint-onboard-note").textContent = ok
     ? "Finishing setup…"
-    : "Couldn't schedule it now — you can turn it on later in Consolidation. Finishing…";
+    : "Couldn't schedule it now. You can turn it on later in Consolidation. Finishing…";
   await finishOnboarding(state.keptFirstMemory);
 }
 
@@ -1443,9 +2633,41 @@ function renderFooter() {
 
 function init() {
   // welcome
-  $("begin-btn").addEventListener("click", () => {
-    if (state.checksDone >= CHECK_DEFS.length) showScreen("connect");
-  });
+  $("begin-btn").addEventListener("click", beginSetup);
+
+  // sign in (the setup step) and the lock screen
+  $("signin-btn").addEventListener("click", onSignIn);
+  $("signup-btn").addEventListener("click", onSignUp);
+  $("lock-signin-btn").addEventListener("click", onSignIn);
+  $("lock-signup-btn").addEventListener("click", onSignUp);
+  $("lock-plans").addEventListener("click", onPlanClick);
+  $("lock-paid").addEventListener("click", onPaid);
+  $("lock-retry-btn").addEventListener("click", onRetry);
+  $("lock-close-btn").addEventListener("click", onCloseApp);
+  $("lock-signout").addEventListener("click", onSignOut);
+  $("lock-export").addEventListener("click", onLockExport);
+
+  // home — the account notices, and Settings' account panel
+  $("account-banner").addEventListener("click", onBannerClick);
+  $("account-signout").addEventListener("click", onSignOut);
+  $("account-plans").addEventListener("click", onPlanClick);
+  $("account-manage-btn").addEventListener("click", onManage);
+  $("account-paid").addEventListener("click", onPaid);
+  $("export-memories").addEventListener("click", onSettingsExport);
+  $("erase-manage").addEventListener("click", onManage);
+
+  // where the memories live (ADR-105 L-e): the setup's step, Settings, the
+  // move's confirmation and the home notice
+  $("location-cta").addEventListener("click", onLocationContinue);
+  $("location-change").addEventListener("click", () =>
+    chooseFolder($("location-panel-host"), $("location-status")));
+  $("move-reveal").addEventListener("click", () =>
+    chooseFolder($("settings-move-host"), $("settings-move-status")));
+  $("move-cloud-ok").addEventListener("change", onCloudConfirm);
+  $("move-go").addEventListener("click", onMoveGo);
+  $("move-cancel").addEventListener("click", onMoveCancel);
+  $("old-copy-forget").addEventListener("click", onForgetOldCopy);
+  $("location-notice-ok").addEventListener("click", onLocationNoticeOk);
 
   // connect
   renderAgentCards();
@@ -1458,6 +2680,10 @@ function init() {
   });
   $("copy-snippet").addEventListener("click", () => {
     if (state.agentPicked !== null) copyText(AGENTS[state.agentPicked].snippet, $("copy-snippet"));
+  });
+  $("connect-auto-btn").addEventListener("click", onConnectAuto);
+  $("connect-auto-show").addEventListener("click", () => {
+    invoke("show_claude_extension").catch(() => { /* nothing to add: the steps are on screen */ });
   });
   $("connect-cta").addEventListener("click", connectContinue);
   $("connect-skip").addEventListener("click", () => showScreen("memory"));
@@ -1559,6 +2785,7 @@ function init() {
   $("maint-run").addEventListener("click", runMaintenanceNow);
 
   // home — settings
+  $("settings-nav").addEventListener("click", onSettingsNav);
   $("replay-welcome").addEventListener("click", replayWelcome);
   $("export-logs").addEventListener("click", exportLogs);
 
@@ -1568,12 +2795,9 @@ function init() {
   $("erase-phrase").addEventListener("input", onErasePhraseInput);
   $("erase-confirm-btn").addEventListener("click", eraseEverything);
 
-  // First-run acquisition. Started for EVERY launch, not just onboarding
-  // ones: a returning user whose files were never fetched (or were removed)
-  // has no onboarding gate to pass through, so this is their only route to a
-  // fully prepared engine. It short-circuits once the files are present and
-  // verified, and runs entirely in the background — nothing here blocks the
-  // window from appearing.
+  // Progress events for the two engine downloads. Only the listeners are
+  // attached here: the downloads themselves are gated commands, started by
+  // startEntitledWork once the lock has said yes.
   listenEvent("recall-engine://progress", (event) => {
     const p = event && event.payload;
     if (!p) return;
@@ -1582,30 +2806,7 @@ function init() {
     engineFetch.tick += 1;
     renderEngineRow();
     renderFinishWait();
-  }).catch(() => { /* no event bridge outside Tauri — progress just stays hidden */ });
-
-  startEngineFetch()
-    .then(() => {
-      // ADR-090: files on disk is not the same as engine ready. Ask for the
-      // load explicitly here — on a genuine first run the files were still
-      // downloading when `main.rs` made its startup attempt, so without this
-      // the model stays cold until the user's first search.
-      warmEngine();
-    })
-    .catch(() => {
-      // Swallowed here on purpose: a background failure must not throw during
-      // init. It is surfaced where it matters — the onboarding gate retries and
-      // reports, and search degrades gracefully meanwhile (ADR-089).
-    });
-
-  // Warm-launch case: the files were already present, so `main.rs` started the
-  // load before the window existed. Nothing to request — just watch for it to
-  // finish so the "getting ready" line clears itself (ADR-090).
-  pollEngineReady();
-
-  // Maintenance engine (Phi-4) acquisition — downloads for everyone, NEVER
-  // gates onboarding (founder 2026-07-24). Fire-and-forget in the background;
-  // short-circuits once the file is present and verified.
+  }).catch(() => { /* no event bridge outside Tauri, so progress just stays hidden */ });
   listenEvent("maintenance-engine://progress", (event) => {
     const p = event && event.payload;
     if (!p) return;
@@ -1613,18 +2814,23 @@ function init() {
     maintFetch.active = true;
     renderMaintEngineStatus();
   }).catch(() => { /* no event bridge outside Tauri */ });
-  // Phi-4 downloads DURING ONBOARDING for new users (founder 2026-07-24 —
-  // "always during onboarding"). A returning user (already on the home screen)
-  // does NOT auto-download 2.5 GB on every launch; they get the engine when
-  // they turn maintenance on (see saveMaintenance), and a scheduled/catch-up
-  // run self-heals by fetching it if absent.
-  if (state.screen !== "home") startMaintenanceFetch();
 
-  // Missed-run catch-up (task 10): if maintenance is on and overdue, run a
-  // background pass. Also re-checked when the engine download completes.
-  catchUpMaintenanceIfDue();
-
-  showScreen(state.screen);
+  // A new install starts its welcome at once: the checks it replays really
+  // happened, and none of them needs the lock. A returning computer waits
+  // for the lock's first answer (enterApp) with nothing on screen, and says
+  // what it is doing if that takes more than a moment.
+  if (state.screen === "welcome") {
+    showScreen("welcome");
+  } else {
+    setTimeout(showChecking, CHECKING_AFTER_MS);
+  }
 }
 
-document.addEventListener("DOMContentLoaded", init);
+// Wire the page, wait for a start that is moving the memories (ADR-105 L-f),
+// then ask the lock where to go (SIGNIN-DESIGN.md §8.38: asked when the app
+// opens, and after an account action).
+document.addEventListener("DOMContentLoaded", async () => {
+  init();
+  await untilStarted();
+  enterApp();
+});

@@ -30,13 +30,19 @@ use std::time::Instant;
 use chrono::{DateTime, NaiveDate, Utc};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::model::{CallToolResult, ContentBlock, ErrorCode, ServerCapabilities, ServerInfo};
+use rmcp::model::{
+    CallToolResult, ContentBlock, ErrorCode, Extensions, ServerCapabilities, ServerInfo,
+};
 use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData as McpError, ServerHandler};
 use serde::{Deserialize, Serialize};
 use vault_core::{Boundary, MemoryId, MemoryType, NewMemory, VaultError, VaultResult};
-use vault_retrieval::{ReadQuery, RetrievalOptions, RetrievalQuery, StructuredReadResponse};
+use vault_retrieval::{
+    HealthWarning, ReadQuery, RetrievalOptions, RetrievalQuery, StructuredReadResponse,
+    WarningCode, WarningSeverity,
+};
 
 use crate::audit::{ToolInvokeDetails, ToolInvokeError};
+use crate::gate::AccountNotice;
 use crate::Adapter;
 
 // =============================================================================
@@ -696,6 +702,13 @@ impl StdioServer {
                        (REPORT very stale or clock skew). Tell the user the \
                        vault hasn't been consolidated recently and results \
                        may be incomplete. \
+                       \n\
+                       - A warning whose `code` starts with `SUBSCRIPTION_` is \
+                       about the user's Zaaheen subscription, not about the facts, \
+                       and never changes `status`: the facts are as reliable as \
+                       `status` says. Tell the user once per conversation, in one \
+                       short sentence made from its `detail` and `recovery_hint`, \
+                       then answer normally. \
                        \n\n\
                        CRITICAL — when `abstain=true`: the vault has no \
                        confident answer. INSPECT any `relevant_facts` shown — if \
@@ -710,6 +723,10 @@ impl StdioServer {
     pub async fn tool_read(
         &self,
         params: Parameters<ReadToolParams>,
+        // Where the gate leaves an `AccountNotice` for a served call
+        // (SIGNIN-DESIGN.md §8.40). Only this process can write it: a client
+        // cannot put a typed value here.
+        extensions: Extensions,
     ) -> Result<CallToolResult, McpError> {
         let Parameters(p) = params;
         let query_length_recorded: u32 = p.query.len() as u32;
@@ -756,6 +773,7 @@ impl StdioServer {
             .map_err(vault_error_to_mcp)?;
 
         let response = dispatch_result.map_err(vault_error_to_mcp)?;
+        let response = with_account_notice(response, extensions.get::<AccountNotice>().copied());
         success_json_result(&response)
     }
 
@@ -1223,6 +1241,10 @@ pub(crate) fn vault_error_to_mcp(err: VaultError) -> McpError {
         | VaultError::WorkerSpawnFailed(_)
         | VaultError::McpBindFailed(_)
         | VaultError::KeychainProvenance(_)
+        // ADR-SEC-029: a vault-key startup failure, same posture.
+        | VaultError::VaultKey(_)
+        // ADR-105: the vault folder could not be found — same posture.
+        | VaultError::VaultLocation(_)
         // T0.3.x Batch A (2026-05-26): consolidator safety-wrapper errors.
         // Surface only via the vault-cli `consolidate run` subcommand, never
         // through MCP tool dispatch in V0.2 — the consolidator runs out-of-band
@@ -1271,6 +1293,37 @@ fn parse_as_of(s: &str) -> VaultResult<DateTime<Utc>> {
     Err(VaultError::InvalidInput(format!(
         "as_of must be an ISO-8601 date (YYYY-MM-DD) or RFC-3339 timestamp; got {trimmed:?}"
     )))
+}
+
+/// Add the account's notice, when the gate left one, to `memory_read`'s
+/// `health.warnings` (ADR-054 Contract 2, amendment 3; `SIGNIN-DESIGN.md`
+/// §8.40). `status` is left alone: it describes the vault's data, and a
+/// notice is about the account.
+fn with_account_notice(
+    mut response: StructuredReadResponse,
+    notice: Option<AccountNotice>,
+) -> StructuredReadResponse {
+    let Some(notice) = notice else {
+        return response;
+    };
+    let (code, severity) = match notice {
+        AccountNotice::TrialEnding { .. } => {
+            (WarningCode::SubscriptionTrialEnding, WarningSeverity::Info)
+        }
+        AccountNotice::PaymentFailed => (
+            WarningCode::SubscriptionPaymentFailed,
+            WarningSeverity::Warn,
+        ),
+    };
+    // Appended after the pipeline worked out `status`, and `status` is not
+    // recomputed: it goes on describing the vault's data.
+    response.health.warnings.push(HealthWarning {
+        code,
+        severity,
+        detail: notice.detail(),
+        recovery_hint: notice.recovery_hint().to_string(),
+    });
+    response
 }
 
 /// Serialise a value to a `CallToolResult` with a single JSON content

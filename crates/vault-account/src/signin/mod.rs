@@ -71,6 +71,16 @@ impl Default for ListenerLimits {
     }
 }
 
+/// Which page the person asked for (§8.41). Both finish the same sign-in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SignInEntry {
+    /// "Sign in": the authorize URL itself.
+    SignIn,
+    /// "Create an account": the hosted sign-up page, which returns through
+    /// the authorize URL.
+    SignUp,
+}
+
 /// A sign-in in progress: the loopback listener is bound and the
 /// authorization URL is ready for the caller to open in the browser.
 pub struct PendingSignIn {
@@ -80,6 +90,8 @@ pub struct PendingSignIn {
     state: Zeroizing<String>,
     pkce: Pkce,
     issuer: String,
+    /// The hosted sign-up page, when the issuer's naming gives one (§8.41).
+    sign_up_page: Option<String>,
 }
 
 impl PendingSignIn {
@@ -118,12 +130,29 @@ impl PendingSignIn {
             state,
             pkce,
             issuer: config.issuer().to_owned(),
+            sign_up_page: config.sign_up_page(),
         })
     }
 
     /// The URL to open in the system browser.
     pub fn authorize_url(&self) -> &Url {
         &self.authorize_url
+    }
+
+    /// The page to open for the person's choice (§8.41). "Sign in" is the
+    /// authorize URL itself. "Create an account" is the hosted sign-up page
+    /// with this authorize URL as its way back, so the sign-in that finishes
+    /// is this one — same `state`, same PKCE challenge, same loopback — and
+    /// nothing about the callback's checks changes. With no known sign-up
+    /// page it is the authorize URL too, whose sign-in page links to sign-up.
+    pub fn browser_url(&self, entry: SignInEntry) -> Url {
+        match (entry, self.sign_up_page.as_deref()) {
+            (SignInEntry::SignUp, Some(page)) => {
+                Url::parse_with_params(page, [("redirect_url", self.authorize_url.as_str())])
+                    .unwrap_or_else(|_| self.authorize_url.clone())
+            }
+            _ => self.authorize_url.clone(),
+        }
     }
 
     /// Wait for the browser's redirect.

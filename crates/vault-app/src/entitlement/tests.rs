@@ -9,20 +9,70 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use vault_account::{AccountError, AccountResult, Denial, Entitlement, RefreshOutcome, Trigger};
-use vault_mcp::{EntitlementCheck, LockReason, Verdict};
+use vault_account::{
+    AccountError, AccountResult, Assessment, Denial, Entitlement, RefreshOutcome, Trigger,
+};
+use vault_mcp::{AccountNotice, EntitlementCheck, LockReason, Verdict};
 
-use super::{AccountAccess, AccountCheck, AccountState, Clock, ModeCheck};
+use super::{
+    daily_period, refresh_if_stale, run_routine_refresh, wants_refresh_at_start, AccountAccess,
+    AccountCheck, AccountState, Clock, ModeCheck, TRIAL_NOTICE_WITHIN,
+};
 
-const ENTITLED: AccountState = AccountState::Leased(Entitlement::Entitled {
-    payment_failed: false,
-});
-const PAYMENT_FAILED: AccountState = AccountState::Leased(Entitlement::Entitled {
-    payment_failed: true,
-});
+const HOUR: i64 = 3_600;
+const DAY: i64 = 24 * HOUR;
+
+/// A lease received `elapsed` seconds ago with `remaining` seconds of
+/// entitlement left.
+const fn leased(
+    entitlement: Entitlement,
+    trial: bool,
+    elapsed: i64,
+    remaining: i64,
+) -> AccountState {
+    AccountState::Leased {
+        assessment: Assessment {
+            entitlement,
+            elapsed,
+            remaining,
+        },
+        trial,
+    }
+}
+
+/// A paid subscription an hour into a fresh lease, well away from any
+/// deadline: nothing to tell anybody.
+const ENTITLED: AccountState = leased(
+    Entitlement::Entitled {
+        payment_failed: false,
+    },
+    false,
+    HOUR,
+    20 * DAY,
+);
+const PAYMENT_FAILED: AccountState = leased(
+    Entitlement::Entitled {
+        payment_failed: true,
+    },
+    false,
+    HOUR,
+    6 * DAY,
+);
+
+/// A trial with `remaining` seconds left.
+const fn trial_with(remaining: i64) -> AccountState {
+    leased(
+        Entitlement::Entitled {
+            payment_failed: false,
+        },
+        true,
+        HOUR,
+        remaining,
+    )
+}
 
 fn denied(denial: Denial) -> AccountState {
-    AccountState::Leased(Entitlement::Denied(denial))
+    leased(Entitlement::Denied(denial), false, 31 * DAY, 0)
 }
 
 fn trial_ended() -> AccountState {
@@ -529,4 +579,291 @@ async fn refresh_and_peek_records_no_use() {
     );
     let _ = check_over(account.clone(), 1_000).refresh_and_peek().await;
     assert!(account.uses().is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// What a served call carries to the agent (§8.26 §6, §8.40)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn a_failed_payment_is_served_with_its_notice() {
+    let account = FakeAccount::steady(PAYMENT_FAILED);
+    assert_eq!(
+        check_over(account, 1_000).check_with_notice().await,
+        (Verdict::Entitled, Some(AccountNotice::PaymentFailed))
+    );
+}
+
+/// "`health.warnings` in the last 5 days" (§8.26 §6): whole days left run 4
+/// to 0, rounded down like the desktop's banner.
+#[tokio::test]
+async fn a_trial_in_its_last_five_days_is_served_with_the_days_left() {
+    for (remaining, days_left) in [
+        (TRIAL_NOTICE_WITHIN - 1, 4),
+        (3 * DAY + HOUR, 3),
+        (DAY, 1),
+        (DAY - 1, 0),
+        (1, 0),
+    ] {
+        let account = FakeAccount::steady(trial_with(remaining));
+        assert_eq!(
+            check_over(account, 1_000).check_with_notice().await,
+            (
+                Verdict::Entitled,
+                Some(AccountNotice::TrialEnding { days_left })
+            ),
+            "{remaining}s left"
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_trial_with_five_days_or_more_left_carries_nothing() {
+    for remaining in [TRIAL_NOTICE_WITHIN, TRIAL_NOTICE_WITHIN + 1, 20 * DAY] {
+        let account = FakeAccount::steady(trial_with(remaining));
+        assert_eq!(
+            check_over(account, 1_000).check_with_notice().await,
+            (Verdict::Entitled, None),
+            "{remaining}s left"
+        );
+    }
+}
+
+/// A paid subscription near its renewal is not a trial ending, whatever its
+/// countdown says.
+#[tokio::test]
+async fn a_paid_subscription_near_its_renewal_carries_nothing() {
+    let account = FakeAccount::steady(leased(
+        Entitlement::Entitled {
+            payment_failed: false,
+        },
+        false,
+        HOUR,
+        2 * DAY,
+    ));
+    assert_eq!(
+        check_over(account, 1_000).check_with_notice().await,
+        (Verdict::Entitled, None)
+    );
+}
+
+/// SP-4: a refusal says why and nothing else — however close a trial was to
+/// its end, or whatever state the account is in.
+#[tokio::test]
+async fn a_refusal_never_carries_a_notice() {
+    for state in [
+        AccountState::SignedOut,
+        AccountState::NoLease,
+        trial_ended(),
+        subscription_ended(),
+        denied(Denial::DeadlinePassed),
+        denied(Denial::OfflineTooLong),
+        denied(Denial::ClockBehind),
+    ] {
+        let (verdict, notice) = check_over(FakeAccount::steady(state), 1_000)
+            .check_with_notice()
+            .await;
+        assert_ne!(verdict, Verdict::Entitled, "{state:?}");
+        assert_eq!(notice, None, "{state:?} carried a notice with a refusal");
+    }
+}
+
+/// The notice, like the verdict, comes from the reading after
+/// refresh-then-decide — not from the stale one that asked for the refresh.
+#[tokio::test]
+async fn the_notice_comes_from_the_reading_after_the_refresh() {
+    let account = FakeAccount::new(
+        vec![
+            StateAnswer::Reads(denied(Denial::DeadlinePassed)),
+            StateAnswer::Reads(trial_with(2 * DAY + HOUR)),
+        ],
+        OnRefresh::Answer(Arc::new(|| {
+            Ok(RefreshOutcome::Skipped(vault_account::SkipReason::LockBusy))
+        })),
+    );
+    assert_eq!(
+        check_over(account, 1_000).check_with_notice().await,
+        (
+            Verdict::Entitled,
+            Some(AccountNotice::TrialEnding { days_left: 2 })
+        )
+    );
+}
+
+/// The gate asks `check_with_notice` for a tool call and `check` for anything
+/// else: both must reach the same verdict, and ask the account the same way.
+#[tokio::test]
+async fn check_and_check_with_notice_agree_on_every_state() {
+    for state in [
+        ENTITLED,
+        PAYMENT_FAILED,
+        trial_with(DAY),
+        AccountState::SignedOut,
+        AccountState::NoLease,
+        trial_ended(),
+        subscription_ended(),
+        denied(Denial::OfflineTooLong),
+    ] {
+        let plain = FakeAccount::steady(state);
+        let with_notice = FakeAccount::steady(state);
+        let verdict = check_over(plain.clone(), 1_000).check().await;
+        let (noticed, _) = check_over(with_notice.clone(), 1_000)
+            .check_with_notice()
+            .await;
+        assert_eq!(verdict, noticed, "{state:?}");
+        assert_eq!(plain.refreshes(), with_notice.refreshes(), "{state:?}");
+        assert_eq!(plain.uses(), with_notice.uses(), "{state:?}");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The routine refresh at start and daily (§8.26 §4, §8.40) — the keeper's and
+// the desktop's, in one place. These replace the desktop's own at-open tests
+// from 4d-1 (planted bug d1-08 was the reason those became real tests).
+// ---------------------------------------------------------------------------
+
+/// Nothing to refresh for nobody.
+#[test]
+fn a_signed_out_computer_is_not_refreshed_at_start() {
+    assert!(!wants_refresh_at_start(&AccountState::SignedOut));
+}
+
+/// A computer signed in without a lease (the first fetch failed at sign-in,
+/// or the lease on disk did not verify) always tries: there is nothing on
+/// disk to go on.
+#[test]
+fn a_computer_with_no_lease_always_tries_at_start() {
+    assert!(wants_refresh_at_start(&AccountState::NoLease));
+}
+
+/// §4 refreshes at start only when stale, so an ordinary start does not
+/// rotate the refresh token.
+#[test]
+fn a_fresh_lease_is_not_refreshed_at_start() {
+    let ok = Entitlement::Entitled {
+        payment_failed: false,
+    };
+    assert!(!wants_refresh_at_start(&leased(ok, false, HOUR, 20 * DAY)));
+    assert!(
+        !wants_refresh_at_start(&leased(ok, false, DAY - 1, 3 * DAY)),
+        "just under a day old, exactly three days left: not yet stale"
+    );
+}
+
+/// "Refresh if the lease is older than 24 h or any deadline is within
+/// 3 days" (§8.26 §4).
+#[test]
+fn a_stale_lease_is_refreshed_at_start() {
+    let ok = Entitlement::Entitled {
+        payment_failed: false,
+    };
+    assert!(
+        wants_refresh_at_start(&leased(ok, false, DAY, 20 * DAY)),
+        "a day old"
+    );
+    assert!(
+        wants_refresh_at_start(&leased(ok, true, HOUR, 3 * DAY - 1)),
+        "a deadline within three days"
+    );
+}
+
+#[tokio::test]
+async fn a_stale_lease_gets_one_routine_refresh_and_no_use() {
+    let ok = Entitlement::Entitled {
+        payment_failed: false,
+    };
+    let account = FakeAccount::steady(leased(ok, false, 2 * DAY, 20 * DAY));
+    let clock = FixedClock::at(1_000);
+    assert!(refresh_if_stale(account.as_ref(), clock.as_ref()).await);
+    assert_eq!(account.refreshes(), vec![Trigger::Routine]);
+    assert!(
+        account.uses().is_empty(),
+        "a refresh is not somebody using their vault (§8.35)"
+    );
+}
+
+#[tokio::test]
+async fn a_fresh_lease_or_an_unreadable_folder_gets_no_routine_refresh() {
+    let clock = FixedClock::at(1_000);
+    let fresh = FakeAccount::steady(ENTITLED);
+    assert!(!refresh_if_stale(fresh.as_ref(), clock.as_ref()).await);
+    assert!(fresh.refreshes().is_empty());
+
+    let unreadable = FakeAccount::new(
+        vec![StateAnswer::Unreadable],
+        OnRefresh::Answer(Arc::new(|| Err(AccountError::Busy))),
+    );
+    assert!(!refresh_if_stale(unreadable.as_ref(), clock.as_ref()).await);
+    assert!(unreadable.refreshes().is_empty());
+}
+
+/// The routine as the keeper and the desktop run it: once at start when
+/// stale, then on each daily tick — again only when stale. Tokio's paused
+/// clock, so a day passes in no real time.
+#[tokio::test(start_paused = true)]
+async fn the_daily_tick_refreshes_a_stale_lease_and_leaves_a_fresh_one_alone() {
+    let ok = Entitlement::Entitled {
+        payment_failed: false,
+    };
+    let stale = FakeAccount::steady(leased(ok, false, 2 * DAY, 20 * DAY));
+    let fresh = FakeAccount::steady(ENTITLED);
+    let clock = FixedClock::at(1_760_000_000);
+    let running = [
+        tokio::spawn(run_routine_refresh(stale.clone(), clock.clone())),
+        tokio::spawn(run_routine_refresh(fresh.clone(), clock.clone())),
+    ];
+
+    // Longer than the longest period (a day and six hours).
+    tokio::time::sleep(Duration::from_secs(31 * 3_600)).await;
+    for task in running {
+        task.abort();
+    }
+
+    assert_eq!(
+        stale.refreshes(),
+        vec![Trigger::Routine, Trigger::Routine],
+        "one refresh at start and one on the daily tick"
+    );
+    assert!(
+        fresh.refreshes().is_empty(),
+        "a fresh lease is refreshed neither at start nor on the tick"
+    );
+    assert!(fresh.reads() >= 2, "the tick must have looked");
+}
+
+/// The spread exists so every install does not ask the Worker at the same
+/// moment forever (§8.26 §4's "jittered daily timer"). Whatever the clock
+/// says, the period must stay inside the designed window: never shorter than
+/// a day, never longer than a day and six hours. (Moved from the desktop's
+/// tests with the function, 4d-3.)
+#[test]
+fn the_daily_refresh_period_stays_inside_its_window() {
+    const DAY_SECS: u64 = 24 * 60 * 60;
+    const SPREAD: u64 = 6 * 60 * 60;
+
+    for now in [
+        0_i64,
+        1,
+        1_760_000_000,
+        1_760_000_001,
+        i64::MAX,
+        -1,
+        i64::MIN,
+    ] {
+        let period = daily_period(now).as_secs();
+        assert!(
+            (DAY_SECS..=DAY_SECS + SPREAD).contains(&period),
+            "a clock reading of {now} produced a {period}s period, outside the \
+             {DAY_SECS}s..={}s window",
+            DAY_SECS + SPREAD
+        );
+    }
+}
+
+/// A negative clock reading (a computer set before 1970) must not panic or
+/// wrap into a tiny period that hammers the Worker.
+#[test]
+fn a_clock_set_before_1970_still_yields_a_sane_period() {
+    let period = daily_period(-1_000_000).as_secs();
+    assert!(period >= 24 * 60 * 60);
 }

@@ -9987,8 +9987,10 @@ name = "vault-app"
 version = "0.2.2"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "blake3",
  "chrono",
+ "fs4 0.13.1",
  "getrandom 0.2.17",
  "hex",
  "hyper-util",
@@ -10015,6 +10017,7 @@ dependencies = [
  "vault-storage",
  "windows-native-keyring-store",
  "zeroize",
+ "zip",
 ]
 
 [[package]]

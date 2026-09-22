@@ -12,21 +12,109 @@
 
       <!-- ================= WELCOME ================= -->
       <div id="screen-welcome" class="screen welcome hidden">
-        <div class="wordmark kicker">Z A A H E E N</div>
-        <div class="orb"><div class="orb-core"></div></div>
-        <h1>A quiet place for<br />everything they learn.</h1>
-        <p class="sub">Zaaheen keeps what your AI agents know about you — on your computer, encrypted, and entirely under your control.</p>
+        <div class="screen-brand">
+          <img src="zaaheen-icon.png" alt="" class="screen-brand-icon" />
+          <span class="nm">Zaaheen</span>
+        </div>
+        <!-- Each line rises in on its own, then the subheading (styles.css,
+             "the welcome's entrance"). CSS only: it replays whenever this
+             screen is shown again. -->
+        <h1><span class="rise rise-1">One memory for all your AI apps,</span> <span class="rise rise-2">kept safe on your computer.</span></h1>
+        <p class="sub rise rise-3">Tell it something once, and every AI app you connect will remember it. It's encrypted, and you decide who can read it.</p>
         <div id="checks" class="checks"></div>
         <button id="begin-btn" class="btn-pill">Begin set up</button>
         <div id="begin-hint" class="begin-hint"></div>
       </div>
 
+      <!-- ================= SIGN IN (setup step, S3 step 4d-2) ================= -->
+      <!-- Straight after the welcome, before anything that needs the lock to
+           say yes: the recall-engine download and the first memory both do.
+           Only a build with sign-in, on a computer nobody is signed in on,
+           shows it. -->
+      <div id="screen-signin" class="screen onboard signin-screen hidden">
+        <div class="screen-brand">
+          <img src="zaaheen-icon.png" alt="" class="screen-brand-icon" />
+          <span class="nm">Zaaheen</span>
+        </div>
+        <div class="kicker" data-step>STEP 2 OF 5</div>
+        <h1>Create your Zaaheen account, or sign in.</h1>
+        <p class="sub">Your 30-day free trial starts when you create your account, and no card is needed.</p>
+        <div class="signin-actions">
+          <!-- Both open the browser and come back here (SIGNIN-DESIGN.md
+               §8.41): on the sign-up page, or on the sign-in page. The two
+               look alike, same colour and same width (founder, session 55). -->
+          <div class="signin-choices">
+            <button id="signup-btn" class="btn-pill">Create an account</button>
+            <button id="signin-btn" class="btn-pill">Sign in</button>
+          </div>
+          <p class="lock-small">This opens your web browser. Signing in never shares your memories with us. They stay locked on this computer.</p>
+          <p id="signin-status" class="lock-status"></p>
+        </div>
+      </div>
+
+      <!-- ================= WHERE YOUR MEMORIES LIVE (ADR-105 L-e) ================= -->
+      <!-- After the sign-in step: choosing a folder is gated, like everything
+           else past sign-in. "Change…" picks a folder and checks it; Zaaheen
+           then restarts once to move the memories, and the setup carries on
+           from this step, saying what happened. -->
+      <div id="screen-location" class="screen onboard location-screen hidden">
+        <div class="screen-brand">
+          <img src="zaaheen-icon.png" alt="" class="screen-brand-icon" />
+          <span class="nm">Zaaheen</span>
+        </div>
+        <div class="kicker" data-step>STEP 2 OF 5</div>
+        <h1>Where should Zaaheen keep your memories?</h1>
+        <p class="sub">They stay on this computer, encrypted. The usual place suits most people. You can change this later in Settings.</p>
+        <div class="location-box">
+          <p class="move-label">Your memories are kept in</p>
+          <p id="location-folder" class="data-path"></p>
+          <!-- Right under the folder it would change (founder, session 55). -->
+          <button id="location-change" class="btn-quiet">Choose another folder…</button>
+        </div>
+        <p id="location-outcome" class="location-outcome hidden"></p>
+        <div id="location-panel-host" class="location-panel-host">
+          <!-- The move's confirmation: one panel, moved between this step and
+               Settings. Every path and note in it is set as text. -->
+          <div id="move-panel" class="move-panel hidden">
+            <p class="move-label">Your memories will move to</p>
+            <p id="move-target" class="data-path"></p>
+            <div id="move-notes"></div>
+            <label id="move-cloud" class="move-cloud hidden">
+              <input type="checkbox" id="move-cloud-ok" />
+              <span>No cloud app syncs this folder.</span>
+            </label>
+            <p class="move-note">Zaaheen will close, move them, and open again by itself. With many memories this can take a few minutes.</p>
+            <div class="move-actions">
+              <button id="move-go" class="btn-pill">Move them here</button>
+              <button id="move-cancel" class="link-quiet">Cancel</button>
+            </div>
+            <p id="move-status" class="move-status"></p>
+          </div>
+        </div>
+        <p id="location-status" class="move-status"></p>
+        <div class="onboard-foot">
+          <button id="location-cta" class="btn-pill">Continue</button>
+        </div>
+      </div>
+
       <!-- ================= CONNECT AGENT ================= -->
       <div id="screen-connect" class="screen onboard hidden">
-        <div class="kicker">STEP 2 OF 4</div>
-        <h1>Introduce your first agent.</h1>
-        <p class="sub">Any MCP-compatible agent can read and write your vault. Choose one to see how.</p>
+        <div class="screen-brand">
+          <img src="zaaheen-icon.png" alt="" class="screen-brand-icon" />
+          <span class="nm">Zaaheen</span>
+        </div>
+        <div class="kicker" data-step>STEP 2 OF 4</div>
+        <h1>Connect your first AI app.</h1>
+        <p class="sub">Pick the AI app you use, and we'll show you how to connect it.</p>
         <div id="agent-grid" class="agent-grid"></div>
+        <!-- "Connect it for me" (ADR-106): for an app with its own install
+             route, Zaaheen asks the app, and the app asks the person. -->
+        <div id="connect-auto" class="connect-auto hidden">
+          <button id="connect-auto-btn" class="btn-pill">Connect it for me</button>
+          <p id="connect-auto-note" class="connect-auto-note"></p>
+          <p id="connect-auto-status" class="connect-auto-status"></p>
+          <button id="connect-auto-show" class="link-underline hidden">Show the file</button>
+        </div>
         <div id="snippet-wrap" class="snippet-wrap hidden">
           <div class="snippet-head">
             <span id="snippet-hint" class="snippet-hint"></span>
@@ -36,15 +124,19 @@
         </div>
         <div class="onboard-foot">
           <button id="connect-cta" class="btn-pill">Continue</button>
-          <button id="connect-skip" class="link-quiet">I'll connect an agent later</button>
+          <button id="connect-skip" class="link-quiet">I'll connect one later</button>
         </div>
       </div>
 
       <!-- ================= AUTOMATIC MAINTENANCE (onboarding) ================= -->
       <div id="screen-maintenance" class="screen onboard hidden">
-        <div class="kicker">STEP 4 OF 4</div>
-        <h1>Keep your memory sharp — on its own.</h1>
-        <p class="sub">Every so often, Zaaheen can quietly tidy what it has learned — merging duplicates, resolving contradictions, and letting stale details fade. It runs on this device while you are away. You can change this or turn it off anytime.</p>
+        <div class="screen-brand">
+          <img src="zaaheen-icon.png" alt="" class="screen-brand-icon" />
+          <span class="nm">Zaaheen</span>
+        </div>
+        <div class="kicker" data-step>STEP 4 OF 4</div>
+        <h1>Keep your memory sharp on its own.</h1>
+        <p class="sub">Every so often, Zaaheen can quietly tidy what it has learned: merging duplicates, resolving contradictions, and letting stale details fade. It runs on this device while you are away. You can change this or turn it off anytime.</p>
         <div class="maint-onboard">
           <label class="maint-choice">
             <input type="radio" name="maint-onboard-choice" id="maint-onboard-on" value="on" />
@@ -66,7 +158,11 @@
 
       <!-- ================= FIRST MEMORY ================= -->
       <div id="screen-memory" class="screen onboard memory-screen hidden">
-        <div class="kicker">STEP 3 OF 4</div>
+        <div class="screen-brand">
+          <img src="zaaheen-icon.png" alt="" class="screen-brand-icon" />
+          <span class="nm">Zaaheen</span>
+        </div>
+        <div class="kicker" data-step>STEP 3 OF 4</div>
         <h1>What should they remember first?</h1>
         <p class="sub">Something true about you. Your agents will recall it whenever it helps.</p>
         <textarea id="mem-text" class="mv-input" placeholder="e.g. I run a small design studio in London. I prefer short, direct answers."></textarea>
@@ -77,19 +173,114 @@
         </div>
       </div>
 
-      <!-- onboarding progress dots -->
+      <!-- onboarding progress dots (app.js sets one per step of this setup) -->
       <div id="progress-dots" class="progress-dots hidden">
         <span></span><span></span><span></span><span></span>
+      </div>
+
+      <!-- Shown whenever the lock says no (S3 step 4d-2, SIGNIN-DESIGN.md
+           §8.39). Its words are founder-approved and live in app.js's
+           LOCK_COPY. Whatever the reason, the foot stays the same: the person
+           can always take their memories with them and can always reach us. -->
+      <!-- ================= LOCK ================= -->
+      <div id="screen-lock" class="screen lock hidden">
+        <div class="screen-brand">
+          <img src="zaaheen-icon.png" alt="" class="screen-brand-icon" />
+          <span class="nm">Zaaheen</span>
+        </div>
+        <div class="lock-body">
+          <h1 id="lock-heading"></h1>
+          <p id="lock-text" class="sub"></p>
+
+          <div id="lock-signin" class="lock-actions hidden">
+            <div class="signin-choices">
+              <button id="lock-signin-btn" class="btn-pill">Sign in</button>
+              <button id="lock-signup-btn" class="btn-pill">Create an account</button>
+            </div>
+            <p class="lock-small">This opens your web browser. Signing in never shares your memories with us. They stay locked on this computer.</p>
+          </div>
+
+          <div id="lock-subscribe" class="lock-actions hidden">
+            <div id="lock-plans" class="plan-row">
+              <button class="btn-pill" data-plan="monthly">$5 a month</button>
+              <button class="btn-pill" data-plan="annual">$48 a year (save $12)</button>
+            </div>
+            <p class="lock-small">Payment opens in your browser. Tax is added at checkout where it applies. Cancel anytime.</p>
+          </div>
+
+          <div id="lock-paying" class="lock-actions hidden">
+            <p class="lock-note">Finish paying in your browser. Zaaheen unlocks by itself as soon as your payment comes through.</p>
+            <button id="lock-paid" class="btn-quiet">I've paid</button>
+          </div>
+
+          <div id="lock-retry" class="lock-actions hidden">
+            <button id="lock-retry-btn" class="btn-pill">Try again</button>
+          </div>
+
+          <div id="lock-close" class="lock-actions hidden">
+            <button id="lock-close-btn" class="btn-pill">Close Zaaheen</button>
+          </div>
+
+          <p id="lock-status" class="lock-status"></p>
+          <p id="lock-who" class="lock-who hidden">
+            <span id="lock-email"></span>
+            <button id="lock-signout" class="link-underline">Sign out</button>
+          </p>
+        </div>
+
+        <div class="lock-foot">
+          <!-- Shown whenever this computer has memories to take, whatever the
+               reason for the lock; hidden only on a count of exactly zero
+               (app.js renderLockExport; SIGNIN-DESIGN.md §8.42). -->
+          <div id="lock-export-box">
+            <button id="lock-export" class="btn-quiet">Download my memories</button>
+            <p class="lock-small">Save everything you've kept as one file. It's yours, whether or not you subscribe.</p>
+            <p id="lock-export-status" class="lock-small"></p>
+          </div>
+          <p class="lock-help">Need help? <span class="support-email">customerservice@zaaheen.com</span></p>
+        </div>
+      </div>
+
+      <!-- ================= MOVING YOUR MEMORIES (ADR-105 L-f) ================= -->
+      <!-- A start that moves the memories serves this page first and opens
+           the vault after the move. Everything here comes from the move's own
+           progress (startup_state): the phase, the bytes, the folder. -->
+      <div id="screen-moving" class="screen moving hidden">
+        <div class="screen-brand">
+          <img src="zaaheen-icon.png" alt="" class="screen-brand-icon" />
+          <span class="nm">Zaaheen</span>
+        </div>
+        <div class="moving-body">
+          <h1>Moving your memories</h1>
+          <p id="moving-phase" class="sub"></p>
+          <div class="moving-bar" role="progressbar" aria-label="Moving your memories" aria-valuemin="0" aria-valuemax="100">
+            <div id="moving-fill" class="moving-fill"></div>
+          </div>
+          <p id="moving-amount" class="moving-amount"></p>
+          <!-- Only while it is true: before the switch (M5) the memories are
+               still where they were; from "Almost done." they are not. -->
+          <p id="moving-note" class="moving-note">Please keep Zaaheen open until this finishes. If it closes, your memories stay safe where they were.</p>
+        </div>
       </div>
 
       <!-- ================= HOME ================= -->
       <div id="screen-home" class="screen home hidden">
         <div class="topbar">
           <div class="brand">
-            <div class="dot"></div>
+            <img src="zaaheen-icon.png" alt="" class="brand-icon" />
             <span class="nm">Zaaheen</span>
           </div>
           <div id="nav" class="nav"></div>
+        </div>
+
+        <!-- Account notices (S3 step 4d-2): the trial's last week, a failed
+             payment, a clock that is wrong. Information, never a lock. -->
+        <div id="account-banner" class="account-banner hidden"></div>
+
+        <!-- What this start did about a move (ADR-105 L-e): said once. -->
+        <div id="location-notice" class="banner-line location-notice hidden">
+          <span id="location-notice-text"></span>
+          <button id="location-notice-ok" class="link-underline">OK</button>
         </div>
 
         <div id="toast-wrap" class="toast-wrap hidden">
@@ -100,7 +291,7 @@
         <div id="tab-memories" class="tab-pane home" style="overflow:hidden">
           <div class="recall-hero">
             <div class="headline">What would you like to recall?</div>
-            <input id="search-input" class="mv-input" placeholder="⌕  Search your memories — press Enter" />
+            <input id="search-input" class="mv-input" placeholder="⌕  Search your memories, then press Enter" />
             <div class="kbd-hint">or press <span class="kbd">Ctrl K</span> anywhere</div>
             <div id="engine-note" class="engine-note hidden"></div>
           </div>
@@ -144,7 +335,7 @@
               <span id="boundary-err" class="err-note"></span>
             </div>
           </div>
-          <p class="boundary-note">Granting an agent access to a specific boundary arrives in the next update — for now an agent reads the boundaries its connection was set up with.</p>
+          <p class="boundary-note">Granting an agent access to a specific boundary arrives in the next update. For now an agent reads the boundaries its connection was set up with.</p>
         </div>
 
         <!-- agents tab -->
@@ -168,7 +359,7 @@
         <!-- consolidation tab -->
         <div id="tab-maintenance" class="tab-pane tab-body hidden">
           <div class="headline">Consolidation.</div>
-          <p class="sub">Consolidation is how Zaaheen keeps what it knows about you clean — merging duplicates, resolving contradictions, and letting stale detail fade. It runs on this device and never leaves it.</p>
+          <p class="sub">Consolidation is how Zaaheen keeps what it knows about you clean: merging duplicates, resolving contradictions, and letting stale detail fade. It runs on this device and never leaves it.</p>
           <div id="maint-engine-note" class="engine-note hidden"></div>
 
           <section class="maint-card">
@@ -176,7 +367,7 @@
               <span class="maint-step">1</span>
               <h2>Consolidate automatically</h2>
             </div>
-            <p class="maint-explain">When this is on, Zaaheen reviews your memories on a schedule and cleans them up. Near-duplicates get merged into one. Facts that contradict each other are resolved in favour of the newer one. Older memories you never use are archived out of everyday recall — never deleted. All of it happens on this device.</p>
+            <p class="maint-explain">When this is on, Zaaheen reviews your memories on a schedule and cleans them up. Near-duplicates get merged into one. Facts that contradict each other are resolved in favour of the newer one. Older memories you never use are archived out of everyday recall, never deleted. All of it happens on this device.</p>
             <label class="maint-toggle">
               <input type="checkbox" id="maint-enabled" />
               <span>Keep my vault tidy automatically</span>
@@ -188,7 +379,7 @@
               <span class="maint-step">2</span>
               <h2>When it runs</h2>
             </div>
-            <p class="maint-explain">Pick how often and what time. Choose a time your computer is usually on but you're not using it — the middle of the night is ideal, since a tidy-up uses real processing power for a few minutes. If your computer is asleep or off at that time, it catches up next time you open the app.</p>
+            <p class="maint-explain">Pick how often and what time. Choose a time your computer is usually on but you're not using it. The middle of the night is ideal, since a tidy-up uses real processing power for a few minutes. If your computer is asleep or off at that time, it catches up next time you open the app.</p>
             <div id="maint-when" class="maint-when">
               <label>How often
                 <select id="maint-frequency">
@@ -233,30 +424,121 @@
           <p class="boundary-note">Consolidation runs even when this window is closed. On a laptop that was asleep at the scheduled time, it catches up the next time you open the app.</p>
         </div>
 
-        <!-- settings tab -->
-        <div id="tab-settings" class="tab-pane tab-body settings-body hidden">
-          <div class="headline">Settings.</div>
-          <div id="settings-rows" class="tab-rows"></div>
+        <!-- settings tab: the sections down the left, the chosen one's
+             settings on the right, one row each (founder, session 55, shown
+             Claude's own Settings: "our settings page should be organized
+             like this"). Every control keeps its id and behaviour. -->
+        <div id="tab-settings" class="tab-pane settings-body hidden">
+          <nav id="settings-nav" class="settings-nav">
+            <button data-section="account">Account</button>
+            <button data-section="memories">Your memories</button>
+            <button data-section="about">About Zaaheen</button>
+            <button data-section="help">Help</button>
+          </nav>
+          <div class="settings-pane">
+
+          <!-- Your account (S3 step 4d-2). Hidden in a build without sign-in.
+               No address ever reaches this page: Subscribe and Manage ask the
+               app, which opens the browser itself (ADR-SEC-026). -->
+          <section id="account-section" class="settings-section hidden" data-section="account">
+            <h2 class="settings-title">Account</h2>
+            <div class="set-row">
+              <div class="set-text">
+                <div class="set-name">Signed in as</div>
+                <p id="account-who" class="set-desc"></p>
+              </div>
+              <div class="set-action"><button id="account-signout" class="btn-quiet">Sign out</button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-text">
+                <div class="set-name">Your plan</div>
+                <p id="account-state" class="set-desc"></p>
+              </div>
+            </div>
+            <div id="account-plans" class="set-row hidden">
+              <div class="set-text">
+                <div class="set-name">Subscribe</div>
+                <p class="set-desc">Payment opens in your browser. Tax is added at checkout where it applies. Cancel anytime.</p>
+              </div>
+              <div class="set-action account-actions">
+                <button class="btn-quiet" data-plan="monthly">$5 a month</button>
+                <button class="btn-quiet" data-plan="annual">$48 a year (save $12)</button>
+              </div>
+            </div>
+            <div id="account-manage" class="set-row hidden">
+              <div class="set-text">
+                <div class="set-name">Manage subscription</div>
+                <p class="set-desc">Change your plan, update your card, or cancel. It opens in your browser.</p>
+              </div>
+              <div class="set-action"><button id="account-manage-btn" class="btn-quiet">Manage subscription</button></div>
+            </div>
+            <div id="account-paying" class="set-row hidden">
+              <div class="set-text">
+                <div class="set-name">Waiting for your payment</div>
+                <p class="set-desc">Finish paying in your browser. This page updates by itself as soon as your payment comes through.</p>
+              </div>
+              <div class="set-action"><button id="account-paid" class="btn-quiet">I've paid</button></div>
+            </div>
+            <p id="account-note" class="data-note"></p>
+          </section>
+
+          <section class="settings-section" data-section="about">
+            <h2 class="settings-title">About Zaaheen</h2>
+            <p class="settings-intro">How your memories are kept on this computer.</p>
+            <div id="settings-rows" class="tab-rows"></div>
+          </section>
 
           <!-- Your data (ADR-SEC-008). The honest-UI rule (ADR-086) applies
                with force here: uninstalling does NOT remove memories, and a
                user who is never told that will assume it does. Saying so
                plainly costs nothing and turns a silent surprise into an
                informed choice. -->
-          <div class="data-section">
-            <div class="data-title">Your memories</div>
-            <p class="data-note">
+          <section class="settings-section" data-section="memories">
+            <h2 class="settings-title">Your memories</h2>
+            <p class="settings-intro">
               Everything you keep is stored on this device and encrypted. It stays
-              on this device even if you uninstall Zaaheen &mdash; uninstalling
-              removes the app, not your memories. You can always find them here:
-            </p>
-            <p id="data-location" class="data-path"></p>
-            <p class="data-note">
-              To remove them for good, use the button below. This is the only
-              action that erases your memories.
+              on this device even if you uninstall Zaaheen, because uninstalling
+              removes the app, not your memories.
             </p>
 
-            <button id="erase-reveal" class="danger-button">Delete everything</button>
+            <!-- ADR-105 L-e: move them. The confirmation panel comes here from
+                 the setup's location step when this button is used. -->
+            <div class="set-row">
+              <div class="set-text">
+                <div class="set-name">Where they're kept</div>
+                <p id="data-location" class="data-path"></p>
+                <p class="set-desc">Keep them in another folder, or on another drive. Zaaheen closes and opens again to move them.</p>
+                <p id="move-waiting" class="data-note hidden"></p>
+              </div>
+              <div class="set-action"><button id="move-reveal" class="btn-quiet">Move my memories…</button></div>
+            </div>
+            <div id="settings-move-host"></div>
+            <p id="settings-move-status" class="data-note"></p>
+            <!-- An earlier move's old copy that could not be removed yet.
+                 "Forget" only when its drive can't be seen: one that can is
+                 removed at the next start. -->
+            <div id="old-copy" class="hidden">
+              <p id="old-copy-text" class="data-note"></p>
+              <button id="old-copy-forget" class="link-underline">Stop waiting for the old copy</button>
+            </div>
+
+            <!-- S4: the same export the lock screen offers. -->
+            <div class="set-row">
+              <div class="set-text">
+                <div class="set-name">Download my memories</div>
+                <p class="set-desc">Save everything you've kept as one file. It's yours, whether or not you subscribe.</p>
+                <p id="export-memories-status" class="data-note"></p>
+              </div>
+              <div class="set-action"><button id="export-memories" class="btn-quiet">Download my memories</button></div>
+            </div>
+
+            <div class="set-row">
+              <div class="set-text">
+                <div class="set-name">Delete everything</div>
+                <p class="set-desc">Remove your memories for good. This is the only action that erases them.</p>
+              </div>
+              <div class="set-action"><button id="erase-reveal" class="danger-button">Delete everything</button></div>
+            </div>
 
             <!-- Type-to-confirm rather than a yes/no dialog. This action is
                  permanent and cannot be undone from a backup either (the
@@ -265,9 +547,16 @@
             <div id="erase-confirm" class="erase-confirm hidden">
               <p class="data-warn">
                 This permanently deletes every memory in your vault. It cannot be
-                undone, and it cannot be recovered from a copy of your data folder
-                &mdash; the encryption key is destroyed, so what remains on disk
+                undone, and it cannot be recovered from a copy of your data folder.
+                The encryption key is destroyed, so what remains on disk
                 becomes unreadable to everyone, including us.
+              </p>
+              <!-- §8.26 §7: the subscription outlives the memories. Shown only
+                   to somebody paying; the button opens their subscription's
+                   own page, where they can cancel. -->
+              <p id="erase-subscription" class="data-warn hidden">
+                Deleting your memories does not cancel your subscription. It continues until you cancel it.
+                <button id="erase-manage" class="link-underline">Manage subscription</button>
               </p>
               <label class="erase-label" for="erase-phrase">
                 Type <strong>DELETE</strong> to confirm:
@@ -282,7 +571,7 @@
               </div>
               <p id="erase-status" class="erase-status"></p>
             </div>
-          </div>
+          </section>
 
           <!-- Diagnostic log export (ADR-SEC-017). The log already exists but
                lands in a hidden system folder no ordinary user will find, so
@@ -290,24 +579,35 @@
                one button, one file, somewhere it can be attached from.
                ADR-086: describes what the file contains and what it does not,
                without naming a single piece of the stack. -->
-          <div class="data-section">
-            <div class="data-title">If something goes wrong</div>
-            <p class="data-note">
-              Zaaheen keeps a private activity record on this device &mdash;
-              what it did and when, and any errors it ran into. It records
-              <strong>none of your memories</strong>, and it is never sent
-              anywhere on its own.
-            </p>
-            <p class="data-note">
-              If you hit a problem, save a copy and send it to us. It helps us
-              find the fault without ever seeing what you keep.
-            </p>
-            <button id="export-logs" class="link-underline">Save activity record&hellip;</button>
-            <p id="export-logs-status" class="data-note"></p>
-          </div>
+          <section class="settings-section" data-section="help">
+            <h2 class="settings-title">Help</h2>
+            <div class="set-row">
+              <div class="set-text">
+                <div class="set-name">If something goes wrong</div>
+                <p class="set-desc">
+                  Zaaheen keeps a private activity record on this device:
+                  what it did and when, and any errors it ran into. It records
+                  <strong>none of your memories</strong>, and it is never sent
+                  anywhere on its own.
+                </p>
+                <p class="set-desc">
+                  If you hit a problem, save a copy and send it to us at
+                  <span class="support-email">customerservice@zaaheen.com</span>.
+                  It helps us find the fault without ever seeing what you keep.
+                </p>
+                <p id="export-logs-status" class="data-note"></p>
+              </div>
+              <div class="set-action"><button id="export-logs" class="btn-quiet">Save activity record&hellip;</button></div>
+            </div>
+            <div class="set-row">
+              <div class="set-text">
+                <div class="set-name">See the welcome again</div>
+                <p class="set-desc">Replay the short introduction from when you set Zaaheen up.</p>
+              </div>
+              <div class="set-action"><button id="replay-welcome" class="btn-quiet">Replay welcome</button></div>
+            </div>
+          </section>
 
-          <div class="settings-actions">
-            <button id="replay-welcome" class="link-underline">Replay welcome</button>
           </div>
         </div>
 

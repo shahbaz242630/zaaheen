@@ -76,6 +76,18 @@ pub fn harden_vault_dir(vault_root: &Path) -> Result<AclOutcome, AclError> {
     Ok(AclOutcome::Hardened)
 }
 
+/// Restrict `folder` as [`harden_vault_dir`] does, writing no marker: a
+/// move's new folder (ADR-105 L5 M2) must hold nothing but what the move
+/// wrote until it is committed. The keeper hardens it again, marker and all,
+/// the first time it opens the moved vault.
+///
+/// # Errors
+///
+/// [`AclError`] when a step fails (a FAT/exFAT drive has no permissions).
+pub(crate) fn restrict_folder(folder: &Path) -> Result<(), AclError> {
+    restrict(folder)
+}
+
 #[cfg(windows)]
 fn restrict(vault_root: &Path) -> Result<(), AclError> {
     const SYSTEM_SID: &str = "S-1-5-18";
@@ -134,7 +146,10 @@ pub fn current_user_sid() -> Result<String, AclError> {
 /// than inherited. Inheriting stdout here would be a real bug: the relay's
 /// stdout is the MCP channel to the agent.
 #[cfg(windows)]
-fn run_quiet(program: &str, args: &[std::ffi::OsString]) -> std::io::Result<std::process::Output> {
+pub(crate) fn run_quiet(
+    program: &str,
+    args: &[std::ffi::OsString],
+) -> std::io::Result<std::process::Output> {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 

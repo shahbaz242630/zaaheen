@@ -827,7 +827,7 @@ async fn subject_frame_depth_probe() {
 // Unlike `scale_correctness_eval` (which seeds an ephemeral TempDir with a test
 // key), this seeds a PERSISTENT vault at caller-chosen paths, keyed by the SAME
 // production OS-keychain master key the MCP server uses
-// (`read_or_init_master_key(PRODUCTION_NAMESPACE, VAULT_ID)` → derive sqlcipher
+// (`read_existing_master_key(PRODUCTION_NAMESPACE, VAULT_ID)` → derive sqlcipher
 // passphrase + at-rest key). So `vault-cli mcp serve` (and therefore Antigravity)
 // opens it natively. Vectors are produced by bge-small-en-v1.5 (same weights as
 // production), so query embeddings match.
@@ -881,11 +881,12 @@ async fn seed_live_vault() {
 
     // PRODUCTION key derivation — the load-bearing bit that makes the vault
     // openable by `vault-cli mcp serve` / Antigravity (Windows-only at V0.2).
-    let master_key = vault_app::keychain::read_or_init_master_key(
+    let master_key = vault_app::keychain::read_existing_master_key(
         vault_app::keychain::PRODUCTION_NAMESPACE,
         vault_app::keychain::VAULT_ID,
     )
-    .expect("read_or_init_master_key (production keychain) — Windows only");
+    .expect("read the production key (Windows keychain)")
+    .expect("a dev probe never creates the key (ADR-SEC-029); open the app once first");
     let sqlcipher_passphrase = vault_app::keychain::derive_sqlcipher_passphrase(&master_key);
     let at_rest_key = vault_app::keychain::derive_at_rest_key(&master_key);
 
@@ -1081,11 +1082,12 @@ async fn probe_live_vault() {
 
     // PRODUCTION key derivation — the live vault was seeded with this same key,
     // so the same derivation opens it (mirrors seed_live_vault).
-    let master_key = vault_app::keychain::read_or_init_master_key(
+    let master_key = vault_app::keychain::read_existing_master_key(
         vault_app::keychain::PRODUCTION_NAMESPACE,
         vault_app::keychain::VAULT_ID,
     )
-    .expect("read_or_init_master_key (production keychain) — Windows only");
+    .expect("read the production key (Windows keychain)")
+    .expect("a dev probe never creates the key (ADR-SEC-029); open the app once first");
     let sqlcipher_passphrase = vault_app::keychain::derive_sqlcipher_passphrase(&master_key);
     let at_rest_key = vault_app::keychain::derive_at_rest_key(&master_key);
 
@@ -1213,11 +1215,12 @@ async fn probe_family_domain() {
     let vault_dir =
         PathBuf::from(std::env::var("PROBE_VAULT_DIR").expect("PROBE_VAULT_DIR env var required"));
 
-    let master_key = vault_app::keychain::read_or_init_master_key(
+    let master_key = vault_app::keychain::read_existing_master_key(
         vault_app::keychain::PRODUCTION_NAMESPACE,
         vault_app::keychain::VAULT_ID,
     )
-    .expect("read_or_init_master_key (production keychain) — Windows only");
+    .expect("read the production key (Windows keychain)")
+    .expect("a dev probe never creates the key (ADR-SEC-029); open the app once first");
     let config = AppConfig {
         metadata_path: vault_dir.join("vault.db"),
         vector_dir: vault_dir.join("lance"),
@@ -1419,11 +1422,12 @@ async fn probe_enrichment() {
 
     let vault_dir =
         PathBuf::from(std::env::var("PROBE_VAULT_DIR").expect("PROBE_VAULT_DIR env var required"));
-    let master_key = vault_app::keychain::read_or_init_master_key(
+    let master_key = vault_app::keychain::read_existing_master_key(
         vault_app::keychain::PRODUCTION_NAMESPACE,
         vault_app::keychain::VAULT_ID,
     )
-    .expect("read_or_init_master_key (production keychain) — Windows only");
+    .expect("read the production key (Windows keychain)")
+    .expect("a dev probe never creates the key (ADR-SEC-029); open the app once first");
     let config = AppConfig {
         metadata_path: vault_dir.join("vault.db"),
         vector_dir: vault_dir.join("lance"),
@@ -1687,11 +1691,12 @@ async fn probe_real_enrichment_1k() {
         r"C:\Users\shahb\AppData\Roaming\com.shahbaz242630.memory-vault\models".to_string()
     });
 
-    let master_key = vault_app::keychain::read_or_init_master_key(
+    let master_key = vault_app::keychain::read_existing_master_key(
         vault_app::keychain::PRODUCTION_NAMESPACE,
         vault_app::keychain::VAULT_ID,
     )
-    .expect("read master key (Windows keychain)");
+    .expect("read the production key (Windows keychain)")
+    .expect("a dev probe never creates the key (ADR-SEC-029); open the app once first");
     let sql_key = vault_app::keychain::derive_sqlcipher_passphrase(&master_key);
     let at_rest = vault_app::keychain::derive_at_rest_key(&master_key);
 
@@ -1900,11 +1905,12 @@ async fn probe_contradiction_pair_distribution() {
         std::env::var("PROBE_VAULT_DIR").expect("PROBE_VAULT_DIR (1k vault, read-only) required"),
     );
 
-    let master_key = vault_app::keychain::read_or_init_master_key(
+    let master_key = vault_app::keychain::read_existing_master_key(
         vault_app::keychain::PRODUCTION_NAMESPACE,
         vault_app::keychain::VAULT_ID,
     )
-    .expect("read master key (Windows keychain)");
+    .expect("read the production key (Windows keychain)")
+    .expect("a dev probe never creates the key (ADR-SEC-029); open the app once first");
     let sql_key = vault_app::keychain::derive_sqlcipher_passphrase(&master_key);
     let at_rest = vault_app::keychain::derive_at_rest_key(&master_key);
 

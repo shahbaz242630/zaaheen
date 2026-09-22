@@ -31,6 +31,8 @@ pub mod account_ops;
 mod adapter;
 mod application;
 mod config;
+/// Connecting an AI app through the app's own install route (ADR-106).
+pub mod connect;
 mod consolidator_lock;
 pub mod entitlement;
 pub mod erasure;
@@ -42,6 +44,7 @@ pub mod external_link;
 pub mod install_paths;
 pub mod keeper;
 pub mod keychain;
+pub mod location;
 pub mod logging;
 pub mod maintenance_state;
 pub mod model_fetch;

@@ -357,14 +357,7 @@ fn parse_userinfo(body: &[u8]) -> AccountResult<UserInfo> {
     let parsed: UserInfoResponse = serde_json::from_slice(body).map_err(|_| bad())?;
     let sub = parsed.sub.ok_or_else(bad)?;
     let email = parsed.email.ok_or_else(bad)?;
-    let sub_ok =
-        !sub.is_empty() && sub.len() <= MAX_SUB_LEN && sub.bytes().all(|b| b.is_ascii_graphic());
-    let email_ok =
-        !email.is_empty() && email.len() <= MAX_EMAIL_LEN && !email.chars().any(char::is_control);
-    if !sub_ok || !email_ok {
-        return Err(bad());
-    }
-    Ok(UserInfo { sub, email })
+    UserInfo::checked(sub, email).ok_or_else(bad)
 }
 
 impl fmt::Debug for OAuthClient {
@@ -473,4 +466,22 @@ pub struct UserInfo {
     /// The account's email address, shown so the user can spot a wrong
     /// account at once.
     pub email: String,
+}
+
+impl UserInfo {
+    /// `sub` and `email`, if both pass the checks applied to every identity
+    /// this crate accepts: non-empty, bounded, `sub` printable ASCII, `email`
+    /// free of control characters. One place, so the address read back from
+    /// the credential store (ADR-SEC-027) is held to exactly the rules it
+    /// passed on the way in.
+    #[must_use]
+    pub fn checked(sub: String, email: String) -> Option<Self> {
+        let sub_ok = !sub.is_empty()
+            && sub.len() <= MAX_SUB_LEN
+            && sub.bytes().all(|b| b.is_ascii_graphic());
+        let email_ok = !email.is_empty()
+            && email.len() <= MAX_EMAIL_LEN
+            && !email.chars().any(char::is_control);
+        (sub_ok && email_ok).then_some(Self { sub, email })
+    }
 }

@@ -76,7 +76,8 @@ pub use adapter::Adapter;
 pub use audit::{ToolInvokeDetails, ToolInvokeError};
 pub use daemon::DaemonServer;
 pub use gate::{
-    maybe_gated, EntitledService, EntitlementCheck, Gate, InFlight, LockReason, MaybeGated, Verdict,
+    maybe_gated, AccountNotice, EntitledService, EntitlementCheck, Gate, InFlight, LockReason,
+    MaybeGated, Verdict,
 };
 pub use relay::{
     NoVaultAdapter, RelayServer, Upstream, UpstreamError, MSG_OUTCOME_UNKNOWN, MSG_TIMED_OUT,

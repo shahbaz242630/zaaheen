@@ -238,6 +238,27 @@ impl Account {
         .await
     }
 
+    /// The address of whoever is signed in now, for "Signed in as <email> —
+    /// not you? Sign out" (§8.26 §3, ADR-SEC-027). No network, no writes.
+    ///
+    /// `None` when nobody is signed in, when no address was stored, when the
+    /// stored one belongs to somebody else, or when it cannot be read: a
+    /// label is never worth an error, and never worth guessing.
+    pub async fn signed_in_email(&self) -> Option<String> {
+        let (dir, store) = (self.dir.clone(), self.store.clone());
+        let read = blocking(move || {
+            let Some(sub) = dir.read_marker()? else {
+                return Ok(None);
+            };
+            store.load_address(&sub)
+        })
+        .await;
+        read.unwrap_or_else(|e| {
+            tracing::warn!(error = %e, "could not read the signed-in address");
+            None
+        })
+    }
+
     /// Refresh the lease (and rotate the refresh token) under the rules in
     /// the module docs.
     ///
@@ -360,6 +381,14 @@ impl Account {
         .await?;
         tracing::info!("signed in");
 
+        // The address, so "Signed in as <email>" still has one on the next
+        // app open (ADR-SEC-027). A label: a refused save is logged and never
+        // fails the sign-in, which is the token, not the label.
+        let (store, who) = (self.store.clone(), user.clone());
+        if let Err(e) = blocking(move || store.save_address(&who)).await {
+            tracing::warn!(error = %e, "the signed-in address was not stored");
+        }
+
         let first = match self.api.fetch(&access, now).await {
             Ok(wire) => self.verifier.verify(&wire, &user.sub),
             Err(e) => Err(e),
@@ -414,6 +443,7 @@ impl Account {
             });
             dir.clear(&lock)?;
             let deleted = store.delete();
+            forget_address(&store);
             Ok((token, deleted))
         })
         .await?;
@@ -641,6 +671,7 @@ impl Account {
         let (dir, store, l) = (self.dir.clone(), self.store.clone(), Arc::clone(lock));
         let cleared = blocking(move || {
             dir.clear(&l)?;
+            forget_address(&store);
             store.delete()
         })
         .await;
@@ -708,6 +739,16 @@ fn read_verified(
             tracing::warn!(error = %e, "the lease on disk does not verify");
             Ok(None)
         }
+    }
+}
+
+/// Forget the signed-in address, on every path that clears the marker
+/// (ADR-SEC-027). Logged, never fatal: the address is bound to the `sub`, so
+/// one left behind by a failed delete can never be shown under anybody's
+/// sign-in, and the next sign-in overwrites it.
+fn forget_address(store: &TokenStore) {
+    if let Err(e) = store.delete_address() {
+        tracing::warn!(error = %e, "the signed-in address was not forgotten");
     }
 }
 
