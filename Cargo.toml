@@ -56,6 +56,14 @@ async-trait = "=0.1.89"
 #
 # Pure Rust, no system libraries, so it adds nothing to any CI leg's setup.
 open = { version = "=5.4.4", default-features = false }
+# Free space on the drive of a folder the person chooses for their memories
+# (ADR-105 L4.5: a move is refused before it starts when the memories would not
+# fit). Its `available_space` is a safe wrapper over the platform call, which
+# the workspace's `forbid(unsafe_code)` rules out writing ourselves, and
+# `fsutil volume diskfree` needs admin (measured session 52). Pinned to the
+# version already in Cargo.lock through tantivy, so it adds no crate to any
+# build; pure Rust over `windows-sys`/`rustix`, nothing for a CI leg to install.
+fs4 = "=0.13.1"
 # Futures combinators (TryStreamExt for draining lancedb's SendableRecordBatchStream
 # into Vec<RecordBatch>). Added in T0.1.4 Phase 3.
 futures = "=0.3.32"

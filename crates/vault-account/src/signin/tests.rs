@@ -114,6 +114,50 @@ fn code_of(outcome: AccountResult<SignInOutcome>) -> String {
     }
 }
 
+// ---- the page the browser opens (§8.41) -------------------------------------
+
+#[tokio::test]
+async fn sign_in_opens_the_authorize_url_itself() {
+    let pending = PendingSignIn::start(&config()).await.unwrap();
+    assert_eq!(
+        pending.browser_url(SignInEntry::SignIn),
+        *pending.authorize_url()
+    );
+}
+
+/// "Create an account": the hosted sign-up page, sent back through the very
+/// same authorize URL (same `state`, same PKCE challenge, same loopback), so
+/// the sign-in that finishes is this one.
+#[tokio::test]
+async fn create_an_account_opens_sign_up_then_returns_through_the_same_sign_in() {
+    let config = AccountConfig::new(
+        "https://example-name-12.clerk.accounts.dev",
+        "client_test123",
+    )
+    .unwrap();
+    let pending = PendingSignIn::start(&config).await.unwrap();
+    let url = pending.browser_url(SignInEntry::SignUp);
+    assert_eq!(url.scheme(), "https");
+    assert_eq!(url.host_str(), Some("example-name-12.accounts.dev"));
+    assert_eq!(url.path(), "/sign-up");
+    assert_eq!(url.query_pairs().count(), 1, "only the way back: {url}");
+    assert_eq!(
+        param(&url, "redirect_url"),
+        pending.authorize_url().as_str()
+    );
+}
+
+/// No known sign-up page: the ordinary sign-in, whose own "Sign up" link
+/// comes back the same way — never a guessed address.
+#[tokio::test]
+async fn without_a_known_sign_up_page_create_an_account_opens_the_sign_in() {
+    let pending = PendingSignIn::start(&config()).await.unwrap();
+    assert_eq!(
+        pending.browser_url(SignInEntry::SignUp),
+        *pending.authorize_url()
+    );
+}
+
 // ---- the authorization request ------------------------------------------------
 
 #[tokio::test]

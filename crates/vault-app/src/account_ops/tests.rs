@@ -93,6 +93,39 @@ fn signed_in_without_a_lease_keeps_the_address_and_counts_nothing() {
     assert_eq!(view.email.as_deref(), Some("someone@example.test"));
 }
 
+/// The clock notice comes only from a lease that says so (§8.26 §4); with no
+/// lease there is nothing to have measured the clock against.
+#[test]
+fn no_lease_means_no_clock_notice() {
+    let signed_out = AccountOps::view_of(Status::SignedOut, None);
+    let no_lease = AccountOps::view_of(
+        Status::NoLease {
+            sub: "user_123".into(),
+        },
+        None,
+    );
+    assert!(!signed_out.clock_wrong);
+    assert!(!no_lease.clock_wrong);
+    assert!(!AccountOps::cannot_confirm().clock_wrong);
+}
+
+/// An account folder that cannot be read is "could not confirm" — never
+/// "ended" (§8.33), and never "signed out" either, which would tell somebody
+/// to sign in when the truth is that we could not look.
+#[test]
+fn an_unreadable_account_reads_as_could_not_confirm() {
+    let view = AccountOps::cannot_confirm();
+    assert_eq!(view.state, state::CANNOT_CONFIRM);
+    assert_ne!(view.state, state::ENDED);
+    assert_ne!(view.state, state::SIGNED_OUT);
+    assert_eq!(view.email, None);
+    assert_eq!(view.days_left, None);
+}
+
+// The refresh at desktop open and the daily timer moved to
+// `crate::entitlement` in 4d-3, shared with the keeper (§8.40); their tests
+// moved with them, into `entitlement/tests.rs`.
+
 /// The subject identifies the person to our account service. It has no place
 /// in what crosses the IPC boundary (BRD §11.7.2), and `AccountView` has no
 /// field for it — this pins that.
@@ -176,41 +209,4 @@ fn account_ops_never_holds_the_vault() {
              the vault removes that guarantee."
         );
     }
-}
-
-// ------------------------------------------------------ the daily timer
-
-/// The spread exists so every install does not ask the Worker at the same
-/// moment forever (SIGNIN-DESIGN 8.26 4's "jittered daily timer"). Whatever
-/// the clock says, the period must stay inside the designed window: never
-/// shorter than a day, never longer than a day and six hours.
-#[test]
-fn the_daily_refresh_period_stays_inside_its_window() {
-    const DAY: u64 = 24 * 60 * 60;
-    const SPREAD: u64 = 6 * 60 * 60;
-
-    for now in [
-        0_i64,
-        1,
-        1_760_000_000,
-        1_760_000_001,
-        i64::MAX,
-        -1,
-        i64::MIN,
-    ] {
-        let period = daily_period(now).as_secs();
-        assert!(
-            (DAY..=DAY + SPREAD).contains(&period),
-            "a clock reading of {now} produced a {period}s period, outside the              {DAY}s..={}s window",
-            DAY + SPREAD
-        );
-    }
-}
-
-/// A negative clock reading (a computer set before 1970) must not panic or
-/// wrap into a tiny period that hammers the Worker.
-#[test]
-fn a_clock_set_before_1970_still_yields_a_sane_period() {
-    let period = daily_period(-1_000_000).as_secs();
-    assert!(period >= 24 * 60 * 60);
 }

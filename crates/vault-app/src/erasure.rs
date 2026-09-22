@@ -127,12 +127,34 @@ pub const VAULT_LOCK_FILES: &[&str] = &[
     ".keyinit.lock",
 ];
 
-/// Cryptographically erase the vault: destroy the master_key, then remove
-/// the vault's data files.
+/// Files in the vault folder that erasure keeps (ADR-105 L1, L7): declared,
+/// so the at-rest sweep accepts them, and never erased.
+///
+/// `.vault-id` binds the folder to the recorded location. Erasing it would
+/// leave the location unresolvable, so the person who just deleted
+/// everything could never start again (review round 2, finding 1). It holds a
+/// random ID and nothing from the vault. `.move-id` exists only inside a
+/// move's target and is removed by the move itself.
+pub const VAULT_KEEP_FILES: &[&str] = &[
+    crate::location::VAULT_ID_FILE,
+    crate::location::MOVE_ID_FILE,
+];
+
+/// Cryptographically erase the vault: destroy the master_key (and its spare
+/// copy, if a move to Local persistence left one), then remove the vault's
+/// data files.
 ///
 /// See the module docs for the ordering contract and why this never opens
 /// the vault. Idempotent — running it on an already-erased vault succeeds
 /// with `key_destroyed: false`.
+///
+/// **ADR-SEC-029 (E1–E3):** the whole of it runs under the one key lock, so
+/// no process can create, move or restore a key meanwhile. The spare is
+/// deleted before the key, and each is confirmed gone before anything else
+/// happens. Only then is an "erased" marker written, naming `vault_dir`:
+/// files that cannot be removed now (the desktop's own open database,
+/// typically) are removed by the next process that opens the key, and no
+/// new key is made until they are.
 ///
 /// `models/` is deliberately NOT removed: those are downloaded ML model
 /// files containing no user data, they are large (~3.5 GB), and a user who
@@ -141,15 +163,16 @@ pub const VAULT_LOCK_FILES: &[&str] = &[
 ///
 /// # Errors
 ///
-/// [`vault_core::VaultError::KeychainProvenance`] if the master_key could not be
-/// destroyed. **No files are touched in that case** — erasure either starts
-/// by succeeding at the step that matters, or does nothing at all. A caller
-/// MUST surface this as a failed wipe: the data is still readable.
+/// [`vault_core::VaultError::KeychainProvenance`] if the key could not be
+/// destroyed or confirmed gone, or [`vault_core::VaultError::VaultKey`] if
+/// the key lock could not be taken. **No files are touched in either case**
+/// — erasure either starts by succeeding at the step that matters, or does
+/// nothing at all. A caller MUST surface this as a failed wipe: the data is
+/// still readable.
 #[tracing::instrument(skip_all, fields(vault_dir = %vault_dir.display()))]
 pub fn erase_vault(
     vault_dir: &Path,
-    keychain_namespace: &str,
-    vault_id: &str,
+    key: &crate::keychain::KeyLocation,
 ) -> VaultResult<ErasureOutcome> {
     warn!(
         target: "vault_app::erasure",
@@ -157,11 +180,8 @@ pub fn erase_vault(
          all vault data is permanently unrecoverable (ADR-SEC-008)"
     );
 
-    // STEP 1 — the key. If this fails we stop here and touch nothing:
-    // deleting files while the key survives is the strictly worse failure
-    // mode (any backup of the data dir stays decryptable).
-    let key_destroyed = match crate::keychain::destroy_master_key(keychain_namespace, vault_id) {
-        Ok(destroyed) => destroyed,
+    let erased = match crate::keychain::erase_under_key_lock(key, vault_dir) {
+        Ok(erased) => erased,
         Err(e) => {
             error!(
                 target: "vault_app::erasure",
@@ -173,22 +193,33 @@ pub fn erase_vault(
         }
     };
 
-    // STEP 2 — the files. Best-effort from here: the data is already dead.
-    let mut entries_removed = 0usize;
-    let mut undeletable = Vec::new();
+    info!(
+        target: "vault_app::erasure",
+        key_destroyed = erased.key_destroyed,
+        entries_removed = erased.entries_removed,
+        undeletable = erased.undeletable.len(),
+        "cryptographic erasure complete"
+    );
 
+    Ok(ErasureOutcome {
+        key_destroyed: erased.key_destroyed,
+        entries_removed: erased.entries_removed,
+        undeletable: erased.undeletable,
+    })
+}
+
+/// Erasure's file step: remove the [`VAULT_ENTRIES`] names inside `folder`,
+/// and only those. Returns how many were removed and which could not be
+/// (locked, denied, or not even checkable — an entry whose existence cannot
+/// be checked is reported, never assumed gone).
+pub(crate) fn remove_vault_entries(folder: &Path) -> (usize, Vec<PathBuf>) {
+    let mut removed = 0usize;
+    let mut left = Vec::new();
     for name in VAULT_ENTRIES {
-        let path = vault_dir.join(name);
-        if !path.exists() {
-            continue;
-        }
-        let result = if path.is_dir() {
-            std::fs::remove_dir_all(&path)
-        } else {
-            std::fs::remove_file(&path)
-        };
-        match result {
-            Ok(()) => entries_removed += 1,
+        let path = folder.join(name);
+        match remove_entry(&path) {
+            Ok(true) => removed += 1,
+            Ok(false) => {}
             Err(e) => {
                 warn!(
                     target: "vault_app::erasure",
@@ -197,24 +228,29 @@ pub fn erase_vault(
                     "could not remove a vault file during erasure; it is now \
                      undecryptable ciphertext, but it still occupies disk"
                 );
-                undeletable.push(path);
+                left.push(path);
             }
         }
     }
+    (removed, left)
+}
 
-    info!(
-        target: "vault_app::erasure",
-        key_destroyed,
-        entries_removed,
-        undeletable = undeletable.len(),
-        "cryptographic erasure complete"
-    );
-
-    Ok(ErasureOutcome {
-        key_destroyed,
-        entries_removed,
-        undeletable,
-    })
+/// Remove one entry of a vault folder — a folder with everything in it.
+/// `Ok(false)`: it was not there. An entry whose existence cannot be checked
+/// is an error, never assumed gone. Shared by erasure and a move's cleanup
+/// (ADR-105 L5), so both remove exactly the same way.
+pub(crate) fn remove_entry(path: &Path) -> std::io::Result<bool> {
+    match std::fs::symlink_metadata(path) {
+        Ok(_) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(e),
+    }
+    if path.is_dir() {
+        std::fs::remove_dir_all(path)?;
+    } else {
+        std::fs::remove_file(path)?;
+    }
+    Ok(true)
 }
 
 /// Where the vault's data lives, for the UI to show the user so "uninstall
@@ -284,6 +320,27 @@ mod tests {
                 VAULT_LOCK_FILES.contains(&used),
                 "{used} is written into the vault but not declared"
             );
+        }
+    }
+
+    /// ADR-105 L1/L7: the location's ID files are declared and never erased
+    /// — and erasure's own file step leaves them in place.
+    #[test]
+    fn the_location_id_files_are_declared_and_never_erased() {
+        for name in VAULT_KEEP_FILES {
+            assert!(!VAULT_ENTRIES.contains(name), "{name} must survive erasure");
+            assert!(!VAULT_LOCK_FILES.contains(name));
+            assert_eq!(Path::new(name).components().count(), 1);
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        for name in VAULT_KEEP_FILES.iter().chain(["vault.db"].iter()) {
+            std::fs::write(tmp.path().join(name), b"x").unwrap();
+        }
+        let (removed, left) = remove_vault_entries(tmp.path());
+        assert_eq!(removed, 1);
+        assert!(left.is_empty());
+        for name in VAULT_KEEP_FILES {
+            assert!(tmp.path().join(name).exists(), "{name} was erased");
         }
     }
 

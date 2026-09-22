@@ -17,7 +17,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use rmcp::ServiceExt;
 use vault_app::install_paths;
 use vault_app::keeper::acl::harden_vault_dir;
@@ -87,7 +87,12 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
         .parent()
         .map(Path::to_path_buf)
         .ok_or_else(|| anyhow!("vault path has no parent directory"))?;
-    std::fs::create_dir_all(&vault_root).context("create vault directory")?;
+    // ADR-105 L3: the keeper never creates the vault folder. The first-run
+    // setup (`location::prepare`, run while resolving the paths) or a move
+    // made it; a folder that is not there is an error, never a new vault.
+    if !vault_root.is_dir() {
+        bail!("the vault folder is not there");
+    }
 
     // BEFORE any lockfile exists: a principal that can read the folder could
     // otherwise hold the lock and stop this from ever running (ADR-SEC-019).
@@ -202,9 +207,21 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
         std::process::exit(code)
     }
 
-    let models_dir = install_paths::models_dir_in(&vault_root);
+    // §8.26 §4 and SIGNIN-DESIGN.md §8.40: at keeper start, refresh a stale
+    // lease, then once a day while serving — never from tool activity, and
+    // recording no use. Its own task, started before the models load, so
+    // neither the start nor any call waits on the network. Lock mode (above)
+    // has no need: its start already refreshed on the denial.
+    if let Some(check) = &check {
+        tokio::spawn(Arc::clone(check).refresh_at_start_then_daily());
+    }
+
+    // ADR-105 L3: the models never follow the vault.
+    let models_dir = vault_app::location::models_dir(
+        &vault_app::location::Homes::production().map_err(|e| anyhow!("{e}"))?,
+    );
     let reranker = model_fetch::reranker_paths_in(&models_dir);
-    let app = match crate::build_application(
+    let (app, master_key) = match crate::build_application_keyed(
         &paths.vault_db,
         &paths.vector_dir,
         &paths.graph_db,
@@ -217,24 +234,18 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
     )
     .await
     {
-        Ok(app) => app,
+        Ok(built) => built,
         Err(e) => {
             publish_failure();
             return Err(e);
         }
     };
+    // ADR-SEC-029 R2: the handshake keys come from the key the build just
+    // opened (and may just have moved to Local persistence), never from a
+    // second read of it. The master key is dropped, and wiped, at once.
+    let keys = HandshakeKeys::derive(&master_key);
+    drop(master_key);
     let _worker_shutdown = app.spawn_retry_worker();
-
-    // `build_application` has just read (or, on a fresh install, created) the
-    // key, so this only reads it. Derive the handshake keys and drop the
-    // master key at once.
-    let keys = match read_existing_master_key(PRODUCTION_NAMESPACE, VAULT_ID) {
-        Ok(Some(master_key)) => HandshakeKeys::derive(&master_key),
-        Ok(None) | Err(_) => {
-            publish_failure();
-            return Err(anyhow!("authentication failed"));
-        }
-    };
 
     let adapter: Arc<dyn vault_mcp::Adapter> = app.adapter().clone();
     let settings = KeeperSettings::production(vault_root.clone(), env!("CARGO_PKG_VERSION"));
@@ -353,7 +364,7 @@ fn stdin_eof_watcher() -> tokio::sync::oneshot::Receiver<()> {
 /// # Errors
 ///
 /// The stdio transport could not be bound.
-pub async fn run_relay(vault_root: PathBuf, boundaries: Vec<Boundary>) -> Result<()> {
+pub async fn run_relay(homes: vault_app::location::Homes, boundaries: Vec<Boundary>) -> Result<()> {
     // Nothing that can fail runs before stdio is served: a relay that dies
     // before answering `initialize` is exactly the "Server disconnected" this
     // arc exists to remove. Folder hardening is the keeper's job (it runs it
@@ -369,7 +380,8 @@ pub async fn run_relay(vault_root: PathBuf, boundaries: Vec<Boundary>) -> Result
         .transpose()?
         .map(|home| vault_app::account::account_dir_path(&home));
     let pool = KeeperPool::new(
-        RelaySettings::production(vault_root, boundaries).with_account_dir(account_dir),
+        // ADR-105 L3: the recorded location, re-resolved on every round.
+        RelaySettings::recorded(homes, boundaries).with_account_dir(account_dir),
         starter,
         Arc::new(KeychainKeySource),
     );
@@ -605,6 +617,69 @@ mod shutdown_tests {
             exited_within(&mut child, Duration::from_secs(5)),
             Some(true),
             "EOF on stdin must stop the keeper"
+        );
+    }
+}
+
+/// §8.26 §4 and `SIGNIN-DESIGN.md` §8.40: the full keeper starts the routine
+/// refresh — at start when the lease is stale, then daily — in its own task,
+/// before the models load, and lock mode does not (its start already refreshed
+/// on the denial, and every call it answers asks again).
+///
+/// A source test, because the keeper's start opens the real vault and the
+/// credential store and cannot run inside a test. It reads only
+/// `dispatch_keeper`, with comments stripped (§8.37: a source test must read
+/// code, never prose), and was planted to prove it sees a missing or a
+/// misplaced start.
+#[cfg(test)]
+mod routine_refresh_wiring {
+    #[test]
+    fn the_full_keeper_starts_the_routine_refresh_and_lock_mode_does_not() {
+        let source = include_str!("keeper.rs").replace("\r\n", "\n");
+        let code: String = source
+            .lines()
+            .map(|line| line.split("//").next().unwrap_or(line))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let start = code
+            .split_once("pub async fn dispatch_keeper(")
+            .expect("the keeper's start is here")
+            .1;
+        let (lock_mode, full) = start
+            .split_once("std::process::exit(code)")
+            .expect("lock mode ends by exiting");
+        let (before_models, after_build) = full
+            .split_once("crate::build_application_keyed(")
+            .expect("the full keeper builds the application");
+        // Only the rest of `dispatch_keeper`: the file goes on to this very
+        // test, whose own string literals must not count as code.
+        let after_build = after_build
+            .split_once("\n}\n")
+            .map_or(after_build, |(body, _)| body);
+
+        // ADR-SEC-029 R2: the full keeper derives its handshake keys from the
+        // key the build opened; a second read straight after a move to Local
+        // persistence is the library's documented flaky case.
+        assert!(
+            !after_build.contains("read_existing_master_key"),
+            "the full keeper must not read the key a second time after the build"
+        );
+        assert!(
+            after_build.contains("HandshakeKeys::derive(&master_key);"),
+            "the full keeper derives its handshake keys from the built key"
+        );
+
+        assert!(
+            !lock_mode.contains("refresh_at_start_then_daily"),
+            "lock mode must not start the routine refresh"
+        );
+        // One connected call, not two substrings: a `tokio::spawn(` somewhere
+        // else in the window must not stand in for this one (the independent
+        // review's note, §8.40).
+        assert!(
+            before_models
+                .contains("tokio::spawn(Arc::clone(check).refresh_at_start_then_daily());"),
+            "the full keeper must spawn the routine refresh before the models load"
         );
     }
 }

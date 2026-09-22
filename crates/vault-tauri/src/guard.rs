@@ -31,22 +31,27 @@
 //!
 //! # Fail-secure, without being cruel
 //!
-//! `vault_app::account::build_check` can fail at startup — build settings that
-//! do not parse, or a credential store that will not open. The keeper's answer
-//! to that is to refuse to start (a gate that silently disappears is worse
-//! than a keeper that says why). **The desktop must not copy it.** Refusing to
-//! start takes away the export, and "your memories are always yours" is the
-//! promise the export exists to keep (BRD §1.6 amendment 1).
+//! `vault_app::account::build_desktop` can fail at startup — build settings
+//! that do not parse, or a credential store that will not open. The keeper's
+//! answer to that is to refuse to start (a gate that silently disappears is
+//! worse than a keeper that says why). **The desktop must not copy it.**
+//! Refusing to start takes away the export, and "your memories are always
+//! yours" is the promise the export exists to keep (BRD §1.6 amendment 1).
 //!
 //! So a setup failure is [`Source::Unavailable`]: locked, with
 //! [`ERR_LOCKED_CANNOT_CONFIRM`] — never "ended", never silently open. The
-//! person still reaches the lock screen, can still download their memories,
-//! and can still sign in and subscribe. It is the same reading §8.33 applies
-//! to the keeper: only a signed `ended` ever says ended.
+//! person still reaches the lock screen and can still download their
+//! memories. They cannot sign in or subscribe until the app is reopened: the
+//! account those need is the one that could not be prepared, and the account
+//! commands say so with `account_unavailable` (§8.38 corrects ADR-SEC-023's
+//! wording on this). It is the same reading §8.33 applies to the keeper: only
+//! a signed `ended` ever says ended.
 
 use std::sync::Arc;
 
 use vault_mcp::{EntitlementCheck, LockReason, Verdict};
+
+use crate::commands::account::AccountSlot;
 
 /// Proof that whoever is using this computer may reach their vault right now.
 ///
@@ -140,28 +145,38 @@ pub struct Entitlement {
 /// This function stays public because what it returns is always honest: on a
 /// machine with account settings it is a real check or a locked
 /// [`Source::Unavailable`], never [`Source::Open`].
+///
+/// **It also hands out the account the commands use** (ADR-SEC-028), built
+/// from the *same* account as the check: `Account` keeps a rotated refresh
+/// token the credential store refused in memory, so a second copy in this
+/// process would replay the spent one and sign the person out. Both views of
+/// one account, or neither.
 #[must_use]
-pub fn build() -> Entitlement {
+pub fn build() -> (Entitlement, AccountSlot) {
     let Some(home) = vault_app::install_paths::local_data_dir() else {
         tracing::warn!(
             "no local application data directory; serving locked as 'could not confirm'"
         );
-        return Entitlement::unavailable();
+        return (Entitlement::unavailable(), AccountSlot::new(None));
     };
 
-    match vault_app::account::build_check(&home) {
-        Ok(Some(check)) => Entitlement::checked(check),
-        // No account settings compiled in: today's ungated path.
-        Ok(None) => Entitlement::open(),
+    match vault_app::account::build_desktop(&home) {
+        Ok(Some(desktop)) => {
+            let (check, ops) = desktop.into_parts();
+            (Entitlement::checked(check), AccountSlot::new(Some(ops)))
+        }
+        // No account settings compiled in: today's ungated path, and no
+        // account to show.
+        Ok(None) => (Entitlement::open(), AccountSlot::new(None)),
         // Deliberately NOT the keeper's answer, which is to refuse to start.
         // See this module's header: refusing would take away the export.
         Err(e) => {
             tracing::warn!(
                 error = %e,
-                "the account check could not be built; serving locked as 'could not \
-                 confirm'. Export, sign-in and erasure stay open."
+                "the account could not be prepared; serving locked as 'could not \
+                 confirm'. Export and erasure stay open."
             );
-            Entitlement::unavailable()
+            (Entitlement::unavailable(), AccountSlot::new(None))
         }
     }
 }
@@ -196,6 +211,33 @@ impl Entitlement {
     /// a plain-English line; nothing here reaches the user as raw text
     /// (BRD §11.7.2).
     pub async fn require(&self) -> Result<Entitled, String> {
+        self.ask()
+            .await
+            .map(|()| Entitled(()))
+            .map_err(str::to_string)
+    }
+
+    /// The code a gated command would be refused with right now, or `None`
+    /// when it would be served — for the lock screen (§8.38).
+    ///
+    /// The same single path as [`Entitlement::require`], so the lock screen
+    /// shows exactly when a gated command would be refused. It never hands
+    /// out an [`Entitled`]: knowing the answer is not permission to serve.
+    pub async fn lock_code(&self) -> Option<&'static str> {
+        self.ask().await.err()
+    }
+
+    /// Does this build have sign-in at all? `false` only for a build with no
+    /// account settings, which must never show a sign-in screen. A build
+    /// whose account could not be prepared *does* have sign-in — it is
+    /// locked as "could not confirm" (ADR-SEC-023).
+    #[must_use]
+    pub fn sign_in_available(&self) -> bool {
+        !matches!(self.source, Source::Open)
+    }
+
+    /// The one place the check is asked.
+    async fn ask(&self) -> Result<(), &'static str> {
         // Asked exactly once. A refresh inside the check can take five
         // seconds (§8.26 §4), so asking twice would double that and would
         // record two uses where the person took one action.
@@ -210,11 +252,11 @@ impl Entitlement {
         //     broken version does not compile. That direction is held by the
         //     compiler, which is stronger than a test but is not one.
         match &self.source {
-            Source::Open => Ok(Entitled(())),
-            Source::Unavailable => Err(ERR_LOCKED_CANNOT_CONFIRM.to_string()),
+            Source::Open => Ok(()),
+            Source::Unavailable => Err(ERR_LOCKED_CANNOT_CONFIRM),
             Source::Check(check) => match check.check().await {
-                Verdict::Entitled => Ok(Entitled(())),
-                Verdict::Locked(reason) => Err(code_for(reason).to_string()),
+                Verdict::Entitled => Ok(()),
+                Verdict::Locked(reason) => Err(code_for(reason)),
             },
         }
     }
@@ -244,6 +286,15 @@ pub const GATED_COMMANDS: &[&str] = &[
     "ensure_maintenance_engine",
     "set_maintenance_schedule",
     "run_maintenance_now",
+    // Where the memories live (ADR-105 L-e): not on the locked allowlist,
+    // so gated; the onboarding asks after its sign-in step.
+    "location_status",
+    "location_check",
+    "location_move",
+    "location_forget_old_copy",
+    // "Connect it for me" (ADR-106): a setup action after sign-in, so gated.
+    "connect_app",
+    "show_claude_extension",
 ];
 
 /// Commands that run whatever the entitlement answer is.
@@ -282,10 +333,21 @@ pub const OPEN_COMMANDS: &[&str] = &[
     "account_sign_out",
     "account_subscribe",
     "account_refresh_now",
+    // Also the **account** slot (S3 step 4d-1, SIGNIN-DESIGN 8.38): "is this
+    // computer locked, and why", asked of this guard rather than guessed
+    // from the account view. Given the guard and nothing else -- no vault --
+    // so the argument above holds for it too.
+    "account_access",
     // The **export** slot, filled by S3 step 4c. Unlike the five above, this
     // one DOES read the vault, so it cannot lean on their "holds nothing"
     // argument -- see `commands/export.rs`, which carries its own.
     "export_memories",
+    // A **widening**, founder-approved (session 55; ADR-SEC-030 amendment
+    // 1): "how far along is the move". A start with a move waiting serves
+    // the page before this guard exists, so the question cannot be gated.
+    // Given the start's own progress and nothing else -- see
+    // `commands/startup.rs` and its source test.
+    "startup_state",
 ];
 
 #[cfg(test)]
@@ -414,6 +476,95 @@ mod tests {
     async fn a_check_that_could_not_be_built_reads_as_could_not_confirm() {
         let answer = Entitlement::unavailable().require().await;
         assert_eq!(answer.err().as_deref(), Some(ERR_LOCKED_CANNOT_CONFIRM));
+    }
+
+    // ------------------------------------------- the lock screen's question
+
+    /// The lock screen must show exactly when a gated command would be
+    /// refused, with the same code (§8.38). Checked for every verdict,
+    /// against a fresh check each time so the two answers are independent.
+    #[tokio::test]
+    async fn the_lock_screen_answer_always_agrees_with_the_gate() {
+        let mut verdicts = vec![Verdict::Entitled];
+        verdicts.extend(ALL_REASONS.iter().map(|&r| Verdict::Locked(r)));
+        for verdict in verdicts {
+            let (for_gate, _) = FakeCheck::new(verdict);
+            let (for_screen, _) = FakeCheck::new(verdict);
+            let gate = Entitlement::checked(for_gate).require().await.err();
+            let screen = Entitlement::checked(for_screen).lock_code().await;
+            assert_eq!(
+                screen,
+                gate.as_deref(),
+                "the lock screen and the gate disagree for {verdict:?}"
+            );
+        }
+        assert_eq!(Entitlement::open().lock_code().await, None);
+        assert_eq!(
+            Entitlement::unavailable().lock_code().await,
+            Some(ERR_LOCKED_CANNOT_CONFIRM)
+        );
+    }
+
+    /// Asking whether the screen should show is one ask, like a command.
+    #[tokio::test]
+    async fn the_lock_screen_question_asks_the_check_once() {
+        let (check, asked) = FakeCheck::new(Verdict::Locked(LockReason::TrialEnded));
+        let _ = Entitlement::checked(check).lock_code().await;
+        assert_eq!(asked.load(Ordering::SeqCst), 1);
+    }
+
+    /// A developer build (no account settings) must never show a sign-in
+    /// screen; any build with account settings has sign-in, including one
+    /// whose account could not be prepared (it is locked, ADR-SEC-023).
+    #[test]
+    fn only_a_build_with_no_account_settings_lacks_sign_in() {
+        let (check, _) = FakeCheck::new(Verdict::Entitled);
+        assert!(!Entitlement::open().sign_in_available());
+        assert!(Entitlement::checked(check).sign_in_available());
+        assert!(Entitlement::unavailable().sign_in_available());
+    }
+
+    /// ADR-SEC-028: the desktop builds its account **once**. A second
+    /// builder anywhere in the composition path would put the lock and the
+    /// buttons on different copies, each with its own in-memory token.
+    #[test]
+    fn the_desktop_builds_its_account_once() {
+        let strip = |src: &str| -> String {
+            src.lines()
+                .map(|line| line.split("//").next().unwrap_or(line))
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        let guard = strip(include_str!("guard.rs"));
+        let main = strip(include_str!("main.rs"));
+        // Only the code before the tests: the test module names these
+        // strings in order to look for them.
+        let guard = guard
+            .split("mod tests")
+            .next()
+            .unwrap_or(&guard)
+            .to_string();
+
+        assert_eq!(
+            guard.matches("build_desktop(").count(),
+            1,
+            "guard::build must build the desktop's account exactly once"
+        );
+        for (name, code) in [("guard.rs", &guard), ("main.rs", &main)] {
+            for second_builder in [
+                "build_check(",
+                "build_account(",
+                "build_account_ops(",
+                "Account::new(",
+                "DesktopAccount::new(",
+            ] {
+                assert!(
+                    !code.contains(second_builder),
+                    "{name} calls `{second_builder}`, a second way to build the account. \
+                     The lock and the buttons must share one (ADR-SEC-028)."
+                );
+            }
+        }
     }
 
     /// A code with no arm in the frontend falls through to showing the user
@@ -556,6 +707,8 @@ mod tests {
             include_str!("commands/agent.rs"),
             include_str!("commands/engine.rs"),
             include_str!("commands/maintenance.rs"),
+            include_str!("commands/location.rs"),
+            include_str!("commands/connect.rs"),
         ];
 
         for name in GATED_COMMANDS {
@@ -596,12 +749,27 @@ mod tests {
             ("agent.rs", include_str!("commands/agent.rs")),
             ("engine.rs", include_str!("commands/engine.rs")),
             ("maintenance.rs", include_str!("commands/maintenance.rs")),
+            ("location.rs", include_str!("commands/location.rs")),
+            ("connect.rs", include_str!("commands/connect.rs")),
+            // The open commands too: `account_access` reads the guard, and
+            // must read the application's one, not a guard of its own.
+            ("account.rs", include_str!("commands/account.rs")),
+            ("erasure.rs", include_str!("commands/erasure.rs")),
+            ("export.rs", include_str!("commands/export.rs")),
         ];
 
         for (name, src) in SOURCES {
+            // Code only, never prose (the rule §8.37 records): `account.rs`'s
+            // own docs say the slot is filled by `guard::build()`, and a
+            // scan of the raw text fires on that sentence.
+            let code: String = src
+                .lines()
+                .map(|line| line.split("//").next().unwrap_or(line))
+                .collect::<Vec<_>>()
+                .join("\n");
             for forbidden in ["Entitlement::", "guard::build"] {
                 assert!(
-                    !src.contains(forbidden),
+                    !code.contains(forbidden),
                     "{name} names `{forbidden}`. A command takes the one guard the \
                      application built, as `State<'_, Entitlement>`; building its own \
                      would ask a check nobody configured."
@@ -702,9 +870,15 @@ mod tests {
                 "account_sign_out",
                 "account_subscribe",
                 "account_refresh_now",
+                "account_access",
                 "export_memories",
+                "startup_state",
             ],
-            "widening the allowlist is a founder decision, not a refactor. The five              account entries fill 8.26 6.4's existing `account` slot (S3 step 4b); the              `export` slot is still empty and belongs to step 4c."
+            "widening the allowlist is a founder decision, not a refactor. The six \
+             account entries fill 8.26 6.4's existing `account` slot (steps 4b and \
+             4d-1, 8.37 and 8.38); `export_memories` fills the `export` slot (4c); \
+             `startup_state` is the founder-approved widening of session 55 \
+             (ADR-SEC-030 amendment 1)."
         );
     }
 }

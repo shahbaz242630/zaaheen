@@ -64,7 +64,9 @@ pub async fn get_settings_info_inner(app: &Application) -> Result<serde_json::Va
 
     Ok(serde_json::json!({
         "version": env!("CARGO_PKG_VERSION"),
-        "data_dir": app.vault_root().display().to_string(),
+        // As the person reads it: never the `\\?\` form a moved vault's
+        // record keeps (ADR-105 L-e).
+        "data_dir": vault_app::location::display_path(app.vault_root()),
         "memory_count": memory_count,
         "boundary_count": boundary_count,
         "audit_chain_verified": audit_chain_verified,
@@ -110,6 +112,23 @@ mod tests {
                 "ADR-086: settings payload must not name '{forbidden}'; got {rendered}"
             );
         }
+    }
+
+    /// ADR-105 L-e: a moved vault's record keeps `\\?\D:\…`; Settings shows
+    /// the folder as the person reads it. A source test, because the command
+    /// needs a whole `Application` to run.
+    #[test]
+    fn the_vault_location_is_shown_as_the_person_reads_it() {
+        let source = include_str!("settings.rs").replace("\r\n", "\n");
+        let body = source
+            .split_once("pub async fn get_settings_info_inner(")
+            .expect("the inner command is defined here")
+            .1
+            .split_once("\n}\n")
+            .expect("the inner command is closed")
+            .0;
+        assert!(body.contains("\"data_dir\": vault_app::location::display_path(app.vault_root()),"));
+        assert!(!body.contains(".display().to_string()"));
     }
 
     #[test]

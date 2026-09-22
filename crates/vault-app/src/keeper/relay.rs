@@ -64,6 +64,10 @@ pub const MSG_FAILED: &str = "the vault could not start; open the Zaaheen app to
 pub const MSG_UPDATE: &str = "Zaaheen was updated; restart every app that uses Zaaheen";
 pub const MSG_KEY_CHANGED: &str = "the vault's key changed; restart every app that uses Zaaheen";
 pub const MSG_REFUSED: &str = "the vault refused this connection";
+/// ADR-105 L3: the recorded vault folder is missing or is not this vault (an
+/// unplugged drive, a different stick at the same letter).
+pub const MSG_LOCATION_MISSING: &str =
+    "Zaaheen can't find your memories; open the Zaaheen app to check where they are";
 
 /// Asks the platform to start a keeper (Task Scheduler on Windows). Must be
 /// idempotent: it is called repeatedly while waiting, and a keeper that is
@@ -102,10 +106,44 @@ impl MasterKeySource for KeychainKeySource {
     }
 }
 
+/// Which vault folder the relay looks for a keeper in.
+#[derive(Clone, Debug)]
+pub enum RelayVault {
+    /// A fixed folder (tests, explicit paths).
+    Fixed(PathBuf),
+    /// The recorded location (ADR-105 L3), re-resolved on every connect
+    /// round, so a relay alive across a move follows it. Nothing recorded
+    /// yet → a keeper is started (it runs the first-run setup); a record
+    /// whose folder is missing or wrong → answered at once, no start.
+    Recorded(crate::location::Homes),
+}
+
+/// What one connect round found for the vault folder.
+enum RoundVault {
+    Folder(PathBuf),
+    /// Nothing recorded yet: only a keeper's first-run setup can answer.
+    Unset,
+}
+
+impl RelayVault {
+    fn resolve(&self) -> Result<RoundVault, &'static str> {
+        match self {
+            Self::Fixed(p) => Ok(RoundVault::Folder(p.clone())),
+            Self::Recorded(homes) => match crate::location::resolve(homes) {
+                Ok(dir) => Ok(RoundVault::Folder(dir.path().to_path_buf())),
+                Err(vault_core::VaultError::VaultLocation(
+                    vault_core::VaultLocationFailure::Unset,
+                )) => Ok(RoundVault::Unset),
+                Err(_) => Err(MSG_LOCATION_MISSING),
+            },
+        }
+    }
+}
+
 /// Tunables. [`RelaySettings::production`] holds the shipped values.
 #[derive(Clone, Debug)]
 pub struct RelaySettings {
-    pub vault_root: PathBuf,
+    pub vault: RelayVault,
     pub boundaries: Vec<Boundary>,
     pub resolve_budget: Duration,
     pub start_every: Duration,
@@ -131,8 +169,18 @@ impl RelaySettings {
     /// starting the keeper; the call itself runs until the deadline (ADR-103
     /// D1 — there is no separate call timeout any more).
     pub fn production(vault_root: PathBuf, boundaries: Vec<Boundary>) -> Self {
+        Self::for_vault(RelayVault::Fixed(vault_root), boundaries)
+    }
+
+    /// Shipped values over the recorded location (ADR-105): what an AI app's
+    /// `zaaheen mcp serve` uses.
+    pub fn recorded(homes: crate::location::Homes, boundaries: Vec<Boundary>) -> Self {
+        Self::for_vault(RelayVault::Recorded(homes), boundaries)
+    }
+
+    fn for_vault(vault: RelayVault, boundaries: Vec<Boundary>) -> Self {
         Self {
-            vault_root,
+            vault,
             boundaries,
             resolve_budget: Duration::from_secs(15),
             start_every: Duration::from_millis(2500),
@@ -316,13 +364,26 @@ impl KeeperPool {
 
         loop {
             let mut want_start = true;
+            // ADR-105 L3: the folder is re-resolved every round, so a relay
+            // alive across a move follows it. A recorded folder that is
+            // missing or wrong is answered at once, with no keeper start (a
+            // keeper could not start there either); nothing recorded yet
+            // leaves `want_start` on, and the keeper records it.
+            let vault_root = match s.vault.resolve()? {
+                RoundVault::Folder(root) => Some(root),
+                RoundVault::Unset => None,
+            };
             // Re-read each round: on a fresh install the key appears only once
             // the keeper we asked for has created it.
-            if let Some(master_key) = self.keys.read() {
+            let master_key = match vault_root {
+                Some(_) => self.keys.read(),
+                None => None,
+            };
+            if let (Some(vault_root), Some(master_key)) = (vault_root.as_deref(), master_key) {
                 let keys = HandshakeKeys::derive(&master_key);
                 drop(master_key);
                 // No file, or one that cannot be read, means no usable keeper.
-                if let Ok(Some(d)) = discovery::read(&s.vault_root) {
+                if let Ok(Some(d)) = discovery::read(vault_root) {
                     match d.role {
                         Role::Failed if is_recent(&d.at, s.failed_cooldown) => {
                             return Err(MSG_FAILED);
@@ -337,7 +398,7 @@ impl KeeperPool {
                             last_problem = None;
                         }
                         Role::Keeper => {
-                            if let Ok(identity) = d.keeper_identity(&s.vault_root) {
+                            if let Ok(identity) = d.keeper_identity(vault_root) {
                                 // A tenure that already failed our key is
                                 // not retried: the endpoint is a squatter's or
                                 // the key is not ours, and a fresh keeper (new
@@ -513,5 +574,107 @@ mod tests {
             s.resolve_budget * 3 <= vault_mcp::RELAY_CALL_BUDGET,
             "finding the keeper must leave most of the call budget for the call"
         );
+    }
+
+    // ── ADR-105 L3: relays follow the recorded location ─────────────────
+
+    struct CountingStarter(std::sync::atomic::AtomicUsize);
+
+    impl KeeperStarter for CountingStarter {
+        fn request_start(&self) -> std::io::Result<()> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    struct NoKey;
+
+    impl MasterKeySource for NoKey {
+        fn read(&self) -> Option<Zeroizing<[u8; 32]>> {
+            None
+        }
+    }
+
+    fn homes(tmp: &std::path::Path) -> crate::location::Homes {
+        crate::location::Homes {
+            local: tmp.join("Local"),
+            roaming: tmp.join("Roaming"),
+        }
+    }
+
+    /// A relay over the recorded location, with a short budget, counting
+    /// the keeper starts it asks for.
+    fn pool(homes: crate::location::Homes) -> (Arc<KeeperPool>, Arc<CountingStarter>) {
+        let mut settings = RelaySettings::recorded(homes, vec![]);
+        settings.resolve_budget = Duration::from_millis(600);
+        settings.poll_every = Duration::from_millis(50);
+        settings.start_every = Duration::from_millis(100);
+        let starter = Arc::new(CountingStarter(std::sync::atomic::AtomicUsize::new(0)));
+        let pool = KeeperPool::new(settings, starter.clone(), Arc::new(NoKey));
+        (pool, starter)
+    }
+
+    fn starts(starter: &CountingStarter) -> usize {
+        starter.0.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// A recorded folder that is not there (a drive that is out): the AI app
+    /// is told at once, and no keeper is started — one could not open the
+    /// memories either, and starting one each round would loop (R2-4).
+    #[tokio::test]
+    async fn a_missing_location_is_answered_without_starting_a_keeper() {
+        let tmp = tempfile::tempdir().unwrap();
+        let h = homes(tmp.path());
+        let usb = tmp.path().join("E").join("Zaaheen Memories");
+        crate::location::pointer::write(
+            &h.pointer_path(),
+            &crate::location::Pointer::new(usb, crate::location::pointer::new_id().unwrap()),
+        )
+        .unwrap();
+        let (pool, starter) = pool(h);
+        let answer = pool.resolve(Instant::now() + Duration::from_secs(5)).await;
+        assert_eq!(answer.err(), Some(MSG_LOCATION_MISSING));
+        assert_eq!(
+            starts(&starter),
+            0,
+            "no keeper start for a missing location"
+        );
+    }
+
+    /// Nothing recorded yet (an AI app used before the desktop ever ran): a
+    /// keeper is asked for, since its first-run setup records the location.
+    #[tokio::test]
+    async fn with_nothing_recorded_a_keeper_is_asked_for() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (pool, starter) = pool(homes(tmp.path()));
+        let answer = pool.resolve(Instant::now() + Duration::from_secs(5)).await;
+        assert_eq!(answer.err(), Some(MSG_STARTING));
+        assert!(
+            starts(&starter) >= 1,
+            "the keeper's setup records the location"
+        );
+    }
+
+    /// Each round resolves the record afresh: a relay alive across a move
+    /// finds the new folder.
+    #[test]
+    fn each_round_follows_the_record() {
+        let tmp = tempfile::tempdir().unwrap();
+        let h = homes(tmp.path());
+        let key = crate::keychain::test_helpers::test_location("relay", tmp.path());
+        let first = crate::location::prepare(&h, &key, &[]).unwrap();
+        let vault = RelayVault::Recorded(h.clone());
+        assert!(matches!(vault.resolve(), Ok(RoundVault::Folder(p)) if p == first.path()));
+
+        let moved = tmp.path().join("E").join("Zaaheen Memories");
+        std::fs::create_dir_all(&moved).unwrap();
+        let id = first.pointer().vault_id.clone();
+        std::fs::write(moved.join(crate::location::VAULT_ID_FILE), &id).unwrap();
+        crate::location::pointer::write(
+            &h.pointer_path(),
+            &crate::location::Pointer::new(moved.clone(), id),
+        )
+        .unwrap();
+        assert!(matches!(vault.resolve(), Ok(RoundVault::Folder(p)) if p == moved));
     }
 }

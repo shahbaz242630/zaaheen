@@ -19,6 +19,15 @@
 //!   Enterprise, which roams the credential to other machines with the user's
 //!   profile. The token stays on this computer.
 //!
+//! # The signed-in address (ADR-SEC-027)
+//!
+//! A second credential beside the token, user `signed-in-email`, holds the
+//! signed-in `sub` and address as `<sub>\n<email>`, so "Signed in as
+//! <email>" still has an address on the next app open. Same store, same Local
+//! persistence, encrypted by the OS like the token (BRD §11.5.1: no plaintext
+//! on disk). It is only ever read back for the `sub` that is signed in now,
+//! and only if it still passes the checks it passed on the way in.
+//!
 //! # Failure rules (§8.26 §3, §4)
 //!
 //! - No credential → `Ok(None)`: nothing stored.
@@ -43,7 +52,7 @@ use keyring_core::{CredentialStore, Entry, Error};
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::error::{AccountError, AccountResult};
-use crate::oauth::RefreshToken;
+use crate::oauth::{RefreshToken, UserInfo};
 
 /// Credential service name. Only the Windows store and the tests name it;
 /// elsewhere nothing would use it (V0.2's store is Windows-only).
@@ -52,6 +61,9 @@ pub const SERVICE: &str = "com.zaaheen.account";
 
 /// Credential user name.
 pub const USER: &str = "refresh-token";
+
+/// Credential user name for the signed-in address (ADR-SEC-027).
+pub const ADDRESS_USER: &str = "signed-in-email";
 
 /// The refresh token's home in the OS credential store.
 #[derive(Clone)]
@@ -153,14 +165,73 @@ impl TokenStore {
         }
     }
 
-    /// Build our entry from this store instance (never the global default),
-    /// with the Local-persistence modifier when the store takes one.
+    /// Remember who signed in, for "Signed in as <email>" on a later open
+    /// (ADR-SEC-027): one credential holding the `sub` and the address, so an
+    /// address can never be shown under somebody else's sign-in.
+    ///
+    /// # Errors
+    ///
+    /// [`AccountError::Keychain`] (transient) if the store fails. The caller
+    /// logs it: an address is a label, and a sign-in never fails over one.
+    pub fn save_address(&self, user: &UserInfo) -> AccountResult<()> {
+        // `sub` is printable ASCII and the address has no control characters
+        // (`UserInfo::checked`), so the newline between them is unambiguous.
+        self.entry_for(ADDRESS_USER)?
+            .set_password(&format!("{}\n{}", user.sub, user.email))
+            .map_err(keychain)
+    }
+
+    /// The remembered address, when it belongs to `sub` and still passes the
+    /// checks it passed on the way in; otherwise `None`.
+    ///
+    /// # Errors
+    ///
+    /// [`AccountError::Keychain`] (transient) if the store fails.
+    pub fn load_address(&self, sub: &str) -> AccountResult<Option<String>> {
+        match self.entry_for(ADDRESS_USER)?.get_password() {
+            Ok(stored) => {
+                let address = stored
+                    .split_once('\n')
+                    .and_then(|(s, e)| UserInfo::checked(s.to_owned(), e.to_owned()))
+                    .filter(|who| who.sub == sub)
+                    .map(|who| who.email);
+                Ok(address)
+            }
+            Err(Error::NoEntry) => Ok(None),
+            // Not text: nothing we could have written. The store worked, so
+            // this is "no address", not a failure.
+            Err(Error::BadEncoding(_) | Error::BadDataFormat(..)) => Ok(None),
+            Err(e) => Err(keychain(e)),
+        }
+    }
+
+    /// Forget the remembered address. Forgetting one that is not there
+    /// succeeds.
+    ///
+    /// # Errors
+    ///
+    /// [`AccountError::Keychain`] (transient) if the store fails.
+    pub fn delete_address(&self) -> AccountResult<()> {
+        match self.entry_for(ADDRESS_USER)?.delete_credential() {
+            Ok(()) | Err(Error::NoEntry) => Ok(()),
+            Err(e) => Err(keychain(e)),
+        }
+    }
+
+    /// Build our token entry from this store instance.
     fn entry(&self) -> AccountResult<Entry> {
+        self.entry_for(USER)
+    }
+
+    /// Build the entry for `user` from this store instance (never the global
+    /// default), with the Local-persistence modifier when the store takes
+    /// one.
+    fn entry_for(&self, user: &str) -> AccountResult<Entry> {
         let modifiers = self
             .persistence
             .map(|p| HashMap::from([("persistence", p)]));
         self.store
-            .build(&self.service, USER, modifiers.as_ref())
+            .build(&self.service, user, modifiers.as_ref())
             .map_err(keychain)
     }
 }
@@ -371,6 +442,157 @@ mod tests {
         store.save(&token("rt_SECRET_value")).unwrap();
         assert!(!format!("{store:?}").contains("rt_SECRET_value"));
     }
+
+    // ---- the signed-in address (ADR-SEC-027) ------------------------------------------
+
+    fn person(sub: &str, email: &str) -> UserInfo {
+        UserInfo::checked(sub.into(), email.into()).expect("a valid test identity")
+    }
+
+    /// What sits in the address credential, bypassing every rule.
+    fn raw_address(mock: &Arc<mock::Store>) -> Option<String> {
+        mock.build(SERVICE, ADDRESS_USER, None)
+            .unwrap()
+            .get_password()
+            .ok()
+    }
+
+    #[test]
+    fn an_address_is_read_back_for_the_person_it_was_stored_for() {
+        let (store, mock) = fresh();
+        store
+            .save_address(&person("user_1", "sam@example.com"))
+            .unwrap();
+        assert_eq!(
+            store.load_address("user_1").unwrap().as_deref(),
+            Some("sam@example.com")
+        );
+        assert_eq!(
+            raw_address(&mock).as_deref(),
+            Some("user_1\nsam@example.com"),
+            "one credential holding the sub and the address"
+        );
+    }
+
+    /// The whole point of storing the `sub` with it.
+    #[test]
+    fn an_address_is_never_read_back_for_somebody_else() {
+        let (store, _) = fresh();
+        store
+            .save_address(&person("user_1", "sam@example.com"))
+            .unwrap();
+        assert_eq!(store.load_address("user_2").unwrap(), None);
+        assert_eq!(store.load_address("").unwrap(), None);
+    }
+
+    #[test]
+    fn the_address_and_the_token_are_separate_credentials() {
+        let (store, _) = fresh();
+        store.save(&token("rt_1")).unwrap();
+        store
+            .save_address(&person("user_1", "sam@example.com"))
+            .unwrap();
+
+        store.delete().unwrap();
+        assert_eq!(
+            store.load_address("user_1").unwrap().as_deref(),
+            Some("sam@example.com"),
+            "deleting the token must not take the address with it"
+        );
+
+        store.save(&token("rt_2")).unwrap();
+        store.delete_address().unwrap();
+        assert_eq!(loaded(&store).as_deref(), Some("rt_2"));
+        assert_eq!(store.load_address("user_1").unwrap(), None);
+    }
+
+    #[test]
+    fn forgetting_the_address_is_idempotent() {
+        let (store, mock) = fresh();
+        store
+            .save_address(&person("user_1", "sam@example.com"))
+            .unwrap();
+        store.delete_address().unwrap();
+        assert_eq!(raw_address(&mock), None);
+        store.delete_address().unwrap();
+    }
+
+    /// Whatever is in the credential is held to the rules it passed on the
+    /// way in. A value we could not have written is no address at all.
+    #[test]
+    fn a_damaged_address_is_no_address() {
+        let long = format!("user_1\n{}@example.com", "a".repeat(400));
+        for raw in [
+            "",
+            "user_1",
+            "user_1\n",
+            "\nsam@example.com",
+            "user_1\nsam@exa\u{7}mple.com",
+            "user_1\nsam@example.com\nsecond line",
+            "user 1\nsam@example.com",
+            long.as_str(),
+        ] {
+            let (store, mock) = fresh();
+            mock.build(SERVICE, ADDRESS_USER, None)
+                .unwrap()
+                .set_password(raw)
+                .unwrap();
+            let sub = raw.split('\n').next().unwrap_or_default();
+            assert_eq!(
+                store.load_address(sub).unwrap(),
+                None,
+                "a damaged value was read back as an address (case {})",
+                raw.len()
+            );
+        }
+    }
+
+    /// Make the next call on the address credential fail with `err`.
+    fn fail_next_address(mock: &Arc<mock::Store>, err: Error) {
+        let entry = mock.build(SERVICE, ADDRESS_USER, None).unwrap();
+        let cred: &mock::Cred = entry.as_any().downcast_ref().unwrap();
+        cred.set_error(err);
+    }
+
+    #[test]
+    fn an_address_that_is_not_text_is_no_address() {
+        let (store, mock) = fresh();
+        fail_next_address(&mock, Error::BadEncoding(vec![0xff, 0xfe]));
+        assert_eq!(store.load_address("user_1").unwrap(), None);
+    }
+
+    #[test]
+    fn a_failing_store_is_reported_not_read_as_no_address() {
+        let (store, mock) = fresh();
+        store
+            .save_address(&person("user_1", "sam@example.com"))
+            .unwrap();
+        fail_next_address(&mock, Error::PlatformFailure(platform_error("store busy")));
+        assert!(matches!(
+            store.load_address("user_1"),
+            Err(AccountError::Keychain(_))
+        ));
+    }
+
+    #[test]
+    fn keychain_errors_never_carry_the_address() {
+        let (store, mock) = fresh();
+        fail_next_address(&mock, Error::TooLong("password".into(), 2560));
+        let err = store
+            .save_address(&person("user_1", "private.person@example.com"))
+            .unwrap_err();
+        assert!(!err.to_string().contains("private.person"));
+        assert!(!format!("{err:?}").contains("private.person"));
+    }
+
+    #[test]
+    fn the_address_credential_is_not_the_tokens_or_the_vault_keys() {
+        assert_ne!(ADDRESS_USER, USER);
+        assert_ne!(
+            format!("{ADDRESS_USER}.{SERVICE}"),
+            "default.com.zaaheen.v0.2"
+        );
+    }
 }
 
 /// Against the real Windows Credential Manager, under a throwaway service
@@ -422,6 +644,46 @@ mod windows_live {
         store.delete().unwrap();
         assert!(store.load().unwrap().is_none());
         drop(guard);
+    }
+
+    /// ADR-SEC-027: the address is encrypted by the OS like the token, and
+    /// like the token it must not roam to other machines with the profile.
+    #[test]
+    fn the_address_is_stored_locally_under_its_own_name() {
+        let store = throwaway();
+        let _token_guard = Cleanup(store.clone());
+        let address_guard = AddressCleanup(store.clone());
+        let who = UserInfo::checked("user_live_1".into(), "live.check@example.com".into())
+            .expect("a valid identity");
+        store.save_address(&who).unwrap();
+
+        let entry = store
+            .store
+            .build(&store.service, ADDRESS_USER, None)
+            .unwrap();
+        let attributes: HashMap<String, String> = entry.get_attributes().unwrap();
+        assert_eq!(attributes["persistence"], "Local", "must not roam");
+        assert_eq!(
+            attributes["target_name"],
+            format!("{ADDRESS_USER}.{}", store.service)
+        );
+        assert_eq!(
+            store.load_address("user_live_1").unwrap().as_deref(),
+            Some("live.check@example.com")
+        );
+
+        store.delete_address().unwrap();
+        assert_eq!(store.load_address("user_live_1").unwrap(), None);
+        drop(address_guard);
+    }
+
+    /// Removes the throwaway address even if an assertion fails.
+    struct AddressCleanup(TokenStore);
+
+    impl Drop for AddressCleanup {
+        fn drop(&mut self) {
+            let _ = self.0.delete_address();
+        }
     }
 
     #[test]

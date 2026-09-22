@@ -30,7 +30,7 @@ use vault_account::{
 };
 use vault_mcp::{Gate, InFlight};
 
-use crate::entitlement::{AccountCheck, SystemClock};
+use crate::entitlement::{AccountCheck, Clock, SystemClock};
 use crate::keeper::acl;
 
 /// The folder inside the local app data directory that holds the account's
@@ -251,27 +251,66 @@ pub fn build_account(
     )
 }
 
-/// Everything the desktop needs to run the account: sign in, sign out, check
-/// the state, subscribe, refresh.
+/// The desktop's account: the check its lock asks and the operations its
+/// buttons run, over **one** [`Account`] (ADR-SEC-028).
+///
+/// One, because `Account` keeps a rotated refresh token the credential store
+/// refused in memory — it is the only live token (§8.27). Two copies in one
+/// process would each keep their own, and the copy that did not rotate would
+/// replay the spent token and sign the person out. The constructor takes a
+/// single account and has no parts to build a second from, so the lock and
+/// the buttons cannot end up on different ones.
+pub struct DesktopAccount {
+    check: Arc<AccountCheck>,
+    ops: Arc<crate::account_ops::AccountOps>,
+}
+
+impl DesktopAccount {
+    /// Both views of `account`.
+    #[must_use]
+    pub fn new(account: Arc<Account>, config: AccountConfig, clock: Arc<dyn Clock>) -> Self {
+        let check = Arc::new(AccountCheck::new(
+            Arc::clone(&account) as Arc<dyn crate::entitlement::AccountAccess>,
+            Arc::clone(&clock),
+        ));
+        let ops = Arc::new(crate::account_ops::AccountOps::new(account, config, clock));
+        Self { check, ops }
+    }
+
+    /// The check (for the guard) and the operations (for the account
+    /// commands), which share the one account.
+    #[must_use]
+    pub fn into_parts(self) -> (Arc<AccountCheck>, Arc<crate::account_ops::AccountOps>) {
+        (self.check, self.ops)
+    }
+}
+
+/// Everything the desktop needs from the account, built once
+/// (ADR-SEC-028): the check its lock asks and the operations its buttons
+/// run.
 ///
 /// `None` when this build carries no account settings, exactly as
-/// [`build_check`] does — then the desktop shows no account panel because
-/// there is no account.
+/// [`build_check`] does — then there is no lock and no account panel,
+/// because there is no account.
 ///
 /// # Errors
 ///
 /// As [`build_gate`]: broken build-time settings, a folder that cannot be
 /// prepared, or a credential store that cannot be opened.
-pub fn build_account_ops(
-    local_app_data: &Path,
-) -> Result<Option<crate::account_ops::AccountOps>, AccountSetupError> {
+pub fn build_desktop(local_app_data: &Path) -> Result<Option<DesktopAccount>, AccountSetupError> {
     let Some(settings) = AccountSettings::from_build_env()? else {
+        tracing::info!("this build carries no account settings; the desktop serves ungated");
         return Ok(None);
     };
     let dir = open_account_dir(local_app_data)?;
     let config = AccountConfig::new(&settings.issuer, &settings.client_id)?;
     let account = build_account(&settings, dir)?;
-    Ok(Some(crate::account_ops::AccountOps::new(
+    tracing::info!(
+        issuer = settings.issuer(),
+        api = settings.api_origin(),
+        "the desktop's account is ready"
+    );
+    Ok(Some(DesktopAccount::new(
         Arc::new(account),
         config,
         Arc::new(SystemClock),

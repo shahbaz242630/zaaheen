@@ -33,7 +33,8 @@ use rmcp::ServiceExt;
 use tokio::net::TcpListener;
 use vault_core::{Boundary, MemoryId, NewMemory, VaultResult};
 use vault_mcp::{
-    Adapter, DaemonServer, EntitlementCheck, Gate, InFlight, LockReason, ToolInvokeDetails, Verdict,
+    AccountNotice, Adapter, DaemonServer, EntitlementCheck, Gate, InFlight, LockReason,
+    ToolInvokeDetails, Verdict,
 };
 use vault_retrieval::{
     HealthInfo, HealthStatus, ReadQuery, RetrievalQuery, RetrievedMemory, StructuredReadResponse,
@@ -268,6 +269,63 @@ impl EntitlementCheck for FixedCheck {
         self.asked.fetch_add(1, Ordering::SeqCst);
         self.verdict
     }
+}
+
+/// Entitled, with a notice for the agent (§8.40).
+struct NoticeCheck(AccountNotice);
+
+#[async_trait]
+impl EntitlementCheck for NoticeCheck {
+    async fn check(&self) -> Verdict {
+        Verdict::Entitled
+    }
+
+    async fn check_with_notice(&self) -> (Verdict, Option<AccountNotice>) {
+        (Verdict::Entitled, Some(self.0))
+    }
+}
+
+/// The daemon asks the check itself rather than being wrapped, so it must
+/// carry a served call's notice to `memory_read` the way the gate does.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_daemon_passes_an_account_notice_to_memory_read() {
+    let adapter = Arc::new(AuthMockAdapter::default());
+    let gate = Gate::new(
+        Arc::new(NoticeCheck(AccountNotice::PaymentFailed)),
+        InFlight::new(),
+    );
+    let daemon = DaemonServer::new(adapter as Arc<dyn Adapter>, Some(gate));
+    let addr = spawn_daemon(daemon).await;
+    let url = format!("http://127.0.0.1:{}/mcp", addr.port());
+
+    let client = ()
+        .serve(StreamableHttpClientTransport::from_config(
+            StreamableHttpClientTransportConfig::with_uri(url).auth_header(VALID_TOKEN),
+        ))
+        .await
+        .expect("the agent initializes");
+    let mut read = CallToolRequestParams::new("memory_read");
+    read.arguments = serde_json::json!({ "query": "where do I live" })
+        .as_object()
+        .cloned();
+    let result = client
+        .peer()
+        .call_tool(read)
+        .await
+        .expect("an entitled read dispatches");
+    drop(client);
+
+    let text: String = result
+        .content
+        .iter()
+        .filter_map(|c| c.as_text().map(|t| t.text.clone()))
+        .collect();
+    let answer: serde_json::Value = serde_json::from_str(&text).expect("the read answers JSON");
+    assert_eq!(
+        answer["health"]["warnings"][0]["code"],
+        serde_json::json!("SUBSCRIPTION_PAYMENT_FAILED"),
+        "{answer}"
+    );
 }
 
 fn gate_answering(verdict: Verdict) -> (Gate, Arc<AtomicUsize>) {

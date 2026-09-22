@@ -74,5 +74,5 @@ pub use lease::{
 };
 pub use lease_client::LeaseClient;
 pub use oauth::{AccessToken, OAuthClient, RefreshToken, TokenSet, UserInfo};
-pub use signin::{AuthorizedCode, ListenerLimits, PendingSignIn, SignInOutcome};
+pub use signin::{AuthorizedCode, ListenerLimits, PendingSignIn, SignInEntry, SignInOutcome};
 pub use token_store::TokenStore;

@@ -22,7 +22,7 @@
 //!
 //! Authentication is implicit via OS-user keychain access. vault-cli reads
 //! the master_key from Windows Credential Manager (the SAME entry vault-
-//! tauri manages) via [`vault_app::keychain::read_or_init_master_key`],
+//! tauri manages) via [`vault_app::keychain::open_master_key`] (ADR-SEC-029),
 //! derives the SqlCipher passphrase + at-rest key per ADR-040 amendment v2
 //! option β derivation tree, then opens the storage backend via the sealed
 //! companion [`vault_storage::StorageBackend::open_with_at_rest_key`]. The
@@ -43,7 +43,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::{Parser, Subcommand};
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn::auto;
@@ -59,8 +59,8 @@ use vault_app::maintenance_state::{self, RunOutcome, RunSummary};
 use vault_app::model_fetch;
 
 use vault_app::keychain::{
-    derive_at_rest_key, derive_sqlcipher_passphrase, read_or_init_master_key, with_key_init_lock,
-    PRODUCTION_NAMESPACE, VAULT_ID,
+    derive_at_rest_key, derive_sqlcipher_passphrase, open_master_key, KeyLocation, KeyedPaths,
+    MasterKey,
 };
 use vault_app::{AppConfig, Application, ConsolidatorLock, VAULT_LOCKFILE_NAME};
 use vault_consolidator::ConsolidationReport;
@@ -492,17 +492,28 @@ fn resolve_storage_paths(
     match (vault_db, vector_dir, graph_db) {
         (Some(db), Some(vectors), Some(graph)) => Ok((db, vectors, graph)),
         (db, vectors, graph) => {
-            let data_dir = install_paths::data_dir().ok_or_else(|| {
+            // ADR-105: the recorded location (set up on this build's first
+            // run, under the key lock). Never a guessed or default folder.
+            let homes = vault_app::location::Homes::production().map_err(|_| {
                 anyhow!(
                     "could not determine where the vault lives on this system, \
                      and not every storage path was supplied. Pass --vault-db, \
                      --vector-dir and --graph-db explicitly."
                 )
             })?;
+            let key = KeyLocation::production().map_err(|e| anyhow!("{e}"))?;
+            let dir = vault_app::location::prepare(&homes, &key, &[]).map_err(|e| {
+                tracing::warn!(error = %e, "the vault location could not be resolved");
+                anyhow!(
+                    "Zaaheen can't find your memories. If they are on a drive, plug it \
+                     in and try again; otherwise open the Zaaheen app."
+                )
+            })?;
+            let data_dir = dir.path();
             Ok((
-                db.unwrap_or_else(|| install_paths::vault_db_in(&data_dir)),
-                vectors.unwrap_or_else(|| install_paths::vector_dir_in(&data_dir)),
-                graph.unwrap_or_else(|| install_paths::graph_db_in(&data_dir)),
+                db.unwrap_or_else(|| install_paths::vault_db_in(data_dir)),
+                vectors.unwrap_or_else(|| install_paths::vector_dir_in(data_dir)),
+                graph.unwrap_or_else(|| install_paths::graph_db_in(data_dir)),
             ))
         }
     }
@@ -576,6 +587,51 @@ async fn real_main() -> Result<()> {
     // Recorded before defaults are filled in: only the installed vault is
     // shared through the keeper (ADR-102), so an explicit path means direct.
     let explicit_storage = vault_db.is_some() || vector_dir.is_some() || graph_db.is_some();
+
+    // The relay an AI app starts (`zaaheen mcp serve`, shared through the
+    // keeper) must serve before anything can fail, so it resolves nothing
+    // here: it follows the recorded location itself, on every connect round
+    // (ADR-105 L3). Every other command resolves its storage paths below.
+    if let Command::Mcp {
+        bge_model,
+        bge_tokenizer,
+        ort_lib,
+        phi4_model,
+        rerank_model,
+        rerank_tokenizer,
+        models_dir,
+        boundary,
+        run_at,
+        direct,
+        action,
+    } = &command
+    {
+        if uses_keeper(
+            *direct,
+            explicit_storage,
+            phi4_model.is_some(),
+            run_at.is_some(),
+        ) {
+            let explicit_models = [bge_model, bge_tokenizer, ort_lib, rerank_model]
+                .iter()
+                .any(|p| p.is_some())
+                || rerank_tokenizer.is_some()
+                || models_dir.is_some();
+            if explicit_models {
+                tracing::warn!(
+                    "model path arguments are ignored while the vault is shared \
+                     through the keeper; pass --direct to use them"
+                );
+            }
+            let homes = vault_app::location::Homes::production()
+                .map_err(|e| anyhow!("could not find this user's app folders: {e}"))?;
+            let boundaries = parse_agent_boundaries(boundary.clone())?;
+            return match action {
+                McpAction::Serve => keeper::run_relay(homes, boundaries).await,
+            };
+        }
+    }
+
     let (vault_db, vector_dir, graph_db) = resolve_storage_paths(vault_db, vector_dir, graph_db)?;
 
     match command {
@@ -626,38 +682,13 @@ async fn real_main() -> Result<()> {
             models_dir,
             boundary,
             run_at,
-            direct,
+            // The keeper-shared case returned before storage resolution.
+            direct: _,
             action,
         } => {
             // Same rationale as Consolidate above — `Application::new`
             // owns the embedding dimension.
             let _ = dimension;
-            if uses_keeper(
-                direct,
-                explicit_storage,
-                phi4_model.is_some(),
-                run_at.is_some(),
-            ) {
-                let explicit_models = [&bge_model, &bge_tokenizer, &ort_lib, &rerank_model]
-                    .iter()
-                    .any(|p| p.is_some())
-                    || rerank_tokenizer.is_some()
-                    || models_dir.is_some();
-                if explicit_models {
-                    tracing::warn!(
-                        "model path arguments are ignored while the vault is shared \
-                         through the keeper; pass --direct to use them"
-                    );
-                }
-                let vault_root = vault_db
-                    .parent()
-                    .map(Path::to_path_buf)
-                    .ok_or_else(|| anyhow!("vault path has no parent directory"))?;
-                let boundaries = parse_agent_boundaries(boundary)?;
-                return match action {
-                    McpAction::Serve => keeper::run_relay(vault_root, boundaries).await,
-                };
-            }
             dispatch_mcp(
                 &vault_db,
                 &vector_dir,
@@ -1195,7 +1226,12 @@ async fn dispatch_mcp(
     // bare snippet would run on the cosine gate forever: `--models-dir` is what
     // turns the reranker acquisition on, and nobody pasting two lines of JSON
     // is going to pass it.
-    let models_dir = models_dir.or_else(|| vault_db.parent().map(install_paths::models_dir_in));
+    // ADR-105 L3: the models never follow the vault.
+    let models_dir = models_dir.or_else(|| {
+        vault_app::location::Homes::production()
+            .ok()
+            .map(|homes| vault_app::location::models_dir(&homes))
+    });
     // Map raw boundary strings to typed Boundary values up front so any
     // parse failure surfaces before we touch the keychain / open the
     // backend / load models (all expensive).
@@ -1454,16 +1490,48 @@ async fn build_application(
     rerank_model: Option<PathBuf>,
     rerank_tokenizer: Option<PathBuf>,
 ) -> Result<Application> {
-    // Under the key-creation lock: on a fresh install the desktop app may be
-    // creating the key at this very moment (see `with_key_init_lock`).
-    let vault_root = vault_db.parent().unwrap_or_else(|| Path::new("."));
-    let master_key = with_key_init_lock(vault_root, || {
-        read_or_init_master_key(PRODUCTION_NAMESPACE, VAULT_ID)
-    })
-    .map_err(|e| {
-        tracing::warn!(error = %e, "keychain read failed");
-        anyhow!("authentication failed")
-    })?;
+    // The master key is dropped (and wiped) here: only the keeper needs it
+    // after the build.
+    build_application_keyed(
+        vault_db,
+        vector_dir,
+        graph_db,
+        bge_model,
+        bge_tokenizer,
+        ort_lib,
+        phi4_model,
+        rerank_model,
+        rerank_tokenizer,
+    )
+    .await
+    .map(|(app, _master_key)| app)
+}
+
+/// [`build_application`], also handing back the master key it opened, so the
+/// keeper derives its handshake keys from it rather than reading the key a
+/// second time straight after the key may have moved to Local persistence
+/// (ADR-SEC-029 R2). The caller drops it as soon as it has derived what it
+/// needs.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn build_application_keyed(
+    vault_db: &Path,
+    vector_dir: &Path,
+    graph_db: &Path,
+    bge_model: PathBuf,
+    bge_tokenizer: PathBuf,
+    ort_lib: PathBuf,
+    phi4_model: Option<PathBuf>,
+    rerank_model: Option<PathBuf>,
+    rerank_tokenizer: Option<PathBuf>,
+) -> Result<(Application, MasterKey)> {
+    // ADR-SEC-029: under the one key lock for this Windows user; opens,
+    // moves to Local, repairs, or — only for a fresh install — creates.
+    let master_key = KeyLocation::production()
+        .and_then(|loc| open_master_key(&loc, &KeyedPaths::new(vault_db, vector_dir, graph_db)))
+        .map_err(|e| {
+            tracing::warn!(error = %e, "keychain read failed");
+            anyhow!("authentication failed")
+        })?;
     let sqlcipher_passphrase = derive_sqlcipher_passphrase(&master_key);
     let at_rest_key = derive_at_rest_key(&master_key);
 
@@ -1493,7 +1561,7 @@ async fn build_application(
         rerank_tokenizer_path: rerank_tokenizer,
     };
 
-    Application::new(&config).await.map_err(|e| {
+    let app = Application::new(&config).await.map_err(|e| {
         // Surface the underlying VaultError class so the user can act on
         // it: a `Llm(...)` error names "Phi-4-mini load failed at startup"
         // which is the most common case for first-time setup (wrong path,
@@ -1505,7 +1573,8 @@ async fn build_application(
             vault_core::VaultError::Config(msg) => anyhow!("configuration error: {msg}"),
             _ => anyhow!("authentication failed"),
         }
-    })
+    })?;
+    Ok((app, master_key))
 }
 
 async fn run_one_consolidation(app: &Application, record_status: Option<&Path>) -> Result<()> {
@@ -1605,42 +1674,48 @@ async fn open_backend_fields(
     graph_db: &Path,
     dimension: usize,
 ) -> Result<StorageBackend> {
-    open_backend_inner(
-        vault_db,
-        vector_dir,
-        graph_db,
-        dimension,
-        PRODUCTION_NAMESPACE,
-        VAULT_ID,
-    )
-    .await
+    // ADR-105 L3: a move or an erasure holds `.vault.intent` while it copies
+    // or deletes; a command opening the vault now could write what the move
+    // never copies. (A command already running when one starts is not
+    // stopped by this — the ADR states that leftover.)
+    if let Some(vault_root) = vault_db.parent() {
+        if vault_app::keeper::intent::is_held(vault_root) {
+            bail!(
+                "your memories are being moved or deleted right now; \
+                 try again when that has finished"
+            );
+        }
+    }
+    let key = KeyLocation::production().map_err(|e| {
+        tracing::warn!(error = %e, "keychain read failed");
+        anyhow!("authentication failed")
+    })?;
+    open_backend_inner(vault_db, vector_dir, graph_db, dimension, &key).await
 }
 
-/// Inner helper taking individual storage fields + keychain `namespace` +
-/// `vault_id` as parameters so tests can inject unique-per-test ids via
-/// [`vault_app::keychain::test_helpers::unique_test_namespace`] and avoid
-/// colliding with the production keychain entry.
+/// Inner helper taking individual storage fields and the key's
+/// [`KeyLocation`], so tests can use a throwaway key
+/// ([`vault_app::keychain::test_helpers::test_location`]) instead of the
+/// production one.
 ///
 /// Production callers use [`open_backend_fields`] which passes
-/// [`PRODUCTION_NAMESPACE`] + [`VAULT_ID`]. T0.3.x Batch A migrated this
-/// fn from a `&Cli` parameter to individual fields so it composes
-/// cleanly with the cli-destructured `real_main` dispatch.
+/// [`KeyLocation::production`]. T0.3.x Batch A migrated this fn from a
+/// `&Cli` parameter to individual fields so it composes cleanly with the
+/// cli-destructured `real_main` dispatch.
 pub(crate) async fn open_backend_inner(
     vault_db: &Path,
     vector_dir: &Path,
     graph_db: &Path,
     dimension: usize,
-    namespace: &str,
-    vault_id: &str,
+    key: &KeyLocation,
 ) -> Result<StorageBackend> {
-    let vault_root = vault_db.parent().unwrap_or_else(|| Path::new("."));
-    let master_key =
-        with_key_init_lock(vault_root, || read_or_init_master_key(namespace, vault_id)).map_err(
-            |e| {
-                tracing::warn!(error = %e, "keychain read failed");
-                anyhow!("authentication failed")
-            },
-        )?;
+    // ADR-SEC-029: under the one key lock for this Windows user, checking
+    // the paths this command actually opens.
+    let master_key = open_master_key(key, &KeyedPaths::new(vault_db, vector_dir, graph_db))
+        .map_err(|e| {
+            tracing::warn!(error = %e, "keychain read failed");
+            anyhow!("authentication failed")
+        })?;
     let sqlcipher_passphrase = derive_sqlcipher_passphrase(&master_key);
     let at_rest_key = derive_at_rest_key(&master_key);
     StorageBackend::open_with_at_rest_key(
@@ -2750,14 +2825,12 @@ mod tests {
 
     // `clippy::await_holding_lock` fires because `keychain_test_guard()`
     // returns a `std::sync::MutexGuard` held across `.await` points
-    // (`open_with_at_rest_key`, `open_backend_inner`). The mutex serializes
-    // process-global `keyring_core::set_default_store` /
-    // `unset_default_store` state across tests — releasing before awaits
-    // would defeat the serialization invariant the mutex exists to enforce.
-    // Safe here because: (a) `std::sync::Mutex` is sync (no runtime yield);
-    // (b) no other tokio task contends for KEYCHAIN_TEST_MUTEX; (c) async
-    // calls inside don't try to reacquire it. Production has no contention
-    // (vault-tauri + vault-cli each call keychain helpers once at startup).
+    // (`open_with_at_rest_key`, `open_backend_inner`). The guard serialises
+    // tests that write to Windows Credential Manager (ADR-SEC-029: the key
+    // code no longer uses keyring-core's process-global store, but the
+    // library still warns against parallel writes). Safe here because: (a)
+    // `std::sync::Mutex` is sync (no runtime yield); (b) no other tokio task
+    // contends for it; (c) async calls inside don't try to reacquire it.
     /// The three storage paths out of a `Cli` that was parsed with all of them
     /// supplied.
     ///
@@ -2788,19 +2861,19 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn open_backend_succeeds_with_keychain_initialized_vault() {
         let _guard = keychain_test_guard();
-        let namespace = unique_test_namespace("open_backend_success");
-        let vault_id = "test-open-backend-success";
-        cleanup_keychain_entry(&namespace, vault_id);
+        let keys_dir = TempDir::new().unwrap();
+        let key = test_location("open_backend_success", keys_dir.path());
+        let tmp = TempDir::new().unwrap();
 
-        // Bootstrap a real keychain entry via first-run path; derive the same
-        // subkeys that open_backend_inner will derive when it re-reads the
-        // entry (deterministic per ADR-040 amendment v2 derivation tree).
-        let master_key = read_or_init_master_key(&namespace, vault_id)
+        // Bootstrap a real key through the fresh-install path (the folder
+        // holds no vault data yet); derive the same subkeys that
+        // open_backend_inner will derive when it re-opens it
+        // (deterministic per ADR-040 amendment v2 derivation tree).
+        let master_key = open_master_key(&key, &KeyedPaths::in_folder(tmp.path()))
             .expect("first-run should generate + persist master_key");
         let sqlcipher_passphrase = derive_sqlcipher_passphrase(&master_key);
         let at_rest_key = derive_at_rest_key(&master_key);
 
-        let tmp = TempDir::new().unwrap();
         let cli = Cli::try_parse_from([
             "zaaheen",
             "--vault-db",
@@ -2832,22 +2905,14 @@ mod tests {
             .expect("initial open_with_at_rest_key should succeed");
         }
 
-        let result = open_backend_inner(
-            vault_db,
-            vector_dir,
-            graph_db,
-            cli.dimension,
-            &namespace,
-            vault_id,
-        )
-        .await;
+        let result = open_backend_inner(vault_db, vector_dir, graph_db, cli.dimension, &key).await;
         assert!(
             result.is_ok(),
             "open_backend_inner should succeed with valid keychain entry + sealed vault; got: {:?}",
             result.err()
         );
 
-        cleanup_keychain_entry(&namespace, vault_id);
+        cleanup_keychain_entry(key.namespace(), key.vault_id());
     }
 
     // Same `clippy::await_holding_lock` allow as the success test above —
@@ -2857,16 +2922,14 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn open_backend_fails_closed_with_generic_message_on_keychain_error() {
         let _guard = keychain_test_guard();
-        let namespace = unique_test_namespace("open_backend_fail_closed");
-        let vault_id = "test-open-backend-fail";
-        cleanup_keychain_entry(&namespace, vault_id);
+        let keys_dir = TempDir::new().unwrap();
+        let key = test_location("open_backend_fail_closed", keys_dir.path());
 
-        // Plant a 31-byte (malformed) keychain entry. read_or_init_master_key
-        // detects the wrong-length secret and returns
-        // VaultError::KeychainProvenance("...exists but secret is 31 bytes...").
+        // Plant a 31-byte (malformed) keychain entry. The opener refuses it
+        // as unusable (ADR-SEC-029) and never overwrites it;
         // open_backend_inner's map_err converts this to a generic
         // "authentication failed" with no info leak per BRD §11.7.2.
-        plant_malformed_keychain_entry(&namespace, vault_id);
+        plant_malformed_keychain_entry(key.namespace(), key.vault_id());
 
         let tmp = TempDir::new().unwrap();
         let cli = Cli::try_parse_from([
@@ -2884,15 +2947,7 @@ mod tests {
         .expect("Cli::try_parse_from for fail-closed test");
         let (vault_db, vector_dir, graph_db) = explicit_storage_paths(&cli);
 
-        let result = open_backend_inner(
-            vault_db,
-            vector_dir,
-            graph_db,
-            cli.dimension,
-            &namespace,
-            vault_id,
-        )
-        .await;
+        let result = open_backend_inner(vault_db, vector_dir, graph_db, cli.dimension, &key).await;
         // Cannot use `Result::expect_err` here because `StorageBackend` does
         // not implement `Debug` by design (BRD §11 secrets-in-logs / ADR-007
         // redaction posture). Explicit match yields the `anyhow::Error` for
@@ -2909,7 +2964,7 @@ mod tests {
              attacker which check failed. Got: {msg}"
         );
 
-        cleanup_keychain_entry(&namespace, vault_id);
+        cleanup_keychain_entry(key.namespace(), key.vault_id());
     }
 
     // -----------------------------------------------------------------------

@@ -137,8 +137,10 @@ impl ServerHandler for DaemonServer {
         // agent can read and nothing reaches the adapter (§8.26 §6.1). The
         // daemon dispatches per request rather than wrapping a server, so it
         // asks the check itself; calls in flight are the keeper's concern.
+        let mut context = context;
         if let Some(gate) = &self.gate {
-            if let Verdict::Locked(reason) = gate.verdict().await {
+            let (verdict, notice) = gate.verdict_with_notice().await;
+            if let Verdict::Locked(reason) = verdict {
                 tracing::info!(
                     target: "vault_mcp::gate",
                     request = "tools/call",
@@ -148,6 +150,11 @@ impl ServerHandler for DaemonServer {
                 return Ok(CallToolResult::error(vec![ContentBlock::text(
                     reason.message(),
                 )]));
+            }
+            // Served, so anything the agent should pass on travels with the
+            // call, as `EntitledService` does it (§8.40).
+            if let Some(notice) = notice {
+                context.extensions.insert(notice);
             }
         }
         // Step 5 — per-agent operational attribution (§11.9.2): which agent ran

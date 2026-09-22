@@ -18,7 +18,7 @@
 //! Both the scheduled run and "Run now" launch the consolidation in its own
 //! short-lived process. The desktop app therefore never loads the 2.5 GB model
 //! into its own address space, and there is exactly one consolidation code
-//! path. The subprocess is pointed at the desktop app's exact vault paths so it
+//! path. The subprocess finds the vault through the recorded location (ADR-105), so it
 //! operates on the same vault.
 //!
 //! ## Why the runner and not `vault-cli` directly (ADR-SEC-015)
@@ -100,12 +100,6 @@ pub struct MaintenanceContext {
     /// Directory the application log lives in, handed to the runner so a
     /// background run's diagnostics reach the same file as the app's.
     pub log_dir: PathBuf,
-    /// The desktop app's SQLCipher metadata DB (`<data>/vault.db`).
-    pub vault_db: PathBuf,
-    /// The desktop app's LanceDB dir (`<data>/lance`).
-    pub vector_dir: PathBuf,
-    /// The desktop app's DuckDB graph file (`<data>/graph.duckdb`).
-    pub graph_db: PathBuf,
     /// BGE embedder model.
     pub bge_model: PathBuf,
     /// BGE tokenizer.
@@ -121,22 +115,18 @@ pub struct MaintenanceContext {
 /// Build the full `vault-maintenance` argument vector (after the program) for
 /// a consolidation run against the desktop app's own vault.
 ///
-/// The runner's own two flags come first; everything after them is forwarded
-/// to `vault-cli` verbatim (ADR-SEC-015). The runner appends `--record-status`
-/// itself, so the status file is named exactly once, here.
+/// The runner's own flag comes first; everything after it is forwarded to
+/// `vault-cli` verbatim (ADR-SEC-015).
+///
+/// **No vault path is passed (ADR-105 L3).** The runner finds the status file,
+/// and `vault-cli consolidate` finds the vault, through the recorded location
+/// — so a registered task never points at a folder a move has left behind.
+/// The model paths stay explicit: the models never move.
 fn consolidate_args(ctx: &MaintenanceContext) -> Vec<String> {
     let s = |p: &Path| p.to_string_lossy().into_owned();
     vec![
-        "--status-file".into(),
-        s(&ctx.config_path),
         "--log-dir".into(),
         s(&ctx.log_dir),
-        "--vault-db".into(),
-        s(&ctx.vault_db),
-        "--vector-dir".into(),
-        s(&ctx.vector_dir),
-        "--graph-db".into(),
-        s(&ctx.graph_db),
         "consolidate".into(),
         "--bge-model".into(),
         s(&ctx.bge_model),
@@ -670,9 +660,6 @@ mod tests {
             vault_cli: PathBuf::from(r"C:\Program Files\Zaaheen\zaaheen.exe"),
             vault_maintenance: PathBuf::from(r"C:\Program Files\Zaaheen\zaaheen-maintenance.exe"),
             log_dir: PathBuf::from(r"C:\logs"),
-            vault_db: PathBuf::from(r"C:\data\vault.db"),
-            vector_dir: PathBuf::from(r"C:\data\lance"),
-            graph_db: PathBuf::from(r"C:\data\graph.duckdb"),
             bge_model: PathBuf::from(r"C:\data\models\model.onnx"),
             bge_tokenizer: PathBuf::from(r"C:\data\models\tokenizer.json"),
             ort_lib: PathBuf::from(r"C:\data\onnxruntime.dll"),
@@ -684,11 +671,16 @@ mod tests {
     #[test]
     fn consolidate_args_target_the_apps_own_vault_and_end_in_run() {
         let args = consolidate_args(&ctx());
-        // The vault paths come first so the run hits the desktop app's vault.
+        // ADR-105 L3: no vault path at all — the run and its status file
+        // follow the recorded location, so a move cannot strand the task.
         let joined = args.join(" ");
-        assert!(joined.contains("--vault-db C:\\data\\vault.db"));
-        assert!(joined.contains("--vector-dir C:\\data\\lance"));
-        assert!(joined.contains("--graph-db C:\\data\\graph.duckdb"));
+        for path_flag in ["--vault-db", "--vector-dir", "--graph-db", "--status-file"] {
+            assert!(
+                !joined.contains(path_flag),
+                "{path_flag} must not be passed: {joined}"
+            );
+        }
+        assert!(!joined.contains("C:\\data\\vault.db"));
         assert!(joined.contains("consolidate"));
         assert!(joined.contains("--phi4-model C:\\data\\models\\phi4.gguf"));
         // The action is the last token.
@@ -843,11 +835,9 @@ mod tests {
         let ctx = ctx();
         let args = consolidate_args(&ctx);
 
-        assert_eq!(args[0], "--status-file");
-        assert_eq!(args[1], ctx.config_path.to_string_lossy());
-        assert_eq!(args[2], "--log-dir");
-        assert_eq!(args[3], ctx.log_dir.to_string_lossy());
-        assert_eq!(args[4], "--vault-db", "the child's arguments follow");
+        assert_eq!(args[0], "--log-dir");
+        assert_eq!(args[1], ctx.log_dir.to_string_lossy());
+        assert_eq!(args[2], "consolidate", "the child's arguments follow");
         assert!(
             args.iter().any(|a| a == "run"),
             "the consolidation subcommand must still be forwarded"

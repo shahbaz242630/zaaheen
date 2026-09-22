@@ -20,27 +20,23 @@
 //! (Founder decision, 2026-09-20: *"Never give them the vault"*, chosen over
 //! relying on the allowlist plus review.)
 //!
-//! # What is still missing, said plainly
+//! # The signed-in address (ADR-SEC-027)
 //!
-//! **The signed-in email is only known at sign-in.** `SignedIn` carries a
-//! `UserInfo`; the account folder does not persist it (§8.26 §4 lists the
-//! four files, and none of them is an identity). So on a later app open this
-//! type knows the Clerk subject but not the address, and [`AccountView::email`]
-//! is `None`.
-//!
-//! §8.26 §3 asks for *"Signed in as &lt;email&gt; — not you? Sign out"*, which
-//! this satisfies immediately after signing in and not afterwards. Closing it
-//! needs either a stored address (a new file, and a §8.26 §4 amendment) or a
-//! `userinfo` call when the account panel opens (a network round trip, and a
-//! fresh access token). **That is a step 4d decision, not something to
-//! improvise here.**
+//! §8.26 §3 asks for *"Signed in as &lt;email&gt; — not you? Sign out"*. The
+//! address is stored beside the refresh token in the credential store at
+//! sign-in (founder decision, 2026-09-21), so every view carries it, not only
+//! the one returned by the sign-in itself. When it cannot be read the view
+//! simply has no address: a label is never worth an error.
 
 use std::sync::Arc;
 
 use vault_account::{
-    Account, AccountConfig, AccountError, CheckoutAnswer, LeaseState, ListenerLimits,
-    PendingSignIn, Plan, RefreshOutcome, SignInOutcome, Status, Trigger,
+    clock_looks_wrong, Account, AccountConfig, AccountError, CheckoutAnswer, LeaseState,
+    ListenerLimits, PendingSignIn, Plan, RefreshOutcome, SignInOutcome, Status, Trigger,
 };
+
+/// Which page "Sign in" or "Create an account" opens first (§8.41).
+pub use vault_account::SignInEntry;
 
 /// Re-exported so `vault-tauri` can name a plan without depending on
 /// `vault-account` directly: the dependency graph is
@@ -58,8 +54,8 @@ use crate::external_link::{ExternalLink, LinkError};
 pub struct AccountView {
     /// Is anybody signed in on this computer?
     pub signed_in: bool,
-    /// The address, when this process happens to know it — see the module
-    /// docs. `None` is normal on a second app open, not an error.
+    /// The signed-in address (ADR-SEC-027), or `None` when nobody is signed
+    /// in or it could not be read.
     pub email: Option<String>,
     /// `signed_out`, `no_lease`, `trial`, `active`, `payment_failed`,
     /// `ended`, or `cannot_confirm`. A stable string, mapped to
@@ -69,6 +65,11 @@ pub struct AccountView {
     /// the banner from day 23, `health.warnings` in the last 5 days).
     /// `None` when there is nothing to count down.
     pub days_left: Option<i64>,
+    /// The lease on disk says this computer's clock was more than a day off
+    /// the server's when it arrived (§8.26 §4): show "Your computer's clock
+    /// is wrong. Set it to update automatically." Information only; it
+    /// changes nothing about entitlement.
+    pub clock_wrong: bool,
 }
 
 /// The stable state strings. One place, so the desktop bundle and the tests
@@ -162,20 +163,36 @@ impl AccountOps {
     pub async fn status(&self) -> AccountView {
         let now = self.clock.now();
         match self.account.status(now).await {
-            Ok(status) => Self::view_of(status, None),
+            Ok(status) => {
+                let email = self.account.signed_in_email().await;
+                Self::view_of(status, email)
+            }
             Err(e) => {
                 tracing::warn!(error = %e, "could not read the account folder");
-                AccountView {
-                    signed_in: false,
-                    email: None,
-                    state: state::CANNOT_CONFIRM,
-                    days_left: None,
-                }
+                Self::cannot_confirm()
             }
         }
     }
 
+    /// The view when the account cannot be read at all: "could not confirm",
+    /// never "ended" (§8.33), and never "signed out" either — telling
+    /// somebody to sign in when the truth is "we could not look" would be the
+    /// wrong message.
+    #[must_use]
+    pub fn cannot_confirm() -> AccountView {
+        AccountView {
+            signed_in: false,
+            email: None,
+            state: state::CANNOT_CONFIRM,
+            days_left: None,
+            clock_wrong: false,
+        }
+    }
+
     /// Open the browser, wait for the callback, and finish signing in.
+    /// `entry` picks the first page: the sign-in, or the sign-up page that
+    /// returns through the same sign-in (§8.41). Everything after the browser
+    /// opens is identical.
     ///
     /// The listener uses [`ListenerLimits::default`] — the locked design's
     /// bounds (§8.26 §3), never a loosened set — and nothing about the
@@ -186,17 +203,19 @@ impl AccountOps {
     ///
     /// [`OpsError`], all opaque.
     #[tracing::instrument(skip_all)]
-    pub async fn sign_in(&self) -> Result<AccountView, OpsError> {
+    pub async fn sign_in(&self, entry: SignInEntry) -> Result<AccountView, OpsError> {
         let pending = PendingSignIn::start(&self.config).await?;
-        ExternalLink::sign_in(pending.authorize_url())?.open()?;
+        ExternalLink::sign_in(&pending.browser_url(entry))?.open()?;
 
         match pending.wait(self.limits).await? {
             SignInOutcome::Cancelled => Err(OpsError::SignInDidNotFinish),
             SignInOutcome::Authorized(code) => {
                 let now = self.clock.now();
                 let signed_in = self.account.complete_sign_in(code, now).await?;
-                // The address is known exactly here and nowhere else; see the
-                // module docs.
+                // The address straight from the sign-in, rather than read back
+                // from the store: a store that refused it must not leave the
+                // panel blank on the one occasion the address is certainly
+                // known (ADR-SEC-027's failure rule).
                 let email = Some(signed_in.user.email.clone());
                 let status = self.account.status(self.clock.now()).await?;
                 Ok(Self::view_of(status, email))
@@ -289,58 +308,28 @@ impl AccountOps {
         self.status().await
     }
 
-    /// The background refresh (§8.26 §4): keeper start, desktop open, and the
-    /// daily jittered timer. Never triggered by tool activity.
+    /// At desktop open, refresh only when §8.26 §4 says to — *"refresh if
+    /// the lease is older than 24 h or any deadline is within 3 days"* — so
+    /// an ordinary open does not rotate the refresh token. Then once a day
+    /// while the app runs, again only when the lease is stale. Never
+    /// returns; the caller spawns it.
     ///
-    /// Failures are logged at debug and swallowed. A routine refresh is
-    /// housekeeping — the lease on disk is still good for up to 30 days
-    /// offline — so a missed one is not worth telling anybody about, and
-    /// `Trigger::Routine` is itself rate-limited to one a minute.
-    #[tracing::instrument(skip_all)]
-    pub async fn routine_refresh(&self) {
-        let now = self.clock.now();
-        if let Err(e) = self.account.refresh(Trigger::Routine, now).await {
-            tracing::debug!(error = %e, "a routine refresh did not finish");
-        }
-    }
-
-    /// Refresh on open, then once a day while the app is running (§8.26 §4).
+    /// Until session 50 the function this replaced had **no production
+    /// caller** although §8.37 said it ran; and it refreshed on every open,
+    /// which §4 does not ask for (§8.38 retracts both). Since 4d-3 it is the
+    /// keeper's routine too, run from one place
+    /// ([`crate::entitlement::run_routine_refresh`], §8.40), so the two
+    /// processes cannot drift apart — and because each tick refreshes only a
+    /// stale lease, the one that refreshes first leaves the other nothing to
+    /// do.
     ///
-    /// Discharges the other half of step 3's inherited obligation: until now
-    /// `Trigger::Routine` had **no production caller**, so a stale lease was
-    /// only noticed when a call was refused — one five-second stall on
-    /// somebody's first blocked action, which reads as the app hanging.
-    ///
-    /// # Why the interval is jittered
-    ///
-    /// §8.26 §4 says "a jittered daily timer", and the reason is the
-    /// Worker's free daily quota: every copy of this app started on the same
-    /// morning would otherwise ask at the same moment forever. The jitter is
-    /// derived from the account folder's own state rather than a random
-    /// number generator, so a given install is consistent across restarts
-    /// and the spread across installs is even.
-    ///
-    /// Returns the task handle so the caller can drop it on shutdown; the
-    /// task holds only the account, never the vault.
-    pub fn spawn_routine_refresh(self: Arc<Self>) -> tokio::task::JoinHandle<()> {
-        tokio::spawn(async move {
-            // Desktop open: the first one happens immediately.
-            self.routine_refresh().await;
-
-            let period = daily_period(self.clock.now());
-            tracing::info!(
-                hours = period.as_secs() / 3600,
-                "the daily lease refresh is scheduled"
-            );
-            let mut timer = tokio::time::interval(period);
-            // The first tick of an `interval` completes immediately, and the
-            // open-refresh above has already covered it.
-            timer.tick().await;
-            loop {
-                timer.tick().await;
-                self.routine_refresh().await;
-            }
-        })
+    /// Holds only the account, never the vault.
+    pub async fn refresh_at_open_then_daily(self: Arc<Self>) {
+        crate::entitlement::run_routine_refresh(
+            Arc::clone(&self.account) as Arc<dyn crate::entitlement::AccountAccess>,
+            Arc::clone(&self.clock),
+        )
+        .await;
     }
 
     /// Map what is on disk to what the desktop shows.
@@ -351,40 +340,24 @@ impl AccountOps {
                 email: None,
                 state: state::SIGNED_OUT,
                 days_left: None,
+                clock_wrong: false,
             },
             Status::NoLease { .. } => AccountView {
                 signed_in: true,
                 email,
                 state: state::NO_LEASE,
                 days_left: None,
+                clock_wrong: false,
             },
             Status::Leased { lease, assessment } => AccountView {
                 signed_in: true,
                 email,
                 state: state_for(lease.state()),
                 days_left: Some(days_left(assessment.remaining)),
+                clock_wrong: clock_looks_wrong(&lease),
             },
         }
     }
-}
-
-/// A day, spread over a six-hour window so installs do not all ask the Worker
-/// at the same moment forever (§8.26 §4's "jittered daily timer").
-///
-/// A free function, not a method: building an `AccountOps` needs the
-/// credential store and the network clients, and none of that has anything to
-/// do with this arithmetic.
-///
-/// `unsigned_abs` rather than `%` on a signed value: a computer whose clock is
-/// set before 1970 gives a negative reading, and a negative remainder would
-/// make the period *shorter* than a day — the one outcome that matters here,
-/// because it would have that install asking repeatedly.
-#[must_use]
-fn daily_period(now: i64) -> std::time::Duration {
-    const DAY: u64 = 24 * 60 * 60;
-    const SPREAD: u64 = 6 * 60 * 60;
-    let offset = now.unsigned_abs() % SPREAD;
-    std::time::Duration::from_secs(DAY + offset)
 }
 
 /// Seconds of entitlement to whole days.

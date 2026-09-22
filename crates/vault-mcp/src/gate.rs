@@ -105,6 +105,56 @@ pub enum Verdict {
     Locked(LockReason),
 }
 
+/// Something the agent should pass on while the vault is still open
+/// (§8.26 §6; `SIGNIN-DESIGN.md` §8.40). It rides on a served call only —
+/// never on a refusal — and reaches `memory_read`'s `health.warnings` as one
+/// of the two `SUBSCRIPTION_*` codes (ADR-054 Contract 2, amendment 3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AccountNotice {
+    /// The free trial ends within five days: whole days left, rounded down
+    /// (so 0 is "less than a day").
+    TrialEnding {
+        /// Whole days left, 0 to 4.
+        days_left: u32,
+    },
+    /// The last payment did not go through. Still entitled (§8.26 §5's
+    /// `past_due`).
+    PaymentFailed,
+}
+
+impl AccountNotice {
+    /// The first sentence the agent relays: what is happening. Fixed text
+    /// (§8.26 §6 "Messages": no links, no user data); the days count is the
+    /// only thing that varies. Founder-approved 2026-09-21 (§8.40).
+    pub fn detail(self) -> String {
+        match self {
+            AccountNotice::TrialEnding { days_left: 0 } => {
+                "Your Zaaheen free trial ends in less than a day.".to_string()
+            }
+            AccountNotice::TrialEnding { days_left: 1 } => {
+                "Your Zaaheen free trial ends in 1 day.".to_string()
+            }
+            AccountNotice::TrialEnding { days_left } => {
+                format!("Your Zaaheen free trial ends in {days_left} days.")
+            }
+            AccountNotice::PaymentFailed => {
+                "Your last Zaaheen payment didn't go through.".to_string()
+            }
+        }
+    }
+
+    /// The second sentence: what the person does about it. With
+    /// [`Self::detail`] it reads as the approved words (§8.26 §6, §8.40).
+    pub fn recovery_hint(self) -> &'static str {
+        match self {
+            AccountNotice::TrialEnding { .. } => {
+                "Open the Zaaheen app and choose Subscribe to keep using your memories."
+            }
+            AccountNotice::PaymentFailed => "Open the Zaaheen app to update your card.",
+        }
+    }
+}
+
 /// Decides whether the user may use the vault now. Implemented in
 /// `vault-app`, over `vault-account` (this crate does not depend on it).
 #[async_trait]
@@ -112,6 +162,17 @@ pub trait EntitlementCheck: Send + Sync {
     /// Asked once per gated request. May refresh first (≤ 5 s, §8.26 §4), so
     /// it is never asked for a request that is answered either way.
     async fn check(&self) -> Verdict;
+
+    /// The same question, with anything the agent should pass on — only
+    /// ever alongside [`Verdict::Entitled`] (§8.40). Asked instead of
+    /// [`Self::check`] for a tool call, never as well as it.
+    ///
+    /// The default has nothing to pass on, so a check that knows no account
+    /// (lock mode, the desktop's guard, a test's stand-in) needs nothing
+    /// more.
+    async fn check_with_notice(&self) -> (Verdict, Option<AccountNotice>) {
+        (self.check().await, None)
+    }
 }
 
 /// Counts requests inside an [`EntitledService`], from arrival until they
@@ -243,6 +304,17 @@ impl Gate {
         self.check.check().await
     }
 
+    /// [`Self::verdict`] with the notice, for the daemon's tool calls
+    /// (§8.40). The notice is `None` whenever the verdict is not
+    /// [`Verdict::Entitled`].
+    pub async fn verdict_with_notice(&self) -> (Verdict, Option<AccountNotice>) {
+        match self.check.check_with_notice().await {
+            (Verdict::Entitled, notice) => (Verdict::Entitled, notice),
+            // SP-4: a refusal says why, and nothing else.
+            (locked, _) => (locked, None),
+        }
+    }
+
     /// The shared counter.
     pub fn in_flight(&self) -> &InFlight {
         &self.in_flight
@@ -334,19 +406,31 @@ impl<S: Service<RoleServer>> Service<RoleServer> for EntitledService<S> {
         let _admitted = self.in_flight.admit();
         match classify(&request) {
             Kind::Open => self.inner.handle_request(request, context).await,
-            Kind::ToolCall { task } => match self.check.check().await {
-                Verdict::Entitled => self.inner.handle_request(request, context).await,
-                Verdict::Locked(reason) => {
-                    log_refusal("tools/call", reason);
-                    if task {
-                        Err(McpError::invalid_params(TASK_CALL_REFUSED, None))
-                    } else {
-                        Ok(ServerResult::CallToolResult(CallToolResult::error(vec![
-                            ContentBlock::text(reason.message()),
-                        ])))
+            Kind::ToolCall { task } => {
+                let (verdict, notice) = self.check.check_with_notice().await;
+                match verdict {
+                    Verdict::Entitled => {
+                        // Served, so anything the agent should pass on rides
+                        // with the call, in the request's own extensions:
+                        // only this process can write there (§8.40).
+                        let mut context = context;
+                        if let Some(notice) = notice {
+                            context.extensions.insert(notice);
+                        }
+                        self.inner.handle_request(request, context).await
+                    }
+                    Verdict::Locked(reason) => {
+                        log_refusal("tools/call", reason);
+                        if task {
+                            Err(McpError::invalid_params(TASK_CALL_REFUSED, None))
+                        } else {
+                            Ok(ServerResult::CallToolResult(CallToolResult::error(vec![
+                                ContentBlock::text(reason.message()),
+                            ])))
+                        }
                     }
                 }
-            },
+            }
             Kind::Other => match self.check.check().await {
                 Verdict::Entitled => self.inner.handle_request(request, context).await,
                 Verdict::Locked(reason) => {

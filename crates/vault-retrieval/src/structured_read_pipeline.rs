@@ -56,8 +56,10 @@
 //! }
 //! ```
 //!
-//! The seven warning codes ([`WarningCode`]) are locked by ADR-054
-//! Contract 2; any future addition requires a Contract amendment.
+//! The warning codes ([`WarningCode`]) are locked by ADR-054 Contract 2;
+//! any future addition requires a Contract amendment. The two
+//! `SUBSCRIPTION_*` codes (Amendment 3) are added by the MCP layer, never by
+//! this pipeline, and never change `status`.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -279,10 +281,10 @@ pub struct HealthWarning {
     pub recovery_hint: String,
 }
 
-/// The six warning codes locked by ADR-054 Contract 2 (2026-05-26),
-/// amended by ADR-054 Amendment 2 (2026-05-27) which retired
-/// `DELTA_LOG_UNAVAILABLE` together with Plan Iteration 3 Contract 4.
-/// Adding a seventh requires a Contract amendment.
+/// The warning codes locked by ADR-054 Contract 2 (2026-05-26): six from the
+/// pipeline (Amendment 2, 2026-05-27, retired `DELTA_LOG_UNAVAILABLE`), and
+/// two account codes the MCP layer adds (Amendment 3, 2026-09-21,
+/// `SIGNIN-DESIGN.md` §8.40). Adding another requires a Contract amendment.
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum WarningCode {
@@ -304,6 +306,15 @@ pub enum WarningCode {
     /// REPORT `generated_at` is in the future relative to the read-time
     /// clock. Indicates clock drift; staleness math becomes unreliable.
     ClockSkewDetected,
+    /// The user's free trial ends within five days (ADR-054 Contract 2,
+    /// amendment 3; `SIGNIN-DESIGN.md` §8.40). **Never emitted by this
+    /// pipeline**: the MCP layer adds it from the account, after `status` is
+    /// computed, and it never changes `status` — it is about the account, not
+    /// the vault's data.
+    SubscriptionTrialEnding,
+    /// The user's last payment did not go through; the vault is still open.
+    /// Same rules as [`Self::SubscriptionTrialEnding`].
+    SubscriptionPaymentFailed,
 }
 
 /// Three-level severity scale. Drives the [`HealthStatus`] aggregation.

@@ -97,9 +97,11 @@ const BUSY_RETRY_INTERVAL: Duration = Duration::from_secs(5 * 60);
     long_about = None
 )]
 struct Args {
-    /// Where to record the run's outcome (`<data>/maintenance.json`).
-    /// Required for a maintenance run.
-    #[arg(long, value_name = "PATH", required_unless_present = "keeper")]
+    /// Where to record the run's outcome. Normally omitted: the runner finds
+    /// `maintenance.json` inside the recorded vault folder itself (ADR-105
+    /// L3), so a scheduled task never carries a path that a move would
+    /// leave behind. Given explicitly by tests and development runs.
+    #[arg(long, value_name = "PATH")]
     status_file: Option<PathBuf>,
 
     /// Directory for the application log.
@@ -165,10 +167,19 @@ fn main() -> ExitCode {
             }
         };
     }
-    // clap guarantees this without `--keeper`; checked rather than unwrapped.
-    let Some(status_file) = args.status_file.clone() else {
-        tracing::error!("a maintenance run needs --status-file");
-        return ExitCode::FAILURE;
+    // ADR-105 L3: the status file lives in the recorded vault folder, found
+    // here rather than passed in. A location that cannot be found is logged
+    // and nothing runs: the child would find no vault either, and nothing may
+    // be created in its place.
+    let status_file = match args.status_file.clone() {
+        Some(path) => path,
+        None => match recorded_status_file() {
+            Ok(path) => path,
+            Err(e) => {
+                tracing::error!(error = %e, "the vault's location could not be found; nothing was run");
+                return ExitCode::FAILURE;
+            }
+        },
     };
 
     let budget = Duration::from_secs(u64::from(args.wait_if_busy_minutes) * 60);
@@ -210,6 +221,16 @@ fn main() -> ExitCode {
             }
         }
     }
+}
+
+/// `maintenance.json` in the recorded vault folder (ADR-105), setting the
+/// location up first if this is the build's first run (the runner is one of
+/// the processes allowed to, under the key lock).
+fn recorded_status_file() -> Result<PathBuf, vault_core::VaultError> {
+    let homes = vault_app::location::Homes::production()?;
+    let key = vault_app::keychain::KeyLocation::production()?;
+    let dir = vault_app::location::prepare(&homes, &key, &[])?;
+    Ok(dir.path().join(maintenance_state::CONFIG_FILENAME))
 }
 
 /// Whether another attempt, `interval` from now, still starts inside the
@@ -419,12 +440,21 @@ mod tests {
     }
 
     #[test]
-    fn the_status_file_and_log_dir_are_required() {
-        // Both are how a run reports for duty. A launcher that can start
-        // without them would run nightly and report nothing, which is the
-        // state ADR-SEC-016 exists to end.
-        assert!(Args::try_parse_from(["zaaheen-maintenance", "--log-dir", "/l"]).is_err());
+    fn the_log_dir_is_required_and_the_status_file_is_found_not_passed() {
+        // The log dir is how a run reports for duty (ADR-SEC-016). The
+        // status file is no longer passed by the scheduled task (ADR-105 L3):
+        // the runner finds it in the recorded vault folder, so a move never
+        // leaves the task pointing at the old one.
         assert!(Args::try_parse_from(["zaaheen-maintenance", "--status-file", "/s.json"]).is_err());
+        let args = parse(&[
+            "zaaheen-maintenance",
+            "--log-dir",
+            "/l",
+            "consolidate",
+            "run",
+        ]);
+        assert!(args.status_file.is_none());
+        assert_eq!(args.child_args, vec!["consolidate", "run"]);
     }
 
     #[test]

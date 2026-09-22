@@ -1,12 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capability set for vault-tauri Tauri commands per BRD §5.11 + dialog plugin for ADR-020 fatal-error dialogs + the ADR-SEC-017 log-export save dialog (`dialog:allow-save` is named explicitly rather than relied on through `dialog:default`, so narrowing that default upstream cannot silently remove the export). Permission identifiers follow Tauri 2.5+ auto-generation convention `<crate-name>:allow-<kebab-name>`.",
+  "description": "Default capability set for vault-tauri Tauri commands per BRD §5.11 + dialog plugin for ADR-020 fatal-error dialogs + the ADR-SEC-017 log-export save dialog + the ADR-105 folder picker (`dialog:allow-save` and `dialog:allow-open` are named explicitly rather than relied on through `dialog:default`, so narrowing that default upstream cannot silently remove the export or the location screens). Permission identifiers follow Tauri 2.5+ auto-generation convention `<crate-name>:allow-<kebab-name>`.",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "dialog:default",
     "dialog:allow-save",
+    "dialog:allow-open",
     "allow-add-memory",
     "allow-search-memories",
     "allow-update-memory",
@@ -26,11 +27,19 @@
     "allow-run-maintenance-now",
     "allow-erase-everything",
     "allow-export-logs",
+    "allow-account-access",
     "allow-account-status",
     "allow-account-sign-in",
     "allow-account-sign-out",
     "allow-account-subscribe",
     "allow-account-refresh-now",
-    "allow-export-memories"
+    "allow-export-memories",
+    "allow-location-status",
+    "allow-location-check",
+    "allow-location-move",
+    "allow-location-forget-old-copy",
+    "allow-connect-app",
+    "allow-show-claude-extension",
+    "allow-startup-state"
   ]
 }

@@ -65,6 +65,32 @@ impl AccountConfig {
         &self.client_id
     }
 
+    /// The account service's hosted sign-up page, derived from the issuer
+    /// by the service's fixed naming (§8.41): a development issuer
+    /// `https://<name>.clerk.accounts.dev` has its hosted pages at
+    /// `https://<name>.accounts.dev`, a production issuer `https://clerk.<domain>`
+    /// at `https://accounts.<domain>`. `None` for any other shape (or a port):
+    /// never a guessed address.
+    pub fn sign_up_page(&self) -> Option<String> {
+        let host = self.issuer.strip_prefix("https://")?;
+        if host.contains(':') {
+            return None;
+        }
+        let pages = if let Some(name) = host.strip_suffix(".clerk.accounts.dev") {
+            if name.is_empty() || name.contains('.') {
+                return None;
+            }
+            format!("{name}.accounts.dev")
+        } else {
+            let domain = host.strip_prefix("clerk.")?;
+            if !domain.contains('.') || domain == "accounts.dev" {
+                return None;
+            }
+            format!("accounts.{domain}")
+        };
+        Some(format!("https://{pages}/sign-up"))
+    }
+
     /// `issuer + path`, e.g. `endpoint("/oauth/token")`. Clerk's endpoint
     /// paths are fixed under the issuer (S0 spike, discovery document).
     pub(crate) fn endpoint(&self, path: &str) -> String {
@@ -176,6 +202,31 @@ mod tests {
                 ),
                 "client id {bad:?} should be rejected"
             );
+        }
+    }
+
+    /// §8.41: the hosted sign-up page, from the issuer's own naming — and
+    /// none for an issuer of any other shape.
+    #[test]
+    fn the_hosted_sign_up_page_follows_the_issuers_naming() {
+        let page = |issuer: &str| AccountConfig::new(issuer, "c").unwrap().sign_up_page();
+        assert_eq!(
+            page("https://example-name-12.clerk.accounts.dev").as_deref(),
+            Some("https://example-name-12.accounts.dev/sign-up")
+        );
+        assert_eq!(
+            page("https://clerk.zaaheen.com").as_deref(),
+            Some("https://accounts.zaaheen.com/sign-up")
+        );
+        for other in [
+            "https://issuer.example",
+            "https://accounts.example:8443",
+            "https://clerk.zaaheen.com:8443",
+            "https://clerk.accounts.dev",
+            "https://clerk.com",
+            "https://auth.clerk.zaaheen.com.evil.test",
+        ] {
+            assert_eq!(page(other), None, "{other}");
         }
     }
 

@@ -1,5 +1,6 @@
-//! The three links this application may hand to the operating system, and
-//! the last check before it does (S3 step 4b).
+//! The links this application may hand to the operating system, and the last
+//! check before it does (S3 step 4b; the fourth, Cursor's install request,
+//! ADR-106 in `CONNECT-APPS-DESIGN.md`).
 //!
 //! # Why this is a type and not a function
 //!
@@ -43,6 +44,15 @@ const PAY_PAGE: &str = "https://zaaheen.com/pay/";
 
 /// Paddle's transaction parameter on that page.
 const PAY_PARAM: &str = "_ptxn";
+
+/// Cursor's own install request for Zaaheen (ADR-106): Cursor asks the person
+/// and writes its own settings. `config` is the server exactly as the manual
+/// snippet gives it, `{"command":"zaaheen","args":["mcp","serve"]}`, in
+/// base64, which is how Cursor's documented links carry it (its example
+/// decodes to a bare `{"command":…,"args":…}`). Fixed text, built from no
+/// input; its base64 happens to need no escaping, and a test holds both.
+pub const CURSOR_INSTALL_LINK: &str = "cursor://anysphere.cursor-deeplink/mcp/install\
+     ?name=zaaheen&config=eyJjb21tYW5kIjoiemFhaGVlbiIsImFyZ3MiOlsibWNwIiwic2VydmUiXX0=";
 
 /// A link this application is allowed to open.
 #[derive(Clone, PartialEq, Eq)]
@@ -105,7 +115,30 @@ impl ExternalLink {
         Self::checked(url)
     }
 
-    /// The one gate every constructor passes through.
+    /// Cursor's install request for Zaaheen (ADR-106). Not a web page, so it
+    /// cannot pass [`Self::checked`] (`https` only); it has its own, narrower
+    /// gate instead: the one fixed link, exactly, and nothing built from any
+    /// input.
+    ///
+    /// # Errors
+    ///
+    /// [`LinkError::NotAllowed`] only if [`CURSOR_INSTALL_LINK`] were edited
+    /// into anything else.
+    pub fn install_in_cursor() -> Result<Self, LinkError> {
+        let url = Url::parse(CURSOR_INSTALL_LINK).map_err(|_| LinkError::NotAllowed)?;
+        let exact = url.scheme() == "cursor"
+            && url.host_str() == Some("anysphere.cursor-deeplink")
+            && url.path() == "/mcp/install"
+            && url.username().is_empty()
+            && url.password().is_none()
+            && url.as_str() == CURSOR_INSTALL_LINK;
+        if !exact {
+            return Err(LinkError::NotAllowed);
+        }
+        Ok(Self(url))
+    }
+
+    /// The one gate every web constructor passes through.
     fn checked(url: Url) -> Result<Self, LinkError> {
         // `https` only. This is what stops `file:`, `javascript:`, `data:`
         // and every other scheme the OS would happily act on.
