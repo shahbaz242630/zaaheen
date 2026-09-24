@@ -1,0 +1,83 @@
+---
+import Base from '../layouts/Base.astro';
+import { RELEASE, VERIFIED_APPS, pageFor } from '../data/site';
+
+const page = pageFor('/');
+const win = RELEASE.windows;
+const apps = VERIFIED_APPS.join(' and ');
+---
+<Base page={page}>
+  <section class="hero">
+    <h1>A quiet place for<br>everything they learn.</h1>
+    <p class="lede">Zaaheen keeps what your AI assistants know about you, on your own
+       computer, encrypted, and entirely under your control.</p>
+    <a class="cta" href="#download">Download for Windows</a>
+    <p class="beta-note">{RELEASE.stage} · version {RELEASE.version}</p>
+  </section>
+
+  <section class="why" aria-label="Why Zaaheen">
+    <div class="col">
+      <h2>It stays on your machine</h2>
+      <p>Your memories are stored and encrypted on your own device. Nothing is uploaded,
+         and there is no account to create.</p>
+    </div>
+    <div class="col">
+      <h2>Your AI apps share it</h2>
+      <p>One memory, shared by the AI apps you already use. Connect {apps} once and
+         they recall the same things. Other apps that support MCP should work the
+         same way.</p>
+    </div>
+    <div class="col">
+      <h2>You can delete all of it</h2>
+      <p>One button destroys the encryption key and the files. What remains on disk
+         becomes unreadable, to everyone, including us.</p>
+    </div>
+  </section>
+
+  <section id="download" class="download">
+    <h2>Download</h2>
+
+    <div class="tabs" role="tablist" aria-label="Choose your operating system">
+      <button class="tab" role="tab" id="tab-win" data-os="win" aria-controls="panel-win" aria-selected="true">Windows</button>
+      <button class="tab" role="tab" id="tab-mac" data-os="mac" aria-controls="panel-mac" aria-selected="false">macOS</button>
+      <button class="tab" role="tab" id="tab-linux" data-os="linux" aria-controls="panel-linux" aria-selected="false">Linux</button>
+    </div>
+
+    <div class="panel" role="tabpanel" id="panel-win" aria-labelledby="tab-win" data-os="win">
+      <div class="dl-row">
+        <div>
+          <h3 class="dl-title">Zaaheen for Windows</h3>
+          <p class="dl-meta">Version {RELEASE.version} · {win.arch} · {win.size} · Tested on {win.tested}</p>
+        </div>
+        <a class="cta" href={win.url} download>Download .msi</a>
+      </div>
+
+      <div class="notice">
+        <h4>Two things will happen when you install it</h4>
+        <p><strong>Windows will say the publisher is unknown.</strong> We are a very small
+           team and have not yet bought a code-signing certificate. Choose
+           <em>More info</em> and then <em>Run anyway</em>. We would rather tell you this
+           now than have you wonder.</p>
+        <p><strong>You will be asked for administrator permission.</strong> Zaaheen installs
+           for everyone on the computer, so Windows asks once. It does not need
+           administrator rights to run afterwards.</p>
+      </div>
+    </div>
+
+    <div class="panel hidden" role="tabpanel" id="panel-mac" aria-labelledby="tab-mac" data-os="mac">
+      <div class="soon">
+        <h3 class="dl-title">Zaaheen for macOS</h3>
+        <p class="dl-meta">Not available yet. When it is, it will be announced on this page.</p>
+      </div>
+    </div>
+
+    <div class="panel hidden" role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" data-os="linux">
+      <div class="soon">
+        <h3 class="dl-title">Zaaheen for Linux</h3>
+        <p class="dl-meta">Not available yet. When it is, it will be announced on this page.</p>
+      </div>
+    </div>
+  </section>
+
+  <script src="../scripts/download.js"></script>
+</Base>

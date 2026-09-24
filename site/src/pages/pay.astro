@@ -1,0 +1,40 @@
+---
+import Base from '../layouts/Base.astro';
+import type { PageEntry } from '../data/site';
+
+// Paddle's "default payment link" (SIGNIN-DESIGN §5, §8.30). Reached only from
+// the app (?_ptxn=txn_...) and from Paddle's card-update emails, so it is not
+// in PAGES, never in the sitemap, and noindex. It is the one page allowed a
+// third-party script (Paddle.js) and its own CSP (public/pay/.htaccess); the
+// audit pins both.
+//
+// The environment and the client-side token come from the build environment
+// (.env locally, repository variables in CI), not from this repo: they are
+// account identifiers. Paddle: client-side tokens are "safe to publish".
+const env = import.meta.env.PUBLIC_PADDLE_ENVIRONMENT ?? '';
+const token = import.meta.env.PUBLIC_PADDLE_CLIENT_TOKEN ?? '';
+
+const page: PageEntry = {
+  path: '/pay/',
+  title: 'Subscribe · Zaaheen',
+  description:
+    'Finish subscribing to Zaaheen in a secure checkout processed by Paddle, our reseller and Merchant of Record.',
+  sources: ['src/pages/pay.astro'],
+};
+---
+<Base page={page} noindex>
+  <section class="page pay" data-paddle-env={env} data-paddle-token={token}>
+    <h1>Subscribe to Zaaheen</h1>
+    <p id="pay-status" aria-live="polite">This page opens the checkout you start from the Zaaheen app.
+       Open the Zaaheen app and choose Subscribe.</p>
+    <button type="button" id="pay-reopen" class="cta" hidden>Open the checkout again</button>
+    <p class="fine">Payments are processed by Paddle.com, our reseller and Merchant of Record.
+       Your card details go straight to Paddle and never reach Zaaheen.</p>
+  </section>
+
+  {/* No integrity hash: Paddle updates v2 in place ("Always load Paddle.js
+      directly from https://cdn.paddle.com/"), so a pinned hash would break
+      checkout at their next release. The CSP limits it to that one host. */}
+  <script is:inline src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+  <script src="../scripts/pay.js"></script>
+</Base>

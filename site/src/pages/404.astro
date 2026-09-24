@@ -1,0 +1,20 @@
+---
+import Base from '../layouts/Base.astro';
+import type { PageEntry } from '../data/site';
+
+// Served for every missing URL by .htaccess (ErrorDocument 404), with a real
+// 404 status. Not in PAGES, so never in the sitemap; noindex, so never listed.
+const page: PageEntry = {
+  path: '/404.html',
+  title: 'Page not found · Zaaheen',
+  description: 'This page does not exist. Go to the Zaaheen home page.',
+  sources: ['src/pages/404.astro'],
+};
+---
+<Base page={page} noindex>
+  <section class="page">
+    <h1>This page does not exist.</h1>
+    <p>The link may be out of date, or the address mistyped.
+       <a href="/">Go to the Zaaheen home page</a>.</p>
+  </section>
+</Base>

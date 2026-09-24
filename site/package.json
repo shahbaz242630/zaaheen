@@ -1,0 +1,22 @@
+{
+  "name": "zaaheen-site",
+  "private": true,
+  "type": "module",
+  "description": "zaaheen.com: static marketing and documentation site",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "node scripts/audit.mjs",
+    "test": "node --test scripts/pay.test.mjs && node scripts/audit.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "@fontsource-variable/newsreader": "5.3.0",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/ibm-plex-sans": "5.3.0",
+    "astro": "7.3.2"
+  }
+}

@@ -56,7 +56,7 @@
 
 ### Company, website, accounts (not code in this repo)
 - **Zaaheen is a licensed parent company.** Launch waits on details from the licence, so the aim is readiness, not going live. The readiness checklist is `SEO-HANDOFF.md` §0a (local, gitignored).
-- **Website:** branch `site/production-ready` holds the Astro site, now with `/pay/` (session 46; checked out as the worktree `C:\Projects\GitHub\Memory Vault site`). Not merged, not deployed; zaaheen.com still shows Hostinger's parked page. Rebasing that branch will conflict on `HANDOFF.md`: take `main`'s version. Its local stash `session-41 docs …` is superseded; drop it.
+- **Website:** the Astro site, with `/pay/`, is on `main` under `site/` (merged in session 59 from `site/production-ready`, founder: *"lets merge it"*). **Not deployed:** publishing is switched off by the repository variable `SITE_PUBLISH` (unset). Until it is `true`, `main` builds and audits the site and `site.yml` neither runs the release audit (placeholders, live payments) nor publishes. At launch: final copy, live Paddle, Hostinger `site-deploy` set up (`SEO-HANDOFF.md` §8), then set `SITE_PUBLISH=true`. zaaheen.com still shows Hostinger's parked page. The old worktree `C:\Projects\GitHub\Memory Vault site` and its stash `session-41 docs …` are superseded.
 - **Coaching booking app:** separate repo `C:\Projects\GitHub\Training Page` (its own CLAUDE.md, HANDOFF and rules). Parked.
 - **Accounts:** Clerk (dev instance set up), Microsoft 365, Paddle, Cloudflare and the bank. All details live **only** in the local `OPS-HANDOFF.md`; this repo is public.
 

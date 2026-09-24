@@ -1,12 +1,16 @@
-/* Zaaheen landing page.
-   Palette and type lifted verbatim from the desktop app (dist/styles.css) so
-   the site and the product read as one thing rather than two. */
+/* zaaheen.com.
+   Palette and type lifted from the desktop app (dist/styles.css) so the site
+   and the product read as one thing rather than two. Exception: --muted and
+   --faint are darker than the app's, because text on this site must reach
+   WCAG AA contrast (4.5:1). Measured: --muted 5.4:1 on paper, 5.8:1 on white;
+   --faint 4.8:1 on paper. Fonts are self-hosted (see layouts/Base.astro): no
+   visitor request ever goes to a third party. */
 :root{
-  --ink:#26221c; --ink-soft:#3a352c; --muted:#8a8377; --faint:#b3aa9a;
+  --ink:#26221c; --ink-soft:#3a352c; --muted:#6b655b; --faint:#756e63;
   --paper:#faf8f3; --card:#ffffff; --line:#ece6d9; --border:#e2dccf;
   --chip:#f0ece2; --sage:#7fae8e; --sage-deep:#5f9475;
   --sans:"IBM Plex Sans",system-ui,sans-serif;
-  --serif:"Newsreader",Georgia,serif;
+  --serif:"Newsreader Variable",Georgia,serif;
   --mono:"IBM Plex Mono",ui-monospace,monospace;
 }
 *{box-sizing:border-box}
@@ -18,12 +22,15 @@ a{color:inherit}
 .mono{font-family:var(--mono);font-size:.9em}
 
 /* ---------- header ---------- */
-.bar{display:flex;align-items:center;justify-content:space-between;
-  padding:20px 32px;max-width:1080px;margin:0 auto}
+.bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:12px 28px;padding:20px 32px;max-width:1080px;margin:0 auto}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none}
 .brand span{font:500 21px var(--serif)}
-.bar nav a{color:var(--muted);text-decoration:none;font-size:15px}
+.bar nav{display:flex;flex-wrap:wrap;gap:6px 28px}
+.bar nav a{color:var(--muted);text-decoration:none;font-size:15px;
+  padding:4px 0;border-bottom:1.5px solid transparent}
 .bar nav a:hover{color:var(--ink)}
+.bar nav a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--sage-deep)}
 
 /* ---------- hero ---------- */
 .hero{max-width:760px;margin:0 auto;padding:86px 32px 72px;text-align:center}
@@ -39,7 +46,7 @@ a{color:inherit}
 /* ---------- three columns ---------- */
 .why{max-width:1080px;margin:0 auto;padding:0 32px 90px;
   display:grid;gap:34px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
-.why h3{font-size:20px;margin:0 0 10px}
+.why h2{font-size:20px;margin:0 0 10px}
 .why p{margin:0;color:var(--muted);font-size:15.5px}
 
 /* ---------- download ---------- */
@@ -55,8 +62,8 @@ a{color:inherit}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:30px}
 .panel.hidden{display:none}
 .dl-row{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
-.dl-title{font:500 20px var(--serif)}
-.dl-meta{color:var(--muted);font-size:14px;margin-top:5px}
+.dl-title{font:500 20px var(--serif);margin:0}
+.dl-meta{color:var(--muted);font-size:14px;margin:5px 0 0}
 
 .notice{margin-top:28px;padding-top:24px;border-top:1px solid var(--line)}
 .notice h4{margin:0 0 14px;font:500 15px var(--sans)}
@@ -66,15 +73,42 @@ a{color:inherit}
   background:var(--chip);padding:1px 6px;border-radius:4px}
 
 .soon{text-align:center;padding:8px 0}
-.soon .dl-meta{max-width:440px;margin:8px auto 22px}
-.notify{display:flex;gap:9px;justify-content:center;flex-wrap:wrap}
-.notify input{border:1px solid var(--border);border-radius:999px;padding:12px 18px;
-  font:400 15px var(--sans);min-width:250px;background:var(--paper);color:var(--ink)}
-.notify input:focus{outline:none;border-color:var(--sage-deep)}
-.notify button{background:var(--sage);border:none;color:var(--ink);
-  border-radius:999px;padding:12px 22px;font:500 15px var(--sans);cursor:pointer}
-.notify button:hover{background:var(--sage-deep)}
-.form-note{margin-top:14px;font-size:14px;color:var(--sage-deep)}
+.soon .dl-meta{max-width:440px;margin:8px auto}
+
+:focus-visible{outline:2px solid var(--sage-deep);outline-offset:3px}
+
+/* ---------- plain pages (404, privacy, docs) ---------- */
+.page{max-width:680px;margin:0 auto;padding:70px 32px 90px}
+.page h1{font-size:clamp(32px,5vw,44px);line-height:1.15;margin:0 0 18px}
+.page p{color:var(--ink-soft)}
+
+/* ---------- /pay (Paddle's default payment link) ---------- */
+/* .cta sets display, which would beat the browser's own [hidden] rule. */
+.pay [hidden]{display:none}
+.pay .cta{border:0;cursor:pointer;margin:4px 0 22px}
+
+/* ---------- product cards ---------- */
+.cards{display:grid;gap:20px;margin-top:34px;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.card{display:block;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;padding:26px;text-decoration:none;transition:border-color .15s}
+a.card:hover{border-color:var(--sage)}
+.card h2{font-size:21px;line-height:1.3;margin:0 0 10px}
+.card p{margin:0 0 16px;color:var(--muted);font-size:15.5px}
+/* Ink, not sage: sage-deep text on white is 3.5:1, below the 4.5:1 this site keeps. */
+.card-link{font-size:15px;font-weight:500;color:var(--ink);text-decoration:underline;
+  text-decoration-color:var(--sage);text-underline-offset:4px}
+.card-soon{background:transparent}
+
+/* ---------- knowledge centre hub ---------- */
+.hub-section{max-width:680px;margin:0 auto;padding:0 32px 72px}
+.hub-section h2{font-size:28px;line-height:1.25;margin:0 0 14px}
+.hub-close{text-align:center}
+
+/* ---------- unwritten copy (components/Placeholder.astro) ---------- */
+p.placeholder{border:1px dashed var(--border);border-radius:10px;padding:14px 18px;
+  margin:0 0 24px;color:var(--faint);font-size:15px}
+.hero p.placeholder{max-width:560px;margin:0 auto 34px}
 
 /* ---------- footer ---------- */
 footer{border-top:1px solid var(--line);padding:34px 32px;text-align:center;
@@ -83,7 +117,10 @@ footer p{margin:0 0 5px}
 .fine{color:var(--faint);font-size:13px}
 
 @media (max-width:600px){
+  .bar{padding:16px 22px}
+  .bar nav{width:100%;gap:6px 22px}
   .hero{padding:56px 22px 50px}
+  .hub-section{padding:0 22px 56px}
   .dl-row{flex-direction:column;align-items:stretch}
   .dl-row .cta{text-align:center}
 }
