@@ -45,6 +45,10 @@ repository = "https://github.com/shahbaz242630/zaaheen"
 [workspace.dependencies]
 # Async runtime (BRD §4.1)
 tokio = { version = "=1.52.1", features = ["full"] }
+# CancellationToken, the type rmcp hands a handler for a cancelled request
+# (session 59: the relay cancels a call the AI app gave up on, and the keeper
+# drops it). Already in the lockfile through rmcp, at this version.
+tokio-util = "=0.7.18"
 async-trait = "=0.1.89"
 # Hands a link to the person's own browser (S3 step 4b: sign in, Subscribe).
 #
@@ -191,7 +195,15 @@ reqwest = { version = "=0.12.28", features = ["json", "rustls-tls", "stream"] }
 # cancels a half-read line (rust-sdk #941, fixed in 2.1.0 by #947), and that
 # reader carries every stdio and keeper-pipe message we have. 2.x keeps the
 # JSON wire format; 3.x is the 2026-07-28 spec and needs its own live test.
-rmcp = "=2.2.0"
+#
+# ADR-SEC-032 (2026-09-24): 2.2.0 -> 3.4.1. Antigravity, updated that day,
+# speaks the 2026-07-28 spec: after `initialize` it sends `server/discover`
+# (SEP-2575, which servers MUST answer) without `notifications/initialized`,
+# and 2.2.0 closed the connection ("expect initialized request"). 3.x
+# answers `server/discover`, no longer waits for `initialized`, and keeps
+# the `initialize` handshake for every older client (3.2.0). No advisory
+# affects 3.x; 3.4.1 still carries the #947 line-reader fix.
+rmcp = "=3.4.1"
 
 # CLI (T0.1.6 Phase C1b — vault-cli operator binary). Exact-pinned per
 # BRD §2.9 from Cargo.lock at first build. The two deps are tightly

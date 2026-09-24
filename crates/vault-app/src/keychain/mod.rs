@@ -23,7 +23,8 @@
 //! - [`KeyLocation`] — which key, and where its lock and marker live.
 //! - [`KeyedPaths`] — the storage paths a process opens under the key.
 //! - [`open_master_key`] — the CLI, keeper and maintenance opener.
-//! - [`bridge_or_init_master_key`] — the desktop's opener (ADR-041 bridge).
+//! - [`keyed_data_present`] — whether sealed memories are on disk (ADR-108;
+//!   the V0.1 bridge and its opener were retired by ADR-108 D11).
 //! - [`read_existing_master_key`] — read-only, never creates (ADR-SEC-019).
 //! - [`derive_sqlcipher_passphrase`], [`derive_at_rest_key`] — the ADR-040
 //!   amendment option β derivation tree:
@@ -45,7 +46,6 @@ use tracing::warn;
 use vault_core::{VaultError, VaultKeyFailure, VaultResult};
 use zeroize::Zeroizing;
 
-mod bridge;
 mod files;
 pub(crate) mod lifecycle;
 mod store;
@@ -318,24 +318,16 @@ pub fn open_master_key(loc: &KeyLocation, paths: &KeyedPaths) -> VaultResult<Zer
     with_lifecycle(loc, paths, lifecycle::open_or_create)
 }
 
-/// The desktop's opener: [`open_master_key`] plus the V0.1 → V0.2 bridge
-/// (ADR-041) for a V0.1 `vault.db` with `VAULT_KEY` set. `data_dir` is the
-/// folder holding the default layout.
-///
-/// # Errors
-///
-/// As [`open_master_key`]; a V0.1 bridge failure is
-/// [`VaultError::KeychainProvenance`] or [`VaultError::Storage`], rolled
-/// back.
-pub fn bridge_or_init_master_key(
-    loc: &KeyLocation,
-    data_dir: &Path,
-    v0_1_vault_key: Option<&str>,
-) -> VaultResult<Zeroizing<[u8; 32]>> {
-    let paths = KeyedPaths::in_folder(data_dir);
-    with_lifecycle(loc, &paths, |ctx| {
-        bridge::bridge_or_init(ctx, data_dir, v0_1_vault_key)
-    })
+/// Whether memories sealed under a key are on disk in `vault_root` (ADR-108
+/// D4, review A R2-2): so a desktop with no key can tell a fresh install
+/// ("nothing yet") from a key that went missing ("don't delete anything").
+/// Existence checks only; nothing is opened. A path that cannot be checked
+/// counts as present, so the answer is never a wrong "nothing yet".
+pub fn keyed_data_present(vault_root: &Path) -> bool {
+    KeyedPaths::in_folder(vault_root)
+        .keyed_entries()
+        .iter()
+        .any(|p| p.try_exists().unwrap_or(true))
 }
 
 /// Read the master key WITHOUT ever creating, moving or repairing it

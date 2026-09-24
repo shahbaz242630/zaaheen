@@ -8,7 +8,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "node scripts/audit.mjs",
-    "test": "node --test scripts/pay.test.mjs && node scripts/audit.test.mjs"
+    "test": "node --test scripts/pay.test.mjs scripts/coaching-sync.test.mjs && node scripts/audit.test.mjs"
   },
   "engines": {
     "node": ">=22.12.0"

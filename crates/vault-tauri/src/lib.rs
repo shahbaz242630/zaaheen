@@ -16,10 +16,11 @@
 //!   outputs — testable in isolation. ADR-019 OS-aware dylib filename
 //!   dispatch, ADR-020 integrity-failure dialog text formatting,
 //!   ADR-040 keychain-error dialog text formatting (T0.2.0 Phase 1).
-//! - **main.rs:** Tauri Builder orchestration — sources master_key from
-//!   keychain via `vault_app::keychain`, derives SqlCipher / at-rest
-//!   subkeys, builds AppConfig, launches Application. Thin glue on top
-//!   of these utilities.
+//! - **main.rs:** Tauri Builder orchestration — the vault's folder, the
+//!   guard, and the link to the keeper. Since ADR-108 (D4) it never opens
+//!   the vault or creates the key: the keeper does both.
+//! - **link.rs:** the desktop's authenticated admin connection to the
+//!   keeper, which every command that needs the vault forwards over.
 //!
 //! ## T0.2.0 Phase 1 retirement (2026-05-09)
 //!
@@ -37,6 +38,12 @@ pub mod commands;
 /// The entitlement guard: the token every gated command must hold, and the
 /// one door that hands it out (`SIGNIN-DESIGN.md` §8.26 §6.4).
 pub mod guard;
+
+/// How the desktop starts a keeper (ADR-108 D4).
+mod keeper_start;
+
+/// The desktop's link to the keeper, which alone opens the vault (ADR-108).
+pub mod link;
 
 /// First-run model acquisition, re-exported from `vault-app`.
 ///
@@ -649,10 +656,65 @@ mod tests {
         let handled = main
             .find("when_the_memories_are_missing(app,")
             .expect("prepare's failure goes through it");
-        let key = main
-            .find("bridge_or_init_master_key(&key_location")
-            .expect("the key opens");
-        assert!(prepared < handled && handled < key);
+        let linked = main
+            .find("KeeperLink::new(")
+            .expect("the link to the keeper is made");
+        assert!(prepared < handled && handled < linked);
+    }
+
+    /// ADR-108 (D1, D4): the desktop never opens a vault store and never
+    /// creates the key. Its only key call is the read-only one, and nothing
+    /// in this crate builds the vault, its stores, or their workers.
+    #[test]
+    fn the_desktop_never_opens_the_vault_or_creates_the_key() {
+        const SOURCES: &[(&str, &str)] = &[
+            ("main.rs", include_str!("main.rs")),
+            ("lib.rs", include_str!("lib.rs")),
+            ("link.rs", include_str!("link.rs")),
+            ("keeper_start.rs", include_str!("keeper_start.rs")),
+            ("guard.rs", include_str!("guard.rs")),
+            ("commands/memory.rs", include_str!("commands/memory.rs")),
+            ("commands/boundary.rs", include_str!("commands/boundary.rs")),
+            ("commands/agent.rs", include_str!("commands/agent.rs")),
+            ("commands/settings.rs", include_str!("commands/settings.rs")),
+            ("commands/engine.rs", include_str!("commands/engine.rs")),
+            ("commands/export.rs", include_str!("commands/export.rs")),
+            ("commands/erasure.rs", include_str!("commands/erasure.rs")),
+            ("commands/logs.rs", include_str!("commands/logs.rs")),
+            (
+                "commands/maintenance.rs",
+                include_str!("commands/maintenance.rs"),
+            ),
+            ("commands/location.rs", include_str!("commands/location.rs")),
+            ("commands/keeper.rs", include_str!("commands/keeper.rs")),
+        ];
+        // Built from pieces so this test's own text never matches itself.
+        let forbidden = [
+            ["Application", "::new("].concat(),
+            ["State<'_, ", "Application>"].concat(),
+            ["bridge_or", "_init"].concat(),
+            ["open_master", "_key("].concat(),
+            ["MetadataStore", "::open"].concat(),
+            ["StorageBackend", "::open"].concat(),
+            ["spawn_retry", "_worker("].concat(),
+            ["spawn_reranker", "_warmup("].concat(),
+            ["ensure_reranker", "_with_progress("].concat(),
+        ];
+        for (name, src) in SOURCES {
+            let code: String = src
+                .lines()
+                .map(|line| line.split("//").next().unwrap_or(line))
+                .collect::<Vec<_>>()
+                .join("\n");
+            for word in &forbidden {
+                assert!(!code.contains(word.as_str()), "{name} names {word}");
+            }
+        }
+        let link = include_str!("link.rs");
+        assert!(
+            link.contains("read_existing_master_key("),
+            "the key is read read-only"
+        );
     }
 
     /// ADR-105 L5 and amendment 1 (L-f): a waiting move is finished before
@@ -685,23 +747,28 @@ mod tests {
         assert!(finish[busy..].contains("show_fatal_dialog_and_exit("));
         assert!(finish[busy..].contains("MSG_MEMORIES_BUSY"));
 
-        // Everything after the move, in order, with "ready" last.
+        // Everything after the move, in order, with "ready" last. The guard
+        // comes BEFORE the link to the keeper (ADR-108 D6, reviews A-B1 /
+        // B-B1): a signed-out fresh install reaches sign-in with no keeper.
         let open = body_of("open_the_vault");
         let prepared = find(&open, "location::prepare(");
-        let key = find(&open, "bridge_or_init_master_key(&key_location");
-        let opened = find(&open, "Application::new(&config)");
         let guarded = find(&open, "guard::build()");
+        let linked = find(&open, "KeeperLink::new(");
+        let managed_link = find(&open, "app.manage(link);");
         let ready = find(&open, "startup.ready();");
-        assert!(prepared < key && key < opened && opened < guarded && guarded < ready);
+        assert!(prepared < guarded && guarded < linked && linked < managed_link);
+        assert!(managed_link < ready);
         assert!(
             !open[ready..].contains(".manage("),
             "every piece of state is managed before the page is told ready"
         );
-        for once in [
-            "Application::new(",
-            "location::prepare(",
-            "bridge_or_init_master_key(",
-        ] {
+        // Nothing before "ready" waits on a keeper: the link is made, never
+        // called, during the start.
+        assert!(
+            !open[..ready].contains(".call("),
+            "no keeper call during the start"
+        );
+        for once in ["location::prepare(", "KeeperLink::new("] {
             assert_eq!(main.matches(once).count(), 1, "{once} in one place only");
         }
 

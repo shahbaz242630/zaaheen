@@ -51,10 +51,11 @@
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use serde_json::json;
 use tauri::State;
 use vault_app::logging::{LOG_FILENAME, LOG_FILENAME_PREVIOUS};
-use vault_app::Application;
-use vault_mcp::ToolInvokeDetails;
+
+use crate::link::{KeeperLink, KeyState, Kind};
 
 /// Opaque error codes (§11.7.2 — no internals cross the IPC boundary).
 ///
@@ -84,34 +85,30 @@ pub struct LogContext {
 /// [`ERR_LOG_EXPORT_FAILED`] when the copy could not be written.
 #[tauri::command]
 pub async fn export_logs(
-    app: State<'_, Application>,
+    link: State<'_, KeeperLink>,
     ctx: State<'_, LogContext>,
     destination: String,
 ) -> Result<u64, String> {
     let start = Instant::now();
     let result = export_logs_inner(&ctx.log_dir, &destination);
 
-    let duration_ms = start.elapsed().as_millis() as u64;
-    let error_for_audit = result.as_ref().err().map(|_| {
-        vault_mcp::ToolInvokeError::from_vault_error(&vault_core::VaultError::Storage(
-            "log export failed".to_string(),
-        ))
-    });
-    // §11.9.1: an export is a data operation and is recorded as one.
-    let _ = app
-        .adapter()
-        .append_tauri_command_audit(ToolInvokeDetails {
-            tool: "export_logs",
-            duration_ms,
-            result_count: u32::from(result.is_ok()),
-            boundary_count: 0,
-            max_results: None,
-            score_threshold: None,
-            include_archived: None,
-            query_length: None,
-            error: error_for_audit,
-        })
-        .await;
+    // §11.9.1: an export is a data operation and is recorded as one — in the
+    // vault's audit chain, which the keeper holds (ADR-108 D3). With no key
+    // there is no vault to record it in, and no keeper is started for it.
+    if link.key_state() == KeyState::Present {
+        let _ = link
+            .call(
+                "admin_audit_event",
+                json!({
+                    "event": "export_logs",
+                    "duration_ms": start.elapsed().as_millis() as u64,
+                    "result_count": u32::from(result.is_ok()),
+                    "failed": result.is_err(),
+                }),
+                Kind::Write,
+            )
+            .await;
+    }
 
     result
 }

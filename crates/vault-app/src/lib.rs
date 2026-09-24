@@ -29,6 +29,7 @@ pub mod account;
 /// holds the vault (S3 step 4b).
 pub mod account_ops;
 mod adapter;
+pub mod admin;
 mod application;
 mod config;
 /// Connecting an AI app through the app's own install route (ADR-106).

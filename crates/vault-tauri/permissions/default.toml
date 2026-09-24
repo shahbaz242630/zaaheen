@@ -65,6 +65,11 @@ description = "Allow invoking the list_agents command (read the ADR-SEC-001 capa
 commands.allow = ["list_agents"]
 
 [[permission]]
+identifier = "allow-list-connected-apps"
+description = "Allow invoking the list_connected_apps command (the AI apps connected to the vault right now: their own names and two times, nothing else)."
+commands.allow = ["list_connected_apps"]
+
+[[permission]]
 identifier = "allow-revoke-agent"
 description = "Allow invoking the revoke_agent command (soft-revoke an agent's capability token, preserving the audit trail)."
 commands.allow = ["revoke_agent"]
@@ -203,3 +208,11 @@ commands.allow = ["show_claude_extension"]
 identifier = "allow-startup-state"
 description = "Allow invoking the startup_state command (whether this start is still moving the memories and how far it has got: the stage, the move's phase, bytes done of the total, and the folder they are going to). Given nothing but the start's own progress; never the vault, an account or the key. Takes no argument."
 commands.allow = ["startup_state"]
+
+# Where the link to the keeper is (ADR-108 D6). Open before the lock,
+# approved with ADR-108 (session 60).
+
+[[permission]]
+identifier = "allow-link-state"
+description = "Allow invoking the link_state command (whether the part of Zaaheen that holds the memories is connecting, serving, tidying, or could not start, with the startup message if so). Reads files only; never the vault, an account or the key, and never starts anything. Takes no argument."
+commands.allow = ["link_state"]

@@ -77,6 +77,13 @@ chrono = { workspace = true }
 # Error types for ConfigError per ADR-032 + ADR-019 OS-dispatch errors.
 thiserror = { workspace = true }
 
+# ADR-108 (D4): the desktop is a client of the keeper. `rmcp` for the admin
+# call's request and result types, `tokio-util` for cancelling a search a newer
+# one replaced. Both already in this crate's graph through vault-app, with the
+# same pins and features, so nothing new is compiled.
+rmcp = { workspace = true, features = ["client"] }
+tokio-util = { workspace = true }
+
 [dev-dependencies]
 # `model_fetch` path-resolution tests assert against a real temp directory to
 # prove the lookup helper creates nothing on disk.

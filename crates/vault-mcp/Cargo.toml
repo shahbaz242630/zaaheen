@@ -16,6 +16,8 @@ async-trait.workspace = true
 # Tokio — rmcp's stdio transport runs on tokio I/O. Server lifecycle uses
 # spawn + select for graceful shutdown.
 tokio = { workspace = true }
+# CancellationToken: a cancelled call leaves the read desk (session 59).
+tokio-util = { workspace = true }
 
 # tracing — every tool call emits a structured `tracing::info!` event
 # with `{tool, duration_ms, result, boundary_count}` per ADR-024 + plan §3.5.

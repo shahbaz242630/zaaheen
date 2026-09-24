@@ -57,12 +57,15 @@ use vault_mcp::{SearchToolParams, ToolInvokeError};
 async fn dimension_mismatch_returns_generic_invalid_params_no_data_leak() {
     let server = make_dim_mismatch_server(vec!["work"]);
     let result = server
-        .tool_search(Parameters(SearchToolParams {
-            query: "anything".to_string(),
-            max_results: None,
-            score_threshold: None,
-            include_archived: None,
-        }))
+        .tool_search(
+            Parameters(SearchToolParams {
+                query: "anything".to_string(),
+                max_results: None,
+                score_threshold: None,
+                include_archived: None,
+            }),
+            tokio_util::sync::CancellationToken::new(),
+        )
         .await;
     let err = result.expect_err(
         "DimMismatchAdapter::search returns DimensionMismatch — tool_search must surface as Err",
@@ -153,12 +156,15 @@ async fn dimension_mismatch_returns_generic_invalid_params_no_data_leak() {
 async fn dimension_mismatch_audit_row_pins_full_detail() {
     let (server, adapter) = make_dim_mismatch_server_with_adapter(vec!["work"]);
     let _ = server
-        .tool_search(Parameters(SearchToolParams {
-            query: "anything".to_string(),
-            max_results: None,
-            score_threshold: None,
-            include_archived: None,
-        }))
+        .tool_search(
+            Parameters(SearchToolParams {
+                query: "anything".to_string(),
+                max_results: None,
+                score_threshold: None,
+                include_archived: None,
+            }),
+            tokio_util::sync::CancellationToken::new(),
+        )
         .await
         .expect_err("DimMismatchAdapter::search returns DimensionMismatch — tool_search must Err");
 

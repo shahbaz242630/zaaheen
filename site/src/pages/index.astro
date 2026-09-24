@@ -1,83 +1,195 @@
 ---
 import Base from '../layouts/Base.astro';
-import { RELEASE, VERIFIED_APPS, pageFor } from '../data/site';
+import { DEMO_APPS, RELEASE, TRIAL, VERIFIED_APPS, pageFor, verifiedAppList } from '../data/site';
 
 const page = pageFor('/');
 const win = RELEASE.windows;
-const apps = VERIFIED_APPS.join(' and ');
+const apps = verifiedAppList();
+
+// Example memories for the demo window and the before-and-after. They show the
+// kinds the app keeps (fact, event, how-to), in the app's own row layout.
+const SAID_ONCE = 'Prefers short answers in plain English';
+const START = [
+  { type: 'fact', text: SAID_ONCE, when: '2 days ago' },
+  { type: 'how-to', text: 'Book meetings after 10am, never on Fridays', when: 'last week' },
+];
 ---
 <Base page={page}>
   <section class="hero">
-    <h1>A quiet place for<br>everything they learn.</h1>
-    <p class="lede">Zaaheen keeps what your AI assistants know about you, on your own
-       computer, encrypted, and entirely under your control.</p>
-    <a class="cta" href="#download">Download for Windows</a>
-    <p class="beta-note">{RELEASE.stage} · version {RELEASE.version}</p>
-  </section>
-
-  <section class="why" aria-label="Why Zaaheen">
-    <div class="col">
-      <h2>It stays on your machine</h2>
-      <p>Your memories are stored and encrypted on your own device. Nothing is uploaded,
-         and there is no account to create.</p>
-    </div>
-    <div class="col">
-      <h2>Your AI apps share it</h2>
-      <p>One memory, shared by the AI apps you already use. Connect {apps} once and
-         they recall the same things. Other apps that support MCP should work the
-         same way.</p>
-    </div>
-    <div class="col">
-      <h2>You can delete all of it</h2>
-      <p>One button destroys the encryption key and the files. What remains on disk
-         becomes unreadable, to everyone, including us.</p>
-    </div>
-  </section>
-
-  <section id="download" class="download">
-    <h2>Download</h2>
-
-    <div class="tabs" role="tablist" aria-label="Choose your operating system">
-      <button class="tab" role="tab" id="tab-win" data-os="win" aria-controls="panel-win" aria-selected="true">Windows</button>
-      <button class="tab" role="tab" id="tab-mac" data-os="mac" aria-controls="panel-mac" aria-selected="false">macOS</button>
-      <button class="tab" role="tab" id="tab-linux" data-os="linux" aria-controls="panel-linux" aria-selected="false">Linux</button>
+    <div class="hero-copy">
+      <p class="eyebrow">A private memory for your AI apps</p>
+      <h1>One memory for all your AI apps.</h1>
+      <p class="lede">Tell one AI app something once, and every app you connect remembers it.
+         Your memories are kept safe on your own computer, encrypted, and you decide which
+         apps can read them.</p>
+      <div class="cta-row">
+        <a class="cta" href={win.url} download>Download for Windows</a>
+        <span class="cta-meta">{RELEASE.stage} · {RELEASE.version} · {win.size}</span>
+      </div>
+      <ul class="promise-dots">
+        <li>Stays on your computer</li>
+        <li>{TRIAL.days}-day free trial, no card</li>
+        <li>Delete it all in one step</li>
+      </ul>
     </div>
 
-    <div class="panel" role="tabpanel" id="panel-win" aria-labelledby="tab-win" data-os="win">
-      <div class="dl-row">
-        <div>
-          <h3 class="dl-title">Zaaheen for Windows</h3>
-          <p class="dl-meta">Version {RELEASE.version} · {win.arch} · {win.size} · Tested on {win.tested}</p>
+    <!-- A picture of the app, animated by scripts/hero.js. Decorative: every
+         claim it makes is also in the text around it. -->
+    <div class="demo" id="hero-demo" aria-hidden="true" data-apps={DEMO_APPS.join(',')}>
+      <div class="win">
+        <div class="win-bar">
+          <span class="win-dot"></span><span class="win-dot"></span><span class="win-dot"></span>
+          <span class="win-title" id="demo-title">Zaaheen · Memories</span>
         </div>
-        <a class="cta" href={win.url} download>Download .msi</a>
+        <div class="win-body">
+          <div class="win-side" id="demo-tabs">
+            <div class="win-tab is-on" data-tab="Memories">Memories</div>
+            <div class="win-tab" data-tab="Agents">Agents</div>
+            <div class="win-tab" data-tab="Consolidation">Consolidation</div>
+            <div class="win-tab" data-tab="Settings">Settings</div>
+          </div>
+          <div class="win-pane" id="demo-pane">
+            <div class="pane">
+              <div class="pane-title">Recently remembered</div>
+              {START.map((m) => (
+                <div class="mrow">
+                  <span class="mrow-ty">{m.type}</span>
+                  <span class="mrow-tx">{m.text}</span>
+                  <span class="mrow-wh">{m.when}</span>
+                </div>
+              ))}
+              <div class="pane-foot"><span class="mono-note">2 memories · encrypted on this computer</span></div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <div class="notice">
-        <h4>Two things will happen when you install it</h4>
-        <p><strong>Windows will say the publisher is unknown.</strong> We are a very small
-           team and have not yet bought a code-signing certificate. Choose
-           <em>More info</em> and then <em>Run anyway</em>. We would rather tell you this
-           now than have you wonder.</p>
-        <p><strong>You will be asked for administrator permission.</strong> Zaaheen installs
-           for everyone on the computer, so Windows asks once. It does not need
-           administrator rights to run afterwards.</p>
-      </div>
-    </div>
-
-    <div class="panel hidden" role="tabpanel" id="panel-mac" aria-labelledby="tab-mac" data-os="mac">
-      <div class="soon">
-        <h3 class="dl-title">Zaaheen for macOS</h3>
-        <p class="dl-meta">Not available yet. When it is, it will be announced on this page.</p>
-      </div>
-    </div>
-
-    <div class="panel hidden" role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" data-os="linux">
-      <div class="soon">
-        <h3 class="dl-title">Zaaheen for Linux</h3>
-        <p class="dl-meta">Not available yet. When it is, it will be announced on this page.</p>
+      <div class="demo-chips">
+        {VERIFIED_APPS.map((a) => (
+          <div class="demo-chip" data-app={a}><span class="chip-dot"></span>{a} connected</div>
+        ))}
       </div>
     </div>
   </section>
 
-  <script src="../scripts/download.js"></script>
+  <section class="problem">
+    <div class="wrap">
+      <div class="section-head is-centred">
+        <p class="eyebrow">The problem</p>
+        <h2>Every AI app starts from zero. You end up explaining yourself again.</h2>
+      </div>
+      <div class="compare">
+        <div class="compare-card is-before">
+          <div class="compare-head">
+            <h3>Without Zaaheen</h3>
+            <span class="mono-note">{VERIFIED_APPS.length} apps · {VERIFIED_APPS.length} separate memories</span>
+          </div>
+          <div class="app-trio">
+            {VERIFIED_APPS.map((a) => (
+              <div class="app-card">
+                <div class="app-name">{a}</div>
+                <div class="app-quote">"I prefer short answers in plain English…"</div>
+              </div>
+            ))}
+          </div>
+          <p class="compare-note">Each app keeps its own notes about you, somewhere you can't see,
+             and they don't talk to each other.</p>
+        </div>
+        <div class="compare-card is-after">
+          <div class="compare-head">
+            <h3>With Zaaheen</h3>
+            <span class="mono-note is-sage">{VERIFIED_APPS.length} apps · 1 memory</span>
+          </div>
+          <div class="shared">
+            <div class="app-trio">
+              {VERIFIED_APPS.map((a) => <div class="app-tile">{a}</div>)}
+            </div>
+            <div class="shared-line"></div>
+            <div class="shared-memory">
+              <div class="shared-text">{SAID_ONCE}</div>
+              <div class="mono-note is-sage">one memory · on your computer</div>
+            </div>
+          </div>
+          <p class="compare-note">Say it once. Every app you connect reads the same memory,
+             kept on your own computer.</p>
+        </div>
+      </div>
+    </div>
+    <div class="strip">
+      <div class="strip-row">
+        <div class="strip-item">
+          <h3>It stays on your computer</h3>
+          <p>Stored and encrypted on your device, never uploaded.</p>
+        </div>
+        <div class="strip-item">
+          <h3>Your AI apps share it</h3>
+          <p>Connect {apps} once. Other apps that support MCP should work the same way.</p>
+        </div>
+        <div class="strip-item">
+          <h3>You can delete all of it</h3>
+          <p>One button destroys the encryption key and the files.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="how">
+    <div class="wrap">
+      <div class="how-head">
+        <div class="section-head">
+          <p class="eyebrow">How it works</p>
+          <h2>Set it up once. Every app remembers after that.</h2>
+        </div>
+        <a class="cta cta-sm" href={win.url} download>Download for Windows</a>
+      </div>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-text">
+            <span class="step-no">01</span>
+            <h3>Install and sign in</h3>
+            <p>Download the app for Windows, then create an account or sign in. Your
+               {TRIAL.days}-day free trial starts straight away, and no card is needed. Your
+               account never holds your memories.</p>
+          </div>
+          <div class="snippet">
+            <div class="snippet-title">Create your Zaaheen account, or sign in.</div>
+            <div class="snippet-pills"><span class="pill-dark">Create an account</span><span class="pill-dark">Sign in</span></div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-text">
+            <span class="step-no">02</span>
+            <h3>Connect your AI apps</h3>
+            <p>Connect {apps} from the app, once. Other apps that support MCP should work
+               the same way.</p>
+          </div>
+          <div class="snippet snippet-list">
+            {VERIFIED_APPS.map((a, i) => (
+              <div class={i < 2 ? 'srow' : 'srow is-off'}>
+                <span class="srow-name"><span class="chip-dot"></span>{a}</span>
+                <span class="mono-note">{i < 2 ? 'connected' : '+ connect'}</span>
+              </div>
+            ))}
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-text">
+            <span class="step-no">03</span>
+            <h3>They remember</h3>
+            <p>What you tell one app, the others can recall. Every memory is listed in the
+               app, where you can search it or forget it.</p>
+          </div>
+          <div class="snippet snippet-mems">
+            {START.map((m) => (
+              <div class="mrow is-card">
+                <span class="mrow-ty">{m.type}</span>
+                <span class="mrow-tx">{m.text}</span>
+              </div>
+            ))}
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <script src="../scripts/hero.js"></script>
 </Base>

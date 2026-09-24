@@ -71,6 +71,11 @@ pub struct MemoryFilter {
     /// Mirrors `include_superseded`: default retrieval and consolidator passes
     /// never want archived facts; only an explicit archive search does.
     pub include_archived: bool,
+    /// Keyset cursor for paging (ADR-108 D2, the desktop's export): only
+    /// memories that come strictly AFTER `(created_at, id)` in the list's
+    /// order, newest first. A cursor, not an offset, so a memory saved
+    /// mid-export is neither repeated nor makes another one skipped.
+    pub before: Option<(DateTime<Utc>, MemoryId)>,
 }
 
 /// Async, encrypted SQLite-backed metadata store. Cheap to clone (it holds
@@ -108,17 +113,48 @@ impl MetadataStore {
     ///   wrong (the verification query fails), or migrations fail.
     pub async fn open(path: impl AsRef<Path>, key: SqlCipherKey) -> VaultResult<Self> {
         let path = path.as_ref().to_path_buf();
-        tokio::task::spawn_blocking(move || Self::open_blocking(&path, &key))
-            .await
-            .map_err(|e| VaultError::Storage(format!("spawn_blocking join: {e}")))?
+        tokio::task::spawn_blocking(move || {
+            Self::open_blocking(
+                &path,
+                &key,
+                OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE,
+            )
+        })
+        .await
+        .map_err(|e| VaultError::Storage(format!("spawn_blocking join: {e}")))?
     }
 
-    fn open_blocking(path: &Path, key: &SqlCipherKey) -> VaultResult<Self> {
-        let mut conn = Connection::open_with_flags(
-            path,
-            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE,
-        )
-        .map_err(|e| VaultError::Storage(format!("open {}: {e}", path.display())))?;
+    /// Open the database only if it is already there: `Ok(None)` when there is
+    /// no file, and nothing is ever created (ADR-108's amendment to ADR-104 —
+    /// a locked keeper serving the export must never make a vault). Read-write,
+    /// because the audit chain is appended, with migrations as [`Self::open`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::open`]; also when whether the file exists cannot be told.
+    pub async fn open_existing(
+        path: impl AsRef<Path>,
+        key: SqlCipherKey,
+    ) -> VaultResult<Option<Self>> {
+        let path = path.as_ref().to_path_buf();
+        tokio::task::spawn_blocking(move || {
+            let present = path
+                .try_exists()
+                .map_err(|e| VaultError::Storage(format!("check {}: {e}", path.display())))?;
+            if !present {
+                return Ok(None);
+            }
+            // No CREATE flag: a file removed in the meantime is an error,
+            // never a fresh database.
+            Self::open_blocking(&path, &key, OpenFlags::SQLITE_OPEN_READ_WRITE).map(Some)
+        })
+        .await
+        .map_err(|e| VaultError::Storage(format!("spawn_blocking join: {e}")))?
+    }
+
+    fn open_blocking(path: &Path, key: &SqlCipherKey, flags: OpenFlags) -> VaultResult<Self> {
+        let mut conn = Connection::open_with_flags(path, flags)
+            .map_err(|e| VaultError::Storage(format!("open {}: {e}", path.display())))?;
 
         // SQLCipher: set the key BEFORE any other PRAGMA / query.
         // pragma_update with `key` accepts the raw passphrase; SQLCipher
@@ -802,7 +838,18 @@ fn tx_list_memories(
         bindings.push(valid_at.to_rfc3339().into());
     }
 
-    sql.push_str(" ORDER BY created_at DESC");
+    if let Some((at, id)) = &filter.before {
+        let (a, b) = (bindings.len() + 1, bindings.len() + 2);
+        sql.push_str(&format!(
+            " AND (created_at < ?{a} OR (created_at = ?{a} AND id < ?{b}))"
+        ));
+        bindings.push(at.to_rfc3339().into());
+        bindings.push(id.to_string().into());
+    }
+
+    // The id breaks ties, so the order is total: pages never overlap or
+    // leave a gap between memories saved in the same instant.
+    sql.push_str(" ORDER BY created_at DESC, id DESC");
     if let Some(n) = limit {
         sql.push_str(&format!(" LIMIT ?{}", bindings.len() + 1));
         bindings.push((n as i64).into());
@@ -1092,6 +1139,134 @@ mod tests {
             metadata: serde_json::json!({"k": "v"}),
         })
         .unwrap()
+    }
+
+    // ----- D4 (ADR-108): export pages and the never-create open -----
+
+    /// Pages walk the whole list exactly once, newest first, even when many
+    /// memories share one `created_at` (the id breaks the tie), and a memory
+    /// saved mid-export is not repeated or skipped for the others.
+    #[tokio::test]
+    async fn pages_before_a_cursor_cover_every_memory_exactly_once() {
+        let (_tmp, store) = make_store().await;
+        let same_moment = chrono::Utc::now();
+        let mut all = Vec::new();
+        for i in 0..7 {
+            let mut m = sample_memory("work", MemoryType::Semantic, &format!("m{i}"));
+            if i < 5 {
+                m.created_at = same_moment;
+            }
+            store.create_memory(&m).await.unwrap();
+            all.push(m.id);
+        }
+
+        let mut seen = Vec::new();
+        let mut before = None;
+        loop {
+            let page = store
+                .list_memories(
+                    MemoryFilter {
+                        before,
+                        ..Default::default()
+                    },
+                    Some(2),
+                )
+                .await
+                .unwrap();
+            if page.is_empty() {
+                break;
+            }
+            if seen.is_empty() {
+                // Saved after the export began: newer than every cursor, so
+                // it is never reached and never disturbs the walk.
+                store
+                    .create_memory(&sample_memory("work", MemoryType::Semantic, "late"))
+                    .await
+                    .unwrap();
+            }
+            let last = page.last().unwrap();
+            before = Some((last.created_at, last.id));
+            seen.extend(page.iter().map(|m| m.id));
+        }
+
+        let mut unique = seen.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(unique.len(), seen.len(), "no memory twice");
+        let mut expected = all.clone();
+        expected.sort();
+        assert_eq!(
+            unique, expected,
+            "every memory once, the late one not at all"
+        );
+    }
+
+    /// The order is total: two lists of the same rows agree exactly.
+    #[tokio::test]
+    async fn the_list_order_is_total() {
+        let (_tmp, store) = make_store().await;
+        let same_moment = chrono::Utc::now();
+        for i in 0..6 {
+            let mut m = sample_memory("work", MemoryType::Semantic, &format!("t{i}"));
+            m.created_at = same_moment;
+            store.create_memory(&m).await.unwrap();
+        }
+        let ids = |v: Vec<Memory>| v.into_iter().map(|m| m.id).collect::<Vec<_>>();
+        let first = ids(store
+            .list_memories(MemoryFilter::default(), None)
+            .await
+            .unwrap());
+        let second = ids(store
+            .list_memories(MemoryFilter::default(), None)
+            .await
+            .unwrap());
+        assert_eq!(first, second);
+        let mut descending = first.clone();
+        descending.sort_by_key(|id| std::cmp::Reverse(id.to_string()));
+        assert_eq!(first, descending, "ties go newest id first");
+    }
+
+    /// Lock mode opens the database only if it exists: no file, no database,
+    /// and nothing is created (ADR-108 ADR-104 amendment).
+    #[tokio::test]
+    async fn open_existing_never_creates_a_database() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("vault.db");
+        let key = SqlCipherKey::new("correct-horse-battery-staple-test-key");
+        let opened = MetadataStore::open_existing(&path, key).await.unwrap();
+        assert!(opened.is_none());
+        assert!(!path.exists(), "nothing may be created");
+        assert_eq!(std::fs::read_dir(tmp.path()).unwrap().count(), 0);
+    }
+
+    /// An existing database opens, with its rows, and can take audit rows.
+    #[tokio::test]
+    async fn open_existing_opens_a_database_that_is_there() {
+        let (tmp, store) = make_store().await;
+        let m = sample_memory("work", MemoryType::Semantic, "kept");
+        store.create_memory(&m).await.unwrap();
+        drop(store);
+
+        let key = SqlCipherKey::new("correct-horse-battery-staple-test-key");
+        let reopened = MetadataStore::open_existing(tmp.path().join("vault.db"), key)
+            .await
+            .unwrap()
+            .expect("the database is there");
+        assert!(reopened.get_memory(&m.id).await.unwrap().is_some());
+        reopened.verify_audit_chain().await.unwrap();
+    }
+
+    /// Boundaries are listed from the metadata store alone, so lock mode can
+    /// show counts without the rest of the vault.
+    #[tokio::test]
+    async fn boundaries_are_listed_from_the_metadata_store_alone() {
+        let (_tmp, store) = make_store().await;
+        store
+            .create_memory(&sample_memory("work", MemoryType::Semantic, "w"))
+            .await
+            .unwrap();
+        let listed = store.list_boundaries().await.unwrap();
+        assert!(listed.iter().any(|b| b.boundary.as_str() == "default"));
     }
 
     #[tokio::test]

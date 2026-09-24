@@ -31,9 +31,11 @@
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use serde_json::json;
 use tauri::State;
-use vault_app::Application;
-use vault_mcp::ToolInvokeDetails;
+use vault_core::{Memory, VaultError, VaultKeyFailure};
+
+use crate::link::{decoded, KeeperLink, KeyState, Kind};
 
 /// Opaque error code: the destination was not a usable file path.
 pub const ERR_EXPORT_BAD_DESTINATION: &str = "export_bad_destination";
@@ -50,13 +52,17 @@ pub const ALL_CODES: &[&str] = &[
     ERR_EXPORT_WRITE_FAILED,
 ];
 
-/// Upper bound on one export.
+/// Upper bound on one export: pages of [`PAGE`] up to this many memories.
 ///
-/// Not a security bound — it is the person's own vault — but an honest one:
-/// `list_recent_memories` takes a limit, and a number has to be chosen. A
-/// hundred thousand memories is far beyond V0.2 scale (BRD §5: hundreds to
-/// low thousands) while still being a real ceiling rather than a pretend one.
+/// Not a security bound — it is the person's own vault — but an honest one,
+/// and a guard against a keeper that never ends its pages. A hundred
+/// thousand memories is far beyond V0.2 scale (BRD §5: hundreds to low
+/// thousands) while still being a real ceiling rather than a pretend one.
 const MAX_EXPORTED: usize = 100_000;
+
+/// One page from the keeper (ADR-108 D2: never the whole vault in one
+/// message).
+const PAGE: usize = 2_000;
 
 /// Same rules as the log export: absolute, real parent, no NUL. A relative
 /// path would resolve against whatever directory the app was launched from,
@@ -89,8 +95,8 @@ fn validate_destination(destination: &str) -> Result<PathBuf, String> {
     }
 }
 
-/// Inner implementation, `Application`-only so it is testable without a Tauri
-/// runtime (the pattern the other command modules already use).
+/// Inner implementation, over the keeper link so it is testable without a
+/// Tauri runtime (the pattern the other command modules already use).
 ///
 /// Returns how many memories were written, so the UI can say "412 memories
 /// saved" rather than a bare tick.
@@ -99,38 +105,47 @@ fn validate_destination(destination: &str) -> Result<PathBuf, String> {
 ///
 /// One of this module's stable codes. The underlying reason goes to the log,
 /// never to the caller (BRD §11.7.2).
-pub async fn export_memories_inner(app: &Application, destination: &str) -> Result<usize, String> {
+pub async fn export_memories_inner(link: &KeeperLink, destination: &str) -> Result<usize, String> {
     let started = Instant::now();
     let dest = validate_destination(destination)?;
 
-    let result = run_export(app, &dest).await;
+    // Since ADR-108 the memories come from the keeper, page by page. A
+    // computer with no key yet has nothing to export and needs no keeper
+    // (D4); one whose key is missing while memories are on disk says so in
+    // the startup message's own words, never "nothing to export" (review
+    // A R2-2).
+    let result = match link.key_state() {
+        KeyState::Present => run_export(link, &dest).await,
+        KeyState::Absent { keyed_data: false } => {
+            return write_all(&[], &dest);
+        }
+        KeyState::Absent { keyed_data: true } => {
+            return Err(crate::format_keychain_error_dialog(&VaultError::VaultKey(
+                VaultKeyFailure::Missing,
+            )));
+        }
+        KeyState::Unreadable => {
+            return Err(crate::format_keychain_error_dialog(
+                &VaultError::KeychainProvenance("the credential store could not be read".into()),
+            ));
+        }
+    };
 
     // BRD §11.9.1 lists "export" among the data operations that must be
-    // logged, and this crate's own module docs say read-only commands audit
-    // too. Missed on the first pass and found by step 4c's independent
-    // review: a bulk read of the **entire vault** was leaving no trace at
-    // all, while its sibling `export_logs` -- which reads far less -- did
-    // record one.
-    let error_for_audit = result.as_ref().err().map(|_| {
-        vault_mcp::ToolInvokeError::from_vault_error(&vault_core::VaultError::Storage(
-            "memory export failed".to_string(),
-        ))
-    });
-    let _ = app
-        .adapter()
-        .append_tauri_command_audit(ToolInvokeDetails {
-            tool: "export_memories",
-            duration_ms: started.elapsed().as_millis() as u64,
-            // How many memories left the vault, which is the fact an audit
-            // reader cares about.
-            result_count: result.as_ref().copied().unwrap_or(0) as u32,
-            boundary_count: 0,
-            max_results: Some(MAX_EXPORTED as u32),
-            score_threshold: None,
-            include_archived: Some(false),
-            query_length: None,
-            error: error_for_audit,
-        })
+    // logged (step 4c's independent review). Written AFTER the file, with
+    // the final outcome, by the keeper that holds the vault (ADR-108 D2,
+    // reviews A-S2 / B-M6). Best effort: the export itself has happened.
+    let _ = link
+        .call(
+            "admin_audit_event",
+            json!({
+                "event": "export_memories",
+                "duration_ms": started.elapsed().as_millis() as u64,
+                "result_count": result.as_ref().copied().unwrap_or(0) as u32,
+                "failed": result.is_err(),
+            }),
+            Kind::Write,
+        )
         .await;
 
     if let Ok(count) = &result {
@@ -139,22 +154,37 @@ pub async fn export_memories_inner(app: &Application, destination: &str) -> Resu
     result
 }
 
-/// The read and the write, split out so the audit row above records the
-/// outcome of the whole operation however it ended.
-async fn run_export(app: &Application, dest: &Path) -> Result<usize, String> {
-    let memories = app
-        .adapter()
-        .list_recent_memories(MAX_EXPORTED)
-        .await
-        .map_err(|e| {
-            tracing::error!(error = %e, "could not read memories for the export");
-            ERR_EXPORT_READ_FAILED.to_string()
-        })?;
+/// Every memory, page by page from the keeper, then the file.
+async fn run_export(link: &KeeperLink, dest: &Path) -> Result<usize, String> {
+    let mut memories: Vec<Memory> = Vec::new();
+    let mut args = json!({ "limit": PAGE });
+    while memories.len() < MAX_EXPORTED {
+        let text = link
+            .call("admin_export_page", args.clone(), Kind::Read)
+            .await
+            .map_err(|code| {
+                tracing::error!(code, "could not read memories for the export");
+                ERR_EXPORT_READ_FAILED.to_string()
+            })?;
+        let page: Vec<Memory> = decoded(&text).map_err(|_| ERR_EXPORT_READ_FAILED.to_string())?;
+        let Some(last) = page.last() else {
+            break;
+        };
+        args = json!({
+            "limit": PAGE,
+            "after_created_at": last.created_at.to_rfc3339(),
+            "after_id": last.id.to_string(),
+        });
+        memories.extend(page);
+    }
+    write_all(&memories, dest)
+}
 
-    let count = memories.len();
-    let text = vault_app::export::to_markdown(&memories, chrono::Utc::now());
+/// Format and write, returning how many memories the file holds.
+fn write_all(memories: &[Memory], dest: &Path) -> Result<usize, String> {
+    let text = vault_app::export::to_markdown(memories, chrono::Utc::now());
     write_file(dest, &text)?;
-    Ok(count)
+    Ok(memories.len())
 }
 
 /// The write itself, off the async runtime: a large vault is a real file
@@ -172,10 +202,10 @@ fn write_file(dest: &Path, text: &str) -> Result<(), String> {
 /// file, and it sends nothing anywhere.
 #[tauri::command]
 pub async fn export_memories(
-    app: State<'_, Application>,
+    link: State<'_, KeeperLink>,
     destination: String,
 ) -> Result<usize, String> {
-    export_memories_inner(app.inner(), &destination).await
+    export_memories_inner(link.inner(), &destination).await
 }
 
 #[cfg(test)]

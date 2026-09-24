@@ -109,6 +109,12 @@ pub const VAULT_ENTRIES: &[&str] = &[
     ".vault-host.json",
     ".acl-v1",
     ".keeper",
+    // Session 59: the keeper's list of connected AI apps (names and times
+    // only), for the Agents tab; removed when the keeper stops.
+    ".vault-clients.json",
+    // ADR-108 D7: why the last keeper could not start (a code, no user data).
+    // NOT keyed data: it never stops a key being created.
+    ".vault-start-failure.json",
 ];
 
 /// The vault's lockfiles: declared (the at-rest sweep must see every file the

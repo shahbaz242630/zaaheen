@@ -18,6 +18,8 @@ chrono = { workspace = true }
 
 # Tokio — async runtime for the Adapter impls + audit append paths.
 tokio = { workspace = true }
+# CancellationToken: the relay cancels calls the AI app gave up on (s59).
+tokio-util = { workspace = true }
 
 # tracing — structured logs at the application boundary.
 tracing.workspace = true
@@ -84,7 +86,10 @@ zip = { version = "=6.0.0", default-features = false }
 #   compiled on every CI leg as a dev-dependency here and in vault-mcp. ADR-026's
 #   host-side threat class does not apply: the relay spawns nothing and passes
 #   no user input into `StdioServerParameters` (ADR-SEC-019).
-rmcp = { workspace = true, features = ["server", "transport-io", "transport-async-rw", "client"] }
+# - `macros` (ADR-108): the desktop's admin surface (`admin/server.rs`) is a
+#   tool router like vault-mcp's `StdioServer`. Already compiled for vault-mcp,
+#   so feature unification adds no crate to the graph.
+rmcp = { workspace = true, features = ["server", "macros", "transport-io", "transport-async-rw", "client"] }
 
 # Retriever trait — VaultAdapter::search delegates to the wired
 # `Arc<dyn Retriever>` (T0.2.7 Phase 4: AbstainingRetriever wrapping

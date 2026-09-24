@@ -26,7 +26,8 @@
 //! F2 keeper->relay : "ZKH1" | wire_k:u16le | c_k[32] | p_h[32]       (70 bytes)
 //! F3 relay->keeper : purpose:u8 | n:u8 | n x (len:u8 | utf8) | p_r[32]
 //!                    purpose 0 = serve (n >= 1), 1 = yield (n = 0),
-//!                    2 = hand over (n = 0)
+//!                    2 = hand over (n = 0), 3 = admin (n = 0; the desktop
+//!                    app, ADR-SEC-033; served only at wire_r == wire_k)
 //! F4 keeper->relay : status:u8   1 = serving, 2 = yielding, 0 = rejected
 //!
 //! TRANSCRIPT = wire_r | wire_k | nonce[32] | u16le len | endpoint utf8 | pid:u32le | c_r | c_k
@@ -74,7 +75,16 @@ pub const MAGIC: &[u8; 4] = b"ZKH1";
 /// a wire-2 relay must be told to restart. Found by
 /// `the_tool_contract_is_pinned_to_the_wire_version` in session 52; 4d-3's
 /// own runs did not include that test binary.
-pub const WIRE: u16 = 3;
+///
+/// 4 (session 59, ADR-SEC-032 + ADR-107): rmcp 3.4.1 carries the pipe (a
+/// different major again), and `memory_read` / `memory_search` now ask the
+/// agent for one question at a time, so the tool contract changed. The relay
+/// also names its app and cancels abandoned calls over the pipe: a wire-3
+/// keeper would not understand the cancel as intended, so it is told to
+/// restart rather than served. Purpose 3 (admin, ADR-SEC-033, session 60)
+/// joined wire 4 before it shipped; the admin tool contract is pinned beside
+/// the AI apps' one and moves with this number too.
+pub const WIRE: u16 = 4;
 
 /// Fresh random bytes each side contributes per connection.
 pub const CHALLENGE_LEN: usize = 32;
@@ -103,6 +113,11 @@ const PURPOSE_YIELD: u8 = 1;
 /// ("Delete everything"). Honoured from any peer that proves the key — the
 /// same user, who could equally end the process — whatever its wire.
 const PURPOSE_HANDOVER: u8 = 2;
+/// The owner's desktop app (ADR-108, ADR-SEC-033): an admin connection served
+/// with the desktop's command bodies, never with boundaries. Same trust as
+/// HANDOVER — any holder of the key — but served only on the same wire, so
+/// the admin tool contract always matches.
+const PURPOSE_ADMIN: u8 = 3;
 
 const STATUS_REJECTED: u8 = 0;
 const STATUS_SERVING: u8 = 1;
@@ -144,6 +159,8 @@ pub enum KeeperAccept {
     Yield,
     /// A key holder needs the vault to itself; stop serving and exit.
     Handover,
+    /// The owner's desktop app: serve the admin tools (ADR-SEC-033).
+    Admin,
 }
 
 /// Relay-side result of a completed handshake.
@@ -240,6 +257,50 @@ where
     .await
 }
 
+/// Run the desktop app's half (ADR-SEC-033): the same authentication as a
+/// relay, asking for an admin connection instead of boundaries. Version
+/// handling is a relay's: a keeper on an older wire is asked to YIELD (never
+/// to hand over), a newer one gives [`HandshakeError::KeeperNewer`].
+///
+/// # Errors
+///
+/// As [`relay_handshake`].
+pub async fn admin_handshake<S>(
+    stream: &mut S,
+    keys: &HandshakeKeys,
+    expected: &KeeperIdentity,
+    challenge: [u8; CHALLENGE_LEN],
+    step_deadline: Duration,
+) -> Result<RelayOutcome, HandshakeError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    admin_handshake_as(stream, keys, expected, challenge, step_deadline, WIRE).await
+}
+
+async fn admin_handshake_as<S>(
+    stream: &mut S,
+    keys: &HandshakeKeys,
+    expected: &KeeperIdentity,
+    c_r: [u8; CHALLENGE_LEN],
+    step_deadline: Duration,
+    wire_r: u16,
+) -> Result<RelayOutcome, HandshakeError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    client_handshake(
+        stream,
+        keys,
+        expected,
+        (PURPOSE_ADMIN, 0, Vec::new()),
+        c_r,
+        step_deadline,
+        wire_r,
+    )
+    .await
+}
+
 async fn relay_handshake_as<S>(
     stream: &mut S,
     keys: &HandshakeKeys,
@@ -254,6 +315,33 @@ where
 {
     // Validate our own request before touching the wire.
     let (n, frames) = encode_boundaries(boundaries)?;
+    client_handshake(
+        stream,
+        keys,
+        expected,
+        (PURPOSE_SERVE, n, frames),
+        c_r,
+        step_deadline,
+        wire_r,
+    )
+    .await
+}
+
+/// The client half shared by relays (serve) and the desktop (admin).
+/// `ask` is `(purpose, n, frames)`, already validated by the caller.
+async fn client_handshake<S>(
+    stream: &mut S,
+    keys: &HandshakeKeys,
+    expected: &KeeperIdentity,
+    ask: (u8, u8, Vec<u8>),
+    c_r: [u8; CHALLENGE_LEN],
+    step_deadline: Duration,
+    wire_r: u16,
+) -> Result<RelayOutcome, HandshakeError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let (asked, n, frames) = ask;
 
     let mut f1 = Vec::with_capacity(F1_LEN);
     f1.extend_from_slice(MAGIC);
@@ -286,7 +374,7 @@ where
     let (purpose, n, frames) = if wire_k < wire_r {
         (PURPOSE_YIELD, 0u8, Vec::new())
     } else {
-        (PURPOSE_SERVE, n, frames)
+        (asked, n, frames)
     };
     let p_r = relay_proof(keys, &transcript, purpose, n, &frames);
 
@@ -301,7 +389,7 @@ where
     let mut status = [0u8; 1];
     io_within(step_deadline, stream.read_exact(&mut status)).await?;
     match (purpose, status[0]) {
-        (PURPOSE_SERVE, STATUS_SERVING) => Ok(RelayOutcome::Serving),
+        (PURPOSE_SERVE | PURPOSE_ADMIN, STATUS_SERVING) => Ok(RelayOutcome::Serving),
         (PURPOSE_YIELD, STATUS_YIELDING) => Ok(RelayOutcome::KeeperYielded),
         _ => Err(HandshakeError::Rejected),
     }
@@ -495,11 +583,16 @@ where
         return Err(HandshakeError::Rejected);
     }
 
-    // A relay on a different wire must not be served (a newer one yields; an
-    // older one is told to update by frame 2 before it ever gets here).
+    // A relay (or desktop) on a different wire must not be served (a newer one
+    // yields; an older one is told to update by frame 2 before it gets here).
     if wire_r != wire_k {
         reject(stream).await;
         return Err(HandshakeError::Rejected);
+    }
+    if purpose == PURPOSE_ADMIN {
+        stream.write_all(&[STATUS_SERVING]).await?;
+        stream.flush().await?;
+        return Ok(KeeperAccept::Admin);
     }
     match decode_boundaries(n, &frames) {
         Ok(boundaries) => {
@@ -531,7 +624,7 @@ where
                 return Err(HandshakeError::Malformed("boundary count"));
             }
         }
-        PURPOSE_YIELD | PURPOSE_HANDOVER => {
+        PURPOSE_YIELD | PURPOSE_HANDOVER | PURPOSE_ADMIN => {
             if n != 0 {
                 return Err(HandshakeError::Malformed("yield frame"));
             }
@@ -1120,6 +1213,7 @@ mod tests {
             ("zero-length boundary", vec![PURPOSE_SERVE, 1, 0]),
             ("over-long boundary", vec![PURPOSE_SERVE, 1, 65]),
             ("unknown purpose", vec![7, 1]),
+            ("admin with boundaries", vec![PURPOSE_ADMIN, 2]),
             ("yield with boundaries", vec![PURPOSE_YIELD, 1]),
             ("handover with boundaries", vec![PURPOSE_HANDOVER, 1]),
         ];
@@ -1167,6 +1261,162 @@ mod tests {
             started.elapsed() < Duration::from_secs(1),
             "the frame-1 deadline must bound a silent connection"
         );
+    }
+
+    // ----- ADMIN (ADR-SEC-033): the desktop app's connection -----
+
+    /// The owner's desktop is served on the same wire, and the stream is then
+    /// positioned at the first JSON-RPC byte on both sides.
+    #[tokio::test]
+    async fn an_admin_connection_is_served_at_the_same_wire() {
+        let (mut desk_end, keeper_end) = tokio::io::duplex(4096);
+        let keeper = spawn_keeper(keeper_end, 1, WIRE);
+
+        let outcome = admin_handshake(
+            &mut desk_end,
+            &keys(1),
+            &identity(),
+            [3u8; CHALLENGE_LEN],
+            STEP,
+        )
+        .await
+        .unwrap();
+        assert_eq!(outcome, RelayOutcome::Serving);
+
+        desk_end.write_all(b"{\"jsonrpc\"").await.unwrap();
+        let (accept, mut keeper_end) = keeper.await.unwrap();
+        assert_eq!(accept.unwrap(), KeeperAccept::Admin);
+        let mut first = [0u8; 10];
+        keeper_end.read_exact(&mut first).await.unwrap();
+        assert_eq!(&first, b"{\"jsonrpc\"");
+    }
+
+    /// An admin request on another wire is refused even with a valid proof:
+    /// the admin tool contract belongs to one wire.
+    #[tokio::test]
+    async fn an_admin_request_on_another_wire_is_never_served() {
+        for wire in [WIRE - 1, WIRE + 1] {
+            let (mut desk_end, keeper_end) = tokio::io::duplex(4096);
+            let keeper = spawn_keeper(keeper_end, 1, WIRE);
+            let status =
+                manual_relay(&mut desk_end, &keys(1), wire, PURPOSE_ADMIN, 0, &[], &[]).await;
+            assert_eq!(status, Some(STATUS_REJECTED), "wire {wire}");
+            let (accept, _) = keeper.await.unwrap();
+            assert!(
+                matches!(accept, Err(HandshakeError::Rejected)),
+                "wire {wire}: {accept:?}"
+            );
+        }
+    }
+
+    /// Only a holder of the vault's key can open an admin connection.
+    #[tokio::test]
+    async fn an_admin_request_without_our_key_is_rejected() {
+        let (mut desk_end, keeper_end) = tokio::io::duplex(4096);
+        let keeper = spawn_keeper(keeper_end, 1, WIRE);
+        let status = manual_relay(&mut desk_end, &keys(99), WIRE, PURPOSE_ADMIN, 0, &[], &[]).await;
+        assert_eq!(status, Some(STATUS_REJECTED));
+        let (accept, _) = keeper.await.unwrap();
+        assert!(matches!(accept, Err(HandshakeError::ProofMismatch)));
+    }
+
+    /// The desktop meeting an OLDER keeper asks it to yield (the purpose every
+    /// wire honours from a newer peer) — never to hand over, so an older
+    /// desktop left open through an update can never evict a newer keeper.
+    /// The older keeper never sees purpose 3.
+    #[tokio::test]
+    async fn the_desktop_asks_an_older_keeper_to_yield_never_to_hand_over() {
+        let (mut desk_end, keeper_end) = tokio::io::duplex(4096);
+        let keeper = spawn_keeper(keeper_end, 1, WIRE);
+
+        let outcome = admin_handshake_as(
+            &mut desk_end,
+            &keys(1),
+            &identity(),
+            [3u8; CHALLENGE_LEN],
+            STEP,
+            WIRE + 1,
+        )
+        .await
+        .unwrap();
+        assert_eq!(outcome, RelayOutcome::KeeperYielded);
+        let (accept, _) = keeper.await.unwrap();
+        assert_eq!(accept.unwrap(), KeeperAccept::Yield);
+    }
+
+    /// The desktop meeting a NEWER keeper is told so after the keeper proved
+    /// itself, and sends nothing more (the link is then poisoned by its caller).
+    #[tokio::test]
+    async fn the_desktop_is_told_the_keeper_is_newer_and_sends_nothing_more() {
+        let (mut desk_end, mut keeper_end) = tokio::io::duplex(4096);
+        let keeper = tokio::spawn(async move {
+            // A real newer keeper's frame 2, then record everything after it.
+            let mut f1 = [0u8; F1_LEN];
+            keeper_end.read_exact(&mut f1).await.unwrap();
+            let mut c_r = [0u8; CHALLENGE_LEN];
+            c_r.copy_from_slice(&f1[6..F1_LEN]);
+            let c_k = [9u8; CHALLENGE_LEN];
+            let t = build_transcript(WIRE, WIRE + 1, &identity(), &c_r, &c_k).unwrap();
+            let p_h = host_proof(&keys(1), &t);
+            let mut f2 = Vec::new();
+            f2.extend_from_slice(MAGIC);
+            f2.extend_from_slice(&(WIRE + 1).to_le_bytes());
+            f2.extend_from_slice(&c_k);
+            f2.extend_from_slice(p_h.as_bytes());
+            keeper_end.write_all(&f2).await.unwrap();
+            let mut after = Vec::new();
+            let _ = keeper_end.read_to_end(&mut after).await;
+            after
+        });
+
+        let result = admin_handshake(
+            &mut desk_end,
+            &keys(1),
+            &identity(),
+            [3u8; CHALLENGE_LEN],
+            STEP,
+        )
+        .await;
+        assert!(matches!(
+            result,
+            Err(HandshakeError::KeeperNewer { keeper }) if keeper == WIRE + 1
+        ));
+        drop(desk_end);
+        let after = keeper.await.unwrap();
+        assert!(
+            after.is_empty(),
+            "sent {} byte(s) after frame 2",
+            after.len()
+        );
+    }
+
+    /// An impostor on the endpoint is not even told the desktop wanted admin.
+    #[tokio::test]
+    async fn an_admin_request_to_the_wrong_keeper_stops_after_frame_one() {
+        let (mut desk_end, keeper_end) = tokio::io::duplex(4096);
+        let _keeper = spawn_keeper(keeper_end, 2, WIRE);
+        let result = admin_handshake(
+            &mut desk_end,
+            &keys(1),
+            &identity(),
+            [3u8; CHALLENGE_LEN],
+            STEP,
+        )
+        .await;
+        assert!(matches!(result, Err(HandshakeError::ProofMismatch)));
+    }
+
+    /// An admin frame carries no boundaries: the owner's desktop sees every
+    /// boundary, so a count is malformed rather than ignored.
+    #[tokio::test]
+    async fn an_admin_frame_with_boundaries_is_malformed() {
+        let (mut desk_end, keeper_end) = tokio::io::duplex(4096);
+        let keeper = spawn_keeper(keeper_end, 1, WIRE);
+        send_f1(&mut desk_end, WIRE, [3u8; CHALLENGE_LEN]).await;
+        let _ = read_f2(&mut desk_end).await;
+        desk_end.write_all(&[PURPOSE_ADMIN, 1]).await.unwrap();
+        let (accept, _) = keeper.await.unwrap();
+        assert!(matches!(accept, Err(HandshakeError::Malformed(_))));
     }
 
     /// A relay never sends a request it knows is invalid.

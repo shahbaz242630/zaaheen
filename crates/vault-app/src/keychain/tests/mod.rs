@@ -28,7 +28,6 @@ fn the_process_global_default_store_is_never_used() {
         ("store.rs", include_str!("../store.rs")),
         ("lifecycle.rs", include_str!("../lifecycle.rs")),
         ("files.rs", include_str!("../files.rs")),
-        ("bridge.rs", include_str!("../bridge.rs")),
     ] {
         for global in [
             "set_default_store",
@@ -49,20 +48,22 @@ fn the_process_global_default_store_is_never_used() {
 /// two locked openers.
 #[test]
 fn keys_are_created_only_under_the_key_lock() {
+    // Since ADR-108 D11 the V0.1 bridge is gone, and with it the second
+    // opener: `open_master_key` is the only one.
     let source = include_str!("../mod.rs").replace("\r\n", "\n");
-    for opener in [
-        "pub fn open_master_key(",
-        "pub fn bridge_or_init_master_key(",
-    ] {
-        let body = source
-            .split_once(opener)
-            .map(|(_, rest)| rest.split_once("\n}\n").map_or(rest, |(b, _)| b))
-            .unwrap_or_else(|| panic!("{opener} is missing"));
-        assert!(
-            body.contains("with_lifecycle("),
-            "{opener} must run under the key lock"
-        );
-    }
+    let opener = "pub fn open_master_key(";
+    let body = source
+        .split_once(opener)
+        .map(|(_, rest)| rest.split_once("\n}\n").map_or(rest, |(b, _)| b))
+        .unwrap_or_else(|| panic!("{opener} is missing"));
+    assert!(
+        body.contains("with_lifecycle("),
+        "{opener} must run under the key lock"
+    );
+    assert!(
+        !source.contains(&["bridge_or", "_init_master_key"].concat()),
+        "the V0.1 bridge is retired (ADR-108 D11)"
+    );
     assert!(
         include_str!("../mod.rs").contains("fn with_lifecycle")
             && include_str!("../mod.rs")

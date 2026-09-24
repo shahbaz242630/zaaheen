@@ -528,14 +528,13 @@ impl StructuredReadPipeline {
                             code: WarningCode::ReportMissing,
                             severity: WarningSeverity::Warn,
                             detail: format!(
-                                "REPORT for boundary '{}' has schema_version {} (this binary supports {})",
+                                "the summary of the '{}' part of the vault was written by a newer \
+                                 Zaaheen (format {}; this one reads up to {})",
                                 b.as_str(),
                                 report.schema_version,
                                 SUPPORTED_REPORT_SCHEMA_VERSION
                             ),
-                            recovery_hint:
-                                "Upgrade the vault binary to a version that understands this REPORT schema."
-                                    .into(),
+                            recovery_hint: "Update Zaaheen to its latest version.".into(),
                         });
                         continue;
                     }
@@ -549,11 +548,13 @@ impl StructuredReadPipeline {
                             code: WarningCode::ClockSkewDetected,
                             severity: WarningSeverity::Critical,
                             detail: format!(
-                                "REPORT for boundary '{}' generated_at is {skew_secs}s ahead of read-time clock",
+                                "the summary of the '{}' part of the vault is dated {skew_secs}s \
+                                 in the future, so this computer's clock looks wrong",
                                 b.as_str()
                             ),
                             recovery_hint:
-                                "Check the system clock on the consolidator host against an authoritative time source (e.g. NTP)."
+                                "Check that this computer's date and time are right (Windows \
+                                 Settings, Time & language, Set time automatically)."
                                     .into(),
                         });
                     } else {
@@ -570,12 +571,14 @@ impl StructuredReadPipeline {
                             code: WarningCode::TopicNamesUnavailable,
                             severity: WarningSeverity::Info,
                             detail: format!(
-                                "topic labels for boundary '{}' are placeholder identifiers (Phi-4-mini was unavailable at consolidation)",
+                                "the topics of the '{}' part of the vault have placeholder names, \
+                                 because the last tidy-up ran before Zaaheen had finished \
+                                 preparing",
                                 b.as_str()
                             ),
-                            recovery_hint:
-                                "Ensure phi4_model_path is configured + the model file is present before the next consolidation run."
-                                    .into(),
+                            recovery_hint: "Nothing to fix by hand: open Zaaheen and let it \
+                                 finish preparing, and the next tidy-up names the topics."
+                                .into(),
                         });
                     }
                 }
@@ -857,16 +860,33 @@ impl StructuredReadPipeline {
 // Helpers — pure functions over warning construction + aggregation
 // =============================================================================
 
+// The `detail` and `recovery_hint` of every warning reach the person: agents
+// relay them, and on 2026-09-24 Claude (chat and Cowork) repeated "Run
+// `vault-cli consolidate run`" to the founder word for word. So they are
+// written for the person, point only to the Zaaheen app, and never name a
+// command line, a file, a model or a development program (white-label rule).
+
+/// Where a person refreshes the summaries: the app's own words.
+const RECOVER_BY_TIDY_UP: &str = "Nothing to fix by hand: Zaaheen writes this summary when it \
+     tidies up the vault, which it does on its own. To do it now, open Zaaheen, go to \
+     Consolidation and choose Run consolidation now.";
+
+/// The same, for a summary that has not been refreshed for a while, which
+/// usually means the automatic tidy-up is off or the computer was asleep.
+const RECOVER_STALE: &str = "Zaaheen refreshes this summary when it tidies up the vault. Open \
+     Zaaheen, go to Consolidation and choose Run consolidation now, and check that Keep my \
+     vault tidy automatically is on.";
+
 fn report_missing_warning(boundary: &Boundary) -> HealthWarning {
     HealthWarning {
         code: WarningCode::ReportMissing,
         severity: WarningSeverity::Warn,
         detail: format!(
-            "no REPORT artifact exists for boundary '{}'",
+            "the '{}' part of the vault has no summary yet, so topic overviews may be missing \
+             (the facts themselves are unaffected)",
             boundary.as_str()
         ),
-        recovery_hint: "Run `vault-cli consolidate run` to generate the per-boundary REPORT."
-            .into(),
+        recovery_hint: RECOVER_BY_TIDY_UP.into(),
     }
 }
 
@@ -876,33 +896,33 @@ fn staleness_warning(boundary: &Boundary, age: Duration) -> Option<HealthWarning
             code: WarningCode::ReportStaleCritical,
             severity: WarningSeverity::Critical,
             detail: format!(
-                "REPORT for boundary '{}' is {} days old (≥ 7d)",
+                "the summary of the '{}' part of the vault is {} days old",
                 boundary.as_str(),
                 age.as_secs() / 86_400
             ),
-            recovery_hint: "Run `vault-cli consolidate run` to refresh the REPORT.".into(),
+            recovery_hint: RECOVER_STALE.into(),
         })
     } else if age >= STALE_WARN_THRESHOLD {
         Some(HealthWarning {
             code: WarningCode::ReportStaleWarn,
             severity: WarningSeverity::Warn,
             detail: format!(
-                "REPORT for boundary '{}' is {} hours old (72h-7d band)",
+                "the summary of the '{}' part of the vault is {} hours old",
                 boundary.as_str(),
                 age.as_secs() / 3_600
             ),
-            recovery_hint: "Run `vault-cli consolidate run` to refresh the REPORT.".into(),
+            recovery_hint: RECOVER_STALE.into(),
         })
     } else if age >= STALE_INFO_THRESHOLD {
         Some(HealthWarning {
             code: WarningCode::ReportStaleInfo,
             severity: WarningSeverity::Info,
             detail: format!(
-                "REPORT for boundary '{}' is {} hours old (24-72h band)",
+                "the summary of the '{}' part of the vault is {} hours old",
                 boundary.as_str(),
                 age.as_secs() / 3_600
             ),
-            recovery_hint: "Run `vault-cli consolidate run` to refresh the REPORT.".into(),
+            recovery_hint: RECOVER_STALE.into(),
         })
     } else {
         None
@@ -2513,5 +2533,107 @@ mod tests {
             HealthStatus::Critical,
             "any Critical warning MUST escalate aggregate status to Critical"
         );
+    }
+
+    // ---------------------------------------------------------------------
+    // The words a warning puts in front of the person (session 59)
+    // ---------------------------------------------------------------------
+
+    /// What no warning may say: agents relay `detail` and `recovery_hint`
+    /// word for word (Claude repeated "Run `vault-cli consolidate run`" to
+    /// the founder, 2026-09-24), so no command line, program, setting, model
+    /// or internal term.
+    const NOT_FOR_PEOPLE: &[&str] = &[
+        "vault-cli",
+        "zaaheen.exe",
+        "`",
+        "REPORT",
+        "binary",
+        "schema",
+        "phi",
+        "Phi",
+        "model",
+        "NTP",
+        "host",
+        "boundary",
+        "_path",
+        "consolidate run",
+    ];
+
+    fn assert_for_people(w: &HealthWarning) {
+        for text in [&w.detail, &w.recovery_hint] {
+            for word in NOT_FOR_PEOPLE {
+                assert!(
+                    !text.contains(word),
+                    "{:?} says {word:?}, which is not for people: {text}",
+                    w.code
+                );
+            }
+        }
+        assert!(
+            w.recovery_hint.contains("Zaaheen") || w.recovery_hint.contains("computer"),
+            "{:?}: the hint points to the app or the computer: {}",
+            w.code,
+            w.recovery_hint
+        );
+    }
+
+    #[test]
+    fn warnings_built_by_helpers_speak_to_people() {
+        let b = boundary("personal");
+        assert_for_people(&report_missing_warning(&b));
+        for age in [
+            STALE_INFO_THRESHOLD,
+            STALE_WARN_THRESHOLD,
+            STALE_CRITICAL_THRESHOLD,
+        ] {
+            let w = staleness_warning(&b, age).expect("a warning at each threshold");
+            assert_for_people(&w);
+        }
+    }
+
+    /// The warnings built inline in `read` (newer summary format, clock,
+    /// placeholder topics) are checked in the source: every `recovery_hint`
+    /// and `detail` literal outside this test module.
+    #[test]
+    fn no_warning_in_the_source_is_written_for_developers() {
+        let source = include_str!("structured_read_pipeline.rs").replace("\r\n", "\n");
+        // Code only: comments are for us, never shown to anybody.
+        let production: String = source
+            .split("#[cfg(test)]")
+            .next()
+            .expect("the file has code before its tests")
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("//"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let mut checked = 0;
+        for (at, _) in production.match_indices("recovery_hint: \"") {
+            let tail = &production[at..];
+            let end = tail.find(".into()").unwrap_or(tail.len());
+            let hint = &tail[..end];
+            for word in [
+                "vault-cli",
+                "`",
+                "REPORT",
+                "binary",
+                "phi4",
+                "NTP",
+                "consolidator host",
+            ] {
+                assert!(
+                    !hint.contains(word),
+                    "a recovery_hint says {word:?}: {hint}"
+                );
+            }
+            checked += 1;
+        }
+        assert!(checked >= 2, "found the inline hints ({checked})");
+        for word in ["vault-cli", "phi4_model_path", "Phi-4", "NTP"] {
+            assert!(
+                !production.contains(word),
+                "the production code still says {word:?} somewhere a person could read it"
+            );
+        }
     }
 }

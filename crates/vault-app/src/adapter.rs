@@ -309,6 +309,53 @@ impl Adapter for VaultAdapter {
     }
 }
 
+/// One page of the active memories, newest first, after `before`. Shared by
+/// the adapter and the locked keeper's store so both page identically.
+pub(crate) async fn list_page(
+    metadata: &MetadataStore,
+    before: Option<(chrono::DateTime<Utc>, MemoryId)>,
+    limit: usize,
+) -> VaultResult<Vec<Memory>> {
+    metadata
+        .list_memories(
+            MemoryFilter {
+                before,
+                ..MemoryFilter::default()
+            },
+            Some(limit),
+        )
+        .await
+}
+
+/// The audit row for one tool or command invocation, built the one way the
+/// chain's hash determinism relies on (ADR-024, BRD §11.9.2). Shared by the
+/// adapter and by the locked keeper's database-only store (ADR-108), so both
+/// write byte-identical rows.
+pub(crate) fn invoke_audit_event(
+    event_type: AuditEventType,
+    details: ToolInvokeDetails,
+    actor_kind: ActorKind,
+) -> VaultResult<PendingAuditEvent> {
+    let result = if details.error.is_some() {
+        AuditResult::Error
+    } else {
+        AuditResult::Success
+    };
+    let details_json = details.to_canonical_json()?;
+    Ok(PendingAuditEvent {
+        event_type,
+        resource_type: None,
+        resource_id: None,
+        boundary: None,
+        actor_kind,
+        actor_name: None,
+        user_id: None,
+        device_id: None,
+        result,
+        details_json,
+    })
+}
+
 impl VaultAdapter {
     /// **ADR-024 amendment 2026-05-05 (T0.1.11 Phase 4b — Decision 5(γ)).**
     /// Generic audit-write helper used by both the trait method
@@ -322,24 +369,7 @@ impl VaultAdapter {
         details: ToolInvokeDetails,
         actor_kind: ActorKind,
     ) -> VaultResult<()> {
-        let result = if details.error.is_some() {
-            AuditResult::Error
-        } else {
-            AuditResult::Success
-        };
-        let details_json = details.to_canonical_json()?;
-        let pending = PendingAuditEvent {
-            event_type,
-            resource_type: None,
-            resource_id: None,
-            boundary: None,
-            actor_kind,
-            actor_name: None,
-            user_id: None,
-            device_id: None,
-            result,
-            details_json,
-        };
+        let pending = invoke_audit_event(event_type, details, actor_kind)?;
         self.metadata.append_audit_event(pending).await?;
         Ok(())
     }
@@ -398,6 +428,16 @@ impl VaultAdapter {
         self.metadata
             .list_memories(MemoryFilter::default(), Some(limit))
             .await
+    }
+
+    /// One page of [`Self::list_recent_memories`]' order, after `before`
+    /// (ADR-108: the desktop's export, page by page).
+    pub async fn list_memories_page(
+        &self,
+        before: Option<(chrono::DateTime<Utc>, MemoryId)>,
+        limit: usize,
+    ) -> VaultResult<Vec<Memory>> {
+        list_page(&self.metadata, before, limit).await
     }
 
     /// Every registered boundary with its active-memory count (name-ordered).

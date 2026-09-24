@@ -27,7 +27,7 @@ use tracing::instrument;
 
 use vault_core::{Boundary, VaultError, VaultResult};
 
-use crate::StorageBackend;
+use crate::{MetadataStore, StorageBackend};
 
 /// Maximum length of a user-supplied boundary description, in bytes.
 ///
@@ -68,18 +68,27 @@ fn validate_description(description: &str) -> VaultResult<()> {
 
 impl StorageBackend {
     /// List every registered boundary with its active-memory count,
-    /// name-ordered.
+    /// name-ordered. See [`MetadataStore::list_boundaries`].
+    #[instrument(skip_all)]
+    pub async fn list_boundaries(&self) -> VaultResult<Vec<BoundaryInfo>> {
+        self.metadata().list_boundaries().await
+    }
+}
+
+impl MetadataStore {
+    /// List every registered boundary with its active-memory count,
+    /// name-ordered. On the metadata store itself, so a locked keeper can show
+    /// the counts without opening the rest of the vault (ADR-108).
     ///
     /// The LEFT JOIN keeps freshly-created empty boundaries in the result with
     /// `memory_count = 0` — an inner join would silently hide exactly the
     /// boundaries this feature exists to make visible.
     #[instrument(skip_all)]
     pub async fn list_boundaries(&self) -> VaultResult<Vec<BoundaryInfo>> {
-        self.metadata()
-            .with_conn_blocking(|conn| {
-                let mut stmt = conn
-                    .prepare(
-                        "SELECT b.name, b.description, b.created_at, \
+        self.with_conn_blocking(|conn| {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT b.name, b.description, b.created_at, \
                                 COUNT(m.id) AS memory_count \
                          FROM boundaries b \
                          LEFT JOIN memories m \
@@ -88,35 +97,37 @@ impl StorageBackend {
                           AND m.archived_at IS NULL \
                          GROUP BY b.name, b.description, b.created_at \
                          ORDER BY b.name",
-                    )
-                    .map_err(|e| VaultError::Storage(format!("prepare list boundaries: {e}")))?;
-                let rows = stmt
-                    .query_map([], |row| {
-                        Ok((
-                            row.get::<_, String>(0)?,
-                            row.get::<_, Option<String>>(1)?,
-                            row.get::<_, String>(2)?,
-                            row.get::<_, i64>(3)?,
-                        ))
-                    })
-                    .map_err(|e| VaultError::Storage(format!("query boundaries: {e}")))?;
+                )
+                .map_err(|e| VaultError::Storage(format!("prepare list boundaries: {e}")))?;
+            let rows = stmt
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, i64>(3)?,
+                    ))
+                })
+                .map_err(|e| VaultError::Storage(format!("query boundaries: {e}")))?;
 
-                let mut out = Vec::new();
-                for r in rows {
-                    let (name, description, created_at, count) =
-                        r.map_err(|e| VaultError::Storage(format!("read boundary row: {e}")))?;
-                    out.push(BoundaryInfo {
-                        boundary: Boundary::new(name)?,
-                        description,
-                        created_at: parse_rfc3339(&created_at)?,
-                        memory_count: count.max(0) as u64,
-                    });
-                }
-                Ok(out)
-            })
-            .await
+            let mut out = Vec::new();
+            for r in rows {
+                let (name, description, created_at, count) =
+                    r.map_err(|e| VaultError::Storage(format!("read boundary row: {e}")))?;
+                out.push(BoundaryInfo {
+                    boundary: Boundary::new(name)?,
+                    description,
+                    created_at: parse_rfc3339(&created_at)?,
+                    memory_count: count.max(0) as u64,
+                });
+            }
+            Ok(out)
+        })
+        .await
     }
+}
 
+impl StorageBackend {
     /// Register a new named boundary. Returns `false` when a boundary of that
     /// name already exists (idempotent no-op, not an error — the caller's
     /// desired end state already holds).

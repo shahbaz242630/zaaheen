@@ -311,6 +311,19 @@ enum ConsolidateAction {
         /// a crash) is recorded by whoever spawned us.
         #[arg(long, value_name = "PATH")]
         record_status: Option<PathBuf>,
+
+        /// "Run now" (ADR-108 D8): take the vault from a running keeper
+        /// instead of reporting busy. The keeper finishes what it is doing
+        /// and steps aside; AI apps hear "tidying" until the run ends. Never
+        /// passed by the nightly schedule or the catch-up.
+        #[arg(long)]
+        take_over: bool,
+
+        /// The catch-up at launch (ADR-108 D8): once the vault is held, run
+        /// only if a run is still due, so a catch-up that waited behind a
+        /// "Run now" does not tidy twice. Checked against `--record-status`.
+        #[arg(long, conflicts_with = "take_over")]
+        only_if_due: bool,
     },
 }
 
@@ -1016,37 +1029,88 @@ async fn dispatch_consolidate(
     let vault_root = vault_db
         .parent()
         .unwrap_or_else(|| std::path::Path::new("."));
-    let _vault_lock = ConsolidatorLock::try_acquire_named(vault_root, VAULT_LOCKFILE_NAME)
-        .context(
+    let ConsolidateAction::Run {
+        record_status,
+        take_over,
+        only_if_due,
+    } = &action;
+    let record_status = record_status.clone();
+    let started = std::time::Instant::now();
+    let record = |outcome: &RunOutcome| {
+        if let Some(path) = record_status.as_deref() {
+            if let Err(e) =
+                maintenance_state::record_run(path, outcome, chrono::Utc::now().to_rfc3339())
+            {
+                tracing::warn!(error = %e, "could not record the maintenance outcome");
+            }
+        }
+    };
+
+    // §8.26 §6.5: maintenance does not run while the subscription is not
+    // active. Decided before the models load, and recorded as its own outcome
+    // so the Maintenance tab says "paused until you subscribe" rather than
+    // showing a failure the user cannot fix by trying again. For "Run now"
+    // it is decided BEFORE the keeper is asked to step aside, so a locked
+    // computer's AI apps are never interrupted for a run that will not happen
+    // (review A R2-7).
+    let gate =
+        vault_app::account::build_gate(&keeper::account_home()?).context("prepare the account")?;
+    if let Some(outcome) = entitlement_pause(gate.as_ref()).await {
+        record(&outcome);
+        return Ok(());
+    }
+
+    let (_vault_lock, _maintenance_record) = if *take_over {
+        // ADR-108 D8: take the vault from the keeper (priority claim, then
+        // the keeper finishes what it is doing and leaves), publish the
+        // maintenance record, and only THEN give up the priority claim — so
+        // no keeper can start in between and relays answer "busy" at once.
+        let held = vault_app::keeper::exclusive::take_exclusive(
+            vault_root,
+            &vault_app::keeper::relay::KeychainKeySource,
+            TAKE_OVER_WAIT,
+            TAKE_OVER_STEP,
+        )
+        .await
+        .context("vault is busy: another program would not let go of it")?;
+        let maintenance_record = MaintenanceRecord::publish(vault_root);
+        (held.into_lock(), maintenance_record)
+    } else {
+        let lock = ConsolidatorLock::try_acquire_named(vault_root, VAULT_LOCKFILE_NAME).context(
             "vault is already in use by another vault-cli process (daemon/serve/consolidate)",
         )?;
+        // ADR-102: tell AI apps the vault is busy for maintenance, so they
+        // answer at once instead of asking for a keeper that cannot start.
+        // Refreshed while the run lasts; removed when it ends (a crashed run's
+        // record goes stale within minutes).
+        (lock, MaintenanceRecord::publish(vault_root))
+    };
     // "Delete everything" is waiting for the vault: let it have it. Worded
     // "busy" so the nightly launcher retries rather than records a failure.
     if vault_app::keeper::intent::is_held(vault_root) {
         anyhow::bail!("vault is busy: it is being handed over for erasure");
     }
-    // ADR-102: tell AI apps the vault is busy for maintenance, so they answer
-    // at once instead of asking for a keeper that cannot start. Refreshed
-    // while the run lasts; removed when it ends (a crashed run's record goes
-    // stale within minutes).
-    let _maintenance_record = MaintenanceRecord::publish(vault_root);
-
-    // §8.26 §6.5: maintenance does not run while the subscription is not
-    // active. Decided before the models load, and recorded as its own outcome
-    // so the Maintenance tab says "paused until you subscribe" rather than
-    // showing a failure the user cannot fix by trying again.
-    let gate =
-        vault_app::account::build_gate(&keeper::account_home()?).context("prepare the account")?;
-    if let Some(outcome) = entitlement_pause(gate.as_ref()).await {
-        let ConsolidateAction::Run { record_status } = &action;
-        if let Some(path) = record_status.as_deref() {
-            if let Err(e) =
-                maintenance_state::record_run(path, &outcome, chrono::Utc::now().to_rfc3339())
-            {
-                tracing::warn!(error = %e, "could not record the maintenance outcome");
-            }
-        }
+    // Maintenance never makes a key: with none there is no vault to tidy. A
+    // run that waited behind "Delete everything" would otherwise open a fresh
+    // key and an empty vault the moment the erasure let go (security review
+    // S3). Read only; any error goes on to the build, which reports it.
+    if let Ok(None) = vault_app::keychain::read_existing_master_key(
+        vault_app::keychain::PRODUCTION_NAMESPACE,
+        vault_app::keychain::VAULT_ID,
+    ) {
+        tracing::info!("there is no vault key, so there is nothing to tidy");
         return Ok(());
+    }
+    // The catch-up asks again now that it holds the vault: a "Run now" that
+    // ran while it waited has already done the night's work.
+    if *only_if_due {
+        let due = record_status.as_deref().map_or(true, |path| {
+            maintenance_state::is_due(&maintenance_state::load(path), chrono::Utc::now())
+        });
+        if !due {
+            tracing::info!("maintenance is no longer due; this catch-up does nothing");
+            return Ok(());
+        }
     }
 
     let app = build_application(
@@ -1062,12 +1126,40 @@ async fn dispatch_consolidate(
         None,
     )
     .await?;
-    match action {
-        ConsolidateAction::Run { record_status } => {
-            run_one_consolidation(&app, record_status.as_deref()).await
-        }
+    let outcome = run_one_consolidation(&app, record_status.as_deref()).await;
+    // "Run now" writes its own audit row (ADR-108 D8, review B R2-S5): this
+    // process holds the vault, and the desktop that asked may have closed
+    // before a keeper is back to write it.
+    if *take_over {
+        let _ = app
+            .adapter()
+            .append_tauri_command_audit(vault_mcp::ToolInvokeDetails {
+                tool: "run_maintenance_now",
+                duration_ms: started.elapsed().as_millis() as u64,
+                result_count: u32::from(outcome.is_ok()),
+                boundary_count: 0,
+                max_results: None,
+                score_threshold: None,
+                include_archived: None,
+                query_length: None,
+                error: outcome.as_ref().err().map(|_| {
+                    vault_mcp::ToolInvokeError::from_vault_error(
+                        &vault_core::VaultError::Consolidation(
+                            "maintenance run failed".to_string(),
+                        ),
+                    )
+                }),
+            })
+            .await;
     }
+    outcome
 }
+
+/// How long "Run now" waits for the keeper to step aside: its drain (10 s)
+/// and its exit, with room to spare (ADR-SEC-033 D3).
+const TAKE_OVER_WAIT: std::time::Duration = std::time::Duration::from_secs(30);
+/// Bound on each handshake step while asking the keeper to step aside.
+const TAKE_OVER_STEP: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// Whether maintenance must skip this run because the subscription is not
 /// active (§8.26 §6.5).
@@ -1512,6 +1604,34 @@ async fn build_application(
 /// second time straight after the key may have moved to Local persistence
 /// (ADR-SEC-029 R2). The caller drops it as soon as it has derived what it
 /// needs.
+/// A failure to open the vault: the generic words everyone sees (BRD
+/// §11.7.2: no hint of which check failed), and the kind the keeper records
+/// for the desktop so it shows the right startup message (ADR-108 D7).
+///
+/// It has no `source`, so even the `{e:#}` in `main` prints only the words.
+#[derive(Debug)]
+pub(crate) struct OpenFailure {
+    pub(crate) code: vault_app::keeper::start_failure::StartFailureCode,
+    message: String,
+}
+
+impl OpenFailure {
+    fn new(err: &vault_core::VaultError, message: impl Into<String>) -> Self {
+        Self {
+            code: vault_app::keeper::start_failure::StartFailureCode::from_error(err),
+            message: message.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for OpenFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for OpenFailure {}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn build_application_keyed(
     vault_db: &Path,
@@ -1530,7 +1650,10 @@ pub(crate) async fn build_application_keyed(
         .and_then(|loc| open_master_key(&loc, &KeyedPaths::new(vault_db, vector_dir, graph_db)))
         .map_err(|e| {
             tracing::warn!(error = %e, "keychain read failed");
-            anyhow!("authentication failed")
+            // The message is unchanged; the kind is carried beside it (never
+            // printed), so the keeper can tell the desktop which startup
+            // message to show (ADR-108 D7, `OpenFailure`).
+            anyhow::Error::new(OpenFailure::new(&e, "authentication failed"))
         })?;
     let sqlcipher_passphrase = derive_sqlcipher_passphrase(&master_key);
     let at_rest_key = derive_at_rest_key(&master_key);
@@ -1568,11 +1691,13 @@ pub(crate) async fn build_application_keyed(
         // wrong file, missing GGUF). Any other class falls through to
         // "authentication failed" to avoid leaking storage-layer detail.
         tracing::warn!(error = %e, "Application::new failed in consolidate path");
-        match e {
-            vault_core::VaultError::Llm(msg) => anyhow!("model load failed: {msg}"),
-            vault_core::VaultError::Config(msg) => anyhow!("configuration error: {msg}"),
-            _ => anyhow!("authentication failed"),
-        }
+        let message = match &e {
+            vault_core::VaultError::Llm(msg) => format!("model load failed: {msg}"),
+            vault_core::VaultError::Config(msg) => format!("configuration error: {msg}"),
+            _ => "authentication failed".to_string(),
+        };
+        // Same message as before; the kind is carried beside it (ADR-108 D7).
+        anyhow::Error::new(OpenFailure::new(&e, message))
     })?;
     Ok((app, master_key))
 }
@@ -1714,7 +1839,10 @@ pub(crate) async fn open_backend_inner(
     let master_key = open_master_key(key, &KeyedPaths::new(vault_db, vector_dir, graph_db))
         .map_err(|e| {
             tracing::warn!(error = %e, "keychain read failed");
-            anyhow!("authentication failed")
+            // The message is unchanged; the kind is carried beside it (never
+            // printed), so the keeper can tell the desktop which startup
+            // message to show (ADR-108 D7, `OpenFailure`).
+            anyhow::Error::new(OpenFailure::new(&e, "authentication failed"))
         })?;
     let sqlcipher_passphrase = derive_sqlcipher_passphrase(&master_key);
     let at_rest_key = derive_at_rest_key(&master_key);
@@ -2188,7 +2316,9 @@ mod tests {
                     matches!(
                         action,
                         ConsolidateAction::Run {
-                            record_status: None
+                            record_status: None,
+                            take_over: false,
+                            only_if_due: false,
                         }
                     ),
                     "expected ConsolidateAction::Run; got {action:?}"
@@ -2228,12 +2358,93 @@ mod tests {
         .expect("consolidate-run with --record-status should parse");
         match cli.command {
             Command::Consolidate { action, .. } => match action {
-                ConsolidateAction::Run { record_status } => {
+                ConsolidateAction::Run { record_status, .. } => {
                     assert_eq!(record_status, Some(PathBuf::from("/tmp/maintenance.json")));
                 }
             },
             other => panic!("expected Command::Consolidate, got: {other:?}"),
         }
+    }
+
+    fn consolidate_run_with(extra: &[&str]) -> Result<Cli, clap::Error> {
+        let mut argv = vec![
+            "zaaheen",
+            "--vault-db",
+            "/tmp/vault.db",
+            "--vector-dir",
+            "/tmp/lance",
+            "--graph-db",
+            "/tmp/graph.duckdb",
+            "consolidate",
+            "--bge-model",
+            "/tmp/bge.onnx",
+            "--bge-tokenizer",
+            "/tmp/tokenizer.json",
+            "--ort-lib",
+            "/tmp/libonnxruntime.so",
+            "--phi4-model",
+            "/tmp/phi-4-mini.gguf",
+            "run",
+        ];
+        argv.extend_from_slice(extra);
+        Cli::try_parse_from(argv)
+    }
+
+    /// ADR-108 D8: "Run now" passes `--take-over`, the catch-up passes
+    /// `--only-if-due`, the two never together, and the launcher's
+    /// `--record-status` still follows either.
+    #[test]
+    fn the_run_now_and_catch_up_switches_parse_and_exclude_each_other() {
+        let parsed = |extra: &[&str]| match consolidate_run_with(extra).map(|c| c.command) {
+            Ok(Command::Consolidate {
+                action:
+                    ConsolidateAction::Run {
+                        take_over,
+                        only_if_due,
+                        record_status,
+                    },
+                ..
+            }) => Some((take_over, only_if_due, record_status.is_some())),
+            _ => None,
+        };
+        assert_eq!(parsed(&[]), Some((false, false, false)));
+        assert_eq!(
+            parsed(&["--take-over", "--record-status", "/tmp/m.json"]),
+            Some((true, false, true))
+        );
+        assert_eq!(
+            parsed(&["--only-if-due", "--record-status", "/tmp/m.json"]),
+            Some((false, true, true))
+        );
+        assert_eq!(parsed(&["--take-over", "--only-if-due"]), None);
+    }
+
+    /// "Run now" takes the vault only after the subscription check, so a
+    /// locked computer's AI apps are never interrupted for nothing (review
+    /// A R2-7); the priority claim is given up only after the maintenance
+    /// record is published.
+    #[test]
+    fn run_now_checks_the_subscription_before_taking_the_vault() {
+        let source = include_str!("main.rs").replace("\r\n", "\n");
+        let body = source
+            .split_once("async fn dispatch_consolidate(")
+            .expect("dispatch_consolidate")
+            .1;
+        let body = body.split_once("\n}\n").expect("its end").0;
+        let pause = body.find("entitlement_pause(").expect("the pause check");
+        let take = body.find("take_exclusive(").expect("the take-over");
+        let publish = body[take..]
+            .find("MaintenanceRecord::publish(")
+            .expect("publish after taking")
+            + take;
+        let release = body
+            .find("held.into_lock()")
+            .expect("the intent is released");
+        assert!(pause < take, "check the subscription first");
+        assert!(
+            publish < release,
+            "publish before giving up the priority claim"
+        );
     }
 
     /// The projection that keeps memory-derived text out of a plaintext file.

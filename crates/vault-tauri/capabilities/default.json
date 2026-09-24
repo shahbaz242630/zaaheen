@@ -16,6 +16,7 @@
     "allow-list-boundaries",
     "allow-create-boundary",
     "allow-list-agents",
+    "allow-list-connected-apps",
     "allow-revoke-agent",
     "allow-get-settings-info",
     "allow-ensure-recall-engine",
@@ -40,6 +41,7 @@
     "allow-location-forget-old-copy",
     "allow-connect-app",
     "allow-show-claude-extension",
-    "allow-startup-state"
+    "allow-startup-state",
+    "allow-link-state"
   ]
 }

@@ -36,8 +36,10 @@
 mod lock_mode;
 #[cfg(test)]
 mod tests;
+mod unreadable;
 
 pub use lock_mode::{Flip, LockModeCheck};
+pub use unreadable::{Rebuild, UnreadableAccount};
 
 use std::sync::Arc;
 use std::time::Duration;

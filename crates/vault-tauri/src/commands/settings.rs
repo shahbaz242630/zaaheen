@@ -6,76 +6,62 @@
 //!
 //! User-visible values never name the underlying stack — no embedding model,
 //! no vector store, no database engine. The tab reports capability and trust
-//! ("stored on this device", "history verified"), not implementation. The
-//! deliberate exception ADR-086 carves out for security specifics (encryption
-//! standard, OS credential store) is not needed by this command: nothing here
-//! surfaces one.
+//! ("stored on this device", "history verified"), not implementation.
 //!
 //! ## Honest UI
 //!
-//! Every field is measured at call time. `audit_chain_verified` is the real
-//! result of walking the tamper-evident chain (BRD §11.9.2), not an
-//! assumption — if the chain is broken the tab must say so.
+//! Every field is measured at call time, by the keeper (ADR-108 D2):
+//! `audit_chain_verified` is the real result of walking the tamper-evident
+//! chain (BRD §11.9.2). The `version` is THIS app's, added here — during an
+//! update an older keeper may briefly be the one answering.
+//!
+//! ## Open, and it must work with no key
+//!
+//! The lock screen asks this to decide whether to offer the export. A
+//! computer with no key yet (a fresh install before sign-in) answers here
+//! with zeros, without a keeper (ADR-108 D4); a computer whose key is
+//! missing while memories are on disk says so, in the startup message's own
+//! words, rather than "nothing yet" (review A R2-2).
 
-use std::time::Instant;
-
+use serde_json::{json, Value};
 use tauri::State;
-use vault_app::Application;
-use vault_mcp::ToolInvokeDetails;
+use vault_core::{VaultError, VaultKeyFailure};
 
-/// Inner get_settings_info implementation.
-///
-/// Chain verification walks the full audit log, so this is the most expensive
-/// of the UI reads. It runs on tab open, not on a timer.
-pub async fn get_settings_info_inner(app: &Application) -> Result<serde_json::Value, String> {
-    let adapter = app.adapter();
-    let start = Instant::now();
+use crate::link::{decoded, KeeperLink, KeyState, Kind};
 
-    let memory_count = adapter.total_memory_count().await;
-    let boundary_count = adapter.list_boundaries().await.map(|b| b.len());
-    // A broken chain is a REPORTABLE STATE, not a command failure — the tab
-    // exists partly to surface it. Only the count/registry reads can fail the
-    // command outright.
-    let audit_chain_verified = adapter.verify_audit_chain().await.is_ok();
-
-    let duration_ms = start.elapsed().as_millis() as u64;
-    let combined = memory_count
-        .as_ref()
-        .err()
-        .or(boundary_count.as_ref().err());
-    let error_for_audit = combined.map(vault_mcp::ToolInvokeError::from_vault_error);
-
-    let _ = adapter
-        .append_tauri_command_audit(ToolInvokeDetails {
-            tool: "get_settings_info",
-            duration_ms,
-            result_count: 1,
-            boundary_count: *boundary_count.as_ref().unwrap_or(&0) as u32,
-            max_results: None,
-            score_threshold: None,
-            include_archived: None,
-            query_length: None,
-            error: error_for_audit,
-        })
-        .await;
-
-    let memory_count = memory_count.map_err(|e| e.to_string())?;
-    let boundary_count = boundary_count.map_err(|e| e.to_string())?;
-
-    Ok(serde_json::json!({
-        "version": env!("CARGO_PKG_VERSION"),
-        // As the person reads it: never the `\\?\` form a moved vault's
-        // record keeps (ADR-105 L-e).
-        "data_dir": vault_app::location::display_path(app.vault_root()),
-        "memory_count": memory_count,
-        "boundary_count": boundary_count,
-        "audit_chain_verified": audit_chain_verified,
-    }))
+/// `get_settings_info`.
+pub async fn get_settings_info_inner(link: &KeeperLink) -> Result<Value, String> {
+    let root = link.vault_root();
+    match link.key_state() {
+        KeyState::Present => {
+            let text = link
+                .call("admin_settings_info", json!({}), Kind::Read)
+                .await?;
+            let mut settings: Value = decoded(&text)?;
+            settings["version"] = json!(env!("CARGO_PKG_VERSION"));
+            Ok(settings)
+        }
+        KeyState::Absent { keyed_data: false } => Ok(json!({
+            "version": env!("CARGO_PKG_VERSION"),
+            // As the person reads it: never the `\\?\` form a moved vault's
+            // record keeps (ADR-105 L-e).
+            "data_dir": root.as_deref().map(vault_app::location::display_path).unwrap_or_default(),
+            "memory_count": 0,
+            "boundary_count": 0,
+            "audit_chain_verified": true,
+        })),
+        KeyState::Absent { keyed_data: true } => Err(crate::format_keychain_error_dialog(
+            &VaultError::VaultKey(VaultKeyFailure::Missing),
+        )),
+        KeyState::Unreadable => Err(crate::format_keychain_error_dialog(
+            &VaultError::KeychainProvenance("the credential store could not be read".into()),
+        )),
+    }
 }
 
 #[tauri::command]
-pub async fn get_settings_info(state: State<'_, Application>) -> Result<serde_json::Value, String> {
-    get_settings_info_inner(state.inner()).await
+pub async fn get_settings_info(link: State<'_, KeeperLink>) -> Result<Value, String> {
+    get_settings_info_inner(link.inner()).await
 }
 
 #[cfg(test)]
@@ -115,8 +101,8 @@ mod tests {
     }
 
     /// ADR-105 L-e: a moved vault's record keeps `\\?\D:\…`; Settings shows
-    /// the folder as the person reads it. A source test, because the command
-    /// needs a whole `Application` to run.
+    /// the folder as the person reads it — here and in the keeper, which
+    /// fills `data_dir` when a key exists.
     #[test]
     fn the_vault_location_is_shown_as_the_person_reads_it() {
         let source = include_str!("settings.rs").replace("\r\n", "\n");
@@ -127,17 +113,14 @@ mod tests {
             .split_once("\n}\n")
             .expect("the inner command is closed")
             .0;
-        assert!(body.contains("\"data_dir\": vault_app::location::display_path(app.vault_root()),"));
+        assert!(body.contains("vault_app::location::display_path"));
         assert!(!body.contains(".display().to_string()"));
     }
 
+    /// The version shown is this app's, not the keeper's (review A-N3).
     #[test]
-    fn settings_payload_reports_a_real_version() {
-        // A hardcoded placeholder version was one of the honest-UI gaps this
-        // command closes; pin that it comes from the crate metadata.
-        assert!(
-            !env!("CARGO_PKG_VERSION").is_empty(),
-            "version must come from crate metadata, not a literal"
-        );
+    fn settings_payload_reports_this_apps_version() {
+        let source = include_str!("settings.rs").replace("\r\n", "\n");
+        assert!(source.contains("settings[\"version\"] = json!(env!(\"CARGO_PKG_VERSION\"));"));
     }
 }

@@ -18,6 +18,15 @@
 //! - **Shutdown:** the caller's shutdown future resolved (launcher death).
 //! - **Listener lost:** no fresh endpoint could be bound or published. The
 //!   same cleanup runs, so relays are never left dialling a dead endpoint.
+//!
+//! The desktop app is served here too (ADR-108): an `ADMIN` connection gets
+//! the admin server instead of the AI apps' tools. It keeps the keeper alive
+//! like any session, but is never listed as a connected app.
+//!
+//! On yield and handover the keeper DRAINS before it goes (ADR-SEC-033 D3):
+//! no new call is admitted, questions still waiting at the desk leave at once,
+//! calls already running get up to [`KeeperSettings::drain`] to finish, and
+//! only then are the connections closed.
 
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -25,15 +34,17 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use rmcp::{RoleServer, Service, ServiceExt};
+use rmcp::ServiceExt;
 use tokio::sync::mpsc;
 use tokio::task::AbortHandle;
 use tokio::time::Instant;
 use vault_core::{VaultError, VaultResult};
-use vault_mcp::{Adapter, EntitlementCheck, Gate, InFlight, StdioServer, Verdict};
+use vault_mcp::{Adapter, EntitlementCheck, Gate, InFlight, ReadDesk, StdioServer, Verdict};
 
+use crate::admin::{AdminGate, AdminHost, AdminServer, ADMIN_BUSY};
 use crate::entitlement::{Flip, LockModeCheck, ModeCheck};
 
+use super::clients::{Clients, Tracked};
 use super::discovery::{self, Discovery};
 use super::handshake::{
     keeper_handshake, HandshakeError, HandshakeKeys, KeeperAccept, KeeperIdentity, CHALLENGE_LEN,
@@ -59,7 +70,15 @@ pub struct KeeperSettings {
     pub frame1_deadline: Duration,
     pub handshake_deadline: Duration,
     pub max_pending_handshakes: usize,
+    /// On yield and handover, how long calls already running get to finish
+    /// before their connections are closed (ADR-SEC-033 D3). Less than the
+    /// take-over waits of erasure (20 s) and the move (30 s), with room for
+    /// the process to exit.
+    pub drain: Duration,
 }
+
+/// The longest a yielding or handing-over keeper waits for running calls.
+pub const DRAIN: Duration = Duration::from_secs(10);
 
 impl KeeperSettings {
     /// Shipped values (design v3 §5).
@@ -72,8 +91,17 @@ impl KeeperSettings {
             frame1_deadline: Duration::from_secs(1),
             handshake_deadline: Duration::from_secs(5),
             max_pending_handshakes: 8,
+            drain: DRAIN,
         }
     }
+}
+
+/// What the desktop app's admin connection is served with (ADR-108). A keeper
+/// built without one (tests) refuses admin connections.
+#[derive(Clone)]
+pub struct AdminSide {
+    pub host: Arc<AdminHost>,
+    pub gate: Arc<AdminGate>,
 }
 
 /// Why the keeper stopped.
@@ -155,6 +183,18 @@ impl Subscription {
     pub fn mode(&self) -> KeeperMode {
         self.mode
     }
+
+    /// The check this keeper answers ticks with — the admin gate reads the
+    /// same one (ADR-108 D3).
+    pub fn check(&self) -> Arc<dyn ModeCheck> {
+        Arc::clone(&self.check)
+    }
+
+    /// Lock mode's flip, raised by a call that finds the user entitled again —
+    /// including a gated admin call (review A R2-3).
+    pub fn flip(&self) -> &Flip {
+        &self.flip
+    }
 }
 
 /// Serve until idle, yield, handover or shutdown.
@@ -166,6 +206,7 @@ impl Subscription {
 /// individual connections are logged, never fatal.
 pub async fn serve<F>(
     adapter: Arc<dyn Adapter>,
+    admin: Option<AdminSide>,
     keys: HandshakeKeys,
     settings: KeeperSettings,
     subscription: Option<Subscription>,
@@ -176,6 +217,11 @@ where
 {
     let keys = Arc::new(keys);
     let gate = subscription.as_ref().map(|s| s.gate.clone());
+    // One counter for every call this tenure serves, gated or not, AI app or
+    // desktop: the mode flip and the drain wait on the same number.
+    let in_flight = gate
+        .as_ref()
+        .map_or_else(InFlight::new, |g| g.in_flight().clone());
     let (mut listener, mut identity) = bind_fresh(&settings)?;
     publish(&settings, &identity)?;
     // The tenure the discovery file currently describes — what cleanup must
@@ -188,6 +234,11 @@ where
     );
 
     let active = Arc::new(AtomicUsize::new(0));
+    // The connected apps, for the desktop's Agents tab (session 59).
+    let clients = Clients::new(settings.vault_root.clone(), std::process::id());
+    // One read desk for every connection (ADR-107): all apps' questions take
+    // turns together, and a cancelled one leaves the line.
+    let desk = ReadDesk::new();
     let last_warn: Arc<Mutex<Option<Instant>>> = Arc::new(Mutex::new(None));
     let (stop_tx, mut stop_rx) = mpsc::channel::<KeeperExit>(1);
     let mut pending: VecDeque<(AbortHandle, Arc<AtomicBool>)> = VecDeque::new();
@@ -239,8 +290,12 @@ where
                         keys: keys.clone(),
                         identity: identity.clone(),
                         adapter: adapter.clone(),
+                        admin: admin.clone(),
                         gate: gate.clone(),
+                        in_flight: in_flight.clone(),
                         active: active.clone(),
+                        clients: clients.clone(),
+                        desk: desk.clone(),
                         authed: authed.clone(),
                         stop_tx: stop_tx.clone(),
                         last_warn: last_warn.clone(),
@@ -320,9 +375,28 @@ where
         tracing::warn!(target: "vault_app::keeper", error = %e, "could not remove discovery file");
     }
     drop(listener);
+    // Handing over or yielding: take no new work, send the line away, let
+    // running calls finish, bounded (ADR-SEC-033 D3). The caller then exits
+    // the process holding `.vault.lock`, so anything still running after the
+    // drain dies with the process and no second owner can overlap it.
+    if matches!(exit, Ok(KeeperExit::Yielded | KeeperExit::HandedOver)) {
+        in_flight.close();
+        desk.close();
+        if tokio::time::timeout(settings.drain, in_flight.wait_idle())
+            .await
+            .is_err()
+        {
+            tracing::warn!(
+                target: "vault_app::keeper",
+                still_running = in_flight.count(),
+                "calls were still running after the drain; closing them"
+            );
+        }
+    }
     for connection in &connections {
         connection.abort();
     }
+    clients.clear();
     match &exit {
         Ok(reason) => {
             tracing::info!(target: "vault_app::keeper", exit = ?reason, "keeper stopping")
@@ -409,11 +483,17 @@ struct ConnectionContext {
     keys: Arc<HandshakeKeys>,
     identity: KeeperIdentity,
     adapter: Arc<dyn Adapter>,
+    /// The desktop app's side (ADR-108), when this keeper serves one.
+    admin: Option<AdminSide>,
     /// The subscription gate, when this build carries a sign-in (ADR-104).
     /// Every connection shares the one gate, so the whole keeper counts its
     /// calls in flight together (§8.26 §6.2).
     gate: Option<Gate>,
+    /// The tenure's one counter (the gate's own when there is a gate).
+    in_flight: InFlight,
     active: Arc<AtomicUsize>,
+    clients: Arc<Clients>,
+    desk: Arc<ReadDesk>,
     authed: Arc<AtomicBool>,
     stop_tx: mpsc::Sender<KeeperExit>,
     last_warn: Arc<Mutex<Option<Instant>>>,
@@ -453,8 +533,50 @@ async fn handle_connection(mut stream: ServerStream, ctx: ConnectionContext) {
             ctx.authed.store(true, Ordering::SeqCst);
             ctx.active.fetch_add(1, Ordering::SeqCst);
             let _guard = ActiveGuard(ctx.active.clone());
-            let server = StdioServer::new(ctx.adapter, boundaries);
-            serve_session(vault_mcp::maybe_gated(ctx.gate.as_ref(), server), stream).await;
+            // Listed until the session ends, however it ends (the guard).
+            let session = Arc::new(ctx.clients.connected());
+            let server = StdioServer::new(ctx.adapter, boundaries).with_desk(ctx.desk);
+            let service = Tracked::new(
+                vault_mcp::gated_or_counted(ctx.gate.as_ref(), &ctx.in_flight, server),
+                Arc::clone(&session),
+            );
+            match service.serve(stream).await {
+                Ok(running) => {
+                    // The relay introduces itself under its AI app's own name.
+                    if let Some(info) = running.peer().peer_info() {
+                        session.name(&info.client_info.name);
+                    }
+                    let _ = running.waiting().await;
+                }
+                Err(e) => {
+                    tracing::warn!(target: "vault_app::keeper", error = %e, "session setup failed");
+                }
+            }
+        }
+        Ok(KeeperAccept::Admin) => {
+            let Some(admin) = ctx.admin else {
+                tracing::warn!(target: "vault_app::keeper", "an admin connection arrived at a keeper that serves no desktop");
+                return;
+            };
+            ctx.authed.store(true, Ordering::SeqCst);
+            ctx.active.fetch_add(1, Ordering::SeqCst);
+            let _guard = ActiveGuard(ctx.active.clone());
+            // Not in the clients file: the Agents tab lists AI apps, not
+            // Zaaheen itself. Counted like every call, so it drains too.
+            let server = AdminServer::new(admin.host, admin.gate, ctx.desk);
+            match ctx
+                .in_flight
+                .counting(server, ADMIN_BUSY)
+                .serve(stream)
+                .await
+            {
+                Ok(running) => {
+                    let _ = running.waiting().await;
+                }
+                Err(e) => {
+                    tracing::warn!(target: "vault_app::keeper", error = %e, "admin session setup failed");
+                }
+            }
         }
         Ok(KeeperAccept::Yield) => {
             tracing::info!(target: "vault_app::keeper", "a newer relay asked this keeper to yield");
@@ -465,21 +587,6 @@ async fn handle_connection(mut stream: ServerStream, ctx: ConnectionContext) {
             let _ = ctx.stop_tx.try_send(KeeperExit::HandedOver);
         }
         Err(e) => note_rejection(&e, &ctx.last_warn),
-    }
-}
-
-/// Serve one authenticated session until its stream closes.
-async fn serve_session<S>(service: S, stream: ServerStream)
-where
-    S: Service<RoleServer>,
-{
-    match service.serve(stream).await {
-        Ok(running) => {
-            let _ = running.waiting().await;
-        }
-        Err(e) => {
-            tracing::warn!(target: "vault_app::keeper", error = %e, "session setup failed");
-        }
     }
 }
 

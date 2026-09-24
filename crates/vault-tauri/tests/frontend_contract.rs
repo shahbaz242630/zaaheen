@@ -50,6 +50,7 @@ const COMMAND_SOURCES: &[(&str, &str)] = &[
     ("location.rs", include_str!("../src/commands/location.rs")),
     ("connect.rs", include_str!("../src/commands/connect.rs")),
     ("startup.rs", include_str!("../src/commands/startup.rs")),
+    ("keeper.rs", include_str!("../src/commands/keeper.rs")),
 ];
 
 /// The command modules' list, to hold [`COMMAND_SOURCES`] to it.
@@ -1725,13 +1726,14 @@ fn the_connect_step_speaks_plainly() {
     assert!(step.contains(">I'll connect one later</button>"));
     let code = js_code();
     for words in [
-        "name: \"Claude Desktop\", desc: \"The Claude app for your computer\"",
+        "name: \"Claude Desktop\", desc: \"The Claude app for your computer, in Chat and Cowork\"",
         "In Claude, open Settings, then Developer, then Edit Config. Add this to the file it \
          shows you, save it, then quit Claude and open it again:",
         "name: \"Cursor\", desc: \"AI code editor\"",
+        "name: \"ChatGPT\", desc: \"The ChatGPT app for your computer, in Work and Codex\"",
+        "name: \"Antigravity\", desc: \"Google's AI app and code editor\"",
         "name: \"Claude Code\", desc: \"Claude in your terminal\"",
-        "name: \"Codex\", desc: \"OpenAI's coding assistant\"",
-        "name: \"Antigravity\", desc: \"Google's AI code editor\"",
+        "name: \"Codex\", desc: \"OpenAI's coding assistant in your terminal\"",
         "name: \"Another app\", desc: \"Any AI app that can connect to Zaaheen\"",
     ] {
         assert!(code.contains(words), "{words}");
@@ -1854,7 +1856,6 @@ fn settings_has_sections_down_the_left_and_keeps_every_control() {
         "erase-reveal",
         "erase-confirm-btn",
         "export-logs",
-        "replay-welcome",
     ] {
         let at = settings
             .find(&format!("id=\"{id}\""))
@@ -2403,4 +2404,246 @@ fn no_screen_shows_a_long_dash() {
             title.trim()
         );
     }
+}
+
+/// The setup's last wait shows on the screen that is waiting (session 58).
+/// The nightly tidy-up (page 6) is the last setup step, so "Finish setup" is
+/// what holds for the recall engine. The wait was still written to the first
+/// memory's hidden error line, so page 6 showed no progress, and every
+/// progress event re-enabled "Keep this memory" over an empty box.
+#[test]
+fn the_setups_last_wait_shows_on_the_screen_that_waits() {
+    let html = html();
+    let step = collect_between(&html, "id=\"screen-maintenance\"", "<!-- =====")
+        .into_iter()
+        .next()
+        .expect("index.html has the tidy-up step");
+    assert!(
+        step.contains("id=\"maint-onboard-wait\""),
+        "the tidy-up step has a line for the wait"
+    );
+
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let wait = &js_function(&functions, "renderFinishWait").body;
+    assert_eq!(
+        wait.lines().nth(1).map(str::trim),
+        Some("if (!engineFetch.waiting) return;"),
+        "nothing on any screen changes while nobody is waiting"
+    );
+    assert!(
+        wait.contains("$(\"maint-onboard-wait\")"),
+        "the wait is shown on the tidy-up step"
+    );
+    assert!(
+        wait.contains("$(\"maint-onboard-cta\")"),
+        "Finish setup is held while it waits"
+    );
+    for first_memory in ["mem-save", "mem-skip", "mem-err"] {
+        assert!(
+            !wait.contains(first_memory),
+            "the wait reaches into the first memory's {first_memory}"
+        );
+    }
+    let finish = &js_function(&functions, "finishOnboarding").body;
+    assert!(
+        finish.contains("$(\"maint-onboard-wait\")"),
+        "a failed wait is reported on the tidy-up step"
+    );
+    assert!(
+        !finish.contains("mem-err"),
+        "a failed wait is reported on a screen nobody can see"
+    );
+}
+
+/// "Connect it for me" from the Agents tab too (session 59). Only setup step
+/// 2 had it, so somebody who skipped connecting there, or came back later,
+/// found raw settings text and no button. Both places now use ONE picker,
+/// moved between them as the move panel is between setup and Settings.
+#[test]
+fn the_agents_tab_offers_the_same_picker_as_setup() {
+    let html = html();
+    let picker = html.find("id=\"connect-picker\"").expect("one app picker");
+    assert_eq!(html.matches("id=\"agent-grid\"").count(), 1, "one grid");
+    assert_eq!(
+        html.matches("id=\"connect-auto-btn\"").count(),
+        1,
+        "one button"
+    );
+    let setup_host = html
+        .find("id=\"setup-connect-host\"")
+        .expect("its setup place");
+    assert!(setup_host < picker, "the picker starts in the setup step");
+    assert!(html
+        .contains("<div id=\"agents-connect-host\" class=\"agents-connect-host hidden\"></div>"));
+    assert!(html.contains(">+ Connect an AI app</button>"));
+    for gone in [
+        "id=\"agents-panel\"",
+        "id=\"agents-snippet\"",
+        "id=\"copy-agents-snippet\"",
+        "Add this to your agent's MCP config",
+    ] {
+        assert!(
+            !html.contains(gone),
+            "the old raw-settings panel is gone: {gone}"
+        );
+    }
+
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let show = &js_function(&functions, "showScreen").body;
+    assert!(
+        show.contains("if (name === \"connect\") placeConnectPicker(\"setup-connect-host\");"),
+        "every way into setup step 2 takes the picker back"
+    );
+    let open = &js_function(&functions, "renderAgentsConnect").body;
+    assert!(open.contains("placeConnectPicker(\"agents-connect-host\");"));
+    assert!(open.contains("renderAgentCards();"));
+    assert!(code.contains("$(\"connect-panel-label\").addEventListener(\"click\""));
+    assert!(!code.contains("copy-agents-snippet"));
+}
+
+/// The apps with no install route get exact steps, as tested live on
+/// 2026-09-24: ChatGPT's own form (the command and its two arguments apart:
+/// the whole line in "Arguments" fails), Antigravity's file by its full path
+/// (its own assistant named the wrong file), Claude Code's documented command.
+#[test]
+fn apps_without_an_install_route_get_exact_steps() {
+    let code = js_code();
+    for words in [
+        "In ChatGPT, open Settings, then Integrations, then Plugins. Choose Add, then Add MCP \
+         Server, and fill it in as below. Put mcp and serve in Arguments as two separate items.",
+        "its Chat mode can't connect to apps on your computer",
+        "Command:    zaaheen",
+        "Arguments:  mcp\n            serve",
+        "notepad %USERPROFILE%\\\\.gemini\\\\config\\\\mcp_config.json",
+        "for the Antigravity IDE, use .gemini\\\\antigravity instead of .gemini\\\\config",
+        "If it already lists other apps, add the zaaheen part next to them.",
+        "close Antigravity fully and open it again",
+        "\"claude mcp add --transport stdio --scope user zaaheen -- zaaheen mcp serve\"",
+    ] {
+        assert!(code.contains(words), "{words}");
+    }
+    assert!(
+        !code.contains("settings.json"),
+        "Antigravity's settings file is mcp_config.json"
+    );
+}
+
+/// The Agents tab and the footer tell the truth (session 59; designed in
+/// session 36): they list the AI apps actually connected, from the keeper's
+/// list, not the HTTP daemon's access keys that nobody on the desktop path
+/// has. App names are self-declared by other programs, so every one is
+/// escaped before it reaches the page.
+#[test]
+fn the_agents_tab_lists_the_apps_actually_connected() {
+    let html = html();
+    for words in [
+        "<div class=\"headline\">Your AI apps.</div>",
+        "No AI app is connected right now. An app connects when you open it, and shows here while it's open.",
+        "<div id=\"agent-keys\" class=\"hidden\">",
+        "<div class=\"rows-label\">Access keys</div>",
+    ] {
+        assert!(html.contains(words), "{words}");
+    }
+    assert!(!html.contains("No agents connected yet."));
+
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let refresh = &js_function(&functions, "refreshConnectedApps").body;
+    assert!(refresh.contains("await invoke(\"list_connected_apps\")"));
+    let rows = &js_function(&functions, "renderConnectedApps").body;
+    assert!(
+        rows.contains("${esc(friendlyAppName(a.name))}"),
+        "names are escaped"
+    );
+    assert!(rows.contains("${esc(when)}"));
+    let footer = &js_function(&functions, "renderFooter").body;
+    assert!(footer.contains("state.connectedApps.length"));
+    assert!(footer.contains("\"no AI app connected right now\""));
+    assert!(!code.contains("mcp · stdio"), "no jargon");
+    let names = &js_function(&functions, "friendlyAppName").body;
+    for (raw, shown) in [
+        ("claude", "\"Claude\""),
+        ("cursor", "\"Cursor\""),
+        ("chatgpt", "\"ChatGPT\""),
+        ("antigravity", "\"Antigravity\""),
+    ] {
+        assert!(
+            names.contains(raw) && names.contains(shown),
+            "{raw} -> {shown}"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ADR-108 (D4): the desktop is a client of the keeper
+// ---------------------------------------------------------------------------
+
+/// Every code the keeper link can return has a plain line (founder-approved,
+/// session 60); a code with no line would show the person the raw code.
+#[test]
+fn every_keeper_link_code_has_a_plain_line_in_the_app() {
+    for code in vault_tauri::link::ALL_CODES {
+        assert!(
+            APP_JS.contains(&format!("case \"{code}\":")),
+            "{code} has no plain line in the desktop bundle"
+        );
+    }
+}
+
+/// The catch-up at launch never takes the vault from anyone: it asks for the
+/// waiting run. "Run now" is the only call that takes over, and it is a plain
+/// call (review B-S4: the argument is optional, so the old call stays valid).
+#[test]
+fn only_the_catch_up_asks_for_the_waiting_run() {
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let catch_up = js_function(&functions, "catchUpMaintenanceIfDue");
+    assert!(catch_up
+        .body
+        .contains("invoke(\"run_maintenance_now\", { catchUp: true })"));
+    assert_eq!(
+        code.matches("{ catchUp: true }").count(),
+        1,
+        "only the catch-up waits"
+    );
+    assert!(code.contains("await invoke(\"run_maintenance_now\");"));
+}
+
+/// The link's state is watched from the home screen only: the welcome, lock
+/// and sign-in screens never wait for the background part (ADR-108 D6).
+#[test]
+fn the_link_is_watched_from_the_home_screen_only() {
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    assert!(calls(
+        &js_function(&functions, "renderHome").body,
+        "watchLink"
+    ));
+    assert_eq!(
+        code.matches("invoke(\"link_state\")").count(),
+        1,
+        "one place asks"
+    );
+    for screen in ["init", "showLock", "enterApp", "untilStarted"] {
+        assert!(
+            !calls(&js_function(&functions, screen).body, "watchLink"),
+            "{screen} waits for the background part"
+        );
+    }
+    let watch = js_function(&functions, "watchLink");
+    assert!(watch
+        .body
+        .contains("s.state === \"serving\" || s.state === \"failed\""));
+}
+
+/// The opening line is the founder-approved one, shown while connecting.
+#[test]
+fn the_opening_line_is_the_approved_one() {
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let line = js_function(&functions, "linkLine");
+    assert!(line.body.contains("\"Opening your memories…\""));
+    assert!(INDEX_HTML.contains("id=\"link-notice\""));
 }

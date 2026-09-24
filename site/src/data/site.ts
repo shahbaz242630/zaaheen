@@ -32,7 +32,22 @@ export const RELEASE = {
 
 // Apps we have verified end to end against a real install. Add one only after a
 // live test; the site must never promise an app we have not seen work.
-export const VERIFIED_APPS = ['Claude', 'Cursor'] as const;
+// ChatGPT: the desktop app, live-tested in session 59 (CONNECT-APPS-DESIGN.md).
+export const VERIFIED_APPS = ['Claude', 'Cursor', 'ChatGPT'] as const;
+
+// The home page's animated app window only (founder, session 61: "keep hermes
+// and openclaw .. we will test them shortly"). A picture, never a written
+// claim: move an app to VERIFIED_APPS after its live test.
+export const DEMO_APPS = [...VERIFIED_APPS, 'Hermes', 'OpenClaw'] as const;
+
+/** "Claude, Cursor and ChatGPT": the verified apps as one English list. */
+export const verifiedAppList = (): string =>
+  VERIFIED_APPS.length < 2
+    ? VERIFIED_APPS.join('')
+    : `${VERIFIED_APPS.slice(0, -1).join(', ')} and ${VERIFIED_APPS[VERIFIED_APPS.length - 1]}`;
+
+// The subscription, as the app sells it (SIGNIN-DESIGN.md §8.26, ADR-104).
+export const TRIAL = { days: 30, card: false } as const;
 
 export const INDEXNOW_KEY = 'dc7e96914b463f8b38a2ca7309b9a25f';
 
@@ -41,7 +56,7 @@ export const INDEXNOW_KEY = 'dc7e96914b463f8b38a2ca7309b9a25f';
 // router in front of the whole site (founder decision, 2026-09-12). Not
 // connected yet; until it is, these links lead nowhere.
 export const COACHING = {
-  bookingUrl: 'https://coaching.zaaheen.com/',
+  bookingUrl: 'https://coaching.zaaheen.com/training',
 } as const;
 
 // The top bar on every page. Labels and order are the founder's.
@@ -69,7 +84,7 @@ export const PAGES: PageEntry[] = [
     path: '/',
     title: 'Zaaheen: a private memory for your AI assistants',
     description:
-      'Zaaheen gives Claude, Cursor and other AI apps one shared memory about you, stored and encrypted on your own computer. Free beta for Windows.',
+      'Zaaheen gives Claude, Cursor, ChatGPT and other AI apps one shared memory about you, encrypted on your own computer. For Windows, 30 days free.',
     sources: ['src/pages/index.astro', 'src/data/site.ts'],
   },
   {

@@ -112,12 +112,15 @@ fn assert_search_only_keys_absent(details: &vault_mcp::ToolInvokeDetails) {
 async fn tool_search_success_records_audit_and_returns_results() {
     let (server, adapter) = make_success_server_with_adapter(vec!["work"]);
     let result = server
-        .tool_search(Parameters(SearchToolParams {
-            query: "anything".to_string(),
-            max_results: Some(5),
-            score_threshold: None,
-            include_archived: None,
-        }))
+        .tool_search(
+            Parameters(SearchToolParams {
+                query: "anything".to_string(),
+                max_results: Some(5),
+                score_threshold: None,
+                include_archived: None,
+            }),
+            tokio_util::sync::CancellationToken::new(),
+        )
         .await
         .expect("SuccessAdapter::search returns one hit; tool_search must succeed");
 

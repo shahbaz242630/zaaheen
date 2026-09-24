@@ -25,12 +25,14 @@
 //!   `lib.rs::tests::main_rs_does_not_register_external_mcp_spawn_command_per_adr_030`.
 //! - **ADR-032:** SQLCipher passphrase sourced from `VAULT_KEY` env var
 //!   for V0.1 founder-only dogfood. **Retired at T0.2.0 Phase 1
-//!   (2026-05-09)** per ADR-040 + ADR-040 amendment: master_key now
-//!   sourced from Windows Credential Manager via `vault_app::keychain::
-//!   bridge_or_init_master_key` (ADR-SEC-029 since session 52: one key
-//!   lock per Windows user, Local persistence); SqlCipherKey + at-rest key derived as
-//!   domain-separated BLAKE3 subkeys. Pre-Phase-1 callers reading
-//!   VAULT_KEY env var are removed.
+//!   (2026-05-09)** per ADR-040 + ADR-040 amendment: master_key sourced
+//!   from Windows Credential Manager. **Since ADR-108 (session 60) the
+//!   desktop never opens or creates the key at all**: the keeper does, and
+//!   the V0.1 bridge is retired (D11). The desktop reads the key read-only,
+//!   only to authenticate its admin connection.
+//! - **ADR-108 (D4):** the desktop is a client of the keeper. It builds no
+//!   `Application`, loads no model and holds no store; every command that
+//!   needs the vault forwards over `link::KeeperLink`.
 //! - **ADR-034 (Phase 5b fix-forward, 2026-05-05):** V0.1 vault-tauri is
 //!   UI-only — no MCP server bound inside the Tauri process. Phase 5
 //!   founder smoke surfaced that `Application::start_with_mcp` calls
@@ -80,30 +82,25 @@ use std::sync::Arc;
 
 use tauri::Manager;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
-use vault_app::keychain::{
-    bridge_or_init_master_key, derive_at_rest_key, derive_sqlcipher_passphrase, KeyLocation,
-};
+use vault_app::keychain::KeyLocation;
 use vault_app::location::missing::{self, Problem};
 use vault_app::location::moving::{MoveOutcome, MoveProgress};
 use vault_app::location::Homes;
-use vault_app::{AppConfig, Application};
 use vault_core::VaultError;
 use vault_tauri::commands::startup::Startup;
+use vault_tauri::link::KeeperLink;
 use vault_tauri::{
     dylib_filename_for_os, env_override_for, format_keychain_error_dialog,
-    format_location_problem_dialog, format_start_again_refusal, format_startup_failure_dialog,
-    model_fetch, CANCEL_BUTTON, CLOSE_BUTTON, KEY_ERROR_DIALOG_TITLE, START_AGAIN_BUTTON,
-    START_AGAIN_CONFIRMATION, START_AGAIN_TITLE,
+    format_location_problem_dialog, format_start_again_refusal, model_fetch, CANCEL_BUTTON,
+    CLOSE_BUTTON, KEY_ERROR_DIALOG_TITLE, START_AGAIN_BUTTON, START_AGAIN_CONFIRMATION,
+    START_AGAIN_TITLE,
 };
 
-/// Exit code for keychain provenance failures (ADR-040 + ADR-040 amendment;
-/// retains the same numeric code that V0.1 used for VAULT_KEY config errors,
-/// since wrapper scripts and CI keyed on `2 = config-class error` regardless
-/// of the underlying provenance mechanism).
-const EXIT_CONFIG_ERROR: i32 = 2;
-/// Exit code for Application startup failures including ADR-020
-/// ModelIntegrityFailed.
+/// Exit code for startup failures.
 const EXIT_STARTUP_FAILURE: i32 = 1;
+
+/// How long closing the window waits to close the keeper link cleanly.
+const EXIT_DISCONNECT: std::time::Duration = std::time::Duration::from_secs(2);
 
 fn main() {
     // Logging is initialised inside `.setup()` rather than here: the log
@@ -129,6 +126,7 @@ fn main() {
             vault_tauri::commands::boundary::list_boundaries,
             vault_tauri::commands::boundary::create_boundary,
             vault_tauri::commands::agent::list_agents,
+            vault_tauri::commands::agent::list_connected_apps,
             vault_tauri::commands::agent::revoke_agent,
             vault_tauri::commands::settings::get_settings_info,
             vault_tauri::commands::engine::ensure_recall_engine,
@@ -163,6 +161,9 @@ fn main() {
             // Where this start is (ADR-105 amendment 1, L-f). Open before the
             // lock, founder-approved: see the module.
             vault_tauri::commands::startup::startup_state,
+            // Where the link to the keeper is (ADR-108 D6). Open before the
+            // lock, approved with ADR-108: see the module.
+            vault_tauri::commands::keeper::link_state,
         ])
         .setup(|app| {
             // 0. File logging FIRST, so every later step in this closure --
@@ -336,10 +337,26 @@ fn main() {
     // Tauri Builder failure means the dialog plugin may not be available,
     // so we use eprintln + exit (degraded path) rather than the dialog
     // routing the rest of setup() uses.
-    if let Err(e) = builder.run(tauri::generate_context!()) {
-        eprintln!("Zaaheen failed to start: {e}");
-        std::process::exit(EXIT_STARTUP_FAILURE);
-    }
+    let app = match builder.build(tauri::generate_context!()) {
+        Ok(app) => app,
+        Err(e) => {
+            eprintln!("Zaaheen failed to start: {e}");
+            std::process::exit(EXIT_STARTUP_FAILURE);
+        }
+    };
+    // ADR-108 D6: the desktop holds no store, lock or discovery file, so
+    // nothing needs draining on exit; the keeper link is closed cleanly so the
+    // keeper sees the session end rather than a broken pipe. Bounded.
+    app.run(|handle, event| {
+        if let tauri::RunEvent::Exit = event {
+            if let Some(link) = handle.try_state::<KeeperLink>() {
+                let _ = tauri::async_runtime::block_on(tokio::time::timeout(
+                    EXIT_DISCONNECT,
+                    link.disconnect(),
+                ));
+            }
+        }
+    });
 }
 
 /// What the start has resolved before the memories open (steps 0-3), handed
@@ -395,9 +412,15 @@ fn finish_the_move(
     moved
 }
 
-/// Everything after the move (steps 3-9): the vault folder, the key, the
-/// vault, and every piece of state the commands need, in this order on both
-/// paths. Its last act tells the page the start is ready (ADR-105 L-f).
+/// Everything after the move (steps 3-9): the vault folder, the guard, the
+/// link to the keeper, and every piece of state the commands need, in this
+/// order on both paths. Its last act tells the page the start is ready
+/// (ADR-105 L-f).
+///
+/// **ADR-108 (D4): the desktop never opens the vault or creates the key.**
+/// The keeper does, when the first command needs it; the window opens without
+/// waiting for it, and the home screen says "Opening your memories…" while it
+/// starts (`link_state`).
 fn open_the_vault(app: &tauri::AppHandle, start: Start, moved: MoveOutcome, startup: &Startup) {
     let Start {
         log_dir,
@@ -436,112 +459,43 @@ fn open_the_vault(app: &tauri::AppHandle, start: Start, moved: MoveOutcome, star
     ));
     // ADR-105 L3: the models never follow the vault.
     let models_dir = vault_app::location::models_dir(&homes);
-    let metadata_path = data_dir.join("vault.db");
-    let vector_dir = data_dir.join("lance");
-    let graph_path = data_dir.join("graph.duckdb");
 
-    // 4. Source master_key per ADR-040 + ADR-041. The bridge
-    //    composes ADR-040's keychain logic with the V0.1 → V0.2
-    //    SQLCipher passphrase bridge (ADR-041 plan iteration 2):
-    //    - Keychain entry present → return existing master_key
-    //      (V0.2 second-launch path; identical to read_or_init).
-    //    - Keychain absent + no V0.1 vault.db → fresh-init via
-    //      read_or_init's first-run path.
-    //    - Keychain absent + V0.1 vault.db present → V0.1 bridge:
-    //      verify VAULT_KEY env var unlocks vault.db → generate
-    //      new master_key → keychain write FIRST → snapshot
-    //      vault.db → PRAGMA rekey to new keychain-derived
-    //      passphrase → close+reopen+verify (post-write
-    //      verification invariant per ADR-041 §10) → cleanup
-    //      snapshot. Fail-closed with rollback at any step.
+    // 4. The entitlement guard (SIGNIN-DESIGN.md §8.26 §6.4) and the account
+    // the account commands use, from ONE account (ADR-SEC-028): two copies in
+    // this process would each keep their own in-memory refresh token, and the
+    // one that did not rotate would sign the person out.
     //
-    //    This step needs `data_dir` (to detect V0.1 vault.db)
-    //    so it runs AFTER step 3 (data_dir resolution), unlike
-    //    pre-ADR-041 ordering where keychain was step 1. Step
-    //    renumbering 1-4 reflects the new ordering.
+    // Built BEFORE the link to the keeper (ADR-108 D6, reviews A-B1 / B-B1):
+    // on a fresh install nobody is signed in and there is no key yet, and the
+    // desktop must reach its sign-in screen without any keeper at all.
     //
-    //    The master_key is then split into two domain-separated
-    //    BLAKE3 subkeys per ADR-040 amendment option β:
-    //    - `sqlcipher_passphrase` (hex-encoded → SqlCipherKey)
-    //    - `at_rest_key` (32 bytes → AppConfig.at_rest_key,
-    //      consumed by Application::new's
-    //      StorageBackend::open_with_at_rest_key per Phase 2).
-    //
-    //    Replaces the V0.1 VAULT_KEY env var path (ADR-032
-    //    retired in Phase 1; ADR-041 bridges existing V0.1
-    //    vaults forward).
-    //    VAULT_KEY env var is read here (once, at the call site)
-    //    rather than inside the bridge so the bridge stays a pure
-    //    fn of its inputs — avoids hidden env dependency + keeps
-    //    tests pure. Empty string treated as unset (matches the
-    //    bridge's Some-with-non-empty-content discipline).
-    let vault_key_env = std::env::var("VAULT_KEY").ok();
-    let v0_1_vault_key = vault_key_env.as_deref().filter(|s| !s.is_empty());
-    // ADR-SEC-029: under the one key lock for this Windows user (a
-    // keeper an AI app asked for, ADR-102, may be opening the key at
-    // this very moment); opens, moves to Local, repairs, finishes an
-    // earlier erasure, or — only for a fresh install — creates.
-    let master_key = match bridge_or_init_master_key(&key_location, &data_dir, v0_1_vault_key) {
-        Ok(k) => k,
-        Err(err) => {
-            // The detail goes to the log; the dialog says only what
-            // the person can do (ADR-SEC-029 U1, BRD §11.7.2).
-            tracing::error!(error = %err, "the vault key could not be opened");
-            show_fatal_dialog_and_exit(
-                app,
-                KEY_ERROR_DIALOG_TITLE,
-                &format_keychain_error_dialog(&err),
-                EXIT_CONFIG_ERROR,
-            );
-        }
-    };
-    let key = derive_sqlcipher_passphrase(&master_key);
-    let at_rest_key = derive_at_rest_key(&master_key);
-    // master_key drops here — the two derived subkeys carry the
-    // keying material forward; Zeroizing wipes the master_key
-    // bytes on Drop per BRD §11.5.3.
-    drop(master_key);
+    // The decision itself lives in `guard::build`, not here, so that
+    // `Entitlement`'s constructors can stay private. A build with no account
+    // settings, or whose account could not be prepared, gets an empty slot:
+    // the account commands then answer a stable code rather than the app
+    // refusing to start -- a desktop that will not start is a desktop whose
+    // export nobody can reach.
+    let (entitlement, account) = vault_tauri::guard::build();
 
-    // 5. Build AppConfig from resolved paths + the derived subkeys.
-    //
-    // T0.2.7 Phase 4 (2026-05-20): qwen_model_path is None for
-    // the V0.1 Tauri UI — the read-pipeline + Qwen-7B path is
-    // not yet wired into the Tauri shell (UI-only, no MCP
-    // server bound per ADR-034). A future Tauri wiring task
-    // will read the resolved model path and pass `Some(...)`
-    // when the UI surfaces a read-tool affordance.
-    //
-    // T0.3.x Batch A (2026-05-26): phi4_model_path is also None
-    // here — V0.1 Tauri shell does not host the consolidator.
-    // The vault-cli `consolidate run` subcommand is the V0.2
-    // entry point for nightly merge work; T0.2.6 will land
-    // in-process scheduling that may re-evaluate this default.
-    // ADR-087: resolve the reranker before building AppConfig. Never
-    // fatal — absent files degrade ranking, they do not block startup.
-    //
-    // ADR-089: these are passed unconditionally, EVEN IF THE FILES ARE
-    // NOT THERE YET, and that is deliberate. `LazyQwen3Reranker` binds
-    // paths at construction but opens the model on first use, so a
-    // download that lands after startup is picked up by the next query
-    // with no relaunch and no re-init of `Application`. Gating on
-    // `exists()` here would have frozen the decision at startup and
-    // made a first-run download take effect only on the SECOND launch.
-    //
-    // This is only safe because an absent model now degrades instead
-    // of failing (ADR-089): until the bytes arrive, search and read
-    // return the retriever's own order rather than erroring.
-    let (rerank_model, rerank_tokenizer) = resolve_reranker_paths(&models_dir);
-    tracing::info!(
-        model = %rerank_model.display(),
-        present = rerank_model.exists() && rerank_tokenizer.exists(),
-        "reranker paths bound (loaded lazily on first query)"
-    );
+    // 4b. The lease refresh at desktop open (only when stale) and then daily
+    // (§8.26 §4). Holds the account, never the vault.
+    if let Some(ops) = account.for_background_refresh() {
+        tauri::async_runtime::spawn(ops.refresh_at_open_then_daily());
+    }
+    app.manage(entitlement);
+    app.manage(account);
 
-    // ADR-092/093: assemble the context the automatic-maintenance
-    // commands need to invoke the bundled `vault-cli consolidate run`
-    // against THIS app's own vault. Built from clones before the paths
-    // are moved into `AppConfig` below, and managed after `Application`.
-    // (models_dir: resolved with the vault folder, above.)
+    // 5. The link to the keeper (ADR-108 D5). The desktop never opens the
+    // vault and never creates the key: the keeper does, when the first
+    // command that needs it runs. Nothing here waits for a keeper, so the
+    // window opens at once. Built inside the runtime: its idle reaper is a
+    // task.
+    let link_homes = homes.clone();
+    let link = tauri::async_runtime::block_on(async move { KeeperLink::new(link_homes) });
+    app.manage(link);
+
+    // 6. Automatic-maintenance context (ADR-092/093): what the windowless
+    // runner is started with. Paths only: the runner opens the vault itself.
     let maintenance_ctx = vault_tauri::commands::maintenance::MaintenanceContext {
         vault_cli: resolve_vault_cli_path(),
         // ADR-SEC-015: the windowless runner both entry points go
@@ -549,150 +503,14 @@ fn open_the_vault(app: &tauri::AppHandle, start: Start, moved: MoveOutcome, star
         // a console window on the founder's desktop at login.
         vault_maintenance: resolve_vault_maintenance_path(),
         log_dir: log_dir.clone(),
-        bge_model: model_path.clone(),
-        bge_tokenizer: tokenizer_path.clone(),
-        ort_lib: ort_lib_path.clone(),
+        bge_model: model_path,
+        bge_tokenizer: tokenizer_path,
+        ort_lib: ort_lib_path,
         phi4_model: model_fetch::phi4_path_in(&models_dir),
         config_path: data_dir.join("maintenance.json"),
     };
 
-    let config = AppConfig {
-        metadata_path,
-        vector_dir,
-        graph_path,
-        key,
-        model_path,
-        tokenizer_path,
-        ort_lib_path,
-        at_rest_key,
-        qwen_model_path: None,
-        phi4_model_path: None,
-        // ADR-087 wired the reranker; ADR-089 makes the binding
-        // unconditional so a first-run download takes effect in the
-        // session that fetched it. Absent files degrade at query time.
-        rerank_model_path: Some(rerank_model),
-        rerank_tokenizer_path: Some(rerank_tokenizer),
-    };
-
-    // 6. Construct Application and spawn the cascading retry
-    //    worker. Per ADR-034 (T0.1.11 Phase 5b): V0.1 vault-tauri
-    //    is UI-only — no MCP server bound inside the Tauri
-    //    process. `start_with_mcp` would call rmcp's
-    //    `ServiceExt::serve(server, stdio()).await` which blocks
-    //    on JSON-RPC `initialize` from a peer that doesn't exist
-    //    when launched as a Tauri UI app, hanging Tauri's setup()
-    //    hook indefinitely. `spawn_retry_worker()` spawns only the retry
-    //    worker (no rmcp transport bind), keeping the UI
-    //    responsive. AI-client MCP integration deferred to V0.2
-    //    alpha-distribution task (subcommand-split design per
-    //    ADR-034 cross-link).
-    //
-    //    `spawn_retry_worker()` is sync but spawns
-    //    `tokio::spawn(worker.run)` which requires a tokio runtime in
-    //    scope. Tauri provides one inside
-    //    `tauri::async_runtime::block_on`, which we enter just to
-    //    construct Application::new (async) and spawn the worker
-    //    within the runtime context.
-    let app_handle = app.clone();
-    let (application, _shutdown_sender) = tauri::async_runtime::block_on(async move {
-        let application = match Application::new(&config).await {
-            Ok(a) => a,
-            Err(e) => show_fatal_dialog_and_exit(
-                &app_handle,
-                "Zaaheen can't start",
-                &format_startup_failure_dialog(&e),
-                EXIT_STARTUP_FAILURE,
-            ),
-        };
-
-        let shutdown_sender = application.spawn_retry_worker();
-
-        // ADR-090: warm the ranking model NOW, in the background.
-        //
-        // `spawn_retry_worker()` starts the worker and nothing else.
-        // The warm-up lives in `start_with_mcp` (step 3b), which a GUI
-        // can never call because it blocks on an MCP handshake that
-        // never arrives (ADR-034). So the desktop app had NO warm-up at
-        // all and paid the full ~24 s model load on the user's FIRST
-        // search — measured live 2026-07-22.
-        //
-        // ADR-095: this method was named `start()` and documented as a
-        // "TEST-focused entry point" until 2026-07-25, which is what
-        // made the gap above easy to miss for so long — the desktop
-        // app's real production lifecycle ran through a method our own
-        // docs said was for tests. Renamed to describe what it does.
-        //
-        // Must stay INSIDE this `block_on`: `spawn_reranker_warmup`
-        // calls `tokio::spawn`, which panics outside a runtime
-        // context. Same reason `spawn_retry_worker()` is called here.
-        //
-        // Fire-and-forget by design, and deliberately NOT a gate on
-        // the window: founder decision 2026-07-22 chose "open
-        // instantly and say honestly that the engine is still getting
-        // ready" over blocking every launch for ~40 s. ADR-089's
-        // degrade keeps search working throughout.
-        //
-        // A no-op when the first-run download has not landed (fails
-        // fast with ModelUnavailable, leaving the cell cold); the
-        // frontend calls `warm_recall_engine` again once acquisition
-        // completes, which is what covers a genuine first run.
-        let warming = application.spawn_reranker_warmup();
-        tracing::info!(
-            warming,
-            state = application.reranker_state().as_wire_str(),
-            "ranking model warm-up requested at startup (ADR-090)"
-        );
-
-        (application, shutdown_sender)
-    });
-
-    // 7. Manage Application (for Tauri commands) + the worker
-    //    shutdown Sender (held to keep the watch channel alive
-    //    for the worker's lifetime; dropping it signals worker
-    //    exit via the watch::changed() Err arm — which is fine
-    //    on Tauri close, but holding it explicitly is the
-    //    deliberate lifecycle).
-    app.manage(application);
-    app.manage(_shutdown_sender);
-
-    // 7b. The entitlement guard (SIGNIN-DESIGN.md §8.26 §6.4) and the
-    // account the account commands use, from ONE account (ADR-SEC-028):
-    // two copies in this process would each keep their own in-memory
-    // refresh token, and the one that did not rotate would sign the
-    // person out.
-    //
-    // The decision itself lives in `guard::build`, not here, so that
-    // `Entitlement`'s constructors can stay private: a public
-    // `Entitlement::open()` would let any command mint an
-    // always-entitled guard of its own and still satisfy the source
-    // test. Found by the step's independent review.
-    //
-    // A build with no account settings, or whose account could not be
-    // prepared, gets an empty slot: the account commands then answer
-    // a stable code rather than the app refusing to start -- a desktop
-    // that will not start is a desktop whose export nobody can reach.
-    let (entitlement, account) = vault_tauri::guard::build();
-
-    // 7c. The lease refresh at desktop open (only when stale) and
-    // then daily (§8.26 §4). Until session 50 nothing started it,
-    // although the step-4b notes said it ran (§8.38). Holds the
-    // account, never the vault.
-    if let Some(ops) = account.for_background_refresh() {
-        tauri::async_runtime::spawn(ops.refresh_at_open_then_daily());
-    }
-    app.manage(entitlement);
-    app.manage(account);
-
-    // 8. First-run acquisition state (ADR-089). Bound to the same
-    //    models directory `resolve_reranker_paths` resolves against,
-    //    so what the download writes is exactly what the reranker
-    //    later opens. Managed rather than created per-call so
-    //    concurrent callers share one transfer.
-    app.manage(vault_tauri::commands::engine::RecallEngineFetch::new(
-        models_dir.clone(),
-    ));
-
-    // 9. Automatic-maintenance state (ADR-092/093): the resolved
+    // 7. Automatic-maintenance state (ADR-092/093): the resolved
     //    context for building the `vault-cli` invocation, plus the
     //    first-run Phi-4 download deduper (bound to the same models
     //    dir so what onboarding fetches is what a run later loads).
@@ -828,46 +646,6 @@ fn resolve_model_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     app.path()
         .resolve("models/model.onnx", tauri::path::BaseDirectory::Resource)
         .map_err(|e| format!("resolve model.onnx: {e}"))
-}
-
-/// Resolve the Qwen3 reranker's model + tokenizer paths, returning `None` when
-/// the files are not (yet) on disk (ADR-087).
-///
-/// **Why this exists at all.** Until now `main.rs` hardcoded
-/// `rerank_model_path: None`, justified by a comment reading *"V0.1 Tauri shell
-/// is UI-only (ADR-034, no MCP server bound): no read pipeline, so no
-/// reranker."* That was true when written and stopped being true the moment UI
-/// slice 1 wired a search box to the real retrieval pipeline. The stale `None`
-/// silently put the desktop app on the cosine relevance gate — the very
-/// mechanism the reranker was adopted to replace (ADR-059) — so search quality
-/// in the GUI was quietly worse than over MCP.
-///
-/// **Why absent files yield `None` rather than an error.** `Application::new`
-/// treats `None` as documented graceful degradation. A missing reranker must
-/// leave the vault fully usable — recall is sacrosanct, and refusing to start
-/// because an optional quality component is absent would be a far worse
-/// failure than ranking with cosine.
-///
-/// **Why this does NOT download.** Fetching 1.15 GB unannounced during startup
-/// would freeze first launch behind a silent transfer. The download belongs
-/// behind the first-run progress UI; [`model_fetch::ensure_reranker`] is the
-/// transport that flow will call. Until then this resolves what is already
-/// present — which covers dev fixtures via the env overrides, and any install
-/// where the files have been fetched or placed by hand.
-fn resolve_reranker_paths(models_dir: &std::path::Path) -> (PathBuf, PathBuf) {
-    // Dev override: both must be set together. A half-configured pair is
-    // treated as unset rather than silently pairing an override with a
-    // default — mismatched model/tokenizer is the insidious failure class
-    // called out in `vault_embedding::integrity`.
-    if let (Some(model), Some(tokenizer)) = (
-        env_override_for("VAULT_RERANK_MODEL_PATH"),
-        env_override_for("VAULT_RERANK_TOKENIZER_PATH"),
-    ) {
-        return (model, tokenizer);
-    }
-
-    let paths = model_fetch::reranker_paths_in(models_dir);
-    (paths.model, paths.tokenizer)
 }
 
 /// Resolve the bundled `vault-cli` executable that automatic maintenance runs

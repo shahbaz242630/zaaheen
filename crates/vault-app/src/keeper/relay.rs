@@ -25,18 +25,22 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use rmcp::model::{CallToolRequestParams, CallToolResult};
-use rmcp::service::{Peer, RunningService, ServiceError};
+use rmcp::model::{
+    CallToolRequest, CallToolRequestParams, CallToolResult, CancelledNotificationParam,
+    ClientCapabilities, ClientConfig, ClientRequest, Implementation, ServerResult,
+};
+use rmcp::service::{Peer, PeerRequestOptions, RunningService, ServiceError};
 use rmcp::{RoleClient, ServiceExt};
 use tokio::time::Instant;
+use tokio_util::sync::CancellationToken;
 use vault_core::Boundary;
 use vault_mcp::{LockReason, Upstream, UpstreamError};
 use zeroize::Zeroizing;
 
 use super::discovery::{self, Role};
 use super::handshake::{
-    relay_handshake, HandshakeError, HandshakeKeys, KeeperIdentity, RelayOutcome, CHALLENGE_LEN,
-    NONCE_LEN,
+    admin_handshake, relay_handshake, HandshakeError, HandshakeKeys, KeeperIdentity, RelayOutcome,
+    CHALLENGE_LEN, NONCE_LEN,
 };
 use super::transport::{self, ConnectError};
 
@@ -68,6 +72,63 @@ pub const MSG_REFUSED: &str = "the vault refused this connection";
 /// unplugged drive, a different stick at the same letter).
 pub const MSG_LOCATION_MISSING: &str =
     "Zaaheen can't find your memories; open the Zaaheen app to check where they are";
+
+/// Why a call never reached the keeper. Typed, so the desktop can show its
+/// own plain line for each (ADR-108 D5); a relay tells its agent the
+/// [`Self::message`], which is exactly the text relays have always sent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResolveError {
+    Starting,
+    /// Maintenance, or every pipe instance taken.
+    Busy,
+    /// The keeper could not start. `pid` is the Failed record's, so the
+    /// desktop can read that keeper's note (`keeper::start_failure`).
+    Failed {
+        pid: u32,
+    },
+    /// The keeper is from a newer build.
+    UpdateNeeded,
+    KeyChanged,
+    Refused,
+    LocationMissing,
+    SignedOut,
+    /// This link will not start a keeper (the desktop after "Delete
+    /// everything", or after meeting a newer keeper).
+    Poisoned,
+    /// The caller withdrew the call while the keeper was being found.
+    Cancelled,
+}
+
+impl ResolveError {
+    /// What a relay tells its agent: the words relays have always used.
+    pub fn message(self) -> &'static str {
+        match self {
+            Self::Starting | Self::Cancelled => MSG_STARTING,
+            Self::Busy => MSG_BUSY,
+            Self::Failed { .. } => MSG_FAILED,
+            Self::UpdateNeeded | Self::Poisoned => MSG_UPDATE,
+            Self::KeyChanged => MSG_KEY_CHANGED,
+            Self::Refused => MSG_REFUSED,
+            Self::LocationMissing => MSG_LOCATION_MISSING,
+            Self::SignedOut => LockReason::SignedOut.message(),
+        }
+    }
+}
+
+/// What a connection is for (ADR-SEC-033).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Purpose {
+    /// An AI app's relay: the vault's tools, scoped to its boundaries.
+    Serve,
+    /// The owner's desktop app: the admin tools.
+    Admin,
+}
+
+/// The desktop's name for itself when it opens an admin session.
+const DESKTOP_NAME: &str = "zaaheen-desktop";
+
+/// How long the desktop waits to find a keeper that is starting.
+pub const DESKTOP_FIND_BUDGET: Duration = Duration::from_secs(90);
 
 /// Asks the platform to start a keeper (Task Scheduler on Windows). Must be
 /// idempotent: it is called repeatedly while waiting, and a keeper that is
@@ -126,7 +187,7 @@ enum RoundVault {
 }
 
 impl RelayVault {
-    fn resolve(&self) -> Result<RoundVault, &'static str> {
+    fn resolve(&self) -> Result<RoundVault, ResolveError> {
         match self {
             Self::Fixed(p) => Ok(RoundVault::Folder(p.clone())),
             Self::Recorded(homes) => match crate::location::resolve(homes) {
@@ -134,7 +195,7 @@ impl RelayVault {
                 Err(vault_core::VaultError::VaultLocation(
                     vault_core::VaultLocationFailure::Unset,
                 )) => Ok(RoundVault::Unset),
-                Err(_) => Err(MSG_LOCATION_MISSING),
+                Err(_) => Err(ResolveError::LocationMissing),
             },
         }
     }
@@ -162,6 +223,8 @@ pub struct RelaySettings {
     /// one look at the wrong moment would tell somebody who has just signed in
     /// to sign in again.
     pub marker_recheck: Duration,
+    /// A relay's session, or the desktop's admin one (ADR-108 D5).
+    pub purpose: Purpose,
 }
 
 impl RelaySettings {
@@ -192,7 +255,20 @@ impl RelaySettings {
             // build without them has no sign-in and no marker to read.
             account_dir: None,
             marker_recheck: MARKER_RECHECK,
+            purpose: Purpose::Serve,
         }
+    }
+
+    /// The desktop app's link (ADR-108 D5): the admin purpose, no boundaries
+    /// (the owner sees every one), and up to 90 s to find a keeper that is
+    /// still opening the vault — the desktop, unlike an AI app, has no 60 s
+    /// client timeout to fit inside, and a cold start on a loaded laptop can
+    /// take longer than 15 s (review B-M5).
+    pub fn desktop(homes: crate::location::Homes) -> Self {
+        let mut settings = Self::for_vault(RelayVault::Recorded(homes), Vec::new());
+        settings.purpose = Purpose::Admin;
+        settings.resolve_budget = DESKTOP_FIND_BUDGET;
+        settings
     }
 
     /// Read the sign-in marker from `account_dir` (§8.26 §6.3). `None` keeps
@@ -214,10 +290,28 @@ pub struct KeeperPool {
     /// queueing behind another call that holds `state` for a whole
     /// resolution (up to 15 s), which used to delay its reply by as much.
     last_used: Mutex<Instant>,
+    /// Who this relay serves: its AI app's own MCP `clientInfo`, learned at
+    /// the app's `initialize` and used as this relay's name when it opens a
+    /// session with the keeper, so the Agents tab can list the app (session
+    /// 59; `keeper/clients.rs`).
+    app: Mutex<Option<Implementation>>,
+    /// Itself, so an app connecting can start the keeper in the background.
+    me: Weak<Self>,
+    /// Set when this link must never start or reach a keeper again (ADR-108
+    /// D5: the desktop after "Delete everything", or after meeting a newer
+    /// keeper). Cleared when an erasure or a move fails.
+    poisoned: std::sync::atomic::AtomicBool,
 }
 
+/// The name a relay gives the keeper when its app has not said who it is.
+const RELAY_NAME: &str = "zaaheen-relay";
+
+/// How the relay tells the keeper a call is no longer wanted.
+const CANCEL_TIMED_OUT: &str = "the AI app stopped waiting";
+const CANCEL_BY_APP: &str = "the AI app cancelled the request";
+
 struct PoolState {
-    service: Option<RunningService<RoleClient, ()>>,
+    service: Option<RunningService<RoleClient, ClientConfig>>,
     /// Bumped per new connection, so a failure on an old connection never
     /// tears down its replacement.
     generation: u64,
@@ -225,7 +319,7 @@ struct PoolState {
 
 /// Outcome of one connection attempt.
 enum Attempt {
-    Connected(RunningService<RoleClient, ()>),
+    Connected(RunningService<RoleClient, ClientConfig>),
     /// Alive but every pipe instance is taken; do not request a start.
     Busy,
     /// Nothing usable at the endpoint.
@@ -243,7 +337,7 @@ impl KeeperPool {
         starter: Arc<dyn KeeperStarter>,
         keys: Arc<dyn MasterKeySource>,
     ) -> Arc<Self> {
-        Arc::new(Self {
+        Arc::new_cyclic(|me| Self {
             settings,
             starter,
             keys,
@@ -252,7 +346,47 @@ impl KeeperPool {
                 generation: 0,
             }),
             last_used: Mutex::new(Instant::now()),
+            app: Mutex::new(None),
+            me: me.clone(),
+            poisoned: std::sync::atomic::AtomicBool::new(false),
         })
+    }
+
+    /// Never start or reach a keeper again, and close the connection now.
+    pub async fn poison(&self) {
+        self.poisoned
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        self.disconnect().await;
+    }
+
+    /// Undo [`Self::poison`] (an erasure or a move that did not happen).
+    pub fn clear_poison(&self) {
+        self.poisoned
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    pub fn is_poisoned(&self) -> bool {
+        self.poisoned.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// Close the connection (the next call opens a fresh one).
+    pub async fn disconnect(&self) {
+        self.state.lock().await.service = None;
+    }
+
+    /// This relay's name for the keeper: its app's, or [`RELAY_NAME`]; the
+    /// desktop's own for an admin link.
+    fn client_config(&self) -> ClientConfig {
+        let app = if self.settings.purpose == Purpose::Admin {
+            Implementation::new(DESKTOP_NAME, env!("CARGO_PKG_VERSION"))
+        } else {
+            self.app
+                .lock()
+                .ok()
+                .and_then(|a| a.clone())
+                .unwrap_or_else(|| Implementation::new(RELAY_NAME, env!("CARGO_PKG_VERSION")))
+        };
+        ClientConfig::new(ClientCapabilities::default(), app)
     }
 
     fn touch(&self) {
@@ -291,7 +425,10 @@ impl KeeperPool {
 
     /// A live peer, connecting (and starting a keeper) if needed — within the
     /// call's `deadline`.
-    async fn peer(&self, deadline: Instant) -> Result<(Peer<RoleClient>, u64), &'static str> {
+    async fn peer(&self, deadline: Instant) -> Result<(Peer<RoleClient>, u64), ResolveError> {
+        if self.is_poisoned() {
+            return Err(ResolveError::Poisoned);
+        }
         let mut st = self.state.lock().await;
         let alive = st
             .service
@@ -306,7 +443,7 @@ impl KeeperPool {
         self.touch();
         match st.service.as_ref() {
             Some(svc) => Ok((svc.peer().clone(), st.generation)),
-            None => Err(MSG_STARTING),
+            None => Err(ResolveError::Starting),
         }
     }
 
@@ -343,26 +480,37 @@ impl KeeperPool {
     async fn resolve(
         &self,
         call_deadline: Instant,
-    ) -> Result<RunningService<RoleClient, ()>, &'static str> {
+    ) -> Result<RunningService<RoleClient, ClientConfig>, ResolveError> {
+        let s = &self.settings;
+        let admin = s.purpose == Purpose::Admin;
         // Nobody signed in on this computer: a keeper could only say the same
         // thing, so say it here and start none (§6.3). Before the discovery
-        // read and before any start request.
-        if self.signed_out().await {
+        // read and before any start request. Not for the desktop: it asks its
+        // own guard before any gated call (ADR-108 D4).
+        if !admin && self.signed_out().await {
             tracing::info!(
                 target: "vault_app::relay",
                 "nobody is signed in on this computer; answering without starting a keeper"
             );
-            return Err(LockReason::SignedOut.message());
+            return Err(ResolveError::SignedOut);
         }
-        let s = &self.settings;
         let deadline = (Instant::now() + s.resolve_budget).min(call_deadline);
         let mut last_start: Option<Instant> = None;
         // Keeper tenures whose proof did not verify with our key.
         let mut mismatched: Vec<[u8; NONCE_LEN]> = Vec::new();
         // What to report if the budget runs out: the latest thing seen.
-        let mut last_problem: Option<&'static str> = None;
+        let mut last_problem: Option<ResolveError> = None;
+        // The desktop's one fresh start after a Failed record (ADR-108 D5):
+        // the pid of the record it saw first, so only a NEW failure is final.
+        let mut failed_seen: Option<u32> = None;
 
         loop {
+            // Checked every round, not only on entry: a link poisoned while it
+            // is resolving must not go on to start a keeper (security review
+            // N3). `poison` also waits on this resolution's lock.
+            if self.is_poisoned() {
+                return Err(ResolveError::Poisoned);
+            }
             let mut want_start = true;
             // ADR-105 L3: the folder is re-resolved every round, so a relay
             // alive across a move follows it. A recorded folder that is
@@ -373,68 +521,91 @@ impl KeeperPool {
                 RoundVault::Folder(root) => Some(root),
                 RoundVault::Unset => None,
             };
-            // Re-read each round: on a fresh install the key appears only once
-            // the keeper we asked for has created it.
-            let master_key = match vault_root {
-                Some(_) => self.keys.read(),
-                None => None,
-            };
-            if let (Some(vault_root), Some(master_key)) = (vault_root.as_deref(), master_key) {
-                let keys = HandshakeKeys::derive(&master_key);
-                drop(master_key);
-                // No file, or one that cannot be read, means no usable keeper.
-                if let Ok(Some(d)) = discovery::read(vault_root) {
-                    match d.role {
-                        Role::Failed if is_recent(&d.at, s.failed_cooldown) => {
-                            return Err(MSG_FAILED);
+            // No file, or one that cannot be read, means no usable keeper.
+            // Read WITHOUT needing the key (review B R2-S2): a first start
+            // whose key could not be created must be seen as Failed, not
+            // answered with endless start requests.
+            let record = vault_root
+                .as_deref()
+                .and_then(|root| discovery::read(root).ok().flatten());
+            if let (Some(vault_root), Some(d)) = (vault_root.as_deref(), record) {
+                match d.role {
+                    Role::Failed if is_recent(&d.at, s.failed_cooldown) => {
+                        if !admin {
+                            return Err(ResolveError::Failed { pid: d.pid });
                         }
-                        // A keeper cannot start until the run ends: say so at
-                        // once rather than spend the budget asking for one.
-                        Role::Maintenance if is_recent(&d.at, MAINTENANCE_VALID_FOR) => {
-                            return Err(MSG_BUSY);
+                        match failed_seen {
+                            // First sight: one fresh start, at once.
+                            None => {
+                                failed_seen = Some(d.pid);
+                                last_start = None;
+                                last_problem = Some(ResolveError::Failed { pid: d.pid });
+                            }
+                            // The keeper started for it failed as well.
+                            Some(first) if first != d.pid => {
+                                return Err(ResolveError::Failed { pid: d.pid });
+                            }
+                            Some(_) => {}
                         }
-                        Role::Starting if is_recent(&d.at, STARTING_VALID_FOR) => {
-                            want_start = false;
-                            last_problem = None;
-                        }
-                        Role::Keeper => {
-                            if let Ok(identity) = d.keeper_identity(vault_root) {
-                                // A tenure that already failed our key is
-                                // not retried: the endpoint is a squatter's or
-                                // the key is not ours, and a fresh keeper (new
-                                // tenure) settles which.
-                                if !mismatched.contains(&identity.nonce) {
-                                    match self.attempt(&identity, &keys).await {
-                                        Attempt::Connected(service) => return Ok(service),
-                                        Attempt::Busy => {
-                                            want_start = false;
-                                            last_problem = Some(MSG_BUSY);
-                                        }
-                                        Attempt::Gone | Attempt::Yielded => last_problem = None,
-                                        Attempt::KeeperNewer => return Err(MSG_UPDATE),
-                                        Attempt::ProofMismatch => {
-                                            // One tenure can be a squatter on
-                                            // a dead keeper's name. Two
-                                            // DIFFERENT tenures both failing
-                                            // means the key is not the vault's.
-                                            // Counting attempts instead let one
-                                            // squatter report "key changed" in
-                                            // under a second.
-                                            mismatched.push(identity.nonce);
-                                            if mismatched.len() >= 2 {
-                                                return Err(MSG_KEY_CHANGED);
-                                            }
-                                            last_problem = Some(MSG_KEY_CHANGED);
-                                        }
-                                        Attempt::Rejected => return Err(MSG_REFUSED),
+                    }
+                    // A keeper cannot start until the run ends: say so at
+                    // once rather than spend the budget asking for one.
+                    Role::Maintenance if is_recent(&d.at, MAINTENANCE_VALID_FOR) => {
+                        return Err(ResolveError::Busy);
+                    }
+                    Role::Starting if is_recent(&d.at, STARTING_VALID_FOR) => {
+                        want_start = false;
+                        last_problem = None;
+                    }
+                    Role::Keeper => {
+                        // Re-read each round: on a fresh install the key
+                        // appears only once the keeper we asked for has
+                        // created it, and after "Delete everything" a new
+                        // key replaces the old (never cached, review A-M4).
+                        let identity = d.keeper_identity(vault_root);
+                        let master_key = self.keys.read();
+                        if let (Ok(identity), Some(master_key)) = (identity, master_key) {
+                            let keys = HandshakeKeys::derive(&master_key);
+                            drop(master_key);
+                            // A tenure that already failed our key is not
+                            // retried by a relay: the endpoint is a
+                            // squatter's or the key is not ours, and a fresh
+                            // keeper (new tenure) settles which. The desktop
+                            // retries it: its key may have just been replaced
+                            // (review A R2-4).
+                            if admin || !mismatched.contains(&identity.nonce) {
+                                match self.attempt(&identity, &keys).await {
+                                    Attempt::Connected(service) => return Ok(service),
+                                    Attempt::Busy => {
+                                        want_start = false;
+                                        last_problem = Some(ResolveError::Busy);
                                     }
+                                    Attempt::Gone | Attempt::Yielded => last_problem = None,
+                                    Attempt::KeeperNewer => return Err(ResolveError::UpdateNeeded),
+                                    Attempt::ProofMismatch => {
+                                        // One tenure can be a squatter on a
+                                        // dead keeper's name. Two DIFFERENT
+                                        // tenures both failing means the key
+                                        // is not the vault's. Counting
+                                        // attempts instead let one squatter
+                                        // report "key changed" in under a
+                                        // second.
+                                        if !mismatched.contains(&identity.nonce) {
+                                            mismatched.push(identity.nonce);
+                                        }
+                                        if mismatched.len() >= 2 {
+                                            return Err(ResolveError::KeyChanged);
+                                        }
+                                        last_problem = Some(ResolveError::KeyChanged);
+                                    }
+                                    Attempt::Rejected => return Err(ResolveError::Refused),
                                 }
                             }
                         }
-                        // Stale records, and roles from a newer build: no
-                        // usable keeper, so ask for one.
-                        _ => {}
                     }
+                    // Stale records, and roles from a newer build: no usable
+                    // keeper, so ask for one.
+                    _ => {}
                 }
             }
 
@@ -454,7 +625,7 @@ impl KeeperPool {
             }
 
             if Instant::now() >= deadline {
-                return Err(last_problem.unwrap_or(MSG_STARTING));
+                return Err(last_problem.unwrap_or(ResolveError::Starting));
             }
             tokio::time::sleep(s.poll_every).await;
         }
@@ -470,22 +641,41 @@ impl KeeperPool {
         if getrandom::getrandom(&mut challenge).is_err() {
             return Attempt::Gone;
         }
-        match relay_handshake(
-            &mut stream,
-            keys,
-            identity,
-            &self.settings.boundaries,
-            challenge,
-            self.settings.step_deadline,
-        )
-        .await
-        {
+        let handshake = match self.settings.purpose {
+            Purpose::Serve => {
+                relay_handshake(
+                    &mut stream,
+                    keys,
+                    identity,
+                    &self.settings.boundaries,
+                    challenge,
+                    self.settings.step_deadline,
+                )
+                .await
+            }
+            // ADR-SEC-033: the desktop's admin connection. Version handling
+            // is a relay's — an older keeper is asked to yield, never to hand
+            // over; a newer one makes this link say "update needed".
+            Purpose::Admin => {
+                admin_handshake(
+                    &mut stream,
+                    keys,
+                    identity,
+                    challenge,
+                    self.settings.step_deadline,
+                )
+                .await
+            }
+        };
+        match handshake {
             // Bounded like every other step: the MCP initialize exchange
             // with a keeper that stalls after the handshake (or a peer that
             // proved itself and then went silent) must not hold this relay's
             // single resolution — and every call queued behind it — forever.
             Ok(RelayOutcome::Serving) => {
-                match tokio::time::timeout(self.settings.step_deadline, ().serve(stream)).await {
+                let client = self.client_config();
+                match tokio::time::timeout(self.settings.step_deadline, client.serve(stream)).await
+                {
                     Ok(Ok(service)) => Attempt::Connected(service),
                     Ok(Err(e)) => {
                         tracing::warn!(target: "vault_app::relay", error = %e, "keeper session setup failed");
@@ -506,35 +696,138 @@ impl KeeperPool {
     }
 }
 
+/// Why a forwarded call has no answer — [`UpstreamError`] with the reason a
+/// call was not sent kept typed, for the desktop (ADR-108 D5).
+#[derive(Debug)]
+pub enum CallError {
+    /// It never left this process: safe to report, and to try again.
+    NotSent(ResolveError),
+    /// Its deadline passed (the keeper was told to drop it).
+    TimedOut,
+    /// Sent, but the answer was lost: the outcome is unknown.
+    Lost,
+    /// The keeper answered with a protocol error.
+    Keeper(rmcp::ErrorData),
+}
+
+impl From<CallError> for UpstreamError {
+    fn from(e: CallError) -> Self {
+        match e {
+            CallError::NotSent(reason) => Self::NotSent(reason.message()),
+            CallError::TimedOut => Self::TimedOut,
+            CallError::Lost => Self::Lost,
+            CallError::Keeper(e) => Self::Keeper(e),
+        }
+    }
+}
+
+impl KeeperPool {
+    /// Forward one call, finding (or starting) the keeper first, within
+    /// `deadline`. `cancel` withdraws it at any point, including while the
+    /// keeper is still being found (review B R2-N2).
+    ///
+    /// # Errors
+    ///
+    /// [`CallError`].
+    pub async fn call(
+        &self,
+        params: CallToolRequestParams,
+        deadline: Instant,
+        cancel: CancellationToken,
+    ) -> Result<CallToolResult, CallError> {
+        let (peer, generation) = tokio::select! {
+            found = self.peer(deadline) => found.map_err(CallError::NotSent)?,
+            () = cancel.cancelled() => return Err(CallError::NotSent(ResolveError::Cancelled)),
+        };
+        // Sent as a cancellable request (session 59): when the call's time is
+        // up or the AI app cancels it, the keeper is TOLD, and drops the read
+        // from its queue. Before, the relay only stopped listening, and the
+        // keeper went on reranking reads nobody was waiting for: a burst of
+        // six from Cursor on 2026-09-24 kept a new chat's single question
+        // waiting behind them until it timed out too.
+        let request = ClientRequest::CallToolRequest(CallToolRequest::new(params));
+        let handle = match peer
+            .send_cancellable_request(request, PeerRequestOptions::no_options())
+            .await
+        {
+            Ok(handle) => handle,
+            // Never left this process: safe to report as not sent.
+            Err(ServiceError::TransportSend(_)) => {
+                self.forget(generation).await;
+                return Err(CallError::NotSent(ResolveError::Starting));
+            }
+            Err(_) => {
+                self.forget(generation).await;
+                return Err(CallError::Lost);
+            }
+        };
+        let id = handle.id.clone();
+        // Until the call's own deadline (ADR-103 D1): all the time the client
+        // will wait, however much of it finding the keeper used.
+        let outcome = tokio::select! {
+            answered = tokio::time::timeout_at(deadline, handle.await_response()) => {
+                answered.map_err(|_| CANCEL_TIMED_OUT)
+            }
+            () = cancel.cancelled() => Err(CANCEL_BY_APP),
+        };
+        self.touch();
+        match outcome {
+            // A slow keeper is not a dead one: keep the connection, and tell
+            // it to drop the call.
+            Err(reason) => {
+                let _ = peer
+                    .notify_cancelled(CancelledNotificationParam::new(
+                        Some(id),
+                        Some(reason.to_string()),
+                    ))
+                    .await;
+                Err(CallError::TimedOut)
+            }
+            Ok(Ok(ServerResult::CallToolResult(result))) => Ok(result),
+            // Our keeper never answers a call with anything else (no tasks,
+            // no input rounds): treat it as a lost answer.
+            Ok(Ok(_)) => Err(CallError::Lost),
+            Ok(Err(ServiceError::McpError(e))) => Err(CallError::Keeper(e)),
+            // Anything else after sending: outcome unknown.
+            Ok(Err(_)) => {
+                self.forget(generation).await;
+                Err(CallError::Lost)
+            }
+        }
+    }
+}
+
 #[async_trait]
 impl Upstream for KeeperPool {
     async fn call_tool(
         &self,
         params: CallToolRequestParams,
         deadline: std::time::Instant,
+        cancel: CancellationToken,
     ) -> Result<CallToolResult, UpstreamError> {
-        let deadline = Instant::from_std(deadline);
-        let (peer, generation) = self.peer(deadline).await.map_err(UpstreamError::NotSent)?;
-        // Until the call's own deadline (ADR-103 D1): all the time the client
-        // will wait, however much of it finding the keeper used.
-        let outcome = tokio::time::timeout_at(deadline, peer.call_tool(params)).await;
-        self.touch();
-        match outcome {
-            // A slow keeper is not a dead one: keep the connection.
-            Err(_) => Err(UpstreamError::TimedOut),
-            Ok(Ok(result)) => Ok(result),
-            Ok(Err(ServiceError::McpError(e))) => Err(UpstreamError::Keeper(e)),
-            // Never left this process: safe to report as not sent.
-            Ok(Err(ServiceError::TransportSend(_))) => {
-                self.forget(generation).await;
-                Err(UpstreamError::NotSent(MSG_STARTING))
-            }
-            // Anything else after sending: outcome unknown.
-            Ok(Err(_)) => {
-                self.forget(generation).await;
-                Err(UpstreamError::Lost)
-            }
+        self.call(params, Instant::from_std(deadline), cancel)
+            .await
+            .map_err(UpstreamError::from)
+    }
+
+    /// An AI app has connected: remember who it is, and start finding (or
+    /// starting) the keeper now, so the recall engine loads while the person
+    /// types instead of after their first question (session 59: ChatGPT's
+    /// first question after a quiet spell took 48 s of a 55 s budget, 19 s of
+    /// it loading the engine the question had just caused to start).
+    fn app_connected(&self, app: &Implementation) {
+        if let Ok(mut slot) = self.app.lock() {
+            *slot = Some(app.clone());
         }
+        let Some(pool) = self.me.upgrade() else {
+            return;
+        };
+        let budget = pool.settings.resolve_budget;
+        tokio::spawn(async move {
+            // Best effort: a failure here is what the first call would have
+            // met anyway, and it reports it itself.
+            let _ = pool.peer(Instant::now() + budget).await;
+        });
     }
 }
 
@@ -633,7 +926,11 @@ mod tests {
         .unwrap();
         let (pool, starter) = pool(h);
         let answer = pool.resolve(Instant::now() + Duration::from_secs(5)).await;
-        assert_eq!(answer.err(), Some(MSG_LOCATION_MISSING));
+        assert_eq!(answer.err(), Some(ResolveError::LocationMissing));
+        assert_eq!(
+            ResolveError::LocationMissing.message(),
+            MSG_LOCATION_MISSING
+        );
         assert_eq!(
             starts(&starter),
             0,
@@ -648,7 +945,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let (pool, starter) = pool(homes(tmp.path()));
         let answer = pool.resolve(Instant::now() + Duration::from_secs(5)).await;
-        assert_eq!(answer.err(), Some(MSG_STARTING));
+        assert_eq!(answer.err(), Some(ResolveError::Starting));
         assert!(
             starts(&starter) >= 1,
             "the keeper's setup records the location"

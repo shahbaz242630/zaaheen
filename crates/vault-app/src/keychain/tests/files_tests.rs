@@ -31,6 +31,7 @@ fn keyed_entries_are_the_sealed_data_and_never_the_operational_files() {
     for name in [
         ".acl-v1",
         ".vault-host.json",
+        ".vault-clients.json",
         "maintenance.json",
         ".keeper",
         "models",
@@ -54,7 +55,12 @@ fn keyed_entries_are_the_sealed_data_and_never_the_operational_files() {
 #[test]
 fn a_folder_with_only_operational_files_holds_no_vault_data() {
     let tmp = tempfile::tempdir().unwrap();
-    for name in [".acl-v1", ".vault-host.json", "maintenance.json"] {
+    for name in [
+        ".acl-v1",
+        ".vault-host.json",
+        ".vault-clients.json",
+        "maintenance.json",
+    ] {
         touch(&tmp.path().join(name));
     }
     std::fs::create_dir_all(tmp.path().join("models")).unwrap();
