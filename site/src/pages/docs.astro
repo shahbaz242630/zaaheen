@@ -1,0 +1,14 @@
+---
+import Base from '../layouts/Base.astro';
+import Placeholder from '../components/Placeholder.astro';
+import { pageFor } from '../data/site';
+
+const page = pageFor('/docs/');
+---
+<Base page={page}>
+  <section class="page">
+    <h1>Documents</h1>
+    <Placeholder>How-to guides for our products live here, for example: connecting Claude or
+      Cursor to the memory app, how your data is kept safe, and fixing common problems.</Placeholder>
+  </section>
+</Base>

@@ -1,0 +1,73 @@
+---
+import '@fontsource-variable/newsreader/opsz.css';
+import '@fontsource/ibm-plex-sans/400.css';
+import '@fontsource/ibm-plex-sans/500.css';
+import '@fontsource/ibm-plex-mono/400.css';
+import '../styles/global.css';
+import Logo from '../components/Logo.astro';
+import { SITE, NAV, absolute, type PageEntry } from '../data/site';
+import { lastModified } from '../lib/lastmod';
+import { graphFor } from '../lib/seo';
+
+interface Props {
+  page: PageEntry;
+  /** Only for pages that must never be indexed: the 404 page and /pay (UNLISTED in scripts/audit.mjs). */
+  noindex?: boolean;
+}
+
+const { page, noindex = false } = Astro.props;
+const canonical = absolute(page.path);
+const jsonLd = noindex ? null : graphFor(page, lastModified(page.sources));
+---
+<!doctype html>
+<html lang={SITE.lang}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{page.title}</title>
+<meta name="description" content={page.description}>
+{noindex ? <meta name="robots" content="noindex"> : <link rel="canonical" href={canonical}>}
+<meta name="theme-color" content={SITE.themeColor}>
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content={SITE.name}>
+<meta property="og:locale" content={SITE.locale}>
+<meta property="og:title" content={page.title}>
+<meta property="og:description" content={page.description}>
+<meta property="og:url" content={canonical}>
+<meta property="og:image" content={absolute(SITE.ogImage)}>
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content={`${SITE.name}: ${SITE.tagline}`}>
+<meta name="twitter:card" content="summary_large_image">
+{jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
+</head>
+<body>
+
+<header class="bar">
+  <a class="brand" href="/" aria-label={`${SITE.name} home`}>
+    <Logo size={30} />
+    <span>{SITE.name}</span>
+  </a>
+  <nav aria-label="Main">
+    {NAV.map((item) => (
+      <a href={item.href} aria-current={page.path === item.href ? 'page' : undefined}>{item.label}</a>
+    ))}
+  </nav>
+</header>
+
+<main>
+  <slot />
+</main>
+
+<footer>
+  <p>{SITE.name} · <span class="mono">zaaheen.com</span></p>
+  <p class="fine">Your memories never leave your device.</p>
+</footer>
+
+</body>
+</html>

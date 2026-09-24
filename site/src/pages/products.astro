@@ -1,0 +1,25 @@
+---
+import Base from '../layouts/Base.astro';
+import Placeholder from '../components/Placeholder.astro';
+import { pageFor } from '../data/site';
+
+const page = pageFor('/products/');
+---
+<Base page={page}>
+  <section class="page">
+    <h1>Products</h1>
+    <Placeholder>A short introduction: what Zaaheen builds, and for whom.</Placeholder>
+
+    <div class="cards">
+      <a class="card" href="/">
+        <h2>A private memory for your AI assistants</h2>
+        <p>Your AI apps share one memory about you, stored and encrypted on your own computer.</p>
+        <span class="card-link">See the memory app</span>
+      </a>
+      <div class="card card-soon">
+        <h2>More products</h2>
+        <Placeholder>Future products appear here as they launch.</Placeholder>
+      </div>
+    </div>
+  </section>
+</Base>

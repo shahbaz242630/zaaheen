@@ -1,0 +1,36 @@
+---
+import Base from '../layouts/Base.astro';
+import Placeholder from '../components/Placeholder.astro';
+import { COACHING, pageFor } from '../data/site';
+
+// The hub the Knowledge Centre tab opens. Every "Book your session" button goes
+// to the separate booking app (COACHING.bookingUrl).
+const page = pageFor('/knowledge-centre/');
+const book = COACHING.bookingUrl;
+---
+<Base page={page}>
+  <section class="hero">
+    <h1>Knowledge Centre</h1>
+    <Placeholder>One or two sentences on what the Knowledge Centre is: learning to work with
+      AI, through free guides and private 1-to-1 coaching.</Placeholder>
+    <a class="cta" href={book}>Book your session</a>
+  </section>
+
+  <section class="hub-section">
+    <h2>Private 1-to-1 AI coaching</h2>
+    <Placeholder>Who the coaching is for, what a session covers, and how it works.</Placeholder>
+    <a class="cta" href={book}>Book your session</a>
+  </section>
+
+  <section class="hub-section">
+    <h2>Guides</h2>
+    <Placeholder>Free articles that answer real questions about working with AI. Each one
+      links to booking.</Placeholder>
+  </section>
+
+  <section class="hub-section hub-close">
+    <h2>Ready when you are</h2>
+    <Placeholder>A closing line on why to book now.</Placeholder>
+    <a class="cta" href={book}>Book your session</a>
+  </section>
+</Base>
