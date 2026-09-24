@@ -200,6 +200,31 @@ pub fn classify_failure(child_output: &str) -> RunOutcome {
     }
 }
 
+/// Whether a catch-up run is still due (ADR-108 D8): automatic maintenance is
+/// on, and no run has succeeded within one interval (a day, or a week for a
+/// weekly schedule). The same rule the desktop's launch check uses; asked
+/// again by the run itself once it holds the vault, so a catch-up that waited
+/// behind a "Run now" does not tidy twice (review B-S4).
+pub fn is_due(config: &MaintenanceConfig, now: chrono::DateTime<chrono::Utc>) -> bool {
+    if !config.enabled {
+        return false;
+    }
+    let interval = if config.frequency == "weekly" {
+        chrono::Duration::days(7)
+    } else {
+        chrono::Duration::days(1)
+    };
+    let last_ok = config
+        .last_run
+        .as_ref()
+        .filter(|run| run.ok)
+        .and_then(|run| chrono::DateTime::parse_from_rfc3339(&run.finished_at).ok());
+    match last_ok {
+        Some(at) => now.signed_duration_since(at) > interval,
+        None => true,
+    }
+}
+
 /// Load the persisted config, falling back to the default when it is absent or
 /// unreadable.
 ///
@@ -294,6 +319,36 @@ fn temp_sibling(path: &Path) -> PathBuf {
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    fn run_at(hours_ago: i64, ok: bool, now: chrono::DateTime<chrono::Utc>) -> Option<LastRun> {
+        Some(LastRun {
+            finished_at: (now - chrono::Duration::hours(hours_ago)).to_rfc3339(),
+            ok,
+            summary: String::new(),
+        })
+    }
+
+    #[test]
+    fn a_catch_up_is_due_only_when_on_and_a_whole_interval_has_passed() {
+        let now = chrono::Utc::now();
+        let mut c = MaintenanceConfig {
+            enabled: true,
+            ..MaintenanceConfig::default()
+        };
+        assert!(is_due(&c, now), "never run");
+        c.last_run = run_at(2, true, now);
+        assert!(!is_due(&c, now), "ran two hours ago");
+        c.last_run = run_at(25, true, now);
+        assert!(is_due(&c, now), "a day has passed");
+        c.last_run = run_at(2, false, now);
+        assert!(is_due(&c, now), "a failed run does not count");
+        c.frequency = "weekly".into();
+        c.last_run = run_at(25, true, now);
+        assert!(!is_due(&c, now), "weekly: one day is not enough");
+        c.enabled = false;
+        c.last_run = None;
+        assert!(!is_due(&c, now), "automatic maintenance is off");
+    }
 
     fn summary() -> RunSummary {
         RunSummary {

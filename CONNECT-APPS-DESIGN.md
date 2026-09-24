@@ -47,3 +47,88 @@ vault-app: `external_link` — the fixed link passes its gate, survives parsing 
 ### Implementation record (session 56, 2026-09-22)
 
 The first build was clean under `-D warnings`. Two test defects, no code defect. `the_commands_take_nothing_but_the_app` split the arguments at every comma, including the one inside `State<'_, Entitlement>`; it now splits at top-level commas only. And `frontend_contract.rs` never read `commands/connect.rs` or `commands/startup.rs` (its `COMMAND_SOURCES` list), so their three commands were outside every wiring guard there; both are listed, and a new guard, `every_command_module_is_read_by_the_guards`, holds that list to `commands/mod.rs`. **Independent code review** (read-only, against the zip 6.0.0, tauri 2.11 and open 5.4.4 sources): nothing at BLOCKER, MAJOR or MINOR; the coarse registry checks and the part-file's check-then-write were noted below its bar as this design's residuals. **Planted bugs, each caught:** another scheme through the link gate (with the constant edited to match); another server in `config`; the extension opened where Windows cannot open it; saved when Claude is not there; the extension running another program; `connect_app` not asking the lock; "Show the file" taking a path from the page; a command module the wiring guards never read.
+
+
+---
+
+# Session 59 (2026-09-24): the live connection test and what it fixed
+
+The founder's live test, every app from a clean slate on the sandbox installer: Cursor (install link) and Claude Desktop (the extension; chat AND Cowork) connected and read correctly; ChatGPT desktop (Work and Codex, one "Add MCP Server" entry) too; the updated Antigravity could not connect. Results and fix list: `C:\Projects\MemoryVault-artifacts\ui-harness\WALKTHROUGH-S59-LIST.md`.
+
+**Guided steps for the apps with no install route** (session 59, in `dist/app.js` `AGENTS`): ChatGPT, its own Settings → Integrations → Plugins → Add MCP Server form, with the command and its two arguments shown apart (the founder's first try put the whole line in Arguments, saved as `args = ["zaaheen mcp serve"]`, which fails); Antigravity, its file by full path, `%USERPROFILE%\.gemini\config\mcp_config.json` (the IDE: `.gemini\antigravity`), because its own assistant named the wrong file (`settings.json`) and the app's program text says `mcp_config.json`; Claude Code, its documented `claude mcp add --transport stdio --scope user zaaheen -- zaaheen mcp serve` (code.claude.com/docs/en/mcp). ChatGPT's Chat mode cannot connect (internet servers only). No button for these: ADR-106 still holds (never write an app's settings file).
+
+## ADR-SEC-032 (session 59, 2026-09-24): rmcp 2.2.0 → 3.4.1, for the 2026-07-28 MCP spec
+
+**Found live.** Antigravity, updated on 2026-09-24, could not connect: "MCP transport bind failed:
+expect initialized request, but received: Some(Request(JsonRpcRequest { ... id: Number(1), request:
+CustomRequest(CustomRequest { method: "server/discover", params: Some(Object {}) ... })) : connection
+closed: calling "initialize": client is closing: EOF". It speaks the 2026-07-28 spec: after
+`initialize` it sends `server/discover` (SEP-2575, which servers MUST answer) with no
+`notifications/initialized`, and rmcp 2.2.0 closed the connection. The other apps will move to that
+spec too.
+
+**Decision.** rmcp `=3.4.1` (workspace pin; ADR-SEC-021's note already said "3.x is the 2026-07-28
+spec and needs its own live test"). Checked before the move: 3.x answers `server/discover` from the
+same server info and no longer gates on `initialized` (rmcp `service/server.rs`); 3.2.0 keeps the
+`initialize` handshake for every legacy client; no GitHub advisory affects 3.x (the four rmcp
+advisories are all < 2.1.0); 3.4.1 still carries the #947 line-reader fix ADR-SEC-021 required; the
+lockfile gains only base64 0.23, darling 0.24 and a syn version. `tokio-util =0.7.18` becomes a
+direct dependency (already in the lockfile through rmcp) for `CancellationToken`.
+
+**What changed with it (security-relevant).**
+1. **The subscription gate lost its compile-time alarm.** rmcp 3 made `ClientRequest`
+   `#[non_exhaustive]`, so §6.1's "a future rmcp variant fails to compile" is no longer possible:
+   the compiler requires a catch-all. It fails CLOSED: `_ => Kind::Other` (asks the check, refused
+   while locked). Every variant rmcp 3.4.1 has is still named; `server/discover` is Open like
+   `initialize` (no user data; startup waits on it); `subscriptions/listen` and `tasks/update` are
+   Other. `tests/entitlement_gate.rs` pins exactly one catch-all mapping to `Kind::Other`, every
+   variant named, and the `=3.4.1` pin (a new variant can only arrive through an upgrade that
+   re-reads the list).
+2. **No task-style tool calls any more.** rmcp 2.2 let a client ask for one (the gate answered with
+   rmcp's own invalid-params refusal). In rmcp 3 (SEP-2663) the SERVER creates tasks and ours never
+   does, so `CallToolRequestParams.task` is gone; a locked call carrying a `task` field gets the
+   ordinary locked words and still never reaches the server (test).
+3. Mechanical: `ServerInfo` → `ServerConfig` (deprecated alias), `call_tool` returns
+   `CallToolResponse`, a client's view of `server_info` is optional.
+
+**Tests.** `vault-mcp/tests/new_protocol_handshake.rs` replays Antigravity's exact sequence against
+the relay and the keeper's server, for protocol versions 2025-11-25 and 2026-07-28, and keeps the
+old handshake working; `entitlement_gate.rs`: `server_discover_is_answered_even_while_locked_without_asking`,
+`a_locked_call_carrying_a_task_field_is_refused_like_any_other`,
+`the_gate_names_every_request_kind_and_fails_closed_on_new_ones`.
+
+**`WIRE` 3 → 4** (`keeper/handshake.rs`): rmcp 3 carries the pipe and the tool descriptions changed (ADR-107), so a keeper and a relay from different installs refuse each other with "restart every app" instead of disagreeing silently; the contract hash is re-pinned (`the_tool_contract_is_pinned_to_the_wire_version`).
+
+**One thing only the live test can settle.** rmcp 3 answers a `server/discover` whose `_meta` carries the 2026-07-28 fields (protocol version, client capabilities), and answers one without them with an invalid-params ERROR while keeping the session open. Antigravity's logged line showed `params: Some(Object {})`, but rmcp moves `_meta` out of the params before printing, so which it sent is unknown. Both cases are tested (`new_protocol_handshake.rs`); whether Antigravity then proceeds is for the live test.
+
+**Live test still owed** (ADR-SEC-021's condition): the next installer, with Claude, Cursor,
+ChatGPT and the updated Antigravity.
+
+## ADR-107 (session 59): the read desk, cancelled calls dropped, the keeper started on connect
+
+**Found live (2026-09-24, keeper log).** Cursor's model sent six `memory_read` at once; the reranker
+takes one question at a time (~25-30 s each on the founder's laptop), so reads 2-6 waited 55-200 s
+and came back "the vault took too long to answer" although the keeper answered every one. The relay
+only stopped listening when its 55 s ran out, and the keeper went on answering reads nobody wanted,
+so a new chat's single question queued behind them and failed too (08:05-08:07 UTC). And the first
+question after a quiet spell started the keeper itself: 48.2 s of the 55 s, ~19 s of it loading the
+engine. The AI apps stop waiting at 60 s, so the budget cannot grow.
+
+**Decision.**
+- **Cancel what nobody waits for.** The relay sends its call as a cancellable request and, when its
+  deadline passes or the AI app cancels, sends MCP `notifications/cancelled` to the keeper.
+- **One desk** (`vault-mcp/src/desk.rs`), shared by every connection a keeper serves: reads and
+  searches take turns; waiting is an async wait, so a cancelled question leaves the line without a
+  turn; from the median of the last three finished turns, a question that could not be answered
+  within 50 s (`DESK_BUDGET`) hears `MSG_BUSY` at once ("ask again in a moment, one question at a
+  time") instead of failing after a minute. It never says busy before a turn has finished.
+- **Start the keeper when an app connects.** The relay's `initialize` records the app and starts
+  finding (or starting) the keeper in the background, so the engine loads while the person types.
+- **Ask agents for one question at a time** in the tool descriptions (the cross-platform lever).
+
+## The Agents tab lists the apps actually connected (session 36's design, built session 59)
+The relay introduces itself to the keeper under its AI app's own MCP `clientInfo` name; the keeper
+keeps `<vault>/.vault-clients.json` (names and times only, atomic writes, removed on exit, in
+`VAULT_ENTRIES`, operational not data); the desktop's `list_connected_apps` reads it only while the
+discovery file names the same keeper. The tab and footer show connected apps with friendly names;
+the daemon's access keys keep their own list, shown only when one exists.

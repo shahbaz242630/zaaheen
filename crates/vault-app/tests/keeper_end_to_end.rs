@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use rmcp::model::CallToolRequestParams;
 use rmcp::ServerHandler;
 use tokio::sync::oneshot;
+use tokio_util::sync::CancellationToken;
 use vault_app::entitlement::ModeCheck;
 use vault_app::keeper::discovery::{self, Discovery};
 use vault_app::keeper::handshake::{HandshakeKeys, WIRE};
@@ -157,6 +158,7 @@ impl KeeperStarter for SpawningStarter {
             let settings = keeper_settings(self.root.clone(), Duration::from_secs(30));
             self.runtime.spawn(runtime::serve(
                 adapter,
+                None,
                 HandshakeKeys::derive(&MASTER_KEY),
                 settings,
                 None,
@@ -176,6 +178,7 @@ fn keeper_settings(root: std::path::PathBuf, idle_exit: Duration) -> KeeperSetti
         frame1_deadline: Duration::from_millis(500),
         handshake_deadline: Duration::from_secs(2),
         max_pending_handshakes: 8,
+        drain: Duration::from_secs(1),
     }
 }
 
@@ -196,6 +199,7 @@ fn relay_settings(root: std::path::PathBuf, boundaries: &[&str]) -> RelaySetting
         // this arc behaves exactly as it did.
         account_dir: None,
         marker_recheck: Duration::from_millis(50),
+        purpose: vault_app::keeper::relay::Purpose::Serve,
     }
 }
 
@@ -267,6 +271,7 @@ async fn start_keeper_serving(
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
     let handle = tokio::spawn(runtime::serve(
         adapter,
+        None,
         HandshakeKeys::derive(&MASTER_KEY),
         keeper_settings(root.to_path_buf(), idle_exit),
         subscription,
@@ -297,7 +302,7 @@ async fn a_relay_reaches_the_keeper_scoped_to_the_boundaries_it_proved() {
         Arc::new(FixedKey(MASTER_KEY)),
     );
     let result = pool
-        .call_tool(search_call(), soon())
+        .call_tool(search_call(), soon(), CancellationToken::new())
         .await
         .expect("forwarded");
     assert_ne!(result.is_error, Some(true));
@@ -335,8 +340,8 @@ async fn two_relays_are_served_at_the_same_time() {
         Arc::new(FixedKey(MASTER_KEY)),
     );
     let (a, b) = tokio::join!(
-        chat.call_tool(search_call(), soon()),
-        pool.call_tool(search_call(), soon())
+        chat.call_tool(search_call(), soon(), CancellationToken::new()),
+        pool.call_tool(search_call(), soon(), CancellationToken::new())
     );
     assert!(a.is_ok() && b.is_ok());
     let mut seen = adapter.searches();
@@ -365,7 +370,10 @@ async fn a_relay_with_the_wrong_key_never_reaches_the_vault() {
         Arc::new(NoStart),
         Arc::new(FixedKey([0x99; 32])),
     );
-    match pool.call_tool(search_call(), soon()).await {
+    match pool
+        .call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+    {
         Err(UpstreamError::NotSent(reason)) => assert_eq!(reason, MSG_KEY_CHANGED),
         other => panic!("expected a refusal, got {other:?}"),
     }
@@ -393,7 +401,7 @@ async fn a_relay_starts_a_keeper_when_there_is_none() {
         Arc::new(FixedKey(MASTER_KEY)),
     );
 
-    pool.call_tool(search_call(), soon())
+    pool.call_tool(search_call(), soon(), CancellationToken::new())
         .await
         .expect("served once the keeper is up");
     assert!(starter.requests.load(Ordering::SeqCst) >= 1);
@@ -430,7 +438,9 @@ async fn a_connected_relay_keeps_the_keeper_until_it_disconnects() {
         Arc::new(NoStart),
         Arc::new(FixedKey(MASTER_KEY)),
     );
-    pool.call_tool(search_call(), soon()).await.expect("served");
+    pool.call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+        .expect("served");
     tokio::time::sleep(Duration::from_millis(900)).await;
     assert!(
         !keeper.is_finished(),
@@ -459,14 +469,19 @@ async fn a_call_after_the_keeper_stops_is_reported_not_sent() {
         Arc::new(NoStart),
         Arc::new(FixedKey(MASTER_KEY)),
     );
-    pool.call_tool(search_call(), soon()).await.expect("served");
+    pool.call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+        .expect("served");
 
     let _ = stop.send(());
     keeper.await.unwrap().unwrap();
     // Let the connection close before the next call.
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    match pool.call_tool(search_call(), soon()).await {
+    match pool
+        .call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+    {
         Err(UpstreamError::NotSent(_)) | Err(UpstreamError::Lost) => {}
         other => panic!("expected a failure once the keeper is gone, got {other:?}"),
     }
@@ -494,7 +509,10 @@ async fn a_keeper_slower_than_the_deadline_times_out_at_the_deadline() {
 
     let asked_at = Instant::now();
     let deadline = asked_at + Duration::from_millis(1200);
-    match pool.call_tool(search_call(), deadline).await {
+    match pool
+        .call_tool(search_call(), deadline, CancellationToken::new())
+        .await
+    {
         Err(UpstreamError::TimedOut) => {}
         other => panic!("a keeper slower than the deadline must time out, got {other:?}"),
     }
@@ -527,7 +545,11 @@ async fn finding_a_keeper_never_outlives_the_deadline() {
 
     let asked_at = Instant::now();
     match pool
-        .call_tool(search_call(), asked_at + Duration::from_millis(500))
+        .call_tool(
+            search_call(),
+            asked_at + Duration::from_millis(500),
+            CancellationToken::new(),
+        )
         .await
     {
         Err(UpstreamError::NotSent(_)) => {}
@@ -556,7 +578,10 @@ async fn a_relay_answers_busy_at_once_during_maintenance() {
     );
 
     let asked_at = std::time::Instant::now();
-    match pool.call_tool(search_call(), soon()).await {
+    match pool
+        .call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+    {
         Err(UpstreamError::NotSent(reason)) => assert_eq!(reason, MSG_BUSY),
         other => panic!("expected busy, got {other:?}"),
     }
@@ -596,7 +621,9 @@ async fn erasure_takes_the_vault_from_a_serving_keeper() {
         Arc::new(NoStart),
         Arc::new(FixedKey(MASTER_KEY)),
     );
-    pool.call_tool(search_call(), soon()).await.expect("served");
+    pool.call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+        .expect("served");
 
     let held = exclusive::take_exclusive(
         &root,
@@ -614,7 +641,10 @@ async fn erasure_takes_the_vault_from_a_serving_keeper() {
         "no new keeper may start while the erasure runs"
     );
 
-    match pool.call_tool(search_call(), soon()).await {
+    match pool
+        .call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+    {
         Err(UpstreamError::NotSent(_)) | Err(UpstreamError::Lost) => {}
         other => panic!("the vault must be out of reach, got {other:?}"),
     }
@@ -660,13 +690,15 @@ async fn erasure_waits_out_and_reports_a_maintenance_run() {
 /// this hash, and the fix is to bump `WIRE` deliberately.
 #[test]
 fn the_tool_contract_is_pinned_to_the_wire_version() {
-    // Recorded 2026-09-21 from the wire-v3 tool contract (session 52: 4d-3's
-    // `memory_read` description, SIGNIN-DESIGN.md §8.40), computed on Windows
-    // under rmcp 2.2.0. Wire 2 was
+    // Recorded 2026-09-24 from the wire-v4 tool contract (session 59:
+    // "one question at a time" in memory_read / memory_search, ADR-107),
+    // computed on Windows under rmcp 3.4.1. Wire 3 was
+    // 7a941150d4fe95809f1a0847607b607d3ecc79caabfad2e2f645719e1af4584d
+    // (session 52, rmcp 2.2.0); wire 2 was
     // 64bafc664287b3e09449bb4c093e38bfa87b287bbb769ce86e14967363a7d836 (CI,
     // Linux and macOS, ADR-SEC-021 D4c); wire 1 was
     // 2e062fb5bc6adb1a62b37ca9c33adb51dbfd2f59249e501d7fa6dfb9871309be.
-    const PINNED: &str = "7a941150d4fe95809f1a0847607b607d3ecc79caabfad2e2f645719e1af4584d";
+    const PINNED: &str = "198591bd3b035767929eef3e50d802a83596e1231b0c129b40a281df5973998c";
 
     let server = StdioServer::new(Arc::new(NoVaultAdapter), Vec::new());
     let mut hasher = blake3::Hasher::new();
@@ -692,7 +724,7 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     let actual = hasher.finalize().to_hex().to_string();
     assert_eq!(
         (WIRE, actual.as_str()),
-        (3, PINNED),
+        (4, PINNED),
         "The MCP tool contract changed. Relays and keepers from different \
          builds must not disagree about it silently: bump WIRE in \
          vault_app::keeper::handshake and set PINNED to {actual}."
@@ -762,7 +794,7 @@ async fn a_keeper_whose_trial_ends_refuses_the_call_and_never_touches_the_vault(
 
     let pool = pool_for(tmp.path());
     let result = pool
-        .call_tool(search_call(), soon())
+        .call_tool(search_call(), soon(), CancellationToken::new())
         .await
         .expect("a locked call comes back as a tool result");
     assert_eq!(result.is_error, Some(true));
@@ -798,7 +830,7 @@ async fn an_entitled_keeper_serves_the_call_as_before() {
         Arc::new(FixedKey(MASTER_KEY)),
     );
     let result = pool
-        .call_tool(search_call(), soon())
+        .call_tool(search_call(), soon(), CancellationToken::new())
         .await
         .expect("an entitled call is served");
     assert_ne!(result.is_error, Some(true));
@@ -1065,7 +1097,10 @@ async fn a_call_in_flight_finishes_before_the_mode_changes() {
     let pool = pool_for(tmp.path());
     let calling = {
         let pool = pool.clone();
-        tokio::spawn(async move { pool.call_tool(search_call(), soon()).await })
+        tokio::spawn(async move {
+            pool.call_tool(search_call(), soon(), CancellationToken::new())
+                .await
+        })
     };
     // The call is in the vault; now the subscription lapses under it.
     tokio::time::sleep(Duration::from_millis(200)).await;
@@ -1225,7 +1260,7 @@ async fn a_lock_mode_keeper_answers_the_locked_message_through_a_relay() {
 
     let pool = pool_for(tmp.path());
     let result = pool
-        .call_tool(search_call(), soon())
+        .call_tool(search_call(), soon(), CancellationToken::new())
         .await
         .expect("a locked call comes back as a readable tool result");
     assert_eq!(result.is_error, Some(true));
@@ -1292,7 +1327,7 @@ async fn a_lock_mode_call_that_finds_the_user_entitled_unlocks_the_keeper() {
 
     let pool = pool_for(tmp.path());
     let result = pool
-        .call_tool(search_call(), soon())
+        .call_tool(search_call(), soon(), CancellationToken::new())
         .await
         .expect("the call is answered, not dropped");
     assert_eq!(result.is_error, Some(true));
@@ -1418,7 +1453,10 @@ async fn a_signed_out_computer_answers_the_sign_in_message_and_starts_no_keeper(
     // At this layer a call that never left the process is `NotSent`; it is
     // `RelayServer` that turns it into the `isError` tool result the agent
     // reads (ADR-103 D2), which `vault-mcp`'s own tests cover.
-    match pool.call_tool(search_call(), soon()).await {
+    match pool
+        .call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+    {
         Err(UpstreamError::NotSent(reason)) => {
             assert_eq!(reason, LockReason::SignedOut.message());
         }
@@ -1463,7 +1501,9 @@ async fn a_marker_that_appears_between_the_two_checks_is_not_a_signed_out_comput
 
     // No keeper exists, so this ends in "starting" — the point is that it got
     // as far as asking for one instead of short-circuiting.
-    let _ = pool.call_tool(search_call(), soon()).await;
+    let _ = pool
+        .call_tool(search_call(), soon(), CancellationToken::new())
+        .await;
     writing.await.unwrap();
     assert!(
         starter.0.load(Ordering::SeqCst) >= 1,
@@ -1489,7 +1529,9 @@ async fn a_marker_with_no_lease_starts_a_keeper_as_usual() {
         Arc::new(FixedKey(MASTER_KEY)),
     );
 
-    let _ = pool.call_tool(search_call(), soon()).await;
+    let _ = pool
+        .call_tool(search_call(), soon(), CancellationToken::new())
+        .await;
     assert!(
         starter.0.load(Ordering::SeqCst) >= 1,
         "a signed-in computer asks for a keeper as it always did"
@@ -1508,7 +1550,9 @@ async fn a_build_with_no_sign_in_never_short_circuits() {
         Arc::new(FixedKey(MASTER_KEY)),
     );
 
-    let _ = pool.call_tool(search_call(), soon()).await;
+    let _ = pool
+        .call_tool(search_call(), soon(), CancellationToken::new())
+        .await;
     assert!(
         starter.0.load(Ordering::SeqCst) >= 1,
         "a build with no sign-in must behave exactly as it did before"
@@ -1561,4 +1605,95 @@ async fn erasure_takes_the_vault_from_a_lock_mode_keeper() {
         "no new keeper may start while the erasure runs"
     );
     drop(held);
+}
+
+// ── Session 59: the Agents tab's list, and cancelled calls (ADR-107) ─────────
+
+/// The relay introduces itself under its AI app's own name, the keeper lists
+/// that name for the desktop, and the entry goes when the app does.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_keeper_lists_the_app_a_relay_names_until_it_leaves() {
+    use vault_app::keeper::clients;
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::default());
+    let (stop, keeper) = start_keeper(tmp.path(), adapter, Duration::from_secs(30)).await;
+
+    let pool = KeeperPool::new(
+        relay_settings(tmp.path().to_path_buf(), &["work"]),
+        Arc::new(NoStart),
+        Arc::new(FixedKey(MASTER_KEY)),
+    );
+    pool.app_connected(&rmcp::model::Implementation::new("cursor-vscode", "1"));
+    pool.call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+        .expect("served");
+    let names: Vec<String> = clients::read_live(tmp.path())
+        .into_iter()
+        .map(|a| a.name)
+        .collect();
+    assert_eq!(names, ["cursor-vscode"]);
+
+    drop(pool);
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while !clients::read_live(tmp.path()).is_empty() {
+        assert!(
+            Instant::now() < deadline,
+            "the app left but is still listed"
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+
+    let _ = stop.send(());
+    assert_eq!(keeper.await.unwrap().unwrap(), KeeperExit::Shutdown);
+    assert!(
+        !clients::clients_path(tmp.path()).exists(),
+        "a stopping keeper removes the list"
+    );
+}
+
+/// A call the relay gives up on is dropped by the keeper, not finished for
+/// nobody: the next caller gets the desk at once instead of queueing behind
+/// it (2026-09-24: a new chat's single question timed out behind a burst the
+/// relay had already abandoned).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_call_the_relay_gives_up_on_is_dropped_by_the_keeper() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::slow(Duration::from_secs(3)));
+    let (stop, keeper) = start_keeper(tmp.path(), adapter.clone(), Duration::from_secs(30)).await;
+    let pool = KeeperPool::new(
+        relay_settings(tmp.path().to_path_buf(), &["work"]),
+        Arc::new(NoStart),
+        Arc::new(FixedKey(MASTER_KEY)),
+    );
+
+    let abandoned = pool
+        .call_tool(
+            search_call(),
+            Instant::now() + Duration::from_millis(400),
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(
+        matches!(abandoned, Err(UpstreamError::TimedOut)),
+        "{abandoned:?}"
+    );
+
+    let asked = Instant::now();
+    pool.call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+        .expect("served");
+    assert!(
+        asked.elapsed() < Duration::from_millis(4500),
+        "the next call waited behind the abandoned one ({:?})",
+        asked.elapsed()
+    );
+    assert_eq!(
+        adapter.completed(),
+        1,
+        "only the wanted call ran to the end"
+    );
+
+    drop(pool);
+    let _ = stop.send(());
+    let _ = keeper.await;
 }

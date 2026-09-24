@@ -57,11 +57,10 @@ use std::time::Instant;
 use serde::Serialize;
 use tauri::{Emitter, State};
 use vault_app::maintenance_state::{self, LastRun, MaintenanceConfig, RunOutcome};
-use vault_app::Application;
-use vault_mcp::ToolInvokeDetails;
 use vault_scheduler::{platform_scheduler, Frequency, ScheduleSpec, SchedulerError, TaskId};
 
 use crate::guard::Entitlement;
+use crate::link::{KeeperLink, Kind};
 use crate::model_fetch;
 
 /// Stable OS task id for the maintenance schedule (safe charset per
@@ -481,7 +480,7 @@ pub async fn get_maintenance_schedule(
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn set_maintenance_schedule(
-    app: State<'_, Application>,
+    link: State<'_, KeeperLink>,
     ctx: State<'_, MaintenanceContext>,
     entitlement: State<'_, Entitlement>,
     enabled: bool,
@@ -534,28 +533,44 @@ pub async fn set_maintenance_schedule(
         save_config(&ctx.config_path, &config)?;
     }
 
-    let duration_ms = start.elapsed().as_millis() as u64;
-    let error_for_audit = scheduler_result.as_ref().err().map(|_| {
-        vault_mcp::ToolInvokeError::from_vault_error(&vault_core::VaultError::Scheduler(
-            "schedule change failed".to_string(),
-        ))
-    });
-    let _ = app
-        .adapter()
-        .append_tauri_command_audit(ToolInvokeDetails {
-            tool: "set_maintenance_schedule",
-            duration_ms,
-            result_count: u32::from(enabled),
-            boundary_count: 0,
-            max_results: None,
-            score_threshold: None,
-            include_archived: None,
-            query_length: None,
-            error: error_for_audit,
-        })
+    // A settings change per §11.9.1: recorded in the vault's audit chain by
+    // the keeper that holds it (ADR-108 D3), with the same row as before.
+    let _ = link
+        .call(
+            "admin_audit_event",
+            serde_json::json!({
+                "event": "set_maintenance_schedule",
+                "duration_ms": start.elapsed().as_millis() as u64,
+                "result_count": u32::from(enabled),
+                "failed": scheduler_result.is_err(),
+            }),
+            Kind::Write,
+        )
         .await;
 
     scheduler_result
+}
+
+/// "Run now" (ADR-108 D8): the runner takes the vault from the keeper itself
+/// (the keeper finishes what it is doing and steps aside), and writes the
+/// run's audit row itself.
+fn run_now_args(ctx: &MaintenanceContext) -> Vec<String> {
+    let mut args = consolidate_args(ctx);
+    args.push("--take-over".to_string());
+    args
+}
+
+/// The catch-up at launch (ADR-108 D8): never interrupts anyone. It waits
+/// for the vault like the nightly run, and once it holds it, runs only if a
+/// run is still due.
+fn catch_up_args(ctx: &MaintenanceContext) -> Vec<String> {
+    let mut args = vec![
+        "--wait-if-busy-minutes".to_string(),
+        SCHEDULED_BUSY_WAIT_MINUTES.to_string(),
+    ];
+    args.extend(consolidate_args(ctx));
+    args.push("--only-if-due".to_string());
+    args
 }
 
 /// Run a consolidation immediately by spawning the bundled `vault-cli`.
@@ -567,15 +582,28 @@ pub async fn set_maintenance_schedule(
 /// consolidation run per §11.9.1).
 #[tauri::command]
 pub async fn run_maintenance_now(
-    app: State<'_, Application>,
+    link: State<'_, KeeperLink>,
     ctx: State<'_, MaintenanceContext>,
     entitlement: State<'_, Entitlement>,
+    catch_up: Option<bool>,
 ) -> Result<String, String> {
     // Session 48's obligation: ungated, this reports the run as done on a
     // locked computer although the runner paused and nothing ran.
     let _entitled = entitlement.require().await?;
-    let start = Instant::now();
-    let args = consolidate_args(&ctx);
+    let catch_up = catch_up.unwrap_or(false);
+    let args = if catch_up {
+        catch_up_args(&ctx)
+    } else {
+        run_now_args(&ctx)
+    };
+
+    // "Run now" takes the vault: from this moment the window says "tidying"
+    // instead of reconnecting into the hand-over, and it lets go of its own
+    // session so the keeper is not kept waiting on it (review B-S3).
+    if !catch_up {
+        link.set_tidying(true);
+        link.disconnect().await;
+    }
 
     // Through the windowless runner, exactly as the schedule does
     // (ADR-SEC-015): one code path, and no console window flashes over the app
@@ -585,14 +613,15 @@ pub async fn run_maintenance_now(
         .env(LANCE_MEM_POOL_ENV.0, LANCE_MEM_POOL_ENV.1)
         .output()
         .await;
+    link.set_tidying(false);
 
     // The run records its own outcome into `maintenance.json` (ADR-SEC-016) —
     // this command no longer writes it. That keeps one writer for the status
     // regardless of who started the run, and it is what stops the child's
     // stdout (which carries `summary_markdown` and contradiction reasoning,
     // both derived from memory content) reaching a plaintext file.
-    let (result, result_count): (Result<String, String>, u32) = match output {
-        Ok(out) if out.status.success() => (Ok(recorded_summary(&ctx.config_path)), 1),
+    let result: Result<String, String> = match output {
+        Ok(out) if out.status.success() => Ok(recorded_summary(&ctx.config_path)),
         Ok(out) => {
             let combined = format!(
                 "{}{}",
@@ -602,11 +631,11 @@ pub async fn run_maintenance_now(
             match maintenance_state::classify_failure(&combined) {
                 RunOutcome::Busy => {
                     tracing::warn!("maintenance run skipped: vault in use by another writer");
-                    (Err(ERR_MAINTENANCE_BUSY.to_string()), 0)
+                    Err(ERR_MAINTENANCE_BUSY.to_string())
                 }
                 _ => {
                     tracing::error!(status = %out.status, "maintenance run failed");
-                    (Err(ERR_MAINTENANCE_FAILED.to_string()), 0)
+                    Err(ERR_MAINTENANCE_FAILED.to_string())
                 }
             }
         }
@@ -619,31 +648,12 @@ pub async fn run_maintenance_now(
                 &RunOutcome::Failed,
                 chrono::Utc::now().to_rfc3339(),
             );
-            (Err(ERR_MAINTENANCE_FAILED.to_string()), 0)
+            Err(ERR_MAINTENANCE_FAILED.to_string())
         }
     };
 
-    let duration_ms = start.elapsed().as_millis() as u64;
-    let error_for_audit = result.as_ref().err().map(|_| {
-        vault_mcp::ToolInvokeError::from_vault_error(&vault_core::VaultError::Consolidation(
-            "maintenance run failed".to_string(),
-        ))
-    });
-    let _ = app
-        .adapter()
-        .append_tauri_command_audit(ToolInvokeDetails {
-            tool: "run_maintenance_now",
-            duration_ms,
-            result_count,
-            boundary_count: 0,
-            max_results: None,
-            score_threshold: None,
-            include_archived: None,
-            query_length: None,
-            error: error_for_audit,
-        })
-        .await;
-
+    // No audit row here: the run holds the vault and writes its own (ADR-108
+    // D8, review B R2-S5), so it lands even if this window has closed.
     result
 }
 
@@ -685,6 +695,28 @@ mod tests {
         assert!(joined.contains("--phi4-model C:\\data\\models\\phi4.gguf"));
         // The action is the last token.
         assert_eq!(args.last().map(String::as_str), Some("run"));
+    }
+
+    /// ADR-108 D8: only "Run now" takes the vault from the keeper; the
+    /// catch-up waits and asks "still due?" once it holds the vault; the
+    /// nightly task does neither (review A R2-7, B R2-S6).
+    #[test]
+    fn only_run_now_takes_over_and_only_the_catch_up_checks_it_is_due() {
+        let nightly = scheduled_args(&ctx());
+        assert!(!nightly.iter().any(|a| a == "--take-over"));
+        assert!(!nightly.iter().any(|a| a == "--only-if-due"));
+
+        let now = run_now_args(&ctx());
+        assert_eq!(now.last().map(String::as_str), Some("--take-over"));
+        assert!(!now.iter().any(|a| a == "--wait-if-busy-minutes"));
+
+        let catch_up = catch_up_args(&ctx());
+        assert_eq!(
+            catch_up[0], "--wait-if-busy-minutes",
+            "a launcher flag, first"
+        );
+        assert_eq!(catch_up.last().map(String::as_str), Some("--only-if-due"));
+        assert!(!catch_up.iter().any(|a| a == "--take-over"));
     }
 
     #[test]

@@ -2,35 +2,136 @@
 import Base from '../layouts/Base.astro';
 import Placeholder from '../components/Placeholder.astro';
 import { COACHING, pageFor } from '../data/site';
+import { DELIVERY, LOWEST_PRICE_AED, STAGES, STEPS, formatAed, sessionByNumber } from '../data/coaching';
 
-// The hub the Knowledge Centre tab opens. Every "Book your session" button goes
-// to the separate booking app (COACHING.bookingUrl).
+// The hub the Knowledge Centre tab opens. Every booking link goes to the
+// separate coaching app (COACHING.bookingUrl); a session link adds its #slug,
+// which the coaching app opens (OpenSessionFromHash). Prices and session names
+// come from data/coaching.ts, the coaching app's own catalogue mirrored.
 const page = pageFor('/knowledge-centre/');
 const book = COACHING.bookingUrl;
+const from = formatAed(LOWEST_PRICE_AED);
+const GUIDES = [1, 2, 3];
 ---
 <Base page={page}>
   <section class="hero">
-    <h1>Knowledge Centre</h1>
-    <Placeholder>One or two sentences on what the Knowledge Centre is: learning to work with
-      AI, through free guides and private 1-to-1 coaching.</Placeholder>
+    <div class="hero-copy">
+      <p class="eyebrow">Knowledge Centre</p>
+      <h1>Learn how to work with AI, not just talk to it.</h1>
+      <p class="lede">Private 1-to-1 coaching built around a real task you bring, plus free guides
+         from Zaaheen.</p>
+      <div class="cta-row">
+        <a class="cta" href={book}>Book your session</a>
+        <span class="cta-meta">From {from} · no package</span>
+      </div>
+      <ul class="promise-dots">
+        <li>{DELIVERY.durationMinutes} minutes, 1-to-1</li>
+        <li>{DELIVERY.platform}</li>
+        <li>Evenings, Mon–Thu</li>
+      </ul>
+    </div>
+
+    <!-- A picture of booking, animated by scripts/booking-demo.js. Decorative
+         and illustrative only: it shows no real availability. -->
+    <div class="demo" id="booking-demo" aria-hidden="true">
+      <div class="win">
+        <div class="win-bar win-bar-split">
+          <span class="win-title">coaching.zaaheen.com</span>
+          <span class="win-title" id="bk-step">Step 1 of 3</span>
+        </div>
+        <div class="bk-body" id="bk-pane">
+          <div class="pane">
+            <div class="bk-title">Choose a session</div>
+            {[1, 2, 3, 4].map((n) => {
+              const s = sessionByNumber(n);
+              return <div class="bk-row"><span>{s.shortTitle}</span><span class="mono-note">{formatAed(s.priceAed)}</span></div>;
+            })}
+          </div>
+        </div>
+      </div>
+      <div class="bk-dots" id="bk-dots"><span class="is-on"></span><span></span><span></span></div>
+    </div>
+  </section>
+
+  <section id="sessions" class="kc-band is-white">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Private 1-to-1 AI coaching</p>
+        <h2>Four stages, six sessions. Start wherever you actually are.</h2>
+        <p class="section-lede">You do not have to begin at the beginning. Find the stage that
+           describes you today and book the session that moves you to the next one.</p>
+      </div>
+      <ol class="stages">
+        {STAGES.map((stage, i) => (
+          <li class="stage">
+            <span class="step-no">{String(i + 1).padStart(2, '0')}</span>
+            <h3>{stage.name}</h3>
+            <p>{stage.description}</p>
+            <div class="stage-sessions">
+              {stage.sessions.map((n) => {
+                const s = sessionByNumber(n);
+                return (
+                  <a class="session-link" href={`${book}#${s.slug}`}>
+                    <span class="session-name">{s.shortTitle}</span>
+                    <span class="mono-note">Session {s.number} · {formatAed(s.priceAed)}{s.hasPrerequisites ? ' · prerequisites apply' : ''}</span>
+                  </a>
+                );
+              })}
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div class="stages-foot">
+        <p>{DELIVERY.availability}. Times are shown in your own timezone alongside
+           {' '}{DELIVERY.timezoneLabel}.</p>
+        <a class="pill-outline" href={`${book}#sessions`}>See what each session covers</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="kc-band">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">How it works</p>
+        <h2>Four steps from choosing a session to doing the work.</h2>
+      </div>
+      <ol class="steps is-four">
+        {STEPS.map((s, i) => (
+          <li class="step">
+            <div class="step-text">
+              <span class="step-no">{String(i + 1).padStart(2, '0')}</span>
+              <h3>{s.title}</h3>
+              <p>{s.body}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <section id="guides" class="kc-band is-panel">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Guides · free</p>
+        <h2>Answers to real questions about working with AI.</h2>
+      </div>
+      <div class="guides">
+        {GUIDES.map((n) => (
+          <div class="guide">
+            <Placeholder>Guide {n}: its topic, reading time, title and a one-line summary. Each
+              guide links to booking.</Placeholder>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="kc-close">
+    <h2>Pick the session that matches your next problem.</h2>
+    <p>From {from}. One session at a time, no package to commit to, and no sales call before you
+       can book.</p>
     <a class="cta" href={book}>Book your session</a>
   </section>
 
-  <section class="hub-section">
-    <h2>Private 1-to-1 AI coaching</h2>
-    <Placeholder>Who the coaching is for, what a session covers, and how it works.</Placeholder>
-    <a class="cta" href={book}>Book your session</a>
-  </section>
-
-  <section class="hub-section">
-    <h2>Guides</h2>
-    <Placeholder>Free articles that answer real questions about working with AI. Each one
-      links to booking.</Placeholder>
-  </section>
-
-  <section class="hub-section hub-close">
-    <h2>Ready when you are</h2>
-    <Placeholder>A closing line on why to book now.</Placeholder>
-    <a class="cta" href={book}>Book your session</a>
-  </section>
+  <script src="../scripts/booking-demo.js"></script>
 </Base>

@@ -31,10 +31,11 @@ use chrono::{DateTime, NaiveDate, Utc};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
-    CallToolResult, ContentBlock, ErrorCode, Extensions, ServerCapabilities, ServerInfo,
+    CallToolResult, ContentBlock, ErrorCode, Extensions, ServerCapabilities, ServerConfig,
 };
 use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData as McpError, ServerHandler};
 use serde::{Deserialize, Serialize};
+use tokio_util::sync::CancellationToken;
 use vault_core::{Boundary, MemoryId, MemoryType, NewMemory, VaultError, VaultResult};
 use vault_retrieval::{
     HealthWarning, ReadQuery, RetrievalOptions, RetrievalQuery, StructuredReadResponse,
@@ -42,8 +43,31 @@ use vault_retrieval::{
 };
 
 use crate::audit::{ToolInvokeDetails, ToolInvokeError};
+use crate::desk::{Busy, ReadDesk, DESK_BUDGET, MSG_BUSY};
 use crate::gate::AccountNotice;
 use crate::Adapter;
+
+/// How a question at the desk ended (ADR-107).
+enum DeskOutcome<T> {
+    Answered(VaultResult<T>),
+    /// The line was too long to answer in time; told at once.
+    Busy,
+    /// The caller cancelled it, waiting or working.
+    Cancelled,
+}
+
+/// The busy answer: a tool result the agent reads (ADR-103 D2), saying what
+/// to do.
+fn desk_busy() -> CallToolResult {
+    CallToolResult::error(vec![ContentBlock::text(MSG_BUSY)])
+}
+
+/// The answer to a cancelled call. rmcp does not send a reply for a request
+/// its caller cancelled, so nobody normally reads this; it exists so the
+/// handler still returns a well-formed result.
+fn desk_cancelled() -> CallToolResult {
+    CallToolResult::error(vec![ContentBlock::text("cancelled by the caller")])
+}
 
 // =============================================================================
 // JSON-RPC parameter schemas — typed, schemars-derived for #[tool] macros
@@ -248,6 +272,9 @@ pub struct DeleteToolParams {
 pub struct StdioServer {
     adapter: Arc<dyn Adapter>,
     authorized_boundaries: Vec<Boundary>,
+    /// Reads and searches take turns here (ADR-107, `desk.rs`). A keeper
+    /// shares ONE desk across every connection ([`Self::with_desk`]).
+    desk: Arc<ReadDesk>,
     /// **Load-bearing — DO NOT remove as "dead code."** This field is
     /// populated by the `#[tool_router]` macro on `impl StdioServer`
     /// (which generates `Self::tool_router()`) and read at request
@@ -273,8 +300,59 @@ impl StdioServer {
         Self {
             adapter,
             authorized_boundaries,
+            desk: ReadDesk::new(),
             tool_router: Self::tool_router(),
         }
+    }
+
+    /// Serve reads and searches at `desk`, shared with the other servers of
+    /// the same process: a keeper builds one server per connection, and the
+    /// questions of every connection must take turns at the same desk.
+    #[must_use]
+    pub fn with_desk(mut self, desk: Arc<ReadDesk>) -> Self {
+        self.desk = desk;
+        self
+    }
+
+    /// Run a read or search at the desk (ADR-107): wait for the seat unless
+    /// the line is too long to answer in time, and stop at once if the caller
+    /// cancels, waiting or working. Nothing reaches the vault for a question
+    /// that is refused as busy or cancelled while waiting.
+    async fn at_desk<T>(
+        &self,
+        tool: &'static str,
+        ct: &CancellationToken,
+        work: impl std::future::Future<Output = VaultResult<T>>,
+    ) -> DeskOutcome<T> {
+        let answered = async {
+            let seat = match self.desk.sit(DESK_BUDGET).await {
+                Ok(seat) => seat,
+                Err(Busy) => return DeskOutcome::Busy,
+            };
+            let result = work.await;
+            if result.is_ok() {
+                seat.done();
+            }
+            DeskOutcome::Answered(result)
+        };
+        let outcome = tokio::select! {
+            outcome = answered => outcome,
+            () = ct.cancelled() => DeskOutcome::Cancelled,
+        };
+        match &outcome {
+            DeskOutcome::Busy => tracing::info!(
+                target: "vault_mcp::desk",
+                tool,
+                "busy: the line is too long to answer in time; told the agent at once"
+            ),
+            DeskOutcome::Cancelled => tracing::info!(
+                target: "vault_mcp::desk",
+                tool,
+                "cancelled by the caller; dropped from the desk"
+            ),
+            DeskOutcome::Answered(_) => {}
+        }
+        outcome
     }
 
     /// Returns a clone of the trusted authorized-boundaries slice.
@@ -525,7 +603,10 @@ impl StdioServer {
                        reliable than judging a raw list. Query in a natural-language \
                        phrase, not bare keywords, and search ONE topic per call — \
                        for a multi-part need make separate calls, since a mashed \
-                       multi-topic query scores every result weak. \
+                       multi-topic query scores every result weak. Make them ONE \
+                       AT A TIME, waiting for each answer: the vault answers one \
+                       question at a time, so calls sent together queue up and \
+                       can run out of time. \
                        By default only CURRENT facts are searched; set \
                        `include_archived: true` to also search the historical \
                        archive — superseded, expired, and cold-archived facts — \
@@ -542,6 +623,8 @@ impl StdioServer {
     pub async fn tool_search(
         &self,
         params: Parameters<SearchToolParams>,
+        // Cancelled by rmcp when the caller sends `notifications/cancelled`.
+        ct: CancellationToken,
     ) -> Result<CallToolResult, McpError> {
         let Parameters(p) = params;
         // Snapshot the typed-param fields BEFORE handler dispatch so
@@ -554,7 +637,14 @@ impl StdioServer {
         let boundary_count_recorded: u32 = self.authorized_boundaries.len() as u32;
 
         let start = Instant::now();
-        let dispatch_result = self.handle_search(p).await;
+        let dispatch_result = match self
+            .at_desk("memory_search", &ct, self.handle_search(p))
+            .await
+        {
+            DeskOutcome::Answered(result) => result,
+            DeskOutcome::Busy => return Ok(desk_busy()),
+            DeskOutcome::Cancelled => return Ok(desk_cancelled()),
+        };
         let duration_ms: u64 = start.elapsed().as_millis() as u64;
 
         let (result_count, error_for_audit) = match &dispatch_result {
@@ -636,7 +726,11 @@ impl StdioServer {
                        (e.g. 'my languages, the teams I follow, and where I \
                        holiday'), make a SEPARATE call per part — a single mashed \
                        multi-topic query dilutes relevance and can bury a real \
-                       match below noise. \
+                       match below noise. Make those calls ONE AT A TIME, waiting \
+                       for each answer before the next: the vault answers one \
+                       question at a time, so calls sent together queue up and \
+                       the later ones can run out of time. If a call answers that \
+                       Zaaheen is busy, wait a moment and ask again. \
                        Returns a JSON object with six fields: \
                        \n\
                        - `boundary`: the boundary in scope (null for \
@@ -727,13 +821,19 @@ impl StdioServer {
         // (SIGNIN-DESIGN.md §8.40). Only this process can write it: a client
         // cannot put a typed value here.
         extensions: Extensions,
+        // Cancelled by rmcp when the caller sends `notifications/cancelled`.
+        ct: CancellationToken,
     ) -> Result<CallToolResult, McpError> {
         let Parameters(p) = params;
         let query_length_recorded: u32 = p.query.len() as u32;
         let boundary_count_recorded: u32 = self.authorized_boundaries.len() as u32;
 
         let start = Instant::now();
-        let dispatch_result = self.handle_read(p).await;
+        let dispatch_result = match self.at_desk("memory_read", &ct, self.handle_read(p)).await {
+            DeskOutcome::Answered(result) => result,
+            DeskOutcome::Busy => return Ok(desk_busy()),
+            DeskOutcome::Cancelled => return Ok(desk_cancelled()),
+        };
         let duration_ms: u64 = start.elapsed().as_millis() as u64;
 
         let (result_count, error_for_audit) = match &dispatch_result {
@@ -1126,8 +1226,8 @@ impl StdioServer {
 
 #[tool_handler]
 impl ServerHandler for StdioServer {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(rmcp::model::Implementation::new(
                 "zaaheen",
                 env!("CARGO_PKG_VERSION"),

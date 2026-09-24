@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { SITE, RELEASE, VERIFIED_APPS, PAGES, absolute } from '../data/site';
+import { SITE, RELEASE, TRIAL, PAGES, absolute, verifiedAppList } from '../data/site';
 
 // A plain-text summary for AI tools (llmstxt.org proposal). No search engine
 // has confirmed it reads these files, and Google says it neither helps nor
@@ -13,11 +13,13 @@ export const GET: APIRoute = () => {
     `> ${SITE.summary}`,
     '',
     `${SITE.name} is a desktop app that gives AI assistants one private, persistent memory about the person using them. ` +
-      'Memories are stored and encrypted on that person\'s own computer. Nothing is uploaded and there is no account.',
+      'Memories are stored and encrypted on that person\'s own computer and are never uploaded. ' +
+      'The account is only for signing in and the subscription; it never holds the memories.',
     '',
     `- Current version: ${RELEASE.version} (${RELEASE.stage.toLowerCase()}), ${win.arch} Windows, tested on ${win.tested}.`,
     `- Download: ${win.url} (${win.size}).`,
-    `- Tested with: ${VERIFIED_APPS.join(' and ')}. Other apps that support MCP should work the same way.`,
+    `- Free trial: ${TRIAL.days} days, no card needed.`,
+    `- Tested with: ${verifiedAppList()}. Other apps that support MCP should work the same way.`,
     '- Delete everything: one button destroys the encryption key and the files, leaving what remains on disk unreadable.',
     '- macOS and Linux: not available yet.',
     '',

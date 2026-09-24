@@ -279,6 +279,7 @@ pub const GATED_COMMANDS: &[&str] = &[
     "list_boundaries",
     "create_boundary",
     "list_agents",
+    "list_connected_apps",
     "revoke_agent",
     "ensure_recall_engine",
     "recall_engine_state",
@@ -348,6 +349,11 @@ pub const OPEN_COMMANDS: &[&str] = &[
     // Given the start's own progress and nothing else -- see
     // `commands/startup.rs` and its source test.
     "startup_state",
+    // A **widening**, approved with ADR-108 (session 60; D6): whether the
+    // link to the keeper is connecting, serving, tidying or could not start.
+    // The lock and sign-in screens never wait on it; it holds no vault and
+    // no account -- see `commands/keeper.rs` and its source test.
+    "link_state",
 ];
 
 #[cfg(test)]
@@ -873,12 +879,53 @@ mod tests {
                 "account_access",
                 "export_memories",
                 "startup_state",
+                "link_state",
             ],
             "widening the allowlist is a founder decision, not a refactor. The six \
              account entries fill 8.26 6.4's existing `account` slot (steps 4b and \
              4d-1, 8.37 and 8.38); `export_memories` fills the `export` slot (4c); \
              `startup_state` is the founder-approved widening of session 55 \
-             (ADR-SEC-030 amendment 1)."
+             (ADR-SEC-030 amendment 1); `link_state` is ADR-108's (session 60)."
         );
+    }
+
+    /// ADR-108 D3 (review A-S1): the keeper's admin tools are gated by the
+    /// same lists. An admin tool is OPEN exactly when every desktop command
+    /// it serves is open, so a locked computer can never reach through the
+    /// keeper what the desktop's own guard refuses.
+    #[test]
+    fn every_admin_tool_is_open_exactly_when_its_commands_are() {
+        use vault_app::admin::{Access, ADMIN_TOOLS};
+        for tool in ADMIN_TOOLS {
+            for command in tool.serves {
+                assert!(
+                    GATED_COMMANDS.contains(command) || OPEN_COMMANDS.contains(command),
+                    "{} serves {command}, which the guard does not list",
+                    tool.name
+                );
+            }
+            let all_open = tool.serves.iter().all(|c| OPEN_COMMANDS.contains(c));
+            match tool.access {
+                Access::Open => {
+                    assert!(all_open, "{} is open but serves a gated command", tool.name)
+                }
+                Access::Gated => assert!(
+                    tool.serves.iter().all(|c| GATED_COMMANDS.contains(c)) || !all_open,
+                    "{} is gated but serves only open commands",
+                    tool.name
+                ),
+                // Decided per event: pinned in vault-app's ops tests.
+                Access::PerEvent => {}
+            }
+        }
+    }
+
+    /// The keeper answers a refused admin call with the same code the
+    /// desktop's guard uses, so the lock screen shows the same words.
+    #[test]
+    fn the_keeper_and_the_guard_name_each_lock_reason_the_same() {
+        for &reason in ALL_REASONS {
+            assert_eq!(vault_app::admin::locked_code(reason), code_for(reason));
+        }
     }
 }

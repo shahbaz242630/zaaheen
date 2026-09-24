@@ -313,7 +313,10 @@ async fn query_text_with_unicode_passes_byte_identical_to_adapter() {
         include_archived: None,
     };
     server
-        .tool_search(Parameters(params))
+        .tool_search(
+            Parameters(params),
+            tokio_util::sync::CancellationToken::new(),
+        )
         .await
         .expect("MockAdapter returns Ok(empty)");
 

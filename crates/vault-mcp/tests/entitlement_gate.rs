@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use common::{make_mock_server_with_adapter, MockAdapter};
-use rmcp::model::{ClientNotification, ClientRequest, ServerInfo, ServerResult};
+use rmcp::model::{ClientNotification, ClientRequest, ServerConfig, ServerResult};
 use rmcp::service::{NotificationContext, RequestContext};
 use rmcp::{ErrorData as McpError, RoleServer, Service, ServiceExt};
 use serde_json::{json, Value};
@@ -142,6 +142,7 @@ fn kind(request: &ClientRequest) -> &'static str {
     match request {
         ClientRequest::PingRequest(_) => "ping",
         ClientRequest::InitializeRequest(_) => "initialize",
+        ClientRequest::DiscoverRequest(_) => "server/discover",
         ClientRequest::CompleteRequest(_) => "completion/complete",
         ClientRequest::SetLevelRequest(_) => "logging/setLevel",
         ClientRequest::GetPromptRequest(_) => "prompts/get",
@@ -149,15 +150,17 @@ fn kind(request: &ClientRequest) -> &'static str {
         ClientRequest::ListResourcesRequest(_) => "resources/list",
         ClientRequest::ListResourceTemplatesRequest(_) => "resources/templates/list",
         ClientRequest::ReadResourceRequest(_) => "resources/read",
+        ClientRequest::SubscriptionsListenRequest(_) => "subscriptions/listen",
         ClientRequest::SubscribeRequest(_) => "resources/subscribe",
         ClientRequest::UnsubscribeRequest(_) => "resources/unsubscribe",
         ClientRequest::CallToolRequest(_) => "tools/call",
         ClientRequest::ListToolsRequest(_) => "tools/list",
         ClientRequest::GetTaskRequest(_) => "tasks/get",
-        ClientRequest::ListTasksRequest(_) => "tasks/list",
-        ClientRequest::GetTaskPayloadRequest(_) => "tasks/result",
+        ClientRequest::UpdateTaskRequest(_) => "tasks/update",
         ClientRequest::CancelTaskRequest(_) => "tasks/cancel",
         ClientRequest::CustomRequest(_) => "custom",
+        // rmcp 3's enum is `#[non_exhaustive]` (ADR-SEC-032).
+        _ => "unknown",
     }
 }
 
@@ -193,7 +196,7 @@ impl Service<RoleServer> for Recorder {
         self.inner.handle_notification(notification, context).await
     }
 
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> ServerConfig {
         self.inner.get_info()
     }
 }
@@ -442,8 +445,10 @@ fn other_requests() -> Vec<(&'static str, Option<Value>, &'static str)> {
         ),
         ("resources/unsubscribe", Some(uri), "resources/unsubscribe"),
         ("tasks/get", Some(task.clone()), "tasks/get"),
-        ("tasks/list", None, "tasks/list"),
-        ("tasks/result", Some(task.clone()), "tasks/result"),
+        // rmcp 3 dropped these two (SEP-2663); a client that still sends them
+        // is a custom request now, and still refused while locked.
+        ("tasks/list", None, "custom"),
+        ("tasks/result", Some(task.clone()), "custom"),
         ("tasks/cancel", Some(task), "tasks/cancel"),
         ("zaaheen/anything", Some(json!({ "x": 1 })), "custom"),
     ]
@@ -623,32 +628,50 @@ async fn every_call_asks_the_check_so_a_change_applies_at_once() {
     assert_eq!(rig.adapter.search_calls().len(), 2);
 }
 
-/// A task-style caller expects a task, not a tool result. Our tools forbid
-/// tasks, so the server refuses such a call with invalid-params; while locked
-/// the gate gives that same answer itself, without passing the call on.
+/// rmcp 2.2 let a caller ask for a "task-style" call. In rmcp 3 (SEP-2663) the
+/// SERVER decides whether a call becomes a task, and ours never does, so a
+/// `task` field is just an unknown field (ADR-SEC-032). Whatever a client
+/// sends, a locked call gets the fixed words and never reaches the server.
 #[tokio::test]
-async fn a_locked_task_style_call_gets_the_servers_own_answer_without_reaching_it() {
+async fn a_locked_call_carrying_a_task_field_is_refused_like_any_other() {
     let params = json!({ "name": "memory_search", "arguments": search_args(), "task": {} });
 
-    let mut open_rig = Rig::new(Verdict::Entitled).await;
-    let servers_answer = open_rig
-        .wire
-        .request("tools/call", Some(params.clone()))
-        .await;
-    assert!(
-        servers_answer.get("error").is_some(),
-        "our server refuses task-style calls: {servers_answer}"
-    );
-    assert_eq!(servers_answer["error"]["code"], json!(-32602));
-
     let mut locked = Rig::new(Verdict::Locked(LockReason::TrialEnded)).await;
-    let gates_answer = locked.wire.request("tools/call", Some(params)).await;
-    assert_eq!(gates_answer["error"], servers_answer["error"]);
+    let answer = locked.wire.request("tools/call", Some(params)).await;
+    assert_eq!(tool_error_text(&answer), LockReason::TrialEnded.message());
     assert!(
         !locked.reached().contains(&"tools/call"),
-        "a locked task-style call reached the server"
+        "a locked call reached the server"
     );
     locked.assert_vault_untouched();
+}
+
+/// `server/discover` is the 2026-07-28 spec's `initialize` (SEP-2575): no
+/// user data, and an AI app's startup waits on it, so it is answered while
+/// locked and without asking the check (ADR-SEC-032). Antigravity, updated
+/// 2026-09-24, sent it right after `initialize` and rmcp 2.2 hung up.
+#[tokio::test]
+async fn server_discover_is_answered_even_while_locked_without_asking() {
+    let mut rig = Rig::new(Verdict::Locked(LockReason::TrialEnded)).await;
+    // As the 2026-07-28 spec sends it: the request's own `_meta` carries the
+    // protocol version and the client's capabilities.
+    let reply = rig
+        .wire
+        .request(
+            "server/discover",
+            Some(json!({ "_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientCapabilities": {}
+            }})),
+        )
+        .await;
+    assert!(reply.get("error").is_none(), "{reply}");
+    assert!(
+        reply["result"]["supportedVersions"].is_array(),
+        "the discover answer lists the protocol versions: {reply}"
+    );
+    assert_eq!(rig.check.asked(), 0, "discover must not wait on a refresh");
+    rig.assert_vault_untouched();
 }
 
 // ---------------------------------------------------------------------------
@@ -849,6 +872,126 @@ async fn wait_idle_returns_at_once_when_nothing_is_in_flight() {
     tokio::time::timeout(Duration::from_millis(200), InFlight::new().wait_idle())
         .await
         .expect("nothing in flight: wait_idle returns at once");
+}
+
+// ---------------------------------------------------------------------------
+// Closing (ADR-SEC-033 D3): a keeper that is handing over stops taking new
+// work, lets running work finish, and the drain converges.
+// ---------------------------------------------------------------------------
+
+/// After `close()`, a new tool call hears the busy line (so the agent asks
+/// again, and its relay finds the next keeper) and never reaches the vault.
+#[tokio::test]
+async fn a_closed_gate_turns_new_tool_calls_away_before_the_vault_sees_them() {
+    let mut rig = Rig::new(Verdict::Entitled).await;
+    rig.in_flight.close();
+    assert!(rig.in_flight.is_closed());
+
+    let reply = rig.wire.call_tool("memory_search", search_args()).await;
+    assert_eq!(tool_error_text(&reply), vault_mcp::MSG_BUSY);
+    assert!(
+        !rig.reached().contains(&"tools/call"),
+        "{:?}",
+        rig.reached()
+    );
+    assert_eq!(
+        rig.check.asked(),
+        0,
+        "a closing keeper does not ask the check"
+    );
+    rig.assert_vault_untouched();
+    eventually("nothing is left counted", || rig.in_flight.count() == 0).await;
+}
+
+/// Closing never cuts off work already running: it finishes and answers, and
+/// only then does the drain resolve.
+#[tokio::test]
+async fn a_call_already_running_finishes_after_close() {
+    let release = Arc::new(Semaphore::new(0));
+    let check = ScriptedCheck::answering(Verdict::Entitled);
+    let mut rig = Rig::with(check, OnToolCall::WaitFor(release.clone())).await;
+    let id = rig
+        .wire
+        .send(
+            "tools/call",
+            Some(json!({ "name": "memory_search", "arguments": search_args() })),
+        )
+        .await;
+    eventually("the call reaches the server", || {
+        rig.reached().contains(&"tools/call")
+    })
+    .await;
+
+    rig.in_flight.close();
+    assert!(
+        tokio::time::timeout(Duration::from_millis(100), rig.in_flight.wait_idle())
+            .await
+            .is_err(),
+        "the drain waits for the running call"
+    );
+    release.add_permits(1);
+    let reply = rig.wire.reply(id).await;
+    assert_ne!(reply["result"]["isError"], json!(true), "{reply}");
+    tokio::time::timeout(LIMIT, rig.in_flight.wait_idle())
+        .await
+        .expect("the drain resolves once it has answered");
+}
+
+/// A closed keeper still answers what touches no data (ping, the tool list),
+/// so a relay can tell a closing keeper from a dead one.
+#[tokio::test]
+async fn a_closed_gate_still_answers_the_open_requests() {
+    let mut rig = Rig::new(Verdict::Entitled).await;
+    rig.in_flight.close();
+    let tools = rig.wire.request("tools/list", None).await;
+    assert!(tools.get("result").is_some(), "{tools}");
+}
+
+/// A server with no gate (a build with no sign-in, and the desktop's admin
+/// connection) is counted the same way and turned away the same way, with
+/// the words its caller understands.
+#[tokio::test]
+async fn an_ungated_service_is_counted_and_closed_with_its_own_words() {
+    let release = Arc::new(Semaphore::new(0));
+    let (server, adapter) = make_mock_server_with_adapter(vec!["work"]);
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let recorder = Recorder {
+        inner: server,
+        requests: requests.clone(),
+        notifications: Arc::new(Mutex::new(Vec::new())),
+        on_tool_call: OnToolCall::WaitFor(release.clone()),
+    };
+    let in_flight = InFlight::new();
+    let mut wire = open(in_flight.counting(recorder, "admin_busy")).await;
+
+    let running = wire
+        .send(
+            "tools/call",
+            Some(json!({ "name": "memory_search", "arguments": search_args() })),
+        )
+        .await;
+    eventually("the first call is counted", || in_flight.count() == 1).await;
+
+    in_flight.close();
+    let refused = wire.call_tool("memory_search", search_args()).await;
+    assert_eq!(tool_error_text(&refused), "admin_busy");
+    assert_eq!(
+        requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|k| **k == "tools/call")
+            .count(),
+        1,
+        "only the call admitted before close reached the server"
+    );
+
+    release.add_permits(1);
+    let _ = wire.reply(running).await;
+    tokio::time::timeout(LIMIT, in_flight.wait_idle())
+        .await
+        .expect("the drain resolves");
+    assert_eq!(adapter.write_calls().len(), 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -1079,18 +1222,29 @@ async fn a_refused_call_is_logged_with_its_reason_and_without_its_arguments() {
     rig.assert_vault_untouched();
 }
 
-/// §6.1: "a future rmcp variant fails to compile". That holds only while the
-/// gate's `match` names every variant and has no catch-all arm.
+/// §6.1 as amended by ADR-SEC-032. rmcp 3 made `ClientRequest`
+/// `#[non_exhaustive]`, so "a future rmcp variant fails to compile" is no
+/// longer possible. What holds instead: every variant rmcp 3.4.1 has is named,
+/// the one catch-all the compiler requires fails CLOSED (asks, refused while
+/// locked), and the exact version pin keeps a new variant from arriving
+/// without an upgrade that re-reads this list.
 #[test]
-fn the_gate_names_every_request_kind_and_has_no_catch_all() {
-    let source = include_str!("../src/gate.rs");
-    assert!(
-        !source.contains("_ =>"),
-        "a catch-all arm would let a new request kind through unchecked"
+fn the_gate_names_every_request_kind_and_fails_closed_on_new_ones() {
+    let source = include_str!("../src/gate.rs").replace("\r\n", "\n");
+    let arms: Vec<&str> = source
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.starts_with("_ =>"))
+        .collect();
+    assert_eq!(
+        arms,
+        ["_ => Kind::Other,"],
+        "exactly one catch-all, and it must ask and refuse while locked"
     );
     for variant in [
         "PingRequest",
         "InitializeRequest",
+        "DiscoverRequest",
         "CompleteRequest",
         "SetLevelRequest",
         "GetPromptRequest",
@@ -1098,13 +1252,13 @@ fn the_gate_names_every_request_kind_and_has_no_catch_all() {
         "ListResourcesRequest",
         "ListResourceTemplatesRequest",
         "ReadResourceRequest",
+        "SubscriptionsListenRequest",
         "SubscribeRequest",
         "UnsubscribeRequest",
         "CallToolRequest",
         "ListToolsRequest",
         "GetTaskRequest",
-        "ListTasksRequest",
-        "GetTaskPayloadRequest",
+        "UpdateTaskRequest",
         "CancelTaskRequest",
         "CustomRequest",
     ] {
@@ -1113,4 +1267,9 @@ fn the_gate_names_every_request_kind_and_has_no_catch_all() {
             "the gate's match must name ClientRequest::{variant}"
         );
     }
+    let workspace = include_str!("../../../Cargo.toml");
+    assert!(
+        workspace.contains("rmcp = \"=3.4.1\""),
+        "a new rmcp may add request kinds: re-read the gate's list when this pin moves"
+    );
 }

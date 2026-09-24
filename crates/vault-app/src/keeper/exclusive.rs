@@ -45,6 +45,18 @@ pub struct ExclusiveVault {
     _intent: IntentGuard,
 }
 
+impl ExclusiveVault {
+    /// Keep the vault, give up the priority claim (ADR-108 D8: "Run now").
+    /// The caller has already published what it is doing (the maintenance
+    /// record), so a keeper started once the intent clears finds the vault
+    /// held and leaves, and relays answer "busy".
+    pub fn into_lock(self) -> ConsolidatorLock {
+        let Self { _lock, _intent } = self;
+        drop(_intent);
+        _lock
+    }
+}
+
 /// Take the vault exclusively, asking a serving keeper to hand it over.
 /// Waits up to `wait` in total; `step` bounds each handshake step.
 ///

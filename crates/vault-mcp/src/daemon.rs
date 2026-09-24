@@ -32,15 +32,15 @@
 use std::sync::Arc;
 
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, ContentBlock, ListToolsResult, PaginatedRequestParams,
-    ServerInfo, Tool,
+    CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, ListToolsResult,
+    PaginatedRequestParams, ServerConfig, Tool,
 };
 use rmcp::service::RequestContext;
 use rmcp::{ErrorData as McpError, RoleServer, ServerHandler};
 use vault_core::Boundary;
 
 use crate::server::{vault_error_to_mcp, StdioServer, ERROR_CODE_ACCESS_DENIED};
-use crate::{Adapter, Gate, Verdict};
+use crate::{Adapter, Gate, ReadDesk, Verdict};
 
 /// HTTP-daemon MCP handler. Authenticates each request via a bearer capability
 /// token, then dispatches through a boundary-scoped [`StdioServer`]. Cheap to
@@ -49,6 +49,8 @@ use crate::{Adapter, Gate, Verdict};
 pub struct DaemonServer {
     adapter: Arc<dyn Adapter>,
     gate: Option<Gate>,
+    /// One read desk for every request this daemon serves (ADR-107).
+    desk: Arc<ReadDesk>,
 }
 
 impl DaemonServer {
@@ -58,7 +60,11 @@ impl DaemonServer {
     /// the agent is authenticated, so an unknown token is still refused first
     /// and learns nothing about the subscription).
     pub fn new(adapter: Arc<dyn Adapter>, gate: Option<Gate>) -> Self {
-        Self { adapter, gate }
+        Self {
+            adapter,
+            gate,
+            desk: ReadDesk::new(),
+        }
     }
 
     /// Resolve the per-request authorized boundaries from the bearer token in
@@ -101,12 +107,12 @@ impl DaemonServer {
     /// `StdioServer::new` regenerates its tool router — cheap relative to the
     /// embedding/storage work a tool call performs.
     fn scoped(&self, boundaries: Vec<Boundary>) -> StdioServer {
-        StdioServer::new(self.adapter.clone(), boundaries)
+        StdioServer::new(self.adapter.clone(), boundaries).with_desk(Arc::clone(&self.desk))
     }
 }
 
 impl ServerHandler for DaemonServer {
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> ServerConfig {
         // Same advertised contract as the stdio server; no dispatch, so an
         // empty-scoped server is fine just to produce the metadata.
         self.scoped(Vec::new()).get_info()
@@ -130,7 +136,7 @@ impl ServerHandler for DaemonServer {
         &self,
         request: CallToolRequestParams,
         context: RequestContext<RoleServer>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<CallToolResponse, McpError> {
         // Authenticate + resolve boundaries BEFORE any dispatch (BRD §11.4.4).
         let (agent_name, boundaries) = self.authorize(&context).await?;
         // Then the subscription gate, so a locked vault answers with words the
@@ -147,9 +153,9 @@ impl ServerHandler for DaemonServer {
                     reason = ?reason,
                     "refused: the vault is locked"
                 );
-                return Ok(CallToolResult::error(vec![ContentBlock::text(
-                    reason.message(),
-                )]));
+                return Ok(CallToolResponse::from(CallToolResult::error(vec![
+                    ContentBlock::text(reason.message()),
+                ])));
             }
             // Served, so anything the agent should pass on travels with the
             // call, as `EntitledService` does it (§8.40).

@@ -6,27 +6,33 @@
 //! `Service<RoleServer>` wrapper rather than a `ServerHandler`, so it sees
 //! every request the client can send, in the one `match` below.
 //!
-//! **What always passes, without asking.** `ping`, `initialize` and
-//! `tools/list` carry no user data, and `initialize` must stay fast (ADR-102
-//! K8): an AI app's startup probe gives a server well under a second. The
-//! prompt, resource and resource-template lists pass too: §6.1 answers them
-//! either way (they are empty), so asking would only add a refresh's wait
-//! (§8.32).
+//! **What always passes, without asking.** `ping`, `initialize`,
+//! `server/discover` and `tools/list` carry no user data, and `initialize`
+//! must stay fast (ADR-102 K8): an AI app's startup probe gives a server well
+//! under a second. `server/discover` is the 2026-07-28 spec's `initialize`
+//! (SEP-2575; ADR-SEC-032), answered from the same server info. The prompt,
+//! resource and resource-template lists pass too: §6.1 answers them either
+//! way (they are empty), so asking would only add a refresh's wait (§8.32).
 //!
 //! **What asks.** Everything else asks the [`EntitlementCheck`] (refresh-then-
 //! decide, §8.26 §4). Entitled, the request is passed on. Locked:
 //! - a tool call answers with a tool result flagged `isError`, carrying the
 //!   fixed message, because the agent must READ it to tell the user (ADR-103
 //!   D2: a protocol error reaches the model as "Tool execution failed");
-//! - a task-style tool call gets the invalid-params error our server gives
-//!   any task-style call (our tools forbid tasks), built here so the locked
-//!   request never reaches the server;
 //! - every other request is refused with the fixed message.
 //!
-//! **Deny by default.** The `match` names every `ClientRequest` variant and
-//! has no catch-all arm, so a request kind a future rmcp adds fails to compile
-//! here instead of slipping through (§6.1: "a future rmcp variant fails to
-//! compile"). `tests/entitlement_gate.rs` pins that the arm stays absent.
+//! (Under rmcp 2.2 a client could ask for a "task-style" tool call, which got
+//! rmcp's own invalid-params refusal. rmcp 3's tasks (SEP-2663) are created
+//! by the SERVER instead, and ours never creates one, so no such call exists
+//! any more; ADR-SEC-032.)
+//!
+//! **Deny by default.** The `match` names every `ClientRequest` variant rmcp
+//! 3.4.1 has. rmcp 3 made the enum `#[non_exhaustive]`, so the one catch-all
+//! arm the compiler now requires sends any future kind to [`Kind::Other`]:
+//! asked, and refused while locked. §6.1's "a future rmcp variant fails to
+//! compile" became "a future variant fails closed" (ADR-SEC-032), and the
+//! exact version pin keeps a new kind from arriving without an upgrade that
+//! re-reads this list. `tests/entitlement_gate.rs` pins both.
 //!
 //! **Nothing reaches the vault while locked.** A refused request is logged to
 //! the application log only (§6.6), with its kind and the reason and nothing
@@ -36,23 +42,18 @@
 //! arrives until it has answered, including while the check runs. The keeper
 //! uses it to let a write finish before it changes mode (§6.2).
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use rmcp::model::{
-    CallToolResult, ClientNotification, ClientRequest, ContentBlock, ServerInfo, ServerResult,
+    CallToolResult, ClientNotification, ClientRequest, ContentBlock, ServerConfig, ServerResult,
 };
 use rmcp::service::{NotificationContext, RequestContext};
 use rmcp::{ErrorData as McpError, RoleServer, Service};
 use tokio::sync::watch;
 
 use crate::server::ERROR_CODE_ACCESS_DENIED;
-
-/// rmcp 2.2.0's own answer to a task-style call of a tool that forbids tasks
-/// (`handler/server.rs`, `TaskSupport::Forbidden`), which every one of our
-/// tools does. `tests/entitlement_gate.rs` compares the two answers, so a
-/// change on rmcp's side fails a test rather than drifting.
-const TASK_CALL_REFUSED: &str = "Tool does not support task-based invocation";
 
 /// Why the vault is locked. Each has fixed wording (§8.26 §6 "Messages":
 /// fixed text, no links, no user data).
@@ -181,6 +182,10 @@ pub trait EntitlementCheck: Send + Sync {
 #[derive(Clone, Debug)]
 pub struct InFlight {
     count: Arc<watch::Sender<usize>>,
+    /// Set once, when the keeper is handing over (ADR-SEC-033 D3). From then
+    /// on no new tool call is admitted, so the drain converges instead of
+    /// waiting for calls that arrived after the keeper decided to leave.
+    closed: Arc<AtomicBool>,
 }
 
 impl InFlight {
@@ -188,12 +193,36 @@ impl InFlight {
     pub fn new() -> Self {
         Self {
             count: Arc::new(watch::Sender::new(0)),
+            closed: Arc::new(AtomicBool::new(false)),
         }
     }
 
     /// Requests in flight now.
     pub fn count(&self) -> usize {
         *self.count.borrow()
+    }
+
+    /// Stop admitting tool calls, on every clone. Calls already running
+    /// finish; [`Self::wait_idle`] then resolves once they have.
+    pub fn close(&self) {
+        self.closed.store(true, Ordering::SeqCst);
+    }
+
+    /// Whether [`Self::close`] has been called.
+    pub fn is_closed(&self) -> bool {
+        self.closed.load(Ordering::SeqCst)
+    }
+
+    /// Count `inner`'s requests here, for a server with no entitlement gate
+    /// (a build with no sign-in, and the desktop's admin connection). After
+    /// [`Self::close`] a new tool call is answered with `busy` — words its
+    /// caller understands — before it reaches `inner`.
+    pub fn counting<S>(&self, inner: S, busy: &'static str) -> Counted<S> {
+        Counted {
+            inner,
+            in_flight: self.clone(),
+            busy,
+        }
     }
 
     /// Resolves once no request is in flight (at once if none is).
@@ -228,13 +257,54 @@ impl Drop for Admitted {
     }
 }
 
+/// The retryable answer a closing keeper gives a new tool call.
+fn closing(busy: &'static str) -> Result<ServerResult, McpError> {
+    Ok(ServerResult::CallToolResult(CallToolResult::error(vec![
+        ContentBlock::text(busy),
+    ])))
+}
+
+/// A server counted in an [`InFlight`] with no entitlement gate; see
+/// [`InFlight::counting`].
+pub struct Counted<S> {
+    inner: S,
+    in_flight: InFlight,
+    busy: &'static str,
+}
+
+impl<S: Service<RoleServer>> Service<RoleServer> for Counted<S> {
+    async fn handle_request(
+        &self,
+        request: ClientRequest,
+        context: RequestContext<RoleServer>,
+    ) -> Result<ServerResult, McpError> {
+        let _admitted = self.in_flight.admit();
+        if self.in_flight.is_closed() && classify(&request) == Kind::ToolCall {
+            return closing(self.busy);
+        }
+        self.inner.handle_request(request, context).await
+    }
+
+    async fn handle_notification(
+        &self,
+        notification: ClientNotification,
+        context: NotificationContext<RoleServer>,
+    ) -> Result<(), McpError> {
+        self.inner.handle_notification(notification, context).await
+    }
+
+    fn get_info(&self) -> ServerConfig {
+        self.inner.get_info()
+    }
+}
+
 /// How the gate treats a request.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Kind {
     /// No user data, or answered the same either way: never asks.
     Open,
-    /// `tools/call`; `task` when the caller asked for a task.
-    ToolCall { task: bool },
+    /// `tools/call`.
+    ToolCall,
     /// Anything else: asks, and is refused while locked.
     Other,
 }
@@ -244,24 +314,31 @@ fn classify(request: &ClientRequest) -> Kind {
     match request {
         ClientRequest::PingRequest(_)
         | ClientRequest::InitializeRequest(_)
+        | ClientRequest::DiscoverRequest(_)
         | ClientRequest::ListToolsRequest(_)
         | ClientRequest::ListPromptsRequest(_)
         | ClientRequest::ListResourcesRequest(_)
         | ClientRequest::ListResourceTemplatesRequest(_) => Kind::Open,
-        ClientRequest::CallToolRequest(call) => Kind::ToolCall {
-            task: call.params.task.is_some(),
-        },
+        ClientRequest::CallToolRequest(_) => Kind::ToolCall,
         ClientRequest::CompleteRequest(_)
         | ClientRequest::SetLevelRequest(_)
         | ClientRequest::GetPromptRequest(_)
         | ClientRequest::ReadResourceRequest(_)
+        | ClientRequest::SubscriptionsListenRequest(_)
         | ClientRequest::SubscribeRequest(_)
         | ClientRequest::UnsubscribeRequest(_)
         | ClientRequest::GetTaskRequest(_)
-        | ClientRequest::ListTasksRequest(_)
-        | ClientRequest::GetTaskPayloadRequest(_)
+        | ClientRequest::UpdateTaskRequest(_)
         | ClientRequest::CancelTaskRequest(_)
         | ClientRequest::CustomRequest(_) => Kind::Other,
+        // rmcp 3 marks `ClientRequest` `#[non_exhaustive]`, so the compiler
+        // insists on this arm and a new variant no longer fails to compile
+        // here (§6.1's alarm; ADR-SEC-032). It fails CLOSED instead: an
+        // unknown kind asks the check and is refused while locked. Every kind
+        // rmcp 3.4.1 has is still named above, and the exact `=3.4.1` pin
+        // means a new one arrives only through an upgrade that re-reads this
+        // list (`the_gate_names_every_request_kind_and_fails_closed_on_new_ones`).
+        _ => Kind::Other,
     }
 }
 
@@ -328,6 +405,9 @@ pub enum MaybeGated<S> {
     Gated(EntitledService<S>),
     /// Served directly (a build with no account settings).
     Plain(S),
+    /// Served directly but counted, so a keeper with no sign-in still drains
+    /// before it hands over (ADR-SEC-033 D3).
+    Counted(Counted<S>),
 }
 
 /// Put `inner` behind `gate` when there is one.
@@ -335,6 +415,16 @@ pub fn maybe_gated<S>(gate: Option<&Gate>, inner: S) -> MaybeGated<S> {
     match gate {
         Some(gate) => MaybeGated::Gated(gate.wrap(inner)),
         None => MaybeGated::Plain(inner),
+    }
+}
+
+/// Put `inner` behind `gate` when there is one, and otherwise count it in
+/// `in_flight`: either way every request is counted exactly once, in the one
+/// counter the keeper drains (ADR-SEC-033 D3).
+pub fn gated_or_counted<S>(gate: Option<&Gate>, in_flight: &InFlight, inner: S) -> MaybeGated<S> {
+    match gate {
+        Some(gate) => MaybeGated::Gated(gate.wrap(inner)),
+        None => MaybeGated::Counted(in_flight.counting(inner, crate::desk::MSG_BUSY)),
     }
 }
 
@@ -347,6 +437,7 @@ impl<S: Service<RoleServer>> Service<RoleServer> for MaybeGated<S> {
         match self {
             MaybeGated::Gated(server) => server.handle_request(request, context).await,
             MaybeGated::Plain(server) => server.handle_request(request, context).await,
+            MaybeGated::Counted(server) => server.handle_request(request, context).await,
         }
     }
 
@@ -358,13 +449,15 @@ impl<S: Service<RoleServer>> Service<RoleServer> for MaybeGated<S> {
         match self {
             MaybeGated::Gated(server) => server.handle_notification(notification, context).await,
             MaybeGated::Plain(server) => server.handle_notification(notification, context).await,
+            MaybeGated::Counted(server) => server.handle_notification(notification, context).await,
         }
     }
 
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> ServerConfig {
         match self {
             MaybeGated::Gated(server) => server.get_info(),
             MaybeGated::Plain(server) => server.get_info(),
+            MaybeGated::Counted(server) => server.get_info(),
         }
     }
 }
@@ -406,7 +499,10 @@ impl<S: Service<RoleServer>> Service<RoleServer> for EntitledService<S> {
         let _admitted = self.in_flight.admit();
         match classify(&request) {
             Kind::Open => self.inner.handle_request(request, context).await,
-            Kind::ToolCall { task } => {
+            // A closing keeper takes no new work, and does not ask the check
+            // for work it will not do (ADR-SEC-033 D3).
+            Kind::ToolCall if self.in_flight.is_closed() => closing(crate::desk::MSG_BUSY),
+            Kind::ToolCall => {
                 let (verdict, notice) = self.check.check_with_notice().await;
                 match verdict {
                     Verdict::Entitled => {
@@ -421,13 +517,9 @@ impl<S: Service<RoleServer>> Service<RoleServer> for EntitledService<S> {
                     }
                     Verdict::Locked(reason) => {
                         log_refusal("tools/call", reason);
-                        if task {
-                            Err(McpError::invalid_params(TASK_CALL_REFUSED, None))
-                        } else {
-                            Ok(ServerResult::CallToolResult(CallToolResult::error(vec![
-                                ContentBlock::text(reason.message()),
-                            ])))
-                        }
+                        Ok(ServerResult::CallToolResult(CallToolResult::error(vec![
+                            ContentBlock::text(reason.message()),
+                        ])))
                     }
                 }
             }
@@ -453,7 +545,7 @@ impl<S: Service<RoleServer>> Service<RoleServer> for EntitledService<S> {
         self.inner.handle_notification(notification, context).await
     }
 
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> ServerConfig {
         self.inner.get_info()
     }
 }

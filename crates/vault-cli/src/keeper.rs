@@ -19,28 +19,28 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Context, Result};
 use rmcp::ServiceExt;
+use vault_app::admin::{AdminGate, AdminHost, EngineCell, FullHost, LockedHost};
+use vault_app::entitlement::{ModeCheck, UnreadableAccount};
 use vault_app::install_paths;
 use vault_app::keeper::acl::harden_vault_dir;
-use vault_app::keeper::discovery::{self, Discovery};
+use vault_app::keeper::discovery::{self, Discovery, Role};
 use vault_app::keeper::handshake::{HandshakeKeys, WIRE};
 use vault_app::keeper::intent;
 use vault_app::keeper::relay::{KeeperPool, KeeperStarter, KeychainKeySource, RelaySettings};
-use vault_app::keeper::runtime::{self, KeeperSettings, Subscription};
-use vault_app::keychain::{read_existing_master_key, PRODUCTION_NAMESPACE, VAULT_ID};
+use vault_app::keeper::runtime::{self, AdminSide, KeeperSettings, Subscription};
+use vault_app::keeper::start_failure::{self, StartFailureCode};
+use vault_app::keychain::{
+    derive_sqlcipher_passphrase, read_existing_master_key, PRODUCTION_NAMESPACE, VAULT_ID,
+};
 use vault_app::model_fetch;
 use vault_app::{ConsolidatorLock, VAULT_LOCKFILE_NAME};
 use vault_core::{Boundary, VaultError};
 use vault_mcp::{EntitlementCheck, InFlight, NoVaultAdapter, RelayServer, Upstream, Verdict};
 
-/// Version marker for the keeper's Task Scheduler entry. Changing the task's
-/// shape means bumping this, which makes every relay replace the old entry.
+// The keeper task's label, launcher and arguments are shared with the
+// desktop (ADR-108 D4), so both register the very same task.
 #[cfg(windows)]
-const KEEPER_TASK_LABEL: &str = "zaaheen-keeper-task-v1";
-
-/// The Windows-subsystem launcher the task runs (ADR-SEC-015), so no console
-/// window ever appears.
-#[cfg(windows)]
-const LAUNCHER_EXE: &str = "zaaheen-maintenance.exe";
+use vault_app::keeper::{keeper_task_args, KEEPER_TASK_LABEL, LAUNCHER_EXE};
 
 /// Everything `zaaheen keeper` needs to open the vault.
 pub struct KeeperPaths {
@@ -145,14 +145,25 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
     };
 
     // The subscription (ADR-104). A build with no account settings has no
-    // check at all and serves as it always did; a build whose settings are
-    // broken refuses to start, because a gate that silently disappeared would
-    // turn a broken build into a free one.
-    let check = match vault_app::account::build_check(&account_home()?) {
+    // check at all and serves as it always did. A build whose settings are
+    // present but cannot be read serves LOCK MODE as "cannot confirm"
+    // (ADR-108's amendment to ADR-104): still fail-secure — nothing is served
+    // ungated — but the export stays reachable, which a refusal to start
+    // would take away now that the export lives in the keeper.
+    let home = account_home()?;
+    let check = match vault_app::account::build_check(&home) {
         Ok(check) => check,
         Err(e) => {
-            publish_failure();
-            return Err(anyhow!("the account could not be prepared: {e}"));
+            tracing::warn!(error = %e, "the account could not be read; serving lock mode as 'cannot confirm'");
+            let rebuild_home = home.clone();
+            let unreadable = Arc::new(UnreadableAccount::new(Box::new(move || {
+                match vault_app::account::build_check(&rebuild_home) {
+                    Ok(Some(check)) => Ok(Some(check as Arc<dyn ModeCheck>)),
+                    Ok(None) => Ok(None),
+                    Err(_) => Err(()),
+                }
+            })));
+            match serve_locked(&paths, &vault_root, unreadable, exit_on_stdin_eof).await {}
         }
     };
 
@@ -172,40 +183,40 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
             reason = ?reason,
             "the vault is locked; serving lock mode without loading any models"
         );
-        // The relay handshake is authenticated with a key derived from the
-        // master key, and only a full keeper may ever create one, so a locked
-        // computer with no key has no channel to deliver the locked message on
-        // (§6.2: "none => publish `failed`").
-        let keys = match read_existing_master_key(PRODUCTION_NAMESPACE, VAULT_ID) {
-            Ok(Some(master_key)) => HandshakeKeys::derive(&master_key),
-            Ok(None) | Err(_) => {
-                publish_failure();
-                return Err(anyhow!("authentication failed"));
-            }
-        };
-        let adapter: Arc<dyn vault_mcp::Adapter> = Arc::new(NoVaultAdapter);
-        let exit = runtime::serve(
-            adapter,
-            keys,
-            KeeperSettings::production(vault_root.clone(), env!("CARGO_PKG_VERSION")),
-            Some(Subscription::lock(Arc::clone(check), InFlight::new())),
-            shutdown_signal(exit_on_stdin_eof),
-        )
-        .await;
-        let code = match exit {
-            Ok(exit) => {
-                tracing::info!(exit = ?exit, "locked keeper stopped");
-                0
-            }
-            Err(e) => {
-                tracing::error!(error = %e, "locked keeper stopped on an error");
-                publish_failure();
-                1
-            }
-        };
-        // As in the full path: exit with `vault_lock` still held.
-        std::process::exit(code)
+        match serve_locked(&paths, &vault_root, Arc::clone(check), exit_on_stdin_eof).await {}
     }
+
+    // ADR-105 L3: the models never follow the vault. Resolved BEFORE the
+    // heartbeat starts, and a failure published, so it can never leave a
+    // "starting" record refreshed by a keeper that has given up (security
+    // review N2).
+    let homes = match vault_app::location::Homes::production() {
+        Ok(homes) => homes,
+        Err(e) => {
+            publish_failure();
+            return Err(anyhow!("{e}"));
+        }
+    };
+    let models_dir = vault_app::location::models_dir(&homes);
+
+    // A keeper that is building the vault keeps its "starting" record fresh,
+    // so relays and the desktop wait for it instead of asking for another
+    // start once the record's 60 s are up (review B R2-S1).
+    let heartbeat = tokio::spawn({
+        let vault_root = vault_root.clone();
+        async move {
+            let mut every = tokio::time::interval(STARTING_HEARTBEAT);
+            every.tick().await;
+            loop {
+                every.tick().await;
+                let at = chrono::Utc::now().to_rfc3339();
+                let _ = discovery::write(
+                    &vault_root,
+                    &Discovery::starting(std::process::id(), WIRE, env!("CARGO_PKG_VERSION"), &at),
+                );
+            }
+        }
+    });
 
     // §8.26 §4 and SIGNIN-DESIGN.md §8.40: at keeper start, refresh a stale
     // lease, then once a day while serving — never from tool activity, and
@@ -216,12 +227,8 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
         tokio::spawn(Arc::clone(check).refresh_at_start_then_daily());
     }
 
-    // ADR-105 L3: the models never follow the vault.
-    let models_dir = vault_app::location::models_dir(
-        &vault_app::location::Homes::production().map_err(|e| anyhow!("{e}"))?,
-    );
     let reranker = model_fetch::reranker_paths_in(&models_dir);
-    let (app, master_key) = match crate::build_application_keyed(
+    let built = crate::build_application_keyed(
         &paths.vault_db,
         &paths.vector_dir,
         &paths.graph_db,
@@ -232,56 +239,64 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
         Some(reranker.model),
         Some(reranker.tokenizer),
     )
-    .await
-    {
+    .await;
+    // Stopped, and waited for, before anything else is published: a last
+    // "starting" write must never land on top of the keeper's own record.
+    heartbeat.abort();
+    let _ = heartbeat.await;
+    let (app, master_key) = match built {
         Ok(built) => built,
         Err(e) => {
+            // ADR-108 D7: say why, for the desktop, then publish Failed.
+            let code = e
+                .downcast_ref::<crate::OpenFailure>()
+                .map_or(StartFailureCode::VaultOpenFailed, |f| f.code);
+            start_failure::write(&vault_root, std::process::id(), code);
             publish_failure();
             return Err(e);
         }
     };
+    start_failure::clear(&vault_root);
     // ADR-SEC-029 R2: the handshake keys come from the key the build just
     // opened (and may just have moved to Local persistence), never from a
     // second read of it. The master key is dropped, and wiped, at once.
     let keys = HandshakeKeys::derive(&master_key);
     drop(master_key);
+    let app = Arc::new(app);
     let _worker_shutdown = app.spawn_retry_worker();
 
     let adapter: Arc<dyn vault_mcp::Adapter> = app.adapter().clone();
     let settings = KeeperSettings::production(vault_root.clone(), env!("CARGO_PKG_VERSION"));
 
-    // Entitled (or a build with no sign-in at all): the full keeper, with the
-    // one check both serving calls and answering each tick.
-    let subscription = check.map(|check| Subscription::full(check, InFlight::new()));
+    // ADR-100 / ADR-108 D10: fetch the reranker in the background while
+    // serving; reads use the cosine gate until it lands. One acquisition per
+    // keeper, shared with the desktop's "get it now". It runs on its own task,
+    // so a stopping keeper does not wait for it: the process exits with it.
+    let full = FullHost::new(Arc::clone(&app), EngineCell::new(models_dir));
+    full.fetch_engine();
 
-    // ADR-100: fetch the reranker concurrently with serving; reads use the
-    // cosine gate until it lands. Raced rather than joined: when serving ends
-    // the acquisition is abandoned, so a stopping keeper never holds the vault
-    // for the ~20 s re-hash (or a first-run download) of a model it will not
-    // use again.
-    let serve = runtime::serve(
+    // Entitled (or a build with no sign-in at all): the full keeper, with the
+    // one check both serving calls and answering each tick, and the desktop's
+    // admin side reading that same check from disk.
+    let admin_gate = match &check {
+        Some(check) => AdminGate::Full(Arc::clone(check) as Arc<dyn ModeCheck>),
+        None => AdminGate::Open,
+    };
+    let subscription = check.map(|check| Subscription::full(check, InFlight::new()));
+    let admin = AdminSide {
+        host: Arc::new(AdminHost::Full(full)),
+        gate: Arc::new(admin_gate),
+    };
+
+    let exit = runtime::serve(
         adapter,
+        Some(admin),
         keys,
         settings,
         subscription,
         shutdown_signal(exit_on_stdin_eof),
-    );
-    tokio::pin!(serve);
-    let acquire = async {
-        match model_fetch::ensure_reranker(&models_dir).await {
-            Ok(_) => {
-                let _ = app.spawn_reranker_warmup();
-            }
-            Err(e) => {
-                tracing::warn!(error = %e, "reranker acquisition failed; reads use the cosine gate")
-            }
-        }
-    };
-    tokio::pin!(acquire);
-    let exit = tokio::select! {
-        exit = &mut serve => exit,
-        () = &mut acquire => serve.await,
-    };
+    )
+    .await;
 
     let code = match exit {
         Ok(exit) => {
@@ -298,6 +313,91 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
     };
     // See the function docs: exit with `vault_lock` still held (it is never
     // dropped; the OS releases it with the process).
+    std::process::exit(code)
+}
+
+/// How often a keeper that is still opening the vault refreshes its
+/// "starting" record: well inside the 60 s relays and the desktop trust one.
+const STARTING_HEARTBEAT: std::time::Duration = std::time::Duration::from_secs(20);
+
+/// Lock mode (§8.26 §6.2): the same MCP surface with no `Application`
+/// behind it, and the desktop's admin side with only what the lock screen
+/// needs (ADR-108). Never returns: like the full keeper, it exits the process
+/// with `.vault.lock` still held.
+async fn serve_locked<C>(
+    paths: &KeeperPaths,
+    vault_root: &Path,
+    check: Arc<C>,
+    exit_on_stdin_eof: bool,
+) -> std::convert::Infallible
+where
+    C: EntitlementCheck + ModeCheck,
+{
+    let pid = std::process::id();
+    let publish_failure = || {
+        let at = chrono::Utc::now().to_rfc3339();
+        let failed = Discovery::failed(pid, WIRE, env!("CARGO_PKG_VERSION"), &at);
+        let _ = discovery::write(vault_root, &failed);
+    };
+    // The handshake is authenticated with keys derived from the master key,
+    // and only a full keeper may create one.
+    let master_key = match read_existing_master_key(PRODUCTION_NAMESPACE, VAULT_ID) {
+        Ok(Some(master_key)) => master_key,
+        // A locked computer with no key yet (a fresh install before sign-in):
+        // nothing to serve and nothing wrong, so no Failed record and no
+        // note — just leave (review A R2-1 / B R2-M1). The desktop shows its
+        // lock screen without a keeper; relays already say "signed out".
+        Ok(None) => {
+            tracing::info!("locked, and no key yet: nothing to serve; this keeper exits");
+            let _ = discovery::remove_if_written_by(vault_root, Role::Starting, pid);
+            std::process::exit(0)
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "the key could not be read for lock mode");
+            start_failure::write(vault_root, pid, StartFailureCode::CredentialStore);
+            publish_failure();
+            std::process::exit(1)
+        }
+    };
+    let keys = HandshakeKeys::derive(&master_key);
+    // For the lock screen's numbers and the export only, opened on first use
+    // and never created (`LockedHost`).
+    let database_key = derive_sqlcipher_passphrase(&master_key);
+    drop(master_key);
+    start_failure::clear(vault_root);
+
+    let subscription = Subscription::lock(check, InFlight::new());
+    let admin = AdminSide {
+        host: Arc::new(AdminHost::Locked(LockedHost::new(
+            paths.vault_db.clone(),
+            database_key,
+        ))),
+        gate: Arc::new(AdminGate::Locked {
+            check: subscription.check(),
+            flip: subscription.flip().clone(),
+        }),
+    };
+    let adapter: Arc<dyn vault_mcp::Adapter> = Arc::new(NoVaultAdapter);
+    let exit = runtime::serve(
+        adapter,
+        Some(admin),
+        keys,
+        KeeperSettings::production(vault_root.to_path_buf(), env!("CARGO_PKG_VERSION")),
+        Some(subscription),
+        shutdown_signal(exit_on_stdin_eof),
+    )
+    .await;
+    let code = match exit {
+        Ok(exit) => {
+            tracing::info!(exit = ?exit, "locked keeper stopped");
+            0
+        }
+        Err(e) => {
+            tracing::error!(error = %e, "locked keeper stopped on an error");
+            publish_failure();
+            1
+        }
+    };
     std::process::exit(code)
 }
 
@@ -470,11 +570,7 @@ fn keeper_task(
         task_id,
         label: KEEPER_TASK_LABEL.to_string(),
         program: launcher.to_path_buf(),
-        args: vec![
-            "--keeper".to_string(),
-            "--log-dir".to_string(),
-            log_dir.to_string_lossy().into_owned(),
-        ],
+        args: keeper_task_args(log_dir),
     })
 }
 
@@ -641,21 +737,32 @@ mod routine_refresh_wiring {
             .map(|line| line.split("//").next().unwrap_or(line))
             .collect::<Vec<_>>()
             .join("\n");
-        let start = code
-            .split_once("pub async fn dispatch_keeper(")
-            .expect("the keeper's start is here")
-            .1;
-        let (lock_mode, full) = start
-            .split_once("std::process::exit(code)")
-            .expect("lock mode ends by exiting");
+        // One function's body: from its signature to the first closing brace
+        // at column 0 (the file goes on to this very test, whose own string
+        // literals must not count as code).
+        let body_of = |signature: &str| -> String {
+            let from = code.split_once(signature).expect(signature).1;
+            from.split_once("\n}\n")
+                .map_or(from, |(body, _)| body)
+                .to_string()
+        };
+        // Since ADR-108 lock mode is its own function, `serve_locked`.
+        let lock_mode = body_of("async fn serve_locked<");
+        let full = body_of("pub async fn dispatch_keeper(");
         let (before_models, after_build) = full
             .split_once("crate::build_application_keyed(")
             .expect("the full keeper builds the application");
-        // Only the rest of `dispatch_keeper`: the file goes on to this very
-        // test, whose own string literals must not count as code.
-        let after_build = after_build
-            .split_once("\n}\n")
-            .map_or(after_build, |(body, _)| body);
+
+        // Review A R2-1 / B R2-M1: a locked computer with no key yet is not a
+        // failure; its keeper leaves without a Failed record.
+        let (_, no_key) = lock_mode
+            .split_once("Ok(None) =>")
+            .expect("lock mode handles 'no key yet'");
+        let no_key = no_key.split_once("Err(e) =>").map_or(no_key, |(b, _)| b);
+        assert!(
+            no_key.contains("remove_if_written_by(") && !no_key.contains("publish_failure"),
+            "no key yet: clear the starting record, publish nothing"
+        );
 
         // ADR-SEC-029 R2: the full keeper derives its handshake keys from the
         // key the build opened; a second read straight after a move to Local

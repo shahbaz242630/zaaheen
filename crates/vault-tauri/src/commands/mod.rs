@@ -1,8 +1,10 @@
 //! Tauri command surface — BRD §5.11.
 //!
-//! Commands dispatch through `Application::adapter()` (the wired
-//! `VaultAdapter` from Phase 4a) per ADR-030 outcome (a) single-process
-//! MCP architecture.
+//! **Since ADR-108 (D4) the desktop never opens the vault.** Commands that
+//! need it ask the desktop's guard, then forward to the keeper over the
+//! authenticated admin connection (`crate::link::KeeperLink`); the bodies run
+//! there (`vault_app::admin::ops`), writing the same audit rows they always
+//! did. What follows about audit and actors describes those bodies.
 //!
 //! ## Layout
 //!
@@ -52,11 +54,9 @@
 //! ## Testability pattern
 //!
 //! Each `#[tauri::command]` wrapper delegates to a sibling `*_inner`
-//! async fn that takes `&Application` directly (not wrapped in
-//! `State<'_, Application>`). Tests exercise the inner function with a
-//! real Application from a test fixture; the `#[tauri::command]`
-//! wrapper is a thin glue that converts errors to user-friendly Strings
-//! and cannot be tested without the full Tauri runtime.
+//! async fn that takes `&KeeperLink` directly (not wrapped in `State`), and
+//! gated ones an `&Entitled` only the guard can mint. The keeper's side is
+//! tested end to end in vault-app (`tests/keeper_admin.rs`).
 
 pub mod account;
 pub mod agent;
@@ -65,6 +65,7 @@ pub mod connect;
 pub mod engine;
 pub mod erasure;
 pub mod export;
+pub mod keeper;
 pub mod location;
 pub mod logs;
 pub mod maintenance;
@@ -76,11 +77,14 @@ pub use account::{
     account_access, account_refresh_now, account_sign_in, account_sign_out, account_status,
     account_subscribe, AccountSlot,
 };
-pub use agent::{list_agents, list_agents_inner, revoke_agent, revoke_agent_inner};
+pub use agent::{
+    list_agents, list_agents_inner, list_connected_apps, list_connected_apps_inner, revoke_agent,
+    revoke_agent_inner,
+};
 pub use boundary::{
     create_boundary, create_boundary_inner, list_boundaries, list_boundaries_inner,
 };
-pub use engine::{ensure_recall_engine, RecallEngineFetch};
+pub use engine::ensure_recall_engine;
 pub use erasure::{erase_everything, erase_everything_inner};
 pub use export::{export_memories, export_memories_inner};
 pub use location::LocationContext;

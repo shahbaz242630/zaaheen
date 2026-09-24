@@ -35,9 +35,9 @@ use tauri::State;
 use vault_app::keeper::exclusive::take_exclusive;
 use vault_app::keeper::relay::KeychainKeySource;
 use vault_app::keychain::KeyLocation;
-use vault_app::Application;
 
 use crate::commands::account::AccountSlot;
+use crate::link::KeeperLink;
 
 /// Opaque error code: the vault could not be taken for erasure (a maintenance
 /// run holds it). Nothing was deleted.
@@ -54,16 +54,33 @@ const TAKE_WAIT: Duration = Duration::from_secs(20);
 /// Bound on each step of the handover request.
 const TAKE_STEP: Duration = Duration::from_secs(5);
 
-/// Inner implementation, `Application`-only so it is testable without a
-/// Tauri runtime (same pattern as the other command modules).
+/// Inner implementation, testable without a Tauri runtime (same pattern as
+/// the other command modules).
+///
+/// Since ADR-108 (D9) the desktop holds no store of its own, so nothing in
+/// this process keeps a file open while it is deleted (ADR-SEC-029 hazard
+/// H6). Its link is closed and poisoned first — it must never start a keeper
+/// that would make a fresh key over what is being erased — and un-poisoned if
+/// nothing was deleted.
 ///
 /// # Errors
 ///
 /// Returns an opaque error code when cryptographic erasure fails or cannot
 /// start. The caller MUST treat this as "the vault was NOT erased".
-pub async fn erase_everything_inner(app: &Application) -> Result<serde_json::Value, String> {
-    let vault_root = app.vault_root().to_path_buf();
+pub async fn erase_everything_inner(link: &KeeperLink) -> Result<serde_json::Value, String> {
+    let Some(vault_root) = link.vault_root() else {
+        tracing::warn!(target: "vault_tauri::erasure", "erasure not started: the vault folder could not be found");
+        return Err(ERR_ERASURE_FAILED.to_string());
+    };
+    link.poison().await;
+    let erased = erase_at(vault_root).await;
+    if erased.is_err() {
+        link.clear_poison();
+    }
+    erased
+}
 
+async fn erase_at(vault_root: std::path::PathBuf) -> Result<serde_json::Value, String> {
     // ADR-102 amendment (session 35): first take the vault from the keeper
     // serving any connected AI app. Left running, it would keep answering
     // that app from its open stores after the user was told everything was
@@ -137,10 +154,10 @@ pub async fn erase_everything_inner(app: &Application) -> Result<serde_json::Val
 /// that matters or does nothing at all — and the person stays signed in.
 #[tauri::command]
 pub async fn erase_everything(
-    app: State<'_, Application>,
+    link: State<'_, KeeperLink>,
     account: State<'_, AccountSlot>,
 ) -> Result<serde_json::Value, String> {
-    let erased = erase_everything_inner(&app).await;
+    let erased = erase_everything_inner(link.inner()).await;
     sign_out_if_erased(erased, || account.sign_out_after_erasure()).await
 }
 
@@ -213,14 +230,33 @@ mod tests {
         );
     }
 
+    /// ADR-108 D9 / review B-S7: the desktop's link is poisoned BEFORE the
+    /// vault is taken (it must never start a keeper that makes a fresh key
+    /// meanwhile), and un-poisoned only when nothing was deleted.
+    #[test]
+    fn the_link_is_poisoned_first_and_restored_only_on_failure() {
+        let source = include_str!("erasure.rs").replace("\r\n", "\n");
+        let body = source
+            .split_once("pub async fn erase_everything_inner(")
+            .expect("the inner command is defined here")
+            .1
+            .split_once("\n}\n")
+            .expect("the inner command is closed")
+            .0;
+        let poison = body.find("link.poison().await;").expect("poisoned");
+        let erase = body.find("erase_at(vault_root)").expect("then erased");
+        assert!(poison < erase);
+        assert!(body.contains("if erased.is_err() {\n        link.clear_poison();"));
+    }
+
     /// ADR-105 L5: "Delete everything" also removes an earlier move's old
     /// copy — only once the key is destroyed (`?` on the erasure first).
     #[test]
     fn erasure_also_removes_an_old_copy_after_the_key_is_gone() {
         let source = include_str!("erasure.rs").replace("\r\n", "\n");
         let body = source
-            .split_once("pub async fn erase_everything_inner(")
-            .expect("the inner command is defined here")
+            .split_once("async fn erase_at(")
+            .expect("the erasure itself is defined here")
             .1
             .split_once("\n}\n")
             .expect("the inner command is closed")

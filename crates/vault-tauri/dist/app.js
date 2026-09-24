@@ -381,12 +381,24 @@ args = ["mcp", "serve"]`;
 
 // Plain words for people, not developers (founder's walk-through, session 55):
 // "AI app", as the welcome says, and where each app keeps the setting.
+// Session 59, from the live test of every app: ChatGPT and Antigravity have
+// no install route, so their steps name the exact screen or file, and
+// ChatGPT's form keeps the command and its two arguments apart (the whole
+// line typed into "Arguments" was the founder's first attempt, and it fails).
+const SNIPPET_FORM = `Name:       Zaaheen
+Command:    zaaheen
+Arguments:  mcp
+            serve`;
+// As documented at code.claude.com/docs/en/mcp: user scope, so every project
+// has it; everything after `--` is the server's own command line.
+const SNIPPET_CLAUDE_CODE = "claude mcp add --transport stdio --scope user zaaheen -- zaaheen mcp serve";
 const AGENTS = [
-  { name: "Claude Desktop", desc: "The Claude app for your computer", hint: "In Claude, open Settings, then Developer, then Edit Config. Add this to the file it shows you, save it, then quit Claude and open it again:", snippet: SNIPPET_JSON, connect: "claude_desktop" },
+  { name: "Claude Desktop", desc: "The Claude app for your computer, in Chat and Cowork", hint: "In Claude, open Settings, then Developer, then Edit Config. Add this to the file it shows you, save it, then quit Claude and open it again:", snippet: SNIPPET_JSON, connect: "claude_desktop" },
   { name: "Cursor", desc: "AI code editor", hint: "Add this to Cursor's settings file, mcp.json, in the .cursor folder in your home folder. Save it, then restart Cursor:", snippet: SNIPPET_JSON, connect: "cursor" },
-  { name: "Claude Code", desc: "Claude in your terminal", hint: "Add this to Claude Code's settings, then restart Claude Code:", snippet: SNIPPET_JSON },
-  { name: "Codex", desc: "OpenAI's coding assistant", hint: "Add this to Codex's settings file, config.toml, in the .codex folder in your home folder. Save it, then restart Codex:", snippet: SNIPPET_TOML },
-  { name: "Antigravity", desc: "Google's AI code editor", hint: "Add this to Antigravity's settings for connected apps, then restart it:", snippet: SNIPPET_JSON },
+  { name: "ChatGPT", desc: "The ChatGPT app for your computer, in Work and Codex", hint: "In ChatGPT, open Settings, then Integrations, then Plugins. Choose Add, then Add MCP Server, and fill it in as below. Put mcp and serve in Arguments as two separate items. Save it, then use Zaaheen in ChatGPT's Work or Codex mode (its Chat mode can't connect to apps on your computer):", snippet: SNIPPET_FORM },
+  { name: "Antigravity", desc: "Google's AI app and code editor", hint: "Press Windows and R together, type notepad %USERPROFILE%\\.gemini\\config\\mcp_config.json and press Enter (for the Antigravity IDE, use .gemini\\antigravity instead of .gemini\\config). If the file is empty, paste this in. If it already lists other apps, add the zaaheen part next to them. Save it, then close Antigravity fully and open it again:", snippet: SNIPPET_JSON },
+  { name: "Claude Code", desc: "Claude in your terminal", hint: "In a terminal, run this once. Zaaheen is then available in every Claude Code project:", snippet: SNIPPET_CLAUDE_CODE },
+  { name: "Codex", desc: "OpenAI's coding assistant in your terminal", hint: "Add this to Codex's settings file, config.toml, in the .codex folder in your home folder. Save it, then restart Codex:", snippet: SNIPPET_TOML },
   { name: "Another app", desc: "Any AI app that can connect to Zaaheen", hint: "Give your app this setting:", snippet: SNIPPET_JSON },
 ];
 
@@ -531,12 +543,13 @@ const state = {
   addType: "semantic",
   tab: "memories",
   query: "",
-  // `agents` is the local record of which agent the user set up a config
-  // snippet for during onboarding — it drives the connect UI only. The
-  // authoritative list of agents holding vault access is `grantedAgents`,
-  // read from the backend registry (slice 2).
+  // `agents` is the local record of which app the user picked during
+  // onboarding — it drives the connect UI only. What the tab and the footer
+  // show is `connectedApps`: the keeper's live list (session 59).
+  // `grantedAgents` is the HTTP daemon's access keys (slice 2).
   agents: store.get("mv_agents", []),
-  grantedAgents: [],                         // from list_agents (authoritative)
+  connectedApps: [],                         // from list_connected_apps
+  grantedAgents: [],                         // from list_agents (access keys)
   boundaries: [],                            // from list_boundaries
   showConnectPanel: false,
   showInlineAdd: false,
@@ -552,6 +565,7 @@ const state = {
 
 function showScreen(name) {
   state.screen = name;
+  if (name === "connect") placeConnectPicker("setup-connect-host");
   for (const s of ["welcome", "signin", "location", "connect", "memory", "maintenance", "home", "lock", "moving"]) {
     $(`screen-${s}`).classList.toggle("hidden", s !== name);
   }
@@ -742,6 +756,16 @@ async function beginSetup() {
 
 // -- connect agent ----------------------------------------------------------
 
+// The picker is one element shared by the setup step and the Agents tab
+// (session 59: "Connect it for me" existed only in setup, so anybody who
+// skipped connecting there, or came back later, had only raw settings text).
+// It lives wherever it was last put; each screen puts it back before showing.
+function placeConnectPicker(hostId) {
+  const host = $(hostId);
+  const picker = $("connect-picker");
+  if (host && picker && picker.parentElement !== host) host.appendChild(picker);
+}
+
 function renderAgentCards() {
   $("agent-grid").innerHTML = AGENTS.map((a, i) => `
     <div class="agent-card${state.agentPicked === i ? " picked" : ""}" data-i="${i}">
@@ -793,7 +817,7 @@ function connectContinue() {
   if (state.agentPicked !== null) {
     const name = AGENTS[state.agentPicked].name;
     if (!state.agents.some((a) => a.name === name)) {
-      state.agents.push({ name, transport: "mcp · stdio", when: Date.now() });
+      state.agents.push({ name, when: Date.now() });
       store.set("mv_agents", state.agents);
     }
   }
@@ -846,22 +870,22 @@ async function saveFirstMemory() {
   }
 }
 
-// Reflect "still preparing" on the last onboarding screen. The two buttons
-// that leave onboarding are disabled while we wait, so the gate cannot be
-// clicked past, and the message carries the live percentage so the wait never
-// looks like a hang.
+// Reflect "still preparing" on the last onboarding screen, the nightly
+// tidy-up (page 6). "Finish setup" stays disabled while we wait, so the gate
+// cannot be clicked past, and the line carries the live percentage so the
+// wait never looks like a hang. Session 58: this used to write to the first
+// memory's screen, which page 6 had replaced as the last step, so the wait
+// showed no progress, and every progress event re-enabled "Keep this memory"
+// over an empty box.
 function renderFinishWait() {
-  const waiting = engineFetch.waiting;
-  const save = $("mem-save");
-  const skip = $("mem-skip");
-  if (save) save.classList.toggle("disabled", waiting);
-  if (skip) skip.classList.toggle("disabled", waiting);
-  if (!waiting) return;
-  const err = $("mem-err");
-  if (err) {
-    err.textContent = engineFetch.failed
+  if (!engineFetch.waiting) return;
+  const cta = $("maint-onboard-cta");
+  if (cta) cta.classList.add("disabled");
+  const line = $("maint-onboard-wait");
+  if (line) {
+    line.textContent = engineFetch.failed
       ? "Couldn't finish preparing the recall engine. Check your connection. Retrying…"
-      : `Finishing setup. Preparing your recall engine (${engineFetch.percent}%)…`;
+      : `Preparing your recall engine (${engineFetch.percent}%)…`;
   }
 }
 
@@ -890,7 +914,7 @@ async function finishOnboarding(withToast) {
       // succeeds — a vault they can use beats a modal they cannot dismiss.
       engineFetch.waiting = false;
       renderFinishWait();
-      const err = $("mem-err");
+      const err = $("maint-onboard-wait");
       if (err) {
         err.textContent = "Couldn't finish preparing the recall engine, so setup carries on anyway. Recall will sharpen once it completes.";
       }
@@ -923,17 +947,12 @@ function renderHome() {
   refreshAccountView();
   // What this start did about a move, said once (ADR-105 L-e).
   refreshLocationNotice();
-  // The footer reports how many agents hold access, so it needs the registry
+  // Whether the background part is still opening the memories (ADR-108).
+  watchLink();
+  // The footer reports how many AI apps are connected, so it needs the list
   // even when the user never opens the Agents tab. Fire-and-forget: a failed
-  // read leaves the footer at its last known value rather than blocking home.
-  refreshGrantedAgents();
-}
-
-async function refreshGrantedAgents() {
-  try {
-    state.grantedAgents = await invoke("list_agents");
-    renderFooter();
-  } catch { /* footer keeps its last known value */ }
+  // read shows none rather than blocking home.
+  refreshConnectedApps();
 }
 
 function renderNav() {
@@ -1127,30 +1146,67 @@ async function saveBoundary() {
 
 // -- agents tab --
 
+// An app's own MCP name, as people know it. Naming the person's apps is fine;
+// naming our stack is not (ADR-086). Anything unknown shows as it came.
+function friendlyAppName(raw) {
+  const n = String(raw || "").toLowerCase();
+  if (n === "an ai app" || n === "zaaheen-relay") return "An AI app";
+  if (n.includes("claude-code") || n.includes("claude code")) return "Claude Code";
+  if (n.startsWith("claude")) return "Claude";
+  if (n.includes("cursor")) return "Cursor";
+  if (n.includes("chatgpt") || n.includes("codex") || n.includes("openai")) return "ChatGPT";
+  if (n.includes("antigravity")) return "Antigravity";
+  return String(raw);
+}
+
+// The connected apps (session 59): the keeper's live list, so the tab and the
+// footer tell the truth while Claude, Cursor or ChatGPT are using the vault.
+async function refreshConnectedApps() {
+  try {
+    state.connectedApps = await invoke("list_connected_apps");
+  } catch {
+    state.connectedApps = [];
+  }
+  renderFooter();
+}
+
+function renderConnectedApps() {
+  const apps = state.connectedApps;
+  $("no-apps").classList.toggle("hidden", apps.length > 0);
+  $("app-rows").innerHTML = apps.map((a) => {
+    const when = a.last_used ? `last used ${relTime(a.last_used)}` : `connected ${relTime(a.since)}`;
+    return `
+      <div class="a-row">
+        <span class="st"></span>
+        <span class="nm">${esc(friendlyAppName(a.name))}</span>
+        <span class="tr"></span>
+        <span class="ac">${esc(when)}</span>
+        <span class="ac"></span>
+      </div>`;
+  }).join("");
+}
+
 async function renderAgents() {
-  // Slice 2: the registry of agents that actually hold vault access, not the
-  // browser-local list of cards the user clicked during onboarding. An agent
-  // appears here once it has been granted a connection token.
+  await refreshConnectedApps();
+  renderConnectedApps();
+
+  // The HTTP daemon's access keys (ADR-SEC-001), under their own heading and
+  // only when one exists: nobody on the desktop path has one.
   let agents = [];
   try {
     agents = await invoke("list_agents");
     state.grantedAgents = agents;
-    renderFooter();
   } catch (err) {
-    $("agent-rows").innerHTML = `<div class="empty-note">Couldn't load agents: ${esc(String(err))}</div>`;
-    $("no-agents").classList.add("hidden");
-    $("connect-panel-label").textContent = state.showConnectPanel
-      ? "hide connection details" : "+ Connect an agent";
-    $("agents-panel").classList.toggle("hidden", !state.showConnectPanel);
-    $("agents-snippet").textContent = SNIPPET_JSON;
+    $("agent-keys").classList.remove("hidden");
+    $("agent-rows").innerHTML = `<div class="empty-note">Couldn't load access keys: ${esc(String(err))}</div>`;
+    renderAgentsConnect();
     return;
   }
 
+  $("agent-keys").classList.toggle("hidden", agents.length === 0);
   if (!agents.length) {
     $("agent-rows").innerHTML = "";
-    $("no-agents").classList.remove("hidden");
   } else {
-    $("no-agents").classList.add("hidden");
     $("agent-rows").innerHTML = agents.map((a) => {
       const scope = a.boundaries.length
         ? `can read: ${a.boundaries.join(", ")}`
@@ -1188,10 +1244,19 @@ async function renderAgents() {
       });
     });
   }
-  $("connect-panel-label").textContent = state.showConnectPanel
-    ? "hide connection details" : "+ Connect an agent";
-  $("agents-panel").classList.toggle("hidden", !state.showConnectPanel);
-  $("agents-snippet").textContent = SNIPPET_JSON;
+  renderAgentsConnect();
+}
+
+// "+ Connect an AI app" opens the same picker the setup uses, "Connect it
+// for me" included.
+function renderAgentsConnect() {
+  const open = state.showConnectPanel;
+  $("connect-panel-label").textContent = open ? "Close" : "+ Connect an AI app";
+  if (open) {
+    placeConnectPicker("agents-connect-host");
+    renderAgentCards();
+  }
+  $("agents-connect-host").classList.toggle("hidden", !open);
 }
 
 // -- settings tab --
@@ -2331,6 +2396,50 @@ function onLocationNoticeOk() {
   $("location-notice").classList.add("hidden");
 }
 
+// -- the link to the background part (ADR-108 D6) --
+//
+// The window opens without waiting for the part of Zaaheen that holds the
+// memories. While it starts, the home screen says so; `link_state` only reads
+// (it never starts anything), and the watch stops once the link is serving or
+// has said why it could not start.
+const LINK_POLL_MS = 1000;
+let linkWatching = false;
+
+function linkLine(s) {
+  switch (s.state) {
+    case "connecting":
+      return "Opening your memories…";
+    case "tidying":
+      return friendlyAccountError("vault_maintenance_in_progress");
+    case "failed":
+      return s.message || friendlyAccountError("keeper_unreachable");
+    default:
+      return null;
+  }
+}
+
+async function watchLink() {
+  if (linkWatching) return;
+  linkWatching = true;
+  try {
+    for (;;) {
+      let s;
+      try {
+        s = await invoke("link_state");
+      } catch {
+        break;
+      }
+      const line = linkLine(s);
+      $("link-notice-text").textContent = line || "";
+      $("link-notice").classList.toggle("hidden", !line);
+      if (s.state === "serving" || s.state === "failed") break;
+      await new Promise((r) => setTimeout(r, LINK_POLL_MS));
+    }
+  } finally {
+    linkWatching = false;
+  }
+}
+
 // -- maintenance tab --
 
 const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -2418,6 +2527,18 @@ function friendlyAccountError(code) {
       return "Your memories couldn't be read just now. Try again in a moment.";
     case "export_write_failed":
       return "The file couldn't be saved. Check there's room on the disk and try again.";
+    // ADR-108: the desktop is a client of the background part that holds the
+    // memories. Founder-approved lines (session 60).
+    case "vault_maintenance_in_progress":
+      return "Zaaheen is tidying your memories. This can take a few minutes. Try again soon.";
+    case "update_needed":
+      return "Zaaheen was updated. Close it and open it again to carry on.";
+    case "outcome_unknown":
+      return "We couldn't confirm that was saved. Check your memories before adding it again.";
+    case "keeper_unreachable":
+      return "Zaaheen couldn't start its background part. Close it and open it again; if this keeps happening, contact customerservice@zaaheen.com.";
+    case "admin_busy":
+      return "Zaaheen is answering another app right now. Try again in a moment.";
     default:
       return null;
   }
@@ -2587,8 +2708,10 @@ async function catchUpMaintenanceIfDue() {
   if (!overdue) return;
   tracingHint("maintenance overdue on launch, running a catch-up pass");
   // Fire-and-forget: never block the window, and let the tab reflect the
-  // result on its next render.
-  invoke("run_maintenance_now").catch(() => {});
+  // result on its next render. A catch-up never interrupts anyone (ADR-108
+  // D8): it waits for the vault like the nightly run, and once it has it,
+  // runs only if a run is still due.
+  invoke("run_maintenance_now", { catchUp: true }).catch(() => {});
 }
 
 // A no-op console breadcrumb (kept quiet — the webview console is dev-only).
@@ -2614,19 +2737,14 @@ async function finishFromMaintenance() {
   await finishOnboarding(state.keptFirstMemory);
 }
 
-function replayWelcome() {
-  state.tab = "memories";
-  showScreen("welcome");
-}
-
 // -- footer --
 
 function renderFooter() {
-  // Counts agents that actually hold vault access (the backend registry),
-  // not agents the user merely copied a config snippet for.
-  const n = state.grantedAgents.filter((a) => a.active).length;
+  // Counts the AI apps connected right now (the keeper's list, session 59),
+  // not apps the person merely copied a setting for.
+  const n = state.connectedApps.length;
   $("footer-status").textContent = "Encrypted on this device · " +
-    (n > 0 ? `${n} agent${n > 1 ? "s" : ""} connected` : "no agents connected yet");
+    (n > 0 ? `${n} AI app${n > 1 ? "s" : ""} connected` : "no AI app connected right now");
 }
 
 // ---------------------------------------------------------------- wiring
@@ -2773,10 +2891,8 @@ function init() {
   // home — agents
   $("connect-panel-label").addEventListener("click", () => {
     state.showConnectPanel = !state.showConnectPanel;
-    renderAgents();
+    renderAgentsConnect();
   });
-  $("copy-agents-snippet").addEventListener("click", () =>
-    copyText(SNIPPET_JSON, $("copy-agents-snippet")));
 
   // home — maintenance
   $("maint-frequency").addEventListener("change", () =>
@@ -2786,7 +2902,6 @@ function init() {
 
   // home — settings
   $("settings-nav").addEventListener("click", onSettingsNav);
-  $("replay-welcome").addEventListener("click", replayWelcome);
   $("export-logs").addEventListener("click", exportLogs);
 
   // home — settings — delete everything (ADR-SEC-008)

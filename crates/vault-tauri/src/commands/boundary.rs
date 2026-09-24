@@ -1,142 +1,77 @@
 //! Boundary commands — BRD §5.11 `commands/boundary.rs`.
 //!
 //! Shared context (audit posture, ADR-SEC-003 boundary posture, testability
-//! pattern) is documented on the parent module.
+//! pattern) is documented on the parent module. Since ADR-108 (D4) the
+//! bodies run in the keeper (`vault_app::admin::ops`); these ask the guard
+//! and forward.
 //!
 //! Registering a boundary here grants nothing on its own. What a caller may
 //! read is decided by the authorized-boundary slice passed to retrieval, never
 //! by the presence of a registry row (BRD §11.4.3 rules 3 and 4).
 
-use std::time::Instant;
-
+use serde_json::{json, Value};
 use tauri::State;
-use vault_app::Application;
-use vault_core::Boundary;
-use vault_mcp::ToolInvokeDetails;
 
 use crate::guard::{Entitled, Entitlement};
+use crate::link::{decoded, KeeperLink, Kind};
 
-/// Inner list_boundaries implementation.
+/// `list_boundaries`.
 pub async fn list_boundaries_inner(
-    app: &Application,
+    link: &KeeperLink,
     _entitled: &Entitled,
-) -> Result<Vec<serde_json::Value>, String> {
-    let adapter = app.adapter();
-    let start = Instant::now();
-
-    let result = adapter.list_boundaries().await;
-    let duration_ms = start.elapsed().as_millis() as u64;
-
-    let (count, error_for_audit) = match &result {
-        Ok(boundaries) => (boundaries.len() as u32, None),
-        Err(e) => (0, Some(vault_mcp::ToolInvokeError::from_vault_error(e))),
-    };
-
-    let _ = adapter
-        .append_tauri_command_audit(ToolInvokeDetails {
-            tool: "list_boundaries",
-            duration_ms,
-            result_count: count,
-            boundary_count: count,
-            max_results: None,
-            score_threshold: None,
-            include_archived: None,
-            query_length: None,
-            error: error_for_audit,
-        })
-        .await;
-
-    result
-        .map(|boundaries| {
-            boundaries
-                .into_iter()
-                .map(|b| {
-                    serde_json::json!({
-                        "name": b.boundary.as_str(),
-                        "description": b.description,
-                        "created_at": b.created_at.to_rfc3339(),
-                        "memory_count": b.memory_count,
-                    })
-                })
-                .collect()
-        })
-        .map_err(|e| e.to_string())
+) -> Result<Vec<Value>, String> {
+    let text = link
+        .call("admin_boundary_list", json!({}), Kind::Read)
+        .await?;
+    decoded(&text)
 }
 
 #[tauri::command]
 pub async fn list_boundaries(
-    state: State<'_, Application>,
+    link: State<'_, KeeperLink>,
     entitlement: State<'_, Entitlement>,
-) -> Result<Vec<serde_json::Value>, String> {
+) -> Result<Vec<Value>, String> {
     let entitled = entitlement.require().await?;
-    list_boundaries_inner(state.inner(), &entitled).await
+    list_boundaries_inner(link.inner(), &entitled).await
 }
 
-/// Inner create_boundary implementation.
-///
-/// Returns `true` when a new boundary was registered, `false` when one of that
-/// name already existed — an idempotent no-op rather than an error, since the
-/// caller's desired end state already holds.
+/// `create_boundary`: `true` when a new boundary was registered, `false` when
+/// one of that name already existed. The keeper validates the name with
+/// `Boundary::new` before touching the vault (BRD §11.7.1).
 pub async fn create_boundary_inner(
-    app: &Application,
+    link: &KeeperLink,
     _entitled: &Entitled,
     name: String,
     description: Option<String>,
 ) -> Result<bool, String> {
-    let adapter = app.adapter();
-    let start = Instant::now();
-
-    // Validate BEFORE touching the vault (BRD §11.7.1 — validate at the
-    // boundary). `Boundary::new` enforces the 64-byte cap and the
-    // ASCII-identifier charset that keeps names safe to interpolate into the
-    // LanceDB `only_if` filter downstream.
-    let parsed = Boundary::new(&name).map_err(|e| format!("invalid boundary name: {e}"))?;
-
-    let result = adapter
-        .create_boundary(&parsed, description.as_deref())
-        .await;
-    let duration_ms = start.elapsed().as_millis() as u64;
-
-    let (created, error_for_audit) = match &result {
-        Ok(created) => (*created, None),
-        Err(e) => (false, Some(vault_mcp::ToolInvokeError::from_vault_error(e))),
-    };
-
-    let _ = adapter
-        .append_tauri_command_audit(ToolInvokeDetails {
-            tool: "create_boundary",
-            duration_ms,
-            result_count: u32::from(created),
-            boundary_count: 1,
-            max_results: None,
-            score_threshold: None,
-            include_archived: None,
-            query_length: None,
-            error: error_for_audit,
-        })
-        .await;
-
-    result.map_err(|e| e.to_string())
+    let text = link
+        .call(
+            "admin_boundary_create",
+            json!({ "name": name, "description": description }),
+            Kind::Write,
+        )
+        .await?;
+    decoded(&text)
 }
 
 #[tauri::command]
 pub async fn create_boundary(
-    state: State<'_, Application>,
+    link: State<'_, KeeperLink>,
     entitlement: State<'_, Entitlement>,
     name: String,
     description: Option<String>,
 ) -> Result<bool, String> {
     let entitled = entitlement.require().await?;
-    create_boundary_inner(state.inner(), &entitled, name, description).await
+    create_boundary_inner(link.inner(), &entitled, name, description).await
 }
 
 #[cfg(test)]
 mod tests {
     use vault_core::Boundary;
 
-    /// The command layer's first act is `Boundary::new`, so every name the
-    /// type rejects is rejected before any vault I/O happens. These pin the
-    /// cases that matter for a UI text field wired straight to this command.
+    /// The keeper's first act is `Boundary::new`, so every name the type
+    /// rejects is rejected before any vault I/O happens. These pin the cases
+    /// that matter for a UI text field wired straight to this command.
     #[test]
     fn boundary_name_validation_rejects_injection_shaped_input() {
         for bad in [

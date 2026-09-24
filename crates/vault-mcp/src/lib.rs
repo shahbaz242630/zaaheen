@@ -68,6 +68,7 @@
 mod adapter;
 mod audit;
 mod daemon;
+mod desk;
 mod gate;
 mod relay;
 mod server;
@@ -75,9 +76,10 @@ mod server;
 pub use adapter::Adapter;
 pub use audit::{ToolInvokeDetails, ToolInvokeError};
 pub use daemon::DaemonServer;
+pub use desk::{ReadDesk, DESK_BUDGET, MSG_BUSY};
 pub use gate::{
-    maybe_gated, AccountNotice, EntitledService, EntitlementCheck, Gate, InFlight, LockReason,
-    MaybeGated, Verdict,
+    gated_or_counted, maybe_gated, AccountNotice, Counted, EntitledService, EntitlementCheck, Gate,
+    InFlight, LockReason, MaybeGated, Verdict,
 };
 pub use relay::{
     NoVaultAdapter, RelayServer, Upstream, UpstreamError, MSG_OUTCOME_UNKNOWN, MSG_TIMED_OUT,

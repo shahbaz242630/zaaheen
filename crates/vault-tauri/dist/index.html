@@ -106,6 +106,11 @@
         <div class="kicker" data-step>STEP 2 OF 4</div>
         <h1>Connect your first AI app.</h1>
         <p class="sub">Pick the AI app you use, and we'll show you how to connect it.</p>
+        <!-- The app picker, shared with the Agents tab (session 59): it moves
+             into #agents-connect-host there and back here for setup, as the
+             move panel does between setup and Settings. -->
+        <div id="setup-connect-host">
+        <div id="connect-picker" class="connect-picker">
         <div id="agent-grid" class="agent-grid"></div>
         <!-- "Connect it for me" (ADR-106): for an app with its own install
              route, Zaaheen asks the app, and the app asks the person. -->
@@ -122,6 +127,8 @@
           </div>
           <div id="snippet-code" class="snippet-code"></div>
         </div>
+        </div>
+        </div>
         <div class="onboard-foot">
           <button id="connect-cta" class="btn-pill">Continue</button>
           <button id="connect-skip" class="link-quiet">I'll connect one later</button>
@@ -136,7 +143,13 @@
         </div>
         <div class="kicker" data-step>STEP 4 OF 4</div>
         <h1>Keep your memory sharp on its own.</h1>
-        <p class="sub">Every so often, Zaaheen can quietly tidy what it has learned: merging duplicates, resolving contradictions, and letting stale details fade. It runs on this device while you are away. You can change this or turn it off anytime.</p>
+        <p class="sub">While you're away, Zaaheen organises what it has learned:</p>
+        <ul class="sub-points">
+          <li>Merging duplicates</li>
+          <li>Resolving contradictions</li>
+          <li>Letting old details fade</li>
+        </ul>
+        <p class="sub">It runs on this computer. You can change this or turn it off anytime.</p>
         <div class="maint-onboard">
           <label class="maint-choice">
             <input type="radio" name="maint-onboard-choice" id="maint-onboard-on" value="on" />
@@ -151,6 +164,8 @@
           </label>
         </div>
         <div id="maint-onboard-note" class="maint-onboard-note"></div>
+        <!-- The recall engine's wait, while "Finish setup" holds for it. -->
+        <div id="maint-onboard-wait" class="maint-onboard-note"></div>
         <div class="onboard-foot">
           <button id="maint-onboard-cta" class="btn-pill">Finish setup</button>
         </div>
@@ -163,13 +178,13 @@
           <span class="nm">Zaaheen</span>
         </div>
         <div class="kicker" data-step>STEP 3 OF 4</div>
-        <h1>What should they remember first?</h1>
-        <p class="sub">Something true about you. Your agents will recall it whenever it helps.</p>
-        <textarea id="mem-text" class="mv-input" placeholder="e.g. I run a small design studio in London. I prefer short, direct answers."></textarea>
+        <h1>What should your AI apps know about you?</h1>
+        <p class="sub">Start with one thing. Your AI apps will recall it whenever it helps.</p>
+        <textarea id="mem-text" class="mv-input" placeholder="e.g. I prefer short, direct answers."></textarea>
         <div id="mem-err" class="err-note" style="margin-top:16px"></div>
         <div class="onboard-foot">
           <button id="mem-save" class="btn-pill disabled">Keep this memory</button>
-          <button id="mem-skip" class="link-quiet">skip for now</button>
+          <button id="mem-skip" class="link-quiet">Skip for now</button>
         </div>
       </div>
 
@@ -277,6 +292,13 @@
              payment, a clock that is wrong. Information, never a lock. -->
         <div id="account-banner" class="account-banner hidden"></div>
 
+        <!-- Where the link to the background part is (ADR-108 D6): "Opening
+             your memories…" while it starts, the tidying line during a run,
+             or why it could not start. The page works around it. -->
+        <div id="link-notice" class="banner-line link-notice hidden" role="status">
+          <span id="link-notice-text"></span>
+        </div>
+
         <!-- What this start did about a move (ADR-105 L-e): said once. -->
         <div id="location-notice" class="banner-line location-notice hidden">
           <span id="location-notice-text"></span>
@@ -340,20 +362,24 @@
 
         <!-- agents tab -->
         <div id="tab-agents" class="tab-pane tab-body hidden">
-          <div class="headline">Your agents.</div>
-          <p class="sub">Agents you've set up on this device. Everything they read or write is recorded in the audit log.</p>
-          <div id="agent-rows" class="tab-rows"></div>
-          <div id="no-agents" class="empty-note hidden">No agents connected yet.</div>
+          <div class="headline">Your AI apps.</div>
+          <p class="sub">The AI apps using your memories on this computer right now. Everything they read or write is recorded in the audit log.</p>
+          <!-- Session 59: the apps actually connected (the keeper's list),
+               not the HTTP daemon's access keys, which nobody on the desktop
+               path uses. The keys keep their own list below, shown only when
+               one exists. -->
+          <div id="app-rows" class="tab-rows"></div>
+          <div id="no-apps" class="empty-note hidden">No AI app is connected right now. An app connects when you open it, and shows here while it's open.</div>
+          <div id="agent-keys" class="hidden">
+            <div class="rows-label">Access keys</div>
+            <div id="agent-rows" class="tab-rows"></div>
+          </div>
           <div class="center-link">
-            <button id="connect-panel-label" class="link-underline">+ Connect an agent</button>
+            <button id="connect-panel-label" class="link-underline">+ Connect an AI app</button>
           </div>
-          <div id="agents-panel" class="agents-panel hidden">
-            <div class="snippet-head">
-              <span class="snippet-hint">Add this to your agent's MCP config:</span>
-              <button id="copy-agents-snippet" class="copy-chip">copy</button>
-            </div>
-            <div id="agents-snippet" class="snippet-code"></div>
-          </div>
+          <!-- The setup's app picker comes here (session 59), with "Connect
+               it for me" for the apps that have an install route. -->
+          <div id="agents-connect-host" class="agents-connect-host hidden"></div>
         </div>
 
         <!-- consolidation tab -->
@@ -505,7 +531,7 @@
                  the setup's location step when this button is used. -->
             <div class="set-row">
               <div class="set-text">
-                <div class="set-name">Where they're kept</div>
+                <div class="set-name">Memories location</div>
                 <p id="data-location" class="data-path"></p>
                 <p class="set-desc">Keep them in another folder, or on another drive. Zaaheen closes and opens again to move them.</p>
                 <p id="move-waiting" class="data-note hidden"></p>
@@ -598,13 +624,6 @@
                 <p id="export-logs-status" class="data-note"></p>
               </div>
               <div class="set-action"><button id="export-logs" class="btn-quiet">Save activity record&hellip;</button></div>
-            </div>
-            <div class="set-row">
-              <div class="set-text">
-                <div class="set-name">See the welcome again</div>
-                <p class="set-desc">Replay the short introduction from when you set Zaaheen up.</p>
-              </div>
-              <div class="set-action"><button id="replay-welcome" class="btn-quiet">Replay welcome</button></div>
             </div>
           </section>
 

@@ -90,8 +90,8 @@ input, textarea { user-select: text; cursor: text; }
 
 .screen { animation: mvFade .45s ease both; }
 
-/* The welcome's entrance (founder, session 54). Seen once at setup and on
-   "Replay welcome", so it may take its time: each headline line rises in,
+/* The welcome's entrance (founder, session 54). Seen once, at setup, so it
+   may take its time: each headline line rises in,
    then the subheading, and the check rows (from 400 ms, app.js) carry the
    cascade on. Transform and opacity only; the strong ease-out settles
    softly rather than stopping. Replays because a screen that goes from
@@ -211,11 +211,13 @@ textarea.mv-input { resize: none; }
    spaced-out wordmark replaced by the app's own icon). */
 .screen-brand {
   position: absolute;
-  top: 24px; left: 0; right: 0;
-  display: flex; align-items: center; justify-content: center; gap: 10px;
+  top: 22px; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
 }
-.screen-brand-icon { width: 28px; height: 28px; }
-.screen-brand .nm { font: 500 17px var(--serif); color: var(--ink); }
+/* Larger (founder, session 59: "the logo is very small it should be a big
+   size specially on pages"). */
+.screen-brand-icon { width: 44px; height: 44px; }
+.screen-brand .nm { font: 500 23px var(--serif); color: var(--ink); }
 
 .welcome h1 {
   margin: 30px 0 0;
@@ -415,8 +417,8 @@ textarea.mv-input { resize: none; }
   flex: none;
 }
 .brand { display: flex; align-items: center; gap: 10px; }
-.brand-icon { width: 22px; height: 22px; }
-.brand .nm { font: 500 14px var(--serif); }
+.brand-icon { width: 30px; height: 30px; }
+.brand .nm { font: 500 17px var(--serif); }
 .nav { display: flex; gap: 22px; font: 400 13px var(--sans); }
 .nav span {
   color: var(--muted);
@@ -584,8 +586,16 @@ textarea.mv-input { resize: none; }
 .a-row.revoked .st { background: var(--faint-2); }
 
 .center-link { text-align: center; margin: 24px 0 0; }
-.agents-panel { width: 560px; margin: 20px auto 40px; animation: mvFade .3s ease both; }
-.agents-panel .snippet-code { padding: 16px 18px; font-size: 12px; line-height: 1.7; }
+/* The access-key list's heading, under the connected apps (session 59), in
+   the small-caps label style the maintenance card uses. */
+.rows-label {
+  margin: 22px 0 6px;
+  font: 500 10.5px var(--mono); color: var(--faint);
+  letter-spacing: .06em; text-transform: uppercase;
+}
+/* The setup's app picker, opened from the Agents tab (session 59). */
+.agents-connect-host { width: 578px; margin: 4px auto 40px; animation: mvFade .3s ease both; }
+.connect-picker .snippet-code { white-space: pre-wrap; }
 
 /* settings tab: the sections down the left, the chosen one on the right,
    one row per setting with its button at the right (founder, session 55,
@@ -805,6 +815,21 @@ textarea.mv-input { resize: none; }
   text-align: center;
   font: 400 12.5px var(--sans); color: var(--faint);
 }
+/* The recall engine's wait sits just under "Finishing setup...". */
+#maint-onboard-wait { margin-top: 4px; }
+/* What the tidy-up does, as short points rather than a paragraph (founder,
+   session 58), in the sub-heading's own type and colour. The dots form one
+   column: as a flex item of .onboard (align-items: center) the list is only
+   as wide as its longest point, so it sits centred as a block while its
+   lines start together. (Centring each line instead left the dots ragged.) */
+.sub-points {
+  margin: 6px 0 0;
+  padding: 0 0 0 1.1em;
+  text-align: left;
+  font: 400 13.5px/1.55 var(--sans);
+  color: var(--muted);
+}
+.sub-points li::marker { color: var(--muted); }
 
 /* -- confirmation dialog ---------------------------------------------------
    Replaces window.confirm(): the webview renders that as an OK-only box, so

@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use rmcp::model::{CallToolRequestParams, CallToolResult, ContentBlock};
 use rmcp::service::RunningService;
 use rmcp::{ErrorData as McpError, RoleClient, ServiceExt};
+use tokio_util::sync::CancellationToken;
 use vault_mcp::{
     RelayServer, Upstream, UpstreamError, MSG_OUTCOME_UNKNOWN, MSG_TIMED_OUT, MSG_TIMED_OUT_SAVE,
     RELAY_CALL_BUDGET,
@@ -55,6 +56,7 @@ impl Upstream for ScriptedUpstream {
         &self,
         params: CallToolRequestParams,
         deadline: Instant,
+        _cancel: CancellationToken,
     ) -> Result<CallToolResult, UpstreamError> {
         self.forwarded.lock().unwrap().push(params.name.to_string());
         self.deadlines.lock().unwrap().push(deadline);
@@ -117,7 +119,10 @@ async fn the_handshake_and_tool_list_never_touch_the_keeper() {
     let client = connect(upstream.clone()).await;
 
     let info = client.peer_info().expect("server info after initialize");
-    assert_eq!(info.server_info.name, "zaaheen");
+    assert_eq!(
+        info.server_info.as_ref().map(|i| i.name.as_ref()),
+        Some("zaaheen")
+    );
 
     let tools = client.peer().list_all_tools().await.expect("tools/list");
     let mut names: Vec<String> = tools.iter().map(|t| t.name.to_string()).collect();
@@ -326,4 +331,90 @@ async fn keeper_errors_pass_through_unchanged() {
         .expect_err("surfaces");
     assert!(err.to_string().contains("invalid params"), "got {err}");
     assert_eq!(upstream.forwarded(), ["memory_write"]);
+}
+
+// ── Session 59: the app's name, and its cancel, reach the keeper side ───────
+
+/// Records what the relay tells it; each call waits until cancelled.
+#[derive(Default)]
+struct Listening {
+    apps: Mutex<Vec<String>>,
+    cancelled: Mutex<Vec<String>>,
+}
+
+#[async_trait]
+impl Upstream for Listening {
+    async fn call_tool(
+        &self,
+        params: CallToolRequestParams,
+        _deadline: Instant,
+        cancel: CancellationToken,
+    ) -> Result<CallToolResult, UpstreamError> {
+        cancel.cancelled().await;
+        self.cancelled.lock().unwrap().push(params.name.to_string());
+        Err(UpstreamError::TimedOut)
+    }
+
+    fn app_connected(&self, app: &rmcp::model::Implementation) {
+        self.apps.lock().unwrap().push(app.name.to_string());
+    }
+}
+
+async fn connect_as(
+    upstream: Arc<Listening>,
+    app: &str,
+) -> RunningService<RoleClient, rmcp::model::ClientConfig> {
+    let (client_io, server_io) = tokio::io::duplex(64 * 1024);
+    let server = RelayServer::new(upstream);
+    tokio::spawn(async move {
+        if let Ok(running) = server.serve(server_io).await {
+            let _ = running.waiting().await;
+        }
+    });
+    rmcp::model::ClientConfig::new(
+        rmcp::model::ClientCapabilities::default(),
+        rmcp::model::Implementation::new(app, "1"),
+    )
+    .serve(client_io)
+    .await
+    .expect("relay completes the handshake")
+}
+
+/// The relay learns its app's own name at `initialize` and hands it on
+/// (the keeper lists it in the Agents tab; the pool also starts the keeper).
+#[tokio::test]
+async fn the_relay_names_its_app_to_the_keeper_side_at_initialize() {
+    let upstream = Arc::new(Listening::default());
+    let _client = connect_as(upstream.clone(), "cursor-vscode").await;
+    assert_eq!(*upstream.apps.lock().unwrap(), ["cursor-vscode"]);
+}
+
+/// When the AI app cancels a call, the relay's upstream is told at once, so
+/// the keeper can drop it instead of answering nobody (ADR-107).
+#[tokio::test]
+async fn an_apps_cancel_reaches_the_keeper_side() {
+    let upstream = Arc::new(Listening::default());
+    let client = connect_as(upstream.clone(), "cursor-vscode").await;
+    let request = rmcp::model::ClientRequest::CallToolRequest(rmcp::model::CallToolRequest::new(
+        call("memory_read"),
+    ));
+    let handle = client
+        .peer()
+        .send_cancellable_request(request, rmcp::service::PeerRequestOptions::no_options())
+        .await
+        .expect("sent");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    handle
+        .cancel(Some("the person stopped the chat".into()))
+        .await
+        .expect("cancel sent");
+    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+    while upstream.cancelled.lock().unwrap().is_empty() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the upstream never heard the cancel"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert_eq!(*upstream.cancelled.lock().unwrap(), ["memory_read"]);
 }

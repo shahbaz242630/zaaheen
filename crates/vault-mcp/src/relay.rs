@@ -37,11 +37,13 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, ContentBlock, ListToolsResult, PaginatedRequestParams,
-    ServerInfo, Tool,
+    CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, Implementation,
+    InitializeRequestParams, InitializeResult, ListToolsResult, PaginatedRequestParams,
+    ServerConfig, Tool,
 };
 use rmcp::service::RequestContext;
 use rmcp::{ErrorData as McpError, RoleServer, ServerHandler};
+use tokio_util::sync::CancellationToken;
 use vault_core::{Boundary, MemoryId, NewMemory, VaultError, VaultResult};
 use vault_retrieval::{ReadQuery, RetrievalQuery, RetrievedMemory, StructuredReadResponse};
 
@@ -74,7 +76,9 @@ pub const RELAY_CALL_BUDGET: Duration = Duration::from_secs(55);
 /// The keeper connection, as the relay sees it.
 #[async_trait]
 pub trait Upstream: Send + Sync {
-    /// Forward one tool call to the keeper, giving up at `deadline`.
+    /// Forward one tool call to the keeper, giving up at `deadline` or when
+    /// `cancel` fires (the AI app cancelled it), whichever comes first, and
+    /// telling the keeper to drop it then (session 59, ADR-107).
     ///
     /// `deadline` belongs to the incoming call, not to this attempt: a resend
     /// receives the same one.
@@ -82,7 +86,13 @@ pub trait Upstream: Send + Sync {
         &self,
         params: CallToolRequestParams,
         deadline: Instant,
+        cancel: CancellationToken,
     ) -> Result<CallToolResult, UpstreamError>;
+
+    /// An AI app has connected (its `initialize`): who it is, so the keeper
+    /// can list it, and a chance to start the keeper now rather than at the
+    /// first question. Must not block the handshake.
+    fn app_connected(&self, _app: &Implementation) {}
 }
 
 /// How a forwarded call failed.
@@ -136,7 +146,7 @@ fn to_mcp(result: Result<CallToolResult, UpstreamError>) -> Result<CallToolResul
 }
 
 impl ServerHandler for RelayServer {
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> ServerConfig {
         self.contract.get_info()
     }
 
@@ -152,23 +162,44 @@ impl ServerHandler for RelayServer {
         self.contract.list_tools(request, context).await
     }
 
+    /// The documented way to add to rmcp's `initialize` (its own docs): tell
+    /// the upstream which app this is, then answer exactly as the default
+    /// does.
+    async fn initialize(
+        &self,
+        request: InitializeRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<InitializeResult, McpError> {
+        self.upstream.app_connected(&request.client_info);
+        context.peer.set_peer_info(request.clone());
+        self.negotiate_initialize(&request)
+    }
+
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
-        _context: RequestContext<RoleServer>,
-    ) -> Result<CallToolResult, McpError> {
+        context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResponse, McpError> {
         let repeat_safe = is_repeat_safe(&request.name);
         let deadline = Instant::now() + RELAY_CALL_BUDGET;
-        let outcome = match self.upstream.call_tool(request.clone(), deadline).await {
+        // rmcp cancels this token when the AI app sends
+        // `notifications/cancelled` for the call.
+        let cancel = context.ct.clone();
+        let outcome = match self
+            .upstream
+            .call_tool(request.clone(), deadline, cancel.clone())
+            .await
+        {
             Err(UpstreamError::Lost) if repeat_safe => {
-                self.upstream.call_tool(request, deadline).await
+                self.upstream.call_tool(request, deadline, cancel).await
             }
             other => other,
         };
-        match outcome {
+        let result = match outcome {
             Err(UpstreamError::TimedOut) if !repeat_safe => relay_failure(MSG_TIMED_OUT_SAVE),
             other => to_mcp(other),
-        }
+        };
+        result.map(CallToolResponse::from)
     }
 }
 
