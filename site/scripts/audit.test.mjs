@@ -40,6 +40,9 @@ const cases = [
   ['link filled in by script', inject('<a href="#">x</a>'), /anchor without a real href/],
   ['third-party script', edit('index.html', (s) => s.replace('</head>', '<script src="https://cdn.example.com/x.js"></script></head>')), /loads a third-party resource/],
   ['inline script', inject('<script>alert(1)</script>'), /inline <script> would be blocked/],
+  // Browsers also end a script at "</script >". Last in the page, so no later
+  // "</script>" can close the match for it.
+  ['inline script, spaced end tag', edit('index.html', (s) => s.replace('</body>', '<script>alert(1)</script ></body>')), /inline <script> would be blocked/],
   ['glued inline text', inject('<p>Choose<em>More info</em></p>'), /missing space before <em>/],
   ['private doc published', (d) => fs.writeFileSync(path.join(d, 'SEO-HANDOFF.md'), '# x'), /private or build-internal file/],
   ['page missing from sitemap', edit('sitemap.xml', (s) => s.replace(/<url>[\s\S]*?<\/url>/, '')), /does not list the indexable page \//],

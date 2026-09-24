@@ -180,7 +180,9 @@ for (const rel of htmlFiles) {
 
   // The CSP in public/.htaccess allows only same-origin script and style files.
   // Anything inline would be silently blocked in the browser, so refuse it here.
-  for (const m of all(html, /<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+  // "</script >" and "</script foo>" end a script too, so the end tag may
+  // carry anything up to its ">".
+  for (const m of all(html, /<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
     const isData = /type="application\/ld\+json"/i.test(m[1]);
     if (!isData && !/\ssrc="/i.test(m[1])) fail(rel, 'inline <script> would be blocked by the CSP');
   }
