@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
-import { DEMO_APPS, RELEASE, TRIAL, VERIFIED_APPS, pageFor, verifiedAppList } from '../data/site';
+import Placeholder from '../components/Placeholder.astro';
+import { DEMO_APPS, FAQ, RELEASE, TRIAL, VERIFIED_APPS, pageFor, verifiedAppList } from '../data/site';
 
 const page = pageFor('/');
 const win = RELEASE.windows;
@@ -8,6 +9,15 @@ const apps = verifiedAppList();
 
 // Example memories for the demo window and the before-and-after. They show the
 // kinds the app keeps (fact, event, how-to), in the app's own row layout.
+// The three promises, as chips under the demo window (founder, session 63: in
+// place of the "connected" chips, keeping their glow). Real text, outside the
+// window's aria-hidden; scripts/hero.js lights each one by its key.
+const PROMISES = [
+  { key: 'local', text: 'Stays on your computer' },
+  { key: 'trial', text: `${TRIAL.days}-day free trial, no card` },
+  { key: 'delete', text: 'Delete it all in one step' },
+];
+
 const SAID_ONCE = 'Prefers short answers in plain English';
 const START = [
   { type: 'fact', text: SAID_ONCE, when: '2 days ago' },
@@ -28,17 +38,12 @@ const START = [
           : <span class="cta cta-soon">Coming soon for Windows</span>}
         <span class="cta-meta">{RELEASE.stage} · {RELEASE.version}{RELEASE.available ? ` · ${win.size}` : ""}</span>
       </div>
-      <ul class="promise-dots">
-        <li>Stays on your computer</li>
-        <li>{TRIAL.days}-day free trial, no card</li>
-        <li>Delete it all in one step</li>
-      </ul>
     </div>
 
     <!-- A picture of the app, animated by scripts/hero.js. Decorative: every
          claim it makes is also in the text around it. -->
-    <div class="demo" id="hero-demo" aria-hidden="true" data-apps={DEMO_APPS.join(',')}>
-      <div class="win">
+    <div class="demo" id="hero-demo" data-apps={DEMO_APPS.join(',')}>
+      <div class="win" aria-hidden="true">
         <div class="win-bar">
           <span class="win-dot"></span><span class="win-dot"></span><span class="win-dot"></span>
           <span class="win-title" id="demo-title">Zaaheen · Memories</span>
@@ -65,11 +70,11 @@ const START = [
           </div>
         </div>
       </div>
-      <div class="demo-chips">
-        {VERIFIED_APPS.map((a) => (
-          <div class="demo-chip" data-app={a}><span class="chip-dot"></span>{a} connected</div>
+      <ul class="demo-chips">
+        {PROMISES.map((p) => (
+          <li class="demo-chip" data-promise={p.key}><span class="chip-dot"></span>{p.text}</li>
         ))}
-      </div>
+      </ul>
     </div>
   </section>
 
@@ -178,7 +183,7 @@ const START = [
         <li class="step">
           <div class="step-text">
             <span class="step-no">03</span>
-            <h3>They remember</h3>
+            <h3>Your connected AI apps remember</h3>
             <p>What you tell one app, the others can recall. Every memory is listed in the
                app, where you can search it or forget it.</p>
           </div>
@@ -194,6 +199,28 @@ const START = [
       </ol>
     </div>
   </section>
+
+  {(FAQ.length > 0 || import.meta.env.DEV) && (
+    <section id="faq" class="faq">
+      <div class="wrap">
+        <div class="section-head is-centred">
+          <p class="eyebrow">FAQ</p>
+          <h2>Questions people ask about Zaaheen.</h2>
+        </div>
+        {FAQ.length > 0
+          ? <div class="faq-list">
+              {FAQ.map((f) => (
+                <details class="faq-item">
+                  <summary>{f.q}</summary>
+                  <p>{f.a}</p>
+                </details>
+              ))}
+            </div>
+          : <Placeholder>The FAQ goes here, written during the SEO setup: the questions people
+              actually search for, each answered in its first sentence or two.</Placeholder>}
+      </div>
+    </section>
+  )}
 
   <script src="../scripts/hero.js"></script>
 </Base>

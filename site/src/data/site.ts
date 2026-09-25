@@ -71,6 +71,13 @@ export const TRIAL = { days: 30, card: false } as const;
 // The plan buttons' prices, as the app shows them ("$5 a month" / "$48 a year").
 export const PLANS = { monthly: '$5 a month', yearly: '$48 a year' } as const;
 
+// The home page's FAQ, above the footer (founder, session 63: written during the
+// SEO setup). Questions people actually search for, the first one defining the
+// product (SEO-HANDOFF §3a rule 18); plain HTML, never FAQPage schema. While
+// empty, the section is left out of the built site and shows a placeholder only
+// in the dev preview, so it never blocks publishing.
+export const FAQ: readonly { q: string; a: string }[] = [];
+
 export const INDEXNOW_KEY = 'dc7e96914b463f8b38a2ca7309b9a25f';
 
 // The 1-to-1 coaching booking app. It is a separate app (Next.js, with payments)
