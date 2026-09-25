@@ -168,8 +168,12 @@ jobs:
   # the SAME required check names ("cargo clippy (<os>)", "cargo build + test
   # (<os>)") as passed within seconds, so main's ruleset is satisfied without a
   # ruleset change. A skipped matrix job may report under its bare name only,
-  # which the ruleset would wait on forever: that is why stand-ins exist. The stand-ins' names change when they
-  # are not used, so a skipped stand-in can never share a name with a real run.
+  # which the ruleset would wait on forever: that is why stand-ins exist. The
+  # stand-ins' names change when they are not used, so a skipped stand-in can
+  # never share a name with a real run. A job whose name is an expression gets
+  # NO automatic matrix suffix (seen on PR #82: the stand-ins reported as bare
+  # "cargo clippy" / "cargo build + test" and the ruleset waited), so the
+  # expression writes "(<os>)" itself with format().
   # The rule and its proof live in .github/scripts/app-changed.sh and
   # app-changed.test.sh; the test runs first. The real jobs run unless
   # `changes` positively said website-only, so if `changes` fails for any
@@ -193,7 +197,7 @@ jobs:
         run: bash .github/scripts/app-changed.sh "$EVENT" "$BASE" "$HEAD" >> "$GITHUB_OUTPUT"
 
   clippy-stand-in:
-    name: ${{ needs.changes.outputs.app == 'false' && 'cargo clippy' || 'cargo clippy stand-in (unused)' }}
+    name: ${{ needs.changes.outputs.app == 'false' && format('cargo clippy ({0})', matrix.os) || 'cargo clippy stand-in (unused)' }}
     needs: changes
     if: needs.changes.outputs.app == 'false'
     strategy:
@@ -204,7 +208,7 @@ jobs:
       - run: echo "Website-only pull request; cargo clippy on ${{ matrix.os }} stands down."
 
   build-and-test-stand-in:
-    name: ${{ needs.changes.outputs.app == 'false' && 'cargo build + test' || 'cargo build + test stand-in (unused)' }}
+    name: ${{ needs.changes.outputs.app == 'false' && format('cargo build + test ({0})', matrix.os) || 'cargo build + test stand-in (unused)' }}
     needs: changes
     if: needs.changes.outputs.app == 'false'
     strategy:
