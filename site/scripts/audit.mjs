@@ -70,7 +70,10 @@ if (files.includes('pay/.htaccess')) {
 // with no installer link on the home page (RELEASE.available false in
 // src/data/site.ts), the deploy leaves /pay out of the published site
 // (site.yml, the same test), so its checkout settings do not matter yet.
-const ON_SALE = files.includes('index.html') && read('index.html').includes('https://dl.zaaheen.com/');
+// "On sale" = the home page has a link whose href starts with the installer
+// host. An anchored attribute match, not a substring, so a mention of the host
+// in text or inside another URL does not count.
+const ON_SALE = files.includes('index.html') && /\shref="https:\/\/dl\.zaaheen\.com\//.test(read('index.html'));
 if (RELEASE && ON_SALE && files.includes('pay/index.html')) {
   const html = read('pay/index.html');
   const env = (html.match(/\sdata-paddle-env="([^"]*)"/) || [])[1];
