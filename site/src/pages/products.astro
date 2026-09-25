@@ -1,14 +1,16 @@
 ---
 import Base from '../layouts/Base.astro';
-import Placeholder from '../components/Placeholder.astro';
-import { pageFor } from '../data/site';
+import { COMPANY, pageFor } from '../data/site';
+import { DELIVERY } from '../data/coaching';
 
 const page = pageFor('/products/');
 ---
 <Base page={page}>
   <section class="page">
     <h1>Products</h1>
-    <Placeholder>A short introduction: what Zaaheen builds, and for whom.</Placeholder>
+    <p>Zaaheen is a {COMPANY.city} company that builds software for people who use AI every day.
+       Our first product gives your AI apps a private memory that stays on your own computer. We
+       also teach people to work with AI, one to one, through the Knowledge Centre.</p>
 
     <div class="cards">
       <a class="card" href="/">
@@ -16,10 +18,12 @@ const page = pageFor('/products/');
         <p>Your AI apps share one memory about you, stored and encrypted on your own computer.</p>
         <span class="card-link">See the memory app</span>
       </a>
-      <div class="card card-soon">
-        <h2>More products</h2>
-        <Placeholder>Future products appear here as they launch.</Placeholder>
-      </div>
+      <a class="card" href="/knowledge-centre/">
+        <h2>Private 1-to-1 AI coaching</h2>
+        <p>{DELIVERY.durationMinutes}-minute sessions built around a real task you bring, online over
+           {DELIVERY.platform}.</p>
+        <span class="card-link">See the coaching sessions</span>
+      </a>
     </div>
   </section>
 </Base>
