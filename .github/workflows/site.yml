@@ -101,7 +101,7 @@ jobs:
           # RELEASE.available false in site/src/data/site.ts), /pay is not
           # published: its checkout has no live payment settings yet. The
           # release audit applies the same test (ON_SALE in scripts/audit.mjs).
-          if ! grep -q 'https://dl.zaaheen.com/' dist/index.html; then
+          if ! grep -Eq '[[:space:]]href="https://dl\.zaaheen\.com/' dist/index.html; then
             rm -rf dist/pay
             echo "App not on sale yet: /pay left out of the published site."
           fi
