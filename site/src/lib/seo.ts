@@ -1,4 +1,4 @@
-import { SITE, RELEASE, absolute, type PageEntry } from '../data/site';
+import { SITE, RELEASE, COMPANY, absolute, type PageEntry } from '../data/site';
 
 // JSON-LD for a page. Everything stated here must also be visible on the page:
 // structured data describes content, it never adds claims of its own.
@@ -29,6 +29,13 @@ export function graphFor(page: PageEntry, modified?: string): string {
       '@type': 'Organization',
       '@id': org,
       name: SITE.name,
+      legalName: COMPANY.legalName,
+      email: COMPANY.email,
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: COMPANY.city,
+        addressCountry: COMPANY.country,
+      },
       url: absolute('/'),
       logo: {
         '@type': 'ImageObject',

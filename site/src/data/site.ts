@@ -16,6 +16,18 @@ export const SITE = {
   logo: { path: '/icon-512.png', width: 512, height: 512 },
 } as const;
 
+// The company, as its Dubai trade licence names it (founder, 2026-09-25). The
+// licence is home-based with no business address, so no street address ever
+// appears; the founder's personal phone and email are never published.
+export const COMPANY = {
+  legalName: 'Zaaheen Artificial Intelligence Developing Services',
+  licence: 'Dubai trade licence 1651252',
+  city: 'Dubai',
+  country: 'AE',
+  // General support. Coaching bookings use COACHING.email.
+  email: 'customerservice@zaaheen.com',
+} as const;
+
 export const RELEASE = {
   version: '0.2.2',
   stage: 'Beta',
@@ -57,6 +69,8 @@ export const INDEXNOW_KEY = 'dc7e96914b463f8b38a2ca7309b9a25f';
 // connected yet; until it is, these links lead nowhere.
 export const COACHING = {
   bookingUrl: 'https://coaching.zaaheen.com/training',
+  // The Knowledge Centre mailbox: coaching bookings (founder, 2026-09-25).
+  email: 'knowledgecentre@zaaheen.com',
 } as const;
 
 // The top bar on every page. Labels and order are the founder's.
