@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { SITE, RELEASE, TRIAL, PAGES, absolute, verifiedAppList } from '../data/site';
+import { SITE, RELEASE, TRIAL, COMPANY, COACHING, PAGES, absolute, verifiedAppList } from '../data/site';
 
 // A plain-text summary for AI tools (llmstxt.org proposal). No search engine
 // has confirmed it reads these files, and Google says it neither helps nor
@@ -22,6 +22,11 @@ export const GET: APIRoute = () => {
     `- Tested with: ${verifiedAppList()}. Other apps that support MCP should work the same way.`,
     '- Delete everything: one button destroys the encryption key and the files, leaving what remains on disk unreadable.',
     '- macOS and Linux: not available yet.',
+    '',
+    '## Company',
+    '',
+    `- ${SITE.name} is the trading name of ${COMPANY.legalName} (${COMPANY.licence}).`,
+    `- Support: ${COMPANY.email}. Coaching bookings: ${COACHING.email}.`,
     '',
     '## Pages',
     '',

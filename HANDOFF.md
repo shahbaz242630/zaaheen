@@ -1,6 +1,6 @@
 # Zaaheen (Memory Vault) — Build Handoff
 
-**Current version:** V0.2 Closed Beta (BRD §6.2). **Last updated:** 2026-09-25, session 62.
+**Current version:** V0.2 Closed Beta (BRD §6.2). **Last updated:** 2026-09-25, session 63.
 
 > **How to read this file.** §1 is what to do next; act on it. §2 is where things stand. §3–§7 are the working rules and reference. Everything older lives in the archives (§8): quote them, never paraphrase. Reset to this short form in session 60 (founder: *"lets archive it and start fresh clean handoff"*); the previous file is `HANDOFF_V0.2_PART5_ARCHIVE.md`, word for word.
 >
@@ -8,9 +8,19 @@
 
 ---
 
-## 1 · 🟢 Next — the live test on the new installer, then the account pages
+## 1 · 🟢 Next — website and Knowledge Centre go-live (founder, session 63), then the live test
 
-**The batch is gated, committed and merged** (session 62): sessions 58–61 in one commit — the walk-through screens, the connection fixes (ADR-SEC-032, ADR-107), **D4** (ADR-108, ADR-SEC-033) and the website redesign. Fresh cold gate run all green (numbers in §2 "Recent sessions"). **The installer** was built from that commit by `C:\Projects\MemoryVault-artifacts\release-build6.ps1` (sandbox account, `-j 2` with a `-j 1` retry) → `Zaaheen_0.2.2_s62-d4-sandbox.msi`; its result, SHA256 and commit are in `release-build-logs\release-build6-summary.txt`. Keep `target\release`: the next installer build is then incremental.
+**Founder, session 63:** *"before we do live run on product.. we need to finish with our website and knowldde center wiring up... so we are good to go live.. I already have the license"*. The website comes first; the product live test below follows it.
+
+**Go-live order (one step at a time, founder sees each):**
+1. ✅ **The licence identity (session 63).** Dubai trade licence 1651252, "Zaaheen Artificial Intelligence Developing Services", home-based (no address), sole establishment. `site/src/data/site.ts` `COMPANY` → the footer on every page, the Organization JSON-LD and `llms.txt`; the Knowledge Centre shows `knowledgecentre@zaaheen.com` for bookings; general support is `customerservice@zaaheen.com`. Never the founder's personal phone or email. **No VAT** until the threshold (founder). The coaching app got the same identity (its `feat/licence-identity`, its HANDOFF). No coach name or bio for now.
+2. **Replace the 5 placeholders** (products 2, docs 1, knowledge-centre guides 2): the `--release` audit refuses them.
+3. **zaaheen.com live:** Hostinger site, DNS, SSL, `SITE_PUBLISH` (`SEO-HANDOFF.md` §8).
+4. **coaching.zaaheen.com** → the booking app, then click through from zaaheen.com to a test booking.
+5. **Booking fully working:** Microsoft (Graph secret + a separate sender mailbox), real availability hours, the scheduled jobs, the legal pages (founder or lawyer, never invented; the business is UAE, not a UK sole trader), live Stripe.
+6. **The download** waits for the product live test (the public MSI must point at the live account).
+
+**The product live test (was §1 before session 63).** **The batch is gated, committed and merged** (session 62): sessions 58–61 in one commit — the walk-through screens, the connection fixes (ADR-SEC-032, ADR-107), **D4** (ADR-108, ADR-SEC-033) and the website redesign. Fresh cold gate run all green (numbers in §2 "Recent sessions"). **The installer** was built from that commit by `C:\Projects\MemoryVault-artifacts\release-build6.ps1` (sandbox account, `-j 2` with a `-j 1` retry) → `Zaaheen_0.2.2_s62-d4-sandbox.msi`; its result, SHA256 and commit are in `release-build-logs\release-build6-summary.txt`. Keep `target\release`: the next installer build is then incremental.
 
 **Do, in order:**
 0. **At open:** `gh run list` for every workflow on `main`; read `release-build6-summary.txt` (SUCCESS?).
@@ -45,6 +55,7 @@
 - **Accounts:** Clerk, Microsoft 365, Paddle, Cloudflare, the bank. Details only in the local `OPS-HANDOFF.md`; this repo is public.
 
 ### Recent sessions
+- **63 (2026-09-25):** CI green on `main`, installer `s62-d4-sandbox` built OK. Founder moved the website go-live ahead of the live test and brought the trade licence; the identity is now in both sites (site build, audit, 32 tests green; coaching `pnpm verify` 842 green). Lesson: the `python -` heredoc slipped in a ninth time; stopped, nothing written.
 - **62 (2026-09-24/25):** **Full fresh gates green** (`gates-s62.ps1`, detached, `-j 2`): fmt · build · clippy `--all-targets -D warnings` (one lint fixed mid-run) · tests vault-core 62 · vault-account 244 · vault-storage 329 · vault-retrieval 170 (1 ignored) · vault-mcp 109 · vault-app 535 (26 ignored, live-only) · vault-cli 54 · vault-tauri 202 (2 ignored), 0 failed; site build, audit, tests green. Batch committed, pushed, merged; installer built from the commit.
 - **61 (2026-09-24):** Branch fast-forwarded to `main` (website). **Website redesign built, uncommitted** (`site/`): new home page and header from the Claude Design handoff (old Download section removed; buttons download the MSI; ChatGPT added to `VERIFIED_APPS`; Hermes and OpenClaw only in the demo window, `DEMO_APPS`; "no account" claims corrected, `llms.txt` too), and the Knowledge Centre hub (coaching data mirrored in `site/src/data/coaching.ts`, guarded by `scripts/coaching-sync.test.mjs`, which was shown to fail on a changed price). Site build, audit and 47 tests green. **Account pages designed, not built:** `AUTH-PAGES-DESIGN.md` (ADR-109, ADR-SEC-034) after a runtime spike on the sandbox (fully reverted) and two independent reviews, both GO-WITH-FIXES, all findings folded into v2; build step 1 is the measurements. A second free Clerk app "Zaaheen pages (dev)" created for it (OPS-HANDOFF §H). **Coaching app restyled** in its own repo on `feat/zaaheen-restyle`, `pnpm verify` green, uncommitted (its HANDOFF). Lesson: a `python3 -` heredoc was typed again and stopped at once; disk unchanged.
 - **60 (2026-09-24):** **D4 designed, reviewed, built and tested.** Plan to two independent reviewers twice (round 1 NO-GO on a signed-out fresh install; round 2 GO-WITH-FIXES, all applied); founder approved every new line, deleting the V0.1 bridge, and "Run now" pausing the AI apps. Built in eight phases tests-first: the `ADMIN` handshake purpose, the drain on hand-over, the admin server and the locked host, the keeper's start-failure note and lock-mode fallback, the pool's admin purpose, `--take-over` / `--only-if-due`, the desktop as a client, the bridge deleted. Security review: safe to commit, six points fixed. HANDOFF reset (Part 5 archived).

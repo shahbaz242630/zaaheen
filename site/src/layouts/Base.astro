@@ -5,7 +5,7 @@ import '@fontsource/ibm-plex-sans/500.css';
 import '@fontsource/ibm-plex-mono/400.css';
 import '../styles/global.css';
 import Logo from '../components/Logo.astro';
-import { SITE, NAV, absolute, type PageEntry } from '../data/site';
+import { SITE, NAV, COMPANY, absolute, type PageEntry } from '../data/site';
 import { lastModified } from '../lib/lastmod';
 import { graphFor } from '../lib/seo';
 
@@ -75,6 +75,7 @@ const jsonLd = noindex ? null : graphFor(page, lastModified(page.sources));
 <footer>
   <p>{SITE.name} · <span class="mono">zaaheen.com</span></p>
   <p class="fine">Your memories never leave your device.</p>
+  <p class="fine">{COMPANY.legalName} · {COMPANY.licence} · <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></p>
 </footer>
 
 </body>
