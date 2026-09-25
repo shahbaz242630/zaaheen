@@ -162,9 +162,62 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  # Website-only pull requests (founder, session 63: a one-line website change
+  # should not wait an hour). `changes` decides; clippy and build-and-test run
+  # only when the app may be affected. Otherwise the two stand-in jobs report
+  # the SAME required check names ("cargo clippy (<os>)", "cargo build + test
+  # (<os>)") as passed within seconds, so main's ruleset is satisfied without a
+  # ruleset change. A skipped matrix job may report under its bare name only,
+  # which the ruleset would wait on forever: that is why stand-ins exist. The stand-ins' names change when they
+  # are not used, so a skipped stand-in can never share a name with a real run.
+  # The rule and its proof live in .github/scripts/app-changed.sh and
+  # app-changed.test.sh; the test runs first. The real jobs run unless
+  # `changes` positively said website-only, so if `changes` fails for any
+  # reason the full checks run as before.
+  changes:
+    name: What changed
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.diff.outputs.app }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - run: bash .github/scripts/app-changed.test.sh
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/app-changed.sh "$EVENT" "$BASE" "$HEAD" >> "$GITHUB_OUTPUT"
+
+  clippy-stand-in:
+    name: ${{ needs.changes.outputs.app == 'false' && 'cargo clippy' || 'cargo clippy stand-in (unused)' }}
+    needs: changes
+    if: needs.changes.outputs.app == 'false'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-2025, macos-latest]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Website-only pull request; cargo clippy on ${{ matrix.os }} stands down."
+
+  build-and-test-stand-in:
+    name: ${{ needs.changes.outputs.app == 'false' && 'cargo build + test' || 'cargo build + test stand-in (unused)' }}
+    needs: changes
+    if: needs.changes.outputs.app == 'false'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-2025, macos-latest]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Website-only pull request; cargo build + test on ${{ matrix.os }} stands down."
+
   clippy:
     name: cargo clippy
-    if: github.event_name != 'schedule'
+    needs: changes
+    if: ${{ github.event_name != 'schedule' && !cancelled() && needs.changes.outputs.app != 'false' }}
     strategy:
       # fail-fast: false so a Windows-only failure (or vice versa) surfaces
       # both conclusions instead of cancelling the surviving runner. Important
@@ -411,7 +464,8 @@ jobs:
 
   build-and-test:
     name: cargo build + test
-    if: github.event_name != 'schedule'
+    needs: changes
+    if: ${{ github.event_name != 'schedule' && !cancelled() && needs.changes.outputs.app != 'false' }}
     strategy:
       # fail-fast: false — see clippy job above for rationale.
       fail-fast: false

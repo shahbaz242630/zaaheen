@@ -26,8 +26,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Website-only pull requests skip the Rust analysis (founder, session 63).
+  # Same rule as ci.yml's `changes` job (.github/scripts/app-changed.sh, proven
+  # by app-changed.test.sh first). "Analyse" is not a matrix job, so a skip
+  # reports under its own name and counts as passed for main's ruleset. Pushes
+  # to main and the weekly run always analyse. TypeScript (below) always runs:
+  # the website's scripts are TypeScript and JavaScript.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      app: ${{ steps.diff.outputs.app }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - run: bash .github/scripts/app-changed.test.sh
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/app-changed.sh "$EVENT" "$BASE" "$HEAD" >> "$GITHUB_OUTPUT"
+
   analyse:
     name: Analyse
+    needs: changes
+    # Runs unless `changes` positively said website-only: if `changes` fails,
+    # its output is empty and the analysis runs (a skip would count as passed).
+    if: ${{ !cancelled() && needs.changes.outputs.app != 'false' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

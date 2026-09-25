@@ -37,7 +37,9 @@ const updatedLabel = updated
     </nav>
 
     <h2 id="install">How to install Zaaheen</h2>
-    <p>Download the installer for Windows ({win.arch}, {win.size}) and open it. Zaaheen
+    {!RELEASE.available && <p><strong>Zaaheen for Windows is coming soon.</strong> These steps
+       are how it works once you can download it.</p>}
+    <p>Download the installer for Windows ({win.arch}{RELEASE.available ? `, ${win.size}` : ''}) and open it. Zaaheen
        {RELEASE.version} is a {RELEASE.stage.toLowerCase()} and has been tested on
        {win.tested}. It is not available for macOS or Linux yet.</p>
     <p>Two things happen while it installs:</p>
