@@ -63,6 +63,8 @@ a{color:inherit}
   font:500 16px var(--sans);transition:background .15s}
 .cta:hover{background:var(--ink-soft)}
 .cta-sm{padding:13px 26px;font-size:15px;white-space:nowrap}
+/* Not a link while the app is not on sale (RELEASE.available): reads as a label, not a button. */
+.cta-soon,.cta-soon:hover{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--border);cursor:default}
 
 /* ---------- hero ---------- */
 .hero{max-width:1180px;margin:0 auto;padding:88px 32px 104px;display:grid;

@@ -66,9 +66,14 @@ export function graphFor(page: PageEntry, modified?: string): string {
       applicationCategory: 'UtilitiesApplication',
       operatingSystem: 'Windows',
       softwareVersion: RELEASE.version,
-      downloadUrl: RELEASE.windows.url,
-      fileSize: RELEASE.windows.size,
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'GBP' },
+      // Nothing to download or buy until the app is on sale (RELEASE.available).
+      ...(RELEASE.available
+        ? {
+            downloadUrl: RELEASE.windows.url,
+            fileSize: RELEASE.windows.size,
+            offers: { '@type': 'Offer', price: '0', priceCurrency: 'GBP' },
+          }
+        : {}),
       publisher: { '@id': org },
     });
   }

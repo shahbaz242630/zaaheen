@@ -32,6 +32,14 @@ const payConfig = (env, token) => edit('pay/index.html', (s) => {
   return out;
 });
 
+// The app on sale: an installer link on the home page (RELEASE.available in
+// src/data/site.ts). Only then must a release build take live payments.
+const onSale = inject('<a href="https://dl.zaaheen.com/Zaaheen_x.msi">x</a>');
+const onSaleWith = (env, token) => (d) => {
+  onSale(d);
+  payConfig(env, token)(d);
+};
+
 const cases = [
   ['robots.txt blocks crawlers', edit('robots.txt', (s) => s.replace('Allow: /', 'Disallow: /')), /contains a Disallow rule/],
   ['home page noindex', edit('index.html', (s) => s.replace('<title>', '<meta name="robots" content="noindex"><title>')), /robots meta contains "noindex"/],
@@ -66,9 +74,9 @@ const cases = [
   ['pay page without its CSP', (d) => fs.rmSync(path.join(d, 'pay', '.htaccess')), /pay\/\.htaccess: required file is missing/],
   ['pay CSP widened', edit('pay/.htaccess', (s) => s.replace("script-src 'self' https://cdn.paddle.com", "script-src 'self' https://cdn.paddle.com https://cdn.example.com")), /pay\/\.htaccess: the checkout CSP is not the pinned policy/],
   ['pay page indexable by header', edit('pay/.htaccess', (s) => s.replace(/^.*X-Robots-Tag.*$/m, '')), /pay\/\.htaccess: missing the X-Robots-Tag noindex header/],
-  ['sandbox checkout on a release build', payConfig('sandbox', `test_${'a'.repeat(27)}`), /pay\/index\.html: checkout is not set up for live payments/, ['--release']],
-  ['live environment with a sandbox token', payConfig('production', `test_${'a'.repeat(27)}`), /pay\/index\.html: checkout is not set up for live payments/, ['--release']],
-  ['sandbox environment with a live token', payConfig('sandbox', `live_${'b'.repeat(27)}`), /pay\/index\.html: checkout is not set up for live payments/, ['--release']],
+  ['sandbox checkout on a release build', onSaleWith('sandbox', `test_${'a'.repeat(27)}`), /pay\/index\.html: checkout is not set up for live payments/, ['--release']],
+  ['live environment with a sandbox token', onSaleWith('production', `test_${'a'.repeat(27)}`), /pay\/index\.html: checkout is not set up for live payments/, ['--release']],
+  ['sandbox environment with a live token', onSaleWith('sandbox', `live_${'b'.repeat(27)}`), /pay\/index\.html: checkout is not set up for live payments/, ['--release']],
 ];
 
 if (!fs.existsSync(DIST)) {
@@ -96,14 +104,14 @@ const clean = spawnSync(process.execPath, [AUDIT, DIST], { encoding: 'utf8' });
 if (clean.status !== 0) failed++;
 console.log(`${clean.status === 0 ? 'ok  ' : 'FAIL'}  untouched build passes${clean.status === 0 ? '' : `\n${clean.stdout}${clean.stderr}`}`);
 
-// The other side of the two release cases above: a live config is accepted.
-// (A release run of today's build still fails on its placeholder copy, so this
-// checks only that the pay page is not among the problems.)
+// The other side of the release cases above: with the app on sale, a live
+// config is accepted. (Checks only that the pay page is not among the problems,
+// so other release findings cannot mask it.)
 {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zaaheen-audit-'));
   try {
     fs.cpSync(DIST, dir, { recursive: true });
-    payConfig('production', `live_${'b'.repeat(27)}`)(dir);
+    onSaleWith('production', `live_${'b'.repeat(27)}`)(dir);
     const r = spawnSync(process.execPath, [AUDIT, dir, '--release'], { encoding: 'utf8' });
     const out = `${r.stdout}${r.stderr}`;
     const accepted = !/pay\/index\.html/.test(out);
@@ -114,5 +122,23 @@ console.log(`${clean.status === 0 ? 'ok  ' : 'FAIL'}  untouched build passes${cl
   }
 }
 
-console.log(failed ? `\naudit.test: ${failed} failure(s)` : `\naudit.test: all ${cases.length + 2} passed`);
+// While the app is not on sale the deploy leaves /pay out, so a release build
+// with a sandbox (or no) checkout config must not fail on it.
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zaaheen-audit-'));
+  try {
+    fs.cpSync(DIST, dir, { recursive: true });
+    edit('index.html', (h) => h.replaceAll('https://dl.zaaheen.com/', 'https://example.invalid/'))(dir);
+    payConfig('sandbox', `test_${'a'.repeat(27)}`)(dir);
+    const r = spawnSync(process.execPath, [AUDIT, dir, '--release'], { encoding: 'utf8' });
+    const out = `${r.stdout}${r.stderr}`;
+    const accepted = !/pay\/index\.html/.test(out);
+    if (!accepted) failed++;
+    console.log(`${accepted ? 'ok  ' : 'FAIL'}  sandbox checkout ignored while the app is not on sale${accepted ? '' : `\n${out}`}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+console.log(failed ? `\naudit.test: ${failed} failure(s)` : `\naudit.test: all ${cases.length + 3} passed`);
 process.exit(failed ? 1 : 0);

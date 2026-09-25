@@ -66,8 +66,12 @@ if (files.includes('pay/.htaccess')) {
 }
 // A published build must take live payments: production, with a live token.
 // Anything else (no config, the sandbox, a mixed pair) fails on release only,
-// so previews and sandbox tests still build.
-if (RELEASE && files.includes('pay/index.html')) {
+// so previews and sandbox tests still build. Only while the app is on sale:
+// with no installer link on the home page (RELEASE.available false in
+// src/data/site.ts), the deploy leaves /pay out of the published site
+// (site.yml, the same test), so its checkout settings do not matter yet.
+const ON_SALE = files.includes('index.html') && read('index.html').includes('https://dl.zaaheen.com/');
+if (RELEASE && ON_SALE && files.includes('pay/index.html')) {
   const html = read('pay/index.html');
   const env = (html.match(/\sdata-paddle-env="([^"]*)"/) || [])[1];
   const token = (html.match(/\sdata-paddle-token="([^"]*)"/) || [])[1] || '';

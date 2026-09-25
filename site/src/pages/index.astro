@@ -23,8 +23,10 @@ const START = [
          Your memories are kept safe on your own computer, encrypted, and you decide which
          apps can read them.</p>
       <div class="cta-row">
-        <a class="cta" href={win.url} download>Download for Windows</a>
-        <span class="cta-meta">{RELEASE.stage} · {RELEASE.version} · {win.size}</span>
+        {RELEASE.available
+          ? <a class="cta" href={win.url} download>Download for Windows</a>
+          : <span class="cta cta-soon">Coming soon for Windows</span>}
+        <span class="cta-meta">{RELEASE.stage} · {RELEASE.version}{RELEASE.available ? ` · ${win.size}` : ""}</span>
       </div>
       <ul class="promise-dots">
         <li>Stays on your computer</li>
@@ -139,7 +141,9 @@ const START = [
           <p class="eyebrow">How it works</p>
           <h2>Set it up once. Every app remembers after that.</h2>
         </div>
-        <a class="cta cta-sm" href={win.url} download>Download for Windows</a>
+        {RELEASE.available
+          ? <a class="cta cta-sm" href={win.url} download>Download for Windows</a>
+          : <span class="cta cta-sm cta-soon">Coming soon for Windows</span>}
       </div>
       <ol class="steps">
         <li class="step">

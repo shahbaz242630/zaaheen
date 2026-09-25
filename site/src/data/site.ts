@@ -29,6 +29,13 @@ export const COMPANY = {
 } as const;
 
 export const RELEASE = {
+  // false until the public installer is uploaded and live payments are set up
+  // (founder, session 63: the website and coaching go live first). While false,
+  // every download button reads "Coming soon for Windows", no page links to the
+  // installer, and the deploy leaves /pay out of the published site (site.yml;
+  // scripts/audit.mjs treats a home page without the installer link as "not on
+  // sale"). Set true in the same change that uploads the installer.
+  available: false,
   version: '0.2.2',
   stage: 'Beta',
   windows: {

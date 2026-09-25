@@ -97,6 +97,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f dist/.htaccess || { echo "::error::.htaccess missing from the artifact"; exit 1; }
+          # While the app is not on sale (no installer link on the home page,
+          # RELEASE.available false in site/src/data/site.ts), /pay is not
+          # published: its checkout has no live payment settings yet. The
+          # release audit applies the same test (ON_SALE in scripts/audit.mjs).
+          if ! grep -q 'https://dl.zaaheen.com/' dist/index.html; then
+            rm -rf dist/pay
+            echo "App not on sale yet: /pay left out of the published site."
+          fi
           # The live-site check waits until this file matches the commit.
           echo "$GITHUB_SHA" > dist/build.txt
 

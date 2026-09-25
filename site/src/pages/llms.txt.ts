@@ -17,7 +17,7 @@ export const GET: APIRoute = () => {
       'The account is only for signing in and the subscription; it never holds the memories.',
     '',
     `- Current version: ${RELEASE.version} (${RELEASE.stage.toLowerCase()}), ${win.arch} Windows, tested on ${win.tested}.`,
-    `- Download: ${win.url} (${win.size}).`,
+    RELEASE.available ? `- Download: ${win.url} (${win.size}).` : '- Download: coming soon for Windows.',
     `- Free trial: ${TRIAL.days} days, no card needed.`,
     `- Tested with: ${verifiedAppList()}. Other apps that support MCP should work the same way.`,
     '- Delete everything: one button destroys the encryption key and the files, leaving what remains on disk unreadable.',
