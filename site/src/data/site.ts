@@ -61,6 +61,9 @@ export const verifiedAppList = (): string =>
 // The subscription, as the app sells it (SIGNIN-DESIGN.md §8.26, ADR-104).
 export const TRIAL = { days: 30, card: false } as const;
 
+// The plan buttons' prices, as the app shows them ("$5 a month" / "$48 a year").
+export const PLANS = { monthly: '$5 a month', yearly: '$48 a year' } as const;
+
 export const INDEXNOW_KEY = 'dc7e96914b463f8b38a2ca7309b9a25f';
 
 // The 1-to-1 coaching booking app. It is a separate app (Next.js, with payments)
@@ -119,7 +122,7 @@ export const PAGES: PageEntry[] = [
     path: '/knowledge-centre/',
     title: 'Knowledge Centre · Zaaheen',
     description:
-      'Learn to work with AI properly: guides from Zaaheen, and private 1-to-1 AI coaching sessions you can book online.',
+      'Learn to work with AI properly: private 1-to-1 AI coaching sessions from Zaaheen, built around a real task and booked online.',
     sources: ['src/pages/knowledge-centre.astro', 'src/data/site.ts'],
   },
 ];

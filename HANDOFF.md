@@ -14,7 +14,7 @@
 
 **Go-live order (one step at a time, founder sees each):**
 1. ✅ **The licence identity (session 63).** Dubai trade licence 1651252, "Zaaheen Artificial Intelligence Developing Services", home-based (no address), sole establishment. `site/src/data/site.ts` `COMPANY` → the footer on every page, the Organization JSON-LD and `llms.txt`; the Knowledge Centre shows `knowledgecentre@zaaheen.com` for bookings; general support is `customerservice@zaaheen.com`. Never the founder's personal phone or email. **No VAT** until the threshold (founder). The coaching app got the same identity (its `feat/licence-identity`, its HANDOFF). No coach name or bio for now.
-2. **Replace the 5 placeholders** (products 2, docs 1, knowledge-centre guides 2): the `--release` audit refuses them.
+2. ✅ **Placeholders replaced (session 63).** Products: a company intro plus the memory app and coaching cards. Documents: a ten-section how-to for the memory app, every label quoted from `crates/vault-tauri/dist` (Antigravity left out until its live test). Knowledge Centre guides **hidden for launch** (founder: *"hide the guides for launch plz"*); "guides" dropped from its lede and description; they return with the first real guide. `--release` audit now fails only on `/pay`'s live Paddle settings (step 5 territory).
 3. **zaaheen.com live:** Hostinger site, DNS, SSL, `SITE_PUBLISH` (`SEO-HANDOFF.md` §8).
 4. **coaching.zaaheen.com** → the booking app, then click through from zaaheen.com to a test booking.
 5. **Booking fully working:** Microsoft (Graph secret + a separate sender mailbox), real availability hours, the scheduled jobs, the legal pages (founder or lawyer, never invented; the business is UAE, not a UK sole trader), live Stripe.
@@ -81,6 +81,7 @@ Roughly in priority order; the founder picks. Context for each is in `HANDOFF_V0
    - The home page lost the old Download section (founder: remove it); its "publisher is unknown / More info, Run anyway" and "administrator permission" notes and "macOS/Linux not available yet" now appear nowhere on the site but `llms.txt`. Recommended home: a Documents install guide.
    - Knowledge Centre: the lede "Private 1-to-1 coaching built around a real task you bring, plus free guides from Zaaheen."; "From AED 1,299 · no package"; the dots "90 minutes, 1-to-1 · Microsoft Teams · Evenings, Mon–Thu"; the booking card's "Securing payment…", "Your session is booked", "Confirmed once payment is verified." (not the design's "Joining details sent to your email", which the coaching app does not promise). Everything else on the page is the coaching app's own wording, word for word (`site/src/data/coaching.ts`).
    - Sign-up consent box: approved by the founder (AUTH-PAGES-DESIGN D6).
+   - **Session 63:** the Products intro ("Zaaheen is a Dubai company that builds software for people who use AI every day…") and its coaching card; the whole Documents page; the Knowledge Centre lede "Private 1-to-1 coaching built around a real task you bring, from Zaaheen." and its bookings contact line; the footer's legal line.
 8. **Monitoring dashboard: "signed up, never opened the app" (founder, session 61).** Everyone who signs up is a Clerk user; the app's first `/v1/lease` is what starts the trial (§8.26 §3). So a Clerk user with no trial started signed up on the website but never ran the app. The dashboard lists them so we can send a "welcome aboard, you haven't tried Zaaheen yet, here's the download" email. Before sending: session 43 locked "no reminder emails for now", and under UK PECR / GDPR this is marketing, so it needs consent captured at sign-up (a "send me tips and updates" box on the new Create-an-account page) and an unsubscribe.
 
 ---
@@ -112,6 +113,7 @@ Roughly in priority order; the founder picks. Context for each is in `HANDOFF_V0
 - **"Delete everything" is not refused while a move is waiting** (nothing lost; untidy).
 - **A V0.1 bridge snapshot `vault.db.pre_v0_2_bridge`**, on a machine where the (now deleted) bridge once ran, is not in `erasure::VAULT_ENTRIES` and survives "Delete everything". Only the founder's own machine could have one; check and remove by hand.
 - **The lance NaN-distance upstream issue:** file a minimal repro.
+- **The site's installer facts are stale** (`site/src/data/site.ts` `RELEASE.windows`): "206 MB" is the old `adr103` MSI; the s62 build is 155,373,568 bytes. Set file, size and URL when the public installer is built (go-live step 6).
 
 ---
 

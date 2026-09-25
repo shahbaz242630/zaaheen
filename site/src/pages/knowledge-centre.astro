@@ -1,6 +1,5 @@
 ---
 import Base from '../layouts/Base.astro';
-import Placeholder from '../components/Placeholder.astro';
 import { COACHING, pageFor } from '../data/site';
 import { DELIVERY, LOWEST_PRICE_AED, STAGES, STEPS, formatAed, sessionByNumber } from '../data/coaching';
 
@@ -11,15 +10,13 @@ import { DELIVERY, LOWEST_PRICE_AED, STAGES, STEPS, formatAed, sessionByNumber }
 const page = pageFor('/knowledge-centre/');
 const book = COACHING.bookingUrl;
 const from = formatAed(LOWEST_PRICE_AED);
-const GUIDES = [1, 2, 3];
 ---
 <Base page={page}>
   <section class="hero">
     <div class="hero-copy">
       <p class="eyebrow">Knowledge Centre</p>
       <h1>Learn how to work with AI, not just talk to it.</h1>
-      <p class="lede">Private 1-to-1 coaching built around a real task you bring, plus free guides
-         from Zaaheen.</p>
+      <p class="lede">Private 1-to-1 coaching built around a real task you bring, from Zaaheen.</p>
       <div class="cta-row">
         <a class="cta" href={book}>Book your session</a>
         <span class="cta-meta">From {from} · no package</span>
@@ -109,22 +106,10 @@ const GUIDES = [1, 2, 3];
     </div>
   </section>
 
-  <section id="guides" class="kc-band is-panel">
-    <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow">Guides · free</p>
-        <h2>Answers to real questions about working with AI.</h2>
-      </div>
-      <div class="guides">
-        {GUIDES.map((n) => (
-          <div class="guide">
-            <Placeholder>Guide {n}: its topic, reading time, title and a one-line summary. Each
-              guide links to booking.</Placeholder>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
+  <!-- The free guides band (the design's "Guides · free", styled by .guides and
+       .guide in global.css) is hidden for launch (founder, session 63: "hide the
+       guides for launch"). It returns when the first real guide is written; the
+       lede and the page description then mention guides again. -->
 
   <section class="kc-close">
     <h2>Pick the session that matches your next problem.</h2>
