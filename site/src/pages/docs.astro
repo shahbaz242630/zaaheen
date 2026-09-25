@@ -7,140 +7,300 @@ import { lastModified } from '../lib/lastmod';
 // buttons (crates/vault-tauri/dist/index.html and app.js, read in session 63),
 // so a label renamed there must be renamed here too. Only apps that passed a
 // live test get connection steps (VERIFIED_APPS in data/site.ts).
+//
+// Laid out like the app's Settings tab (founder, session 63): sections on the
+// left, settings-style rows in the middle (name, explanation, and where it is
+// in the app), "On this page" on the right. Every word is in the HTML;
+// scripts/docs-nav.js only highlights where the reader is.
 const page = pageFor('/docs/');
 const win = RELEASE.windows;
 const updated = lastModified(page.sources);
 const updatedLabel = updated
   ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   : undefined;
+
+// The page outline: sections (left) and their topics (right). The ids are the
+// anchors of the rows below; keep the two in step.
+const OUTLINE = [
+  { id: 'getting-started', title: 'Getting started', topics: [
+    { id: 'install', title: 'How to install Zaaheen' },
+    { id: 'first-launch', title: 'What happens the first time you open it' },
+  ] },
+  { id: 'connecting', title: 'Connecting your AI apps', topics: [
+    { id: 'connect-claude', title: 'Claude' },
+    { id: 'connect-cursor', title: 'Cursor' },
+    { id: 'connect-chatgpt', title: 'ChatGPT' },
+    { id: 'connect-other', title: 'Other AI apps' },
+  ] },
+  { id: 'memories', title: 'Your memories', topics: [
+    { id: 'location', title: 'Where your memories are kept' },
+    { id: 'consolidation', title: 'What tidying up does' },
+    { id: 'download', title: 'How to take your memories with you' },
+    { id: 'delete', title: 'How to delete everything' },
+  ] },
+  { id: 'account', title: 'Account and subscription', topics: [
+    { id: 'subscription', title: 'How the trial and subscription work' },
+    { id: 'uninstall', title: 'How to uninstall Zaaheen' },
+  ] },
+  { id: 'support', title: 'Help', topics: [
+    { id: 'help', title: 'How to get help' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
 ---
 <Base page={page}>
-  <section class="page doc">
-    <h1>Documents</h1>
-    <p>How to install the Zaaheen memory app, connect your AI apps to it, and look after your
-       memories. Each step uses the same words you will see on screen.</p>
-    {updatedLabel && <p class="doc-updated">Last updated {updatedLabel}</p>}
+  <div class="docs">
+    <header class="docs-head">
+      <h1>Documents</h1>
+      <p>How to install the Zaaheen memory app, connect your AI apps to it, and look after your
+         memories. Each step uses the same words you will see on screen.</p>
+      {updatedLabel && <p class="doc-updated">Last updated {updatedLabel}</p>}
+    </header>
 
-    <nav class="doc-toc" aria-label="On this page">
-      <ul>
-        <li><a href="#install">Installing Zaaheen</a></li>
-        <li><a href="#first-launch">The first time you open it</a></li>
-        <li><a href="#connect">Connecting your AI apps</a></li>
-        <li><a href="#location">Where your memories are kept</a></li>
-        <li><a href="#consolidation">Keeping your memory tidy</a></li>
-        <li><a href="#download">Taking your memories with you</a></li>
-        <li><a href="#delete">Deleting everything</a></li>
-        <li><a href="#subscription">Your trial and subscription</a></li>
-        <li><a href="#uninstall">Uninstalling</a></li>
-        <li><a href="#help">Getting help</a></li>
-      </ul>
-    </nav>
+    <div class="docs-layout">
+      <nav class="docs-sections" aria-label="Sections">
+        {OUTLINE.map((s) => <a href={`#${s.id}`} data-section={s.id}>{s.title}</a>)}
+      </nav>
 
-    <h2 id="install">How to install Zaaheen</h2>
-    {!RELEASE.available && <p><strong>Zaaheen for Windows is coming soon.</strong> These steps
-       are how it works once you can download it.</p>}
-    <p>Download the installer for Windows ({win.arch}{RELEASE.available ? `, ${win.size}` : ''}) and open it. Zaaheen
-       {RELEASE.version} is a {RELEASE.stage.toLowerCase()} and has been tested on
-       {win.tested}. It is not available for macOS or Linux yet.</p>
-    <p>Two things happen while it installs:</p>
-    <ul>
-      <li><strong>Windows says the publisher is unknown.</strong> We are a small company and have
-          not bought a code-signing certificate yet. Choose <em>More info</em>, then <em>Run
-          anyway</em>.</li>
-      <li><strong>Windows asks for administrator permission.</strong> Zaaheen installs for
-          everyone on the computer, so Windows asks once. It does not need administrator rights
-          to run afterwards.</li>
-    </ul>
+      <div class="docs-body">
+        <section id="getting-started" class="docs-section">
+          <h2 class="docs-title">Getting started</h2>
 
-    <h2 id="first-launch">What happens the first time you open it</h2>
-    <p>Choose <em>Begin set up</em>. Setting up takes about three minutes:</p>
-    <ol>
-      <li><strong>Your account.</strong> Choose <em>Create an account</em> or <em>Sign in</em>.
-          This opens your web browser. Your {TRIAL.days}-day free trial starts when you create
-          your account, and no card is needed. Signing in never shares your memories with us.</li>
-      <li><strong>Where to keep your memories.</strong> The usual place suits most people. You
-          can change it later.</li>
-      <li><strong>Your first AI app.</strong> Pick the app you use and follow the steps, or choose
-          <em>I'll connect one later</em>.</li>
-      <li><strong>Your first memory.</strong> Tell Zaaheen something your AI apps should know
-          about you, then choose <em>Keep this memory</em>, or <em>Skip for now</em>.</li>
-      <li><strong>Tidying up.</strong> Choose whether Zaaheen keeps your memory tidy on its own
-          each day, then <em>Finish setup</em>.</li>
-    </ol>
-    <p>The first time, Zaaheen also downloads what it needs to search your memories. It does this
-       in the background, and you can use it while it finishes.</p>
+          <div id="install" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('install')}</h3>
+                <span class="set-where">Windows installer</span>
+              </div>
+              {!RELEASE.available && <p><strong>Zaaheen for Windows is coming soon.</strong> These
+                 steps are how it works once you can download it.</p>}
+              <p>Download the installer for Windows ({win.arch}{RELEASE.available ? `, ${win.size}` : ''})
+                 and open it. Zaaheen {RELEASE.version} is a {RELEASE.stage.toLowerCase()} and has been
+                 tested on {win.tested}. It is not available for macOS or Linux yet.</p>
+              <p>Two things happen while it installs:</p>
+              <ul>
+                <li><strong>Windows says the publisher is unknown.</strong> Zaaheen is in beta, and
+                    the installer is not code-signed yet; signing comes before the full launch.
+                    Choose <em>More info</em>, then <em>Run anyway</em>.</li>
+                <li><strong>Windows asks for administrator permission.</strong> Zaaheen installs for
+                    everyone on the computer, so Windows asks once. It does not need administrator
+                    rights to run afterwards.</li>
+              </ul>
+            </div>
+          </div>
 
-    <h2 id="connect">How to connect your AI apps</h2>
-    <p>Open the <em>Agents</em> tab and choose <em>+ Connect an AI app</em>. Zaaheen never changes
-       another app's settings itself: it hands the app what it needs, and the app asks you.</p>
-    <h3>Claude (the app for your computer)</h3>
-    <p>Choose <em>Connect it for me</em>. Claude asks you to install Zaaheen: click
-       <em>Install</em>, and it's connected. It works in Claude's Chat and Cowork. If Claude does
-       not ask, Zaaheen saves the extension to your Downloads folder: in Claude, open Settings,
-       then Extensions, then Advanced settings, then Install Extension, and choose
-       "Zaaheen for Claude.mcpb".</p>
-    <h3>Cursor</h3>
-    <p>Choose <em>Connect it for me</em>. Cursor asks you to install Zaaheen: click
-       <em>Install</em>, and it's connected.</p>
-    <h3>ChatGPT (the app for your computer)</h3>
-    <p>In ChatGPT, open Settings, then Integrations, then Plugins. Choose Add, then Add MCP Server,
-       and fill it in:</p>
-    <ul>
-      <li>Name: <code>Zaaheen</code></li>
-      <li>Command: <code>zaaheen</code></li>
-      <li>Arguments: <code>mcp</code> and <code>serve</code>, as two separate items</li>
-    </ul>
-    <p>Save it, then use Zaaheen in ChatGPT's Work or Codex mode. Its Chat mode cannot connect to
-       apps on your computer.</p>
-    <h3>Other AI apps</h3>
-    <p>Zaaheen connects over MCP, the standard many AI apps use. The <em>Agents</em> tab shows the
-       setting for other apps too. An app shows in that tab while it is open and connected.</p>
+          <div id="first-launch" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('first-launch')}</h3>
+                <span class="set-where">Set up</span>
+              </div>
+              <p>Choose <em>Begin set up</em>. Setting up takes about three minutes:</p>
+              <ol>
+                <li><strong>Your account.</strong> Choose <em>Create an account</em> or <em>Sign
+                    in</em>. This opens your web browser. Your {TRIAL.days}-day free trial starts when
+                    you create your account, and no card is needed. Signing in never shares your
+                    memories with us.</li>
+                <li><strong>Where to keep your memories.</strong> The usual place suits most people.
+                    You can change it later.</li>
+                <li><strong>Your first AI app.</strong> Pick the app you use and follow the steps, or
+                    choose <em>I'll connect one later</em>.</li>
+                <li><strong>Your first memory.</strong> Tell Zaaheen something your AI apps should know
+                    about you, then choose <em>Keep this memory</em>, or <em>Skip for now</em>.</li>
+                <li><strong>Tidying up.</strong> Choose whether Zaaheen keeps your memory tidy on its
+                    own each day, then <em>Finish setup</em>.</li>
+              </ol>
+              <p>The first time, Zaaheen also downloads what it needs to search your memories. It does
+                 this in the background, and you can use it while it finishes.</p>
+            </div>
+          </div>
+        </section>
 
-    <h2 id="location">Where your memories are kept</h2>
-    <p>On your own computer, encrypted. They are never uploaded. To keep them in another folder
-       or on another drive, open Settings, then <em>Your memories</em>, and choose <em>Move my
-       memories…</em>. Zaaheen closes, moves them, and opens again by itself. If it closes
-       part-way, your memories stay safe where they were.</p>
+        <section id="connecting" class="docs-section">
+          <h2 class="docs-title">Connecting your AI apps</h2>
+          <p class="docs-intro">Open the <em>Agents</em> tab and choose <em>+ Connect an AI app</em>.
+             Zaaheen never changes another app's settings itself: it hands the app what it needs, and
+             the app asks you.</p>
 
-    <h2 id="consolidation">What tidying up (consolidation) does</h2>
-    <p>While you're away, Zaaheen organises what it has learned: it merges near-duplicates into
-       one, resolves facts that contradict each other in favour of the newer one, and archives
-       older memories you never use out of everyday recall. It never deletes them, and all of it
-       happens on your computer.</p>
-    <p>It is off unless you turn it on. In the <em>Consolidation</em> tab, switch on <em>Keep my
-       vault tidy automatically</em> and choose every day or once a week, and a time. If your
-       computer was asleep or off at that time, it catches up later. To tidy straight away,
-       choose <em>Run consolidation now</em>. The first time you turn it on, Zaaheen makes a
-       one-time download of about 2.5 GB.</p>
+          <div id="connect-claude" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">Claude (the app for your computer)</h3>
+                <span class="set-where">Agents › Connect</span>
+              </div>
+              <p>Choose <em>Connect it for me</em>. Claude asks you to install Zaaheen: click
+                 <em>Install</em>, and it's connected. It works in Claude's Chat and Cowork. If Claude
+                 does not ask, Zaaheen saves the extension to your Downloads folder: in Claude, open
+                 Settings, then Extensions, then Advanced settings, then Install Extension, and choose
+                 "Zaaheen for Claude.mcpb".</p>
+            </div>
+          </div>
 
-    <h2 id="download">How to take your memories with you</h2>
-    <p>Open Settings, then <em>Your memories</em>, and choose <em>Download my memories</em>. It
-       saves everything you've kept as one file. It's yours, whether or not you subscribe: the
-       button stays available even after a trial or subscription ends.</p>
+          <div id="connect-cursor" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">Cursor</h3>
+                <span class="set-where">Agents › Connect</span>
+              </div>
+              <p>Choose <em>Connect it for me</em>. Cursor asks you to install Zaaheen: click
+                 <em>Install</em>, and it's connected.</p>
+            </div>
+          </div>
 
-    <h2 id="delete">How to delete everything</h2>
-    <p>Open Settings, then <em>Your memories</em>, and choose <em>Delete everything</em>. Type
-       DELETE to confirm, then choose <em>Permanently delete everything</em>. This destroys the
-       encryption key and the files, so it cannot be undone or recovered from a copy. Deleting
-       your memories does not cancel your subscription; cancel that separately with <em>Manage
-       subscription</em>.</p>
+          <div id="connect-chatgpt" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">ChatGPT (the app for your computer)</h3>
+                <span class="set-where">ChatGPT › Settings</span>
+              </div>
+              <p>In ChatGPT, open Settings, then Integrations, then Plugins. Choose Add, then Add MCP
+                 Server, and fill it in:</p>
+              <ul>
+                <li>Name: <code>Zaaheen</code></li>
+                <li>Command: <code>zaaheen</code></li>
+                <li>Arguments: <code>mcp</code> and <code>serve</code>, as two separate items</li>
+              </ul>
+              <p>Save it, then use Zaaheen in ChatGPT's Work or Codex mode. Its Chat mode cannot
+                 connect to apps on your computer.</p>
+            </div>
+          </div>
 
-    <h2 id="subscription">How the trial and subscription work</h2>
-    <p>The first {TRIAL.days} days are free, with no card. After that it is {PLANS.monthly} or
-       {PLANS.yearly}. To subscribe, choose <em>Subscribe</em> in the app: payment opens in your browser,
-       and Zaaheen unlocks by itself once it goes through. To change your plan, update your card
-       or cancel, open Settings, then Account, and choose <em>Manage subscription</em>.</p>
-    <p>If a trial or subscription ends, nothing is deleted. Everything stays on your computer,
-       and you can still download it.</p>
+          <div id="connect-other" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">Other AI apps</h3>
+                <span class="set-where">Agents</span>
+              </div>
+              <p>Zaaheen connects over MCP, the standard many AI apps use. The <em>Agents</em> tab
+                 shows the setting for other apps too. An app shows in that tab while it is open and
+                 connected.</p>
+            </div>
+          </div>
+        </section>
 
-    <h2 id="uninstall">How to uninstall Zaaheen</h2>
-    <p>Use Windows Settings, then Apps, then Installed apps, and uninstall Zaaheen. Uninstalling
-       removes the app, not your memories, so reinstalling finds them again. To remove your
-       memories as well, use <em>Delete everything</em> first.</p>
+        <section id="memories" class="docs-section">
+          <h2 class="docs-title">Your memories</h2>
 
-    <h2 id="help">How to get help</h2>
-    <p>Email <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>. If something went wrong, open
-       Settings, then Help, and choose <em>Save activity record…</em>, then attach the file. The
-       record contains none of your memories.</p>
-  </section>
+          <div id="location" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('location')}</h3>
+                <span class="set-where">Settings › Your memories</span>
+              </div>
+              <p>On your own computer, encrypted. They are never uploaded. To keep them in another
+                 folder or on another drive, choose <em>Move my memories…</em>. Zaaheen closes, moves
+                 them, and opens again by itself. If it closes part-way, your memories stay safe where
+                 they were.</p>
+            </div>
+          </div>
+
+          <div id="consolidation" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">What tidying up (consolidation) does</h3>
+                <span class="set-where">Consolidation</span>
+              </div>
+              <p>While you're away, Zaaheen organises what it has learned: it merges near-duplicates
+                 into one, resolves facts that contradict each other in favour of the newer one, and
+                 archives older memories you never use out of everyday recall. It never deletes them,
+                 and all of it happens on your computer.</p>
+              <p>It is off unless you turn it on: switch on <em>Keep my vault tidy automatically</em>
+                 and choose every day or once a week, and a time. If your computer was asleep or off
+                 at that time, it catches up later. To tidy straight away, choose <em>Run
+                 consolidation now</em>. The first time you turn it on, Zaaheen makes a one-time
+                 download of about 2.5 GB.</p>
+            </div>
+          </div>
+
+          <div id="download" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('download')}</h3>
+                <span class="set-where">Settings › Your memories</span>
+              </div>
+              <p>Choose <em>Download my memories</em>. It saves everything you've kept as one file.
+                 It's yours, whether or not you subscribe: the button stays available even after a
+                 trial or subscription ends.</p>
+            </div>
+          </div>
+
+          <div id="delete" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('delete')}</h3>
+                <span class="set-where">Settings › Your memories</span>
+              </div>
+              <p>Choose <em>Delete everything</em>, type DELETE to confirm, then choose
+                 <em>Permanently delete everything</em>. This destroys the encryption key and the
+                 files, so it cannot be undone or recovered from a copy. Deleting your memories does
+                 not cancel your subscription; cancel that separately with <em>Manage
+                 subscription</em>.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="account" class="docs-section">
+          <h2 class="docs-title">Account and subscription</h2>
+
+          <div id="subscription" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('subscription')}</h3>
+                <span class="set-where">Settings › Account</span>
+              </div>
+              <p>The first {TRIAL.days} days are free, with no card. After that it is {PLANS.monthly}
+                 or {PLANS.yearly}. To subscribe, choose <em>Subscribe</em> in the app: payment opens
+                 in your browser, and Zaaheen unlocks by itself once it goes through. To change your
+                 plan, update your card or cancel, choose <em>Manage subscription</em>.</p>
+              <p>If a trial or subscription ends, nothing is deleted. Everything stays on your
+                 computer, and you can still download it.</p>
+            </div>
+          </div>
+
+          <div id="uninstall" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('uninstall')}</h3>
+                <span class="set-where">Windows Settings › Apps</span>
+              </div>
+              <p>Use Windows Settings, then Apps, then Installed apps, and uninstall Zaaheen.
+                 Uninstalling removes the app, not your memories, so reinstalling finds them again. To
+                 remove your memories as well, use <em>Delete everything</em> first.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="support" class="docs-section">
+          <h2 class="docs-title">Help</h2>
+
+          <div id="help" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('help')}</h3>
+                <span class="set-where">Settings › Help</span>
+              </div>
+              <p>Email <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>. If something went
+                 wrong, choose <em>Save activity record…</em> and attach the file. The record contains
+                 none of your memories.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="docs-toc" aria-label="On this page">
+        <p class="docs-toc-title">On this page</p>
+        {OUTLINE.map((s) => (
+          <div class="docs-toc-group" data-section={s.id}>
+            <a class="docs-toc-section" href={`#${s.id}`}>{s.title}</a>
+            <ul>
+              {s.topics.map((t) => <li><a href={`#${t.id}`} data-topic={t.id}>{t.title}</a></li>)}
+            </ul>
+          </div>
+        ))}
+      </aside>
+    </div>
+  </div>
+
+  <script src="../scripts/docs-nav.js"></script>
 </Base>

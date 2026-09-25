@@ -15,8 +15,7 @@ if (demo && !reduced.matches) {
 
   const LOOP = 19;
   const PHASES = [['Memories', 0, 7], ['Agents', 7, 12], ['Consolidation', 12, 15.5], ['Settings', 15.5, 19]];
-  // The Agents tab shows DEMO_APPS (site.ts); the chips under the window are
-  // the tested apps only.
+  // The Agents tab shows DEMO_APPS (site.ts).
   const APPS = (demo.dataset.apps || '').split(',').filter(Boolean);
   const START = [
     { type: 'fact', text: 'Prefers short answers in plain English', when: '2 days ago' },
@@ -99,12 +98,13 @@ if (demo && !reduced.matches) {
     const tab = phase[0];
     const writing = INCOMING.find((e) => t >= e.at - 0.9 && t < e.at);
     const arrived = INCOMING.filter((e) => e.at <= t).length;
-    const lit = tab === 'Memories'
-      ? (INCOMING.find((e) => t >= e.at - 0.9 && t < e.at + 1.2) || {}).app
-      : tab === 'Agents' ? APPS[activeApp(t)] : null;
+    // The promise chips under the window glow with the tab that shows them:
+    // memories and consolidation stay on this computer, Settings has
+    // "Delete everything"; the trial takes the Agents tab.
+    const lit = { Memories: 'local', Agents: 'trial', Consolidation: 'local', Settings: 'delete' }[tab];
     const key = [tab, arrived, writing ? writing.at : '', tab === 'Agents' ? activeApp(t) : ''].join('|');
 
-    chips.forEach((c) => c.classList.toggle('is-lit', c.dataset.app === lit));
+    chips.forEach((c) => c.classList.toggle('is-lit', c.dataset.promise === lit));
     if (key === shown) return;
     const tabChanged = shown.split('|')[0] !== tab;
     shown = key;
