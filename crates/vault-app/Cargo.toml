@@ -64,6 +64,10 @@ open = { workspace = true }
 # Parsing and building those links. Already in the lockfile via
 # vault-account; declared here because `external_link` names it directly.
 url = { workspace = true }
+# ADR-111: the Cursor install link carries the installed program's full path,
+# so its base64 `config` is built at the click. Already a normal dependency
+# of vault-account at the same workspace pin; no new crate.
+base64 = { workspace = true }
 # ADR-106: the Claude desktop extension ("Zaaheen for Claude.mcpb") is a
 # small zip made at the click. Already in the lockfile at this exact version
 # (libduckdb-sys builds with it); no compression features, since the three
@@ -184,10 +188,6 @@ test-helpers = []
 [dev-dependencies]
 tokio = { workspace = true, features = ["full", "test-util"] }
 tempfile.workspace = true
-# ADR-106: the Cursor install link's test decodes its base64 `config` to prove
-# it carries exactly the manual snippet's server. Already in the tree through
-# vault-account (same workspace pin); no new crate.
-base64 = { workspace = true }
 
 # Multi-agent daemon SPIKE Stage B (next-arc, 2026-06-23) — DEV-ONLY.
 # `tests/concurrent_multiagent_stage_b.rs` proves the REAL three-store stack

@@ -6,9 +6,20 @@ use std::cell::RefCell;
 use std::io::Read;
 
 use super::*;
-use crate::external_link::CURSOR_INSTALL_LINK;
+use crate::external_link::ExternalLink;
+use crate::server_command::ServerCommand;
 
 const ICON: &[u8] = b"\x89PNG\r\n\x1a\n not really an icon";
+
+/// An installed Zaaheen's program, by its full path (ADR-111).
+fn cmd() -> ServerCommand {
+    let text = if cfg!(windows) {
+        r"C:\Program Files\Zaaheen\zaaheen.exe"
+    } else {
+        "/opt/zaaheen/zaaheen"
+    };
+    ServerCommand::parse(text).expect("an absolute path to the program")
+}
 
 // ── Cursor ────────────────────────────────────────────────────────────────
 
@@ -17,6 +28,7 @@ fn a_cursor_that_is_not_there_is_never_opened() {
     let opened = RefCell::new(false);
     let outcome = connect_cursor_with(
         || false,
+        &cmd(),
         |_| {
             *opened.borrow_mut() = true;
             Ok(())
@@ -26,23 +38,36 @@ fn a_cursor_that_is_not_there_is_never_opened() {
     assert!(!*opened.borrow(), "nothing is opened without Cursor");
 }
 
+/// Cursor is handed the install link for the command given, which is how
+/// the full path reaches it (session 64's "not recognized").
 #[test]
-fn cursor_is_handed_exactly_the_fixed_install_link() {
+fn cursor_is_handed_the_install_link_for_the_command() {
     let opened = RefCell::new(String::new());
     let outcome = connect_cursor_with(
         || true,
+        &cmd(),
         |link| {
             *opened.borrow_mut() = link.as_str().to_owned();
             Ok(())
         },
     );
     assert_eq!(outcome, ConnectOutcome::Asked);
-    assert_eq!(*opened.borrow(), CURSOR_INSTALL_LINK);
+    assert_eq!(
+        *opened.borrow(),
+        ExternalLink::install_in_cursor(&cmd()).unwrap().as_str()
+    );
+    assert_ne!(
+        *opened.borrow(),
+        ExternalLink::install_in_cursor(&ServerCommand::short_name())
+            .unwrap()
+            .as_str(),
+        "the full path, not the short name"
+    );
 }
 
 #[test]
 fn a_cursor_that_will_not_start_is_said_so() {
-    let outcome = connect_cursor_with(|| true, |_| Err(LinkError::CouldNotOpen));
+    let outcome = connect_cursor_with(|| true, &cmd(), |_| Err(LinkError::CouldNotOpen));
     assert_eq!(outcome, ConnectOutcome::CouldNotOpen);
 }
 
@@ -58,12 +83,12 @@ fn entry(bundle: &[u8], name: &str) -> Vec<u8> {
     out
 }
 
-/// The extension runs the installed Zaaheen by its short name, exactly the
-/// manual snippet's server, the form the session-55 live test showed Claude
-/// running; it carries no program.
+/// The extension runs the installed Zaaheen by the command given (its full
+/// path, ADR-111; session 55's live test showed Claude running both forms);
+/// it carries no program.
 #[test]
 fn the_claude_extension_runs_the_installed_zaaheen() {
-    let bundle = claude_extension(ICON).unwrap();
+    let bundle = claude_extension(ICON, &cmd()).unwrap();
     let manifest: serde_json::Value =
         serde_json::from_slice(&entry(&bundle, "manifest.json")).unwrap();
     assert_eq!(manifest["manifest_version"], "0.3");
@@ -71,8 +96,11 @@ fn the_claude_extension_runs_the_installed_zaaheen() {
     assert_eq!(manifest["server"]["type"], "binary");
     assert_eq!(
         manifest["server"]["mcp_config"],
-        serde_json::json!({ "command": "zaaheen", "args": ["mcp", "serve"] })
+        serde_json::json!({ "command": cmd().as_str(), "args": ["mcp", "serve"] })
     );
+    let short = claude_extension(ICON, &ServerCommand::short_name()).unwrap();
+    let short: serde_json::Value = serde_json::from_slice(&entry(&short, "manifest.json")).unwrap();
+    assert_eq!(short["server"]["mcp_config"]["command"], "zaaheen");
     assert_eq!(
         manifest["compatibility"]["platforms"],
         serde_json::json!(["win32"])
@@ -110,17 +138,20 @@ fn the_claude_extension_runs_the_installed_zaaheen() {
 #[test]
 fn the_same_icon_always_makes_the_same_extension() {
     assert_eq!(
-        claude_extension(ICON).unwrap(),
-        claude_extension(ICON).unwrap()
+        claude_extension(ICON, &cmd()).unwrap(),
+        claude_extension(ICON, &cmd()).unwrap()
     );
 }
 
 /// What Claude shows the person names no part of our stack (ADR-086).
 #[test]
 fn the_extension_names_nothing_of_the_stack() {
-    let manifest = String::from_utf8(entry(&claude_extension(ICON).unwrap(), "manifest.json"))
-        .unwrap()
-        .to_lowercase();
+    let manifest = String::from_utf8(entry(
+        &claude_extension(ICON, &cmd()).unwrap(),
+        "manifest.json",
+    ))
+    .unwrap()
+    .to_lowercase();
     for stack in [
         "lance",
         "sqlite",
@@ -150,6 +181,7 @@ fn connect(c: &Claude, downloads: Option<&Path>) -> (ConnectOutcome, Option<std:
     let outcome = connect_claude_with(
         || c.installed,
         downloads,
+        &cmd(),
         ICON,
         || c.opens_mcpb,
         |file| {
@@ -196,7 +228,7 @@ fn where_windows_cannot_open_the_extension_it_is_saved_for_the_person() {
     assert_eq!(outcome, ConnectOutcome::Saved);
     assert!(opened.is_none());
     let saved = std::fs::read(downloads.path().join(CLAUDE_EXTENSION_FILE)).unwrap();
-    assert_eq!(saved, claude_extension(ICON).unwrap());
+    assert_eq!(saved, claude_extension(ICON, &cmd()).unwrap());
     assert_eq!(
         std::fs::read_dir(downloads.path()).unwrap().count(),
         1,
@@ -252,7 +284,7 @@ fn an_older_copy_and_a_stray_part_file_are_replaced() {
     assert_eq!(outcome, ConnectOutcome::Saved);
     assert_eq!(
         std::fs::read(&file).unwrap(),
-        claude_extension(ICON).unwrap()
+        claude_extension(ICON, &cmd()).unwrap()
     );
     assert!(!file.with_extension("mcpb.part").exists());
 }

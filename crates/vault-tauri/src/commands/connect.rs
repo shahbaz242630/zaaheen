@@ -3,7 +3,9 @@
 //! Zaaheen asks the app to install it through the app's own route; it never
 //! writes the app's settings. Gated, like every setup action after sign-in.
 //! The page names only **which** app, from a closed list: no path, no link
-//! and no command crosses the IPC boundary. Cursor's link is fixed in
+//! and no command crosses the IPC boundary from the page. The one thing that
+//! goes the other way is the install path for the copy-paste steps
+//! (`server_command`, ADR-111), read from Windows. Cursor's link is fixed in
 //! `vault_app::external_link`; Claude's extension is built in
 //! `vault_app::connect` and saved to the person's Downloads folder, found
 //! here from Windows, never from the page.
@@ -12,6 +14,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Manager, State};
 use vault_app::connect::{self, ConnectOutcome};
+use vault_app::server_command::ServerCommand;
 
 use crate::guard::Entitlement;
 
@@ -66,6 +69,19 @@ pub async fn show_claude_extension(
         .await
         .unwrap_or(false);
     Ok(json!({ "shown": shown }))
+}
+
+/// The command the copy-paste steps name (ADR-111): the installed
+/// `zaaheen.exe` by its full path, or the short name where it cannot be
+/// found. Answers `{ "command": text }`. It comes from Windows' answer to
+/// "where is this program", never from the page.
+#[tauri::command]
+pub async fn server_command(entitlement: State<'_, Entitlement>) -> Result<Value, String> {
+    let _entitled = entitlement.require().await?;
+    let command = tokio::task::spawn_blocking(ServerCommand::installed)
+        .await
+        .unwrap_or_else(|_| ServerCommand::short_name());
+    Ok(json!({ "command": command.as_str() }))
 }
 
 #[cfg(test)]
@@ -164,6 +180,10 @@ mod tests {
         assert_eq!(
             args_of("show_claude_extension"),
             ["entitlement: State<'_, Entitlement>", "handle: AppHandle"]
+        );
+        assert_eq!(
+            args_of("server_command"),
+            ["entitlement: State<'_, Entitlement>"]
         );
     }
 }

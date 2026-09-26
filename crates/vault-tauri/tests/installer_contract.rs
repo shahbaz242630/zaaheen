@@ -414,13 +414,34 @@ fn the_connect_snippet_names_a_binary_the_installer_actually_ships() {
         "installer.wxs ships no {SNIPPET_COMMAND}.exe, but the connect snippet tells users to run {SNIPPET_COMMAND:?}. Whatever the snippet names MUST be a file the installer places on disk and on PATH, or the user's agent reports 'command not found' on the one step that matters."
     );
 
+    // ADR-111: the snippets run the command `server_command` reads from
+    // Windows (the installed program's full path), falling back to this
+    // short name. Both halves must name what the installer ships.
     assert!(
-        APP_JS.contains(&format!("\"command\": \"{SNIPPET_COMMAND}\"")),
-        "the JSON connect snippet in dist/app.js does not invoke {SNIPPET_COMMAND:?}; it must name the shipped binary."
+        APP_JS.contains(&format!("const SHORT_NAME = \"{SNIPPET_COMMAND}\";")),
+        "the connect snippets' fallback in dist/app.js is not {SNIPPET_COMMAND:?}; it must name the shipped binary."
+    );
+    assert_eq!(
+        vault_app::server_command::SHORT_NAME,
+        SNIPPET_COMMAND,
+        "the Rust side's short name must be the page's"
+    );
+    #[cfg(windows)]
+    assert!(
+        markup().contains(&format!(
+            "Name=\"{}\"",
+            vault_app::server_command::PROGRAM_FILE
+        )),
+        "the full path the snippets name ends in {:?}, which the installer must ship",
+        vault_app::server_command::PROGRAM_FILE
     );
     assert!(
-        APP_JS.contains(&format!("command = \"{SNIPPET_COMMAND}\"")),
-        "the TOML connect snippet in dist/app.js does not invoke {SNIPPET_COMMAND:?}; it must name the shipped binary."
+        APP_JS.contains("\"command\": ${JSON.stringify(command)},"),
+        "the JSON connect snippet in dist/app.js does not run the command it is given."
+    );
+    assert!(
+        APP_JS.contains("command = ${JSON.stringify(command)}"),
+        "the TOML connect snippet in dist/app.js does not run the command it is given."
     );
 
     // The pre-rename name must not survive INSIDE the snippets. Asserting the
@@ -468,7 +489,7 @@ fn cli_default_paths_use_the_bundle_identifier() {
 /// are missing, so a rename of the constants fails loudly here rather than
 /// silently narrowing the guard to nothing.
 fn snippet_block(js: &str) -> &str {
-    let Some(start) = js.find("const SNIPPET_JSON") else {
+    let Some(start) = js.find("const SHORT_NAME") else {
         return js;
     };
     let Some(len) = js[start..].find("const AGENTS") else {

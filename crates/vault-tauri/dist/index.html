@@ -110,22 +110,84 @@
              into #agents-connect-host there and back here for setup, as the
              move panel does between setup and Settings. -->
         <div id="setup-connect-host">
+        <!-- Laid out like Settings (founder, session 64: "this page should
+             also have a layout similar to settings page.. because when you
+             click on any AI it looks really mingled"): the apps down the
+             left, the chosen app's steps on the right, one row each. -->
         <div id="connect-picker" class="connect-picker">
-        <div id="agent-grid" class="agent-grid"></div>
-        <!-- "Connect it for me" (ADR-106): for an app with its own install
-             route, Zaaheen asks the app, and the app asks the person. -->
-        <div id="connect-auto" class="connect-auto hidden">
-          <button id="connect-auto-btn" class="btn-pill">Connect it for me</button>
-          <p id="connect-auto-note" class="connect-auto-note"></p>
-          <p id="connect-auto-status" class="connect-auto-status"></p>
-          <button id="connect-auto-show" class="link-underline hidden">Show the file</button>
-        </div>
-        <div id="snippet-wrap" class="snippet-wrap hidden">
-          <div class="snippet-head">
-            <span id="snippet-hint" class="snippet-hint"></span>
-            <button id="copy-snippet" class="copy-chip">copy</button>
+        <nav id="agent-grid" class="agent-grid"></nav>
+        <div class="connect-pane">
+          <!-- On the Agents tab only (session 64): what "Connected apps", the
+               first item on the left there, shows. -->
+          <div id="connected-view" class="hidden">
+            <h2 class="settings-title">Connected apps</h2>
+            <p class="settings-intro">The AI apps that have used your memories on this computer.</p>
+            <div id="app-table" class="app-table">
+              <div class="a-row a-head">
+                <span class="st"></span>
+                <span class="nm">App</span>
+                <span class="tr"></span>
+                <span class="ac">Status</span>
+              </div>
+              <div id="app-rows"></div>
+            </div>
+            <div id="no-apps" class="empty-note hidden">No AI app has connected yet. Choose yours on the left to connect it.</div>
+            <div id="agent-keys" class="hidden">
+              <div class="rows-label">Access keys</div>
+              <div id="agent-rows" class="tab-rows"></div>
+            </div>
           </div>
-          <div id="snippet-code" class="snippet-code"></div>
+          <p id="connect-empty" class="connect-empty">Choose one on the left.</p>
+          <div id="connect-head" class="hidden">
+            <h2 id="connect-app-name" class="settings-title"></h2>
+            <p id="connect-app-desc" class="settings-intro"></p>
+          </div>
+          <!-- "Connect it for me" (ADR-106): for an app with its own install
+               route, Zaaheen asks the app, and the app asks the person. -->
+          <div id="connect-auto" class="set-row connect-auto hidden">
+            <div class="set-text">
+              <div class="set-name">The quick way</div>
+              <p id="connect-auto-note" class="set-desc connect-auto-note"></p>
+              <p id="connect-auto-status" class="connect-auto-status"></p>
+              <button id="connect-auto-show" class="link-underline hidden">Show the file</button>
+            </div>
+            <div class="set-action">
+              <button id="connect-auto-btn" class="btn-pill">Connect it for me</button>
+            </div>
+          </div>
+          <div id="snippet-wrap" class="set-row set-stack snippet-wrap hidden">
+            <div class="set-text">
+              <div id="snippet-title" class="set-name"></div>
+              <p id="snippet-hint" class="set-desc snippet-hint"></p>
+              <!-- Steps with a line to type, each in its own copy box
+                   (Antigravity, session 64), then what to paste. -->
+              <div id="snippet-openers"></div>
+              <p id="snippet-paste-hint" class="set-desc hidden"></p>
+              <div class="code-box">
+                <div id="snippet-code" class="snippet-code"></div>
+                <button id="copy-snippet" class="copy-chip">copy</button>
+              </div>
+            </div>
+          </div>
+          <div id="connect-check" class="set-row hidden">
+            <div class="set-text">
+              <div class="set-name">Check it's connected</div>
+              <p id="connect-check-text" class="set-desc"></p>
+            </div>
+          </div>
+          <!-- Session 64: some apps look in their own memory first and stop
+               there. One line in the app's own instructions fixes that
+               (founder: "simple instructiosn on our app will be enough"). -->
+          <div id="connect-tip" class="set-row set-stack hidden">
+            <div class="set-text">
+              <div class="set-name">So it checks Zaaheen by itself</div>
+              <p id="connect-tip-where" class="set-desc"></p>
+              <div class="code-box">
+                <div id="connect-tip-text" class="snippet-code tip-code"></div>
+                <button id="copy-tip" class="copy-chip">copy</button>
+              </div>
+            </div>
+          </div>
         </div>
         </div>
         </div>
@@ -363,23 +425,17 @@
         <!-- agents tab -->
         <div id="tab-agents" class="tab-pane tab-body hidden">
           <div class="headline">Your AI apps.</div>
-          <p class="sub">The AI apps using your memories on this computer right now. Everything they read or write is recorded in the audit log.</p>
+          <p class="sub">The AI apps connected to your memories on this computer. Everything they read or write is recorded in the audit log.</p>
           <!-- Session 59: the apps actually connected (the keeper's list),
                not the HTTP daemon's access keys, which nobody on the desktop
                path uses. The keys keep their own list below, shown only when
                one exists. -->
-          <div id="app-rows" class="tab-rows"></div>
-          <div id="no-apps" class="empty-note hidden">No AI app is connected right now. An app connects when you open it, and shows here while it's open.</div>
-          <div id="agent-keys" class="hidden">
-            <div class="rows-label">Access keys</div>
-            <div id="agent-rows" class="tab-rows"></div>
-          </div>
-          <div class="center-link">
-            <button id="connect-panel-label" class="link-underline">+ Connect an AI app</button>
-          </div>
-          <!-- The setup's app picker comes here (session 59), with "Connect
-               it for me" for the apps that have an install route. -->
-          <div id="agents-connect-host" class="agents-connect-host hidden"></div>
+          <!-- Laid out like Settings (founder, session 64: "cant we wrap the
+               connected app into the table like below another app we have
+               connected apps and when user clicks it shows what is
+               connected?"): the setup's app picker comes here (session 59)
+               with "Connected apps" as the first item on its left. -->
+          <div id="agents-connect-host" class="agents-connect-host"></div>
         </div>
 
         <!-- consolidation tab -->

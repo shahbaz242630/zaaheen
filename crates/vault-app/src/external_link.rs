@@ -37,6 +37,8 @@ use std::fmt;
 use url::Url;
 use vault_account::{PortalUrl, TransactionId};
 
+use crate::server_command::ServerCommand;
+
 /// The pay page, locked by `SIGNIN-DESIGN.md` §8.31 — **with** the trailing
 /// slash, which the site's redirect otherwise adds and Paddle's parameter
 /// does not survive.
@@ -46,13 +48,12 @@ const PAY_PAGE: &str = "https://zaaheen.com/pay/";
 const PAY_PARAM: &str = "_ptxn";
 
 /// Cursor's own install request for Zaaheen (ADR-106): Cursor asks the person
-/// and writes its own settings. `config` is the server exactly as the manual
-/// snippet gives it, `{"command":"zaaheen","args":["mcp","serve"]}`, in
-/// base64, which is how Cursor's documented links carry it (its example
-/// decodes to a bare `{"command":…,"args":…}`). Fixed text, built from no
-/// input; its base64 happens to need no escaping, and a test holds both.
-pub const CURSOR_INSTALL_LINK: &str = "cursor://anysphere.cursor-deeplink/mcp/install\
-     ?name=zaaheen&config=eyJjb21tYW5kIjoiemFhaGVlbiIsImFyZ3MiOlsibWNwIiwic2VydmUiXX0=";
+/// and writes its own settings. `config` carries the server, `{"command":
+/// <the ServerCommand>, "args":["mcp","serve"]}`, in base64, which is how
+/// Cursor's documented links carry it; the command is the installed program's
+/// full path (ADR-111), so the base64 is percent-encoded, which Cursor
+/// decodes (session 64 spike).
+const CURSOR_INSTALL_BASE: &str = "cursor://anysphere.cursor-deeplink/mcp/install";
 
 /// A link this application is allowed to open.
 #[derive(Clone, PartialEq, Eq)]
@@ -115,27 +116,57 @@ impl ExternalLink {
         Self::checked(url)
     }
 
-    /// Cursor's install request for Zaaheen (ADR-106). Not a web page, so it
-    /// cannot pass [`Self::checked`] (`https` only); it has its own, narrower
-    /// gate instead: the one fixed link, exactly, and nothing built from any
-    /// input.
+    /// Cursor's install request for Zaaheen (ADR-106, ADR-111). Not a web
+    /// page, so it cannot pass [`Self::checked`] (`https` only); it has its
+    /// own, narrower gate instead ([`Self::is_cursor_install`]). `command`
+    /// is a [`ServerCommand`], which only the operating system's answer to
+    /// "where is this program" can make: nothing from the page.
     ///
     /// # Errors
     ///
-    /// [`LinkError::NotAllowed`] only if [`CURSOR_INSTALL_LINK`] were edited
-    /// into anything else.
-    pub fn install_in_cursor() -> Result<Self, LinkError> {
-        let url = Url::parse(CURSOR_INSTALL_LINK).map_err(|_| LinkError::NotAllowed)?;
-        let exact = url.scheme() == "cursor"
+    /// [`LinkError::NotAllowed`] only if the built link failed its own gate.
+    pub fn install_in_cursor(command: &ServerCommand) -> Result<Self, LinkError> {
+        use base64::Engine as _;
+
+        let server =
+            serde_json::to_vec(&command.server_json()).map_err(|_| LinkError::NotAllowed)?;
+        let config = base64::engine::general_purpose::STANDARD.encode(server);
+        let mut url = Url::parse(CURSOR_INSTALL_BASE).map_err(|_| LinkError::NotAllowed)?;
+        // The query encoder percent-encodes `+`, `/` and `=`: a raw `+`
+        // would otherwise read as a space.
+        url.query_pairs_mut()
+            .append_pair("name", "zaaheen")
+            .append_pair("config", &config);
+        if !Self::is_cursor_install(&url, command) {
+            return Err(LinkError::NotAllowed);
+        }
+        Ok(Self(url))
+    }
+
+    /// Cursor's scheme, host and path; no credentials; exactly `name=zaaheen`
+    /// and a `config` that decodes to exactly `command`'s server.
+    fn is_cursor_install(url: &Url, command: &ServerCommand) -> bool {
+        use base64::Engine as _;
+
+        let place = url.scheme() == "cursor"
             && url.host_str() == Some("anysphere.cursor-deeplink")
             && url.path() == "/mcp/install"
             && url.username().is_empty()
             && url.password().is_none()
-            && url.as_str() == CURSOR_INSTALL_LINK;
-        if !exact {
-            return Err(LinkError::NotAllowed);
-        }
-        Ok(Self(url))
+            && url.fragment().is_none();
+        let pairs: Vec<(String, String)> = url.query_pairs().into_owned().collect();
+        let [(name_key, name), (config_key, config)] = pairs.as_slice() else {
+            return false;
+        };
+        let server = base64::engine::general_purpose::STANDARD
+            .decode(config)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok());
+        place
+            && name_key == "name"
+            && name == "zaaheen"
+            && config_key == "config"
+            && server.as_ref() == Some(&command.server_json())
     }
 
     /// The one gate every web constructor passes through.

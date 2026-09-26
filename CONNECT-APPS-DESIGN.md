@@ -132,3 +132,71 @@ keeps `<vault>/.vault-clients.json` (names and times only, atomic writes, remove
 `VAULT_ENTRIES`, operational not data); the desktop's `list_connected_apps` reads it only while the
 discovery file names the same keeper. The tab and footer show connected apps with friendly names;
 the daemon's access keys keep their own list, shown only when one exists.
+
+# Session 64 (2026-09-26): the live test on a fresh install
+
+## ADR-111 + ADR-SEC-031 amendment 1 — the apps run Zaaheen by its full path, not its short name
+
+**Found live (session 64, fresh install of `s62-d4-sandbox`).** "Connect it for me" opened Cursor,
+the founder clicked Install, and Cursor's log said *"'zaaheen' is not recognized as an internal or
+external command"*. The installer adds its folder to the **user** `PATH`, but a program only reads
+`PATH` when it starts. The app was started by the installer (before the change), and it opened
+Cursor, so Cursor inherited the old `PATH`; any AI app already open before the install is in the
+same position (ChatGPT and Antigravity both needed a restart in the same test). Claude worked only
+because the founder had started Claude Desktop fresh from Start. So the short name, chosen in
+session 55 (item 5, "Short name chosen"), fails on exactly the first connection, the one moment a
+new customer judges the product. Founder: *"ko agreed with you"* (fix it properly; a "restart the
+app" note only as the fallback).
+
+**The installer lets the person choose the folder** (Tauri's WiX UI), so no fixed path is right
+either.
+
+**Decision.**
+1. **One source of the command:** `vault_app::server_command::ServerCommand`. `installed()` is
+   `zaaheen.exe` beside the running program (`install_paths::resource_dir()`, i.e.
+   `current_exe().parent()`, the same resolution the keeper launcher and ADR-101 already use), when
+   that file exists and its path is valid Unicode; otherwise the short name `zaaheen` (a developer
+   build, or something unexpected: the old behaviour, never worse). The page never supplies it.
+2. **Every route uses it:** the Cursor install link, the Claude extension's `mcp_config.command`
+   (session 55 tested the full path in a bundle, variant A: it runs), and the copy-paste steps
+   (JSON, TOML, the ChatGPT form, the Claude Code command), which the page fetches from a new
+   read-only command, `server_command`, gated like `connect_app` (the same setup step), that
+   returns only this text.
+3. **The installer still adds its folder to `PATH`,** so a terminal user can type `zaaheen`.
+
+**Runtime spike (session 64, founder's machine, before any code).** Cursor's docs say only
+"base64 encode" and are silent on escaping. A link whose `config` was the base64 of
+`{"command":"C:\Program Files\Zaaheen\zaaheen.exe","args":["mcp","serve"]}` with its `=`
+padding percent-encoded (`%3D%3D`) was opened; the founder clicked Install; Cursor wrote
+`"command": "C:\Program Files\Zaaheen\zaaheen.exe"` to `~/.cursor/mcp.json`. So Cursor
+percent-decodes `config`, and the link is built with `url`'s query encoder (a base64 `+` would
+otherwise read as a space; `/` and `=` are encoded too).
+
+**ADR-SEC-031 amendment 1.** The Cursor link is no longer one fixed constant: it carries the
+install path, which comes from the operating system (`current_exe`), never from the page, the
+network or a file. Its gate, `ExternalLink::install_in_cursor(&ServerCommand)`, still pins the
+scheme, host and path, exactly two query pairs (`name=zaaheen`, `config`), and a `config` that
+decodes to exactly `{"command": <that command>, "args": ["mcp","serve"]}`. A `ServerCommand` can
+only be the short name or an absolute path whose file name is `zaaheen.exe`, with no control
+characters and not a network share or verbatim `\\?\` path (added after the independent review);
+nothing else can be constructed. The Claude extension still carries no program.
+Returning the install path to our own page reveals nothing the page could not already infer.
+
+**Residual.** Reinstalling Zaaheen into a *different* folder leaves the old path in each app's
+settings; the person connects again (the Agents tab's "Connect it for me" rewrites it). Rare, and
+it fails visibly.
+
+**Tests, written first.** `server_command`: the short name; an absolute `zaaheen.exe` path is
+accepted; a relative path, another program (`cmd.exe`, `zaaheen.exe.bat`), an empty string and a
+path with a newline are refused; `installed()` falls back to the short name where no sibling
+exists (the test binary's folder). `external_link`: the link for the short name and for a full
+path decodes to exactly that server; a path whose base64 contains `+` and `/` survives parsing
+unchanged; the gate refuses a link rebuilt with another host or a third pair. `connect`: Cursor is
+handed the link for the command given; the Claude extension's `mcp_config.command` is the command
+given. `vault-tauri`: `server_command` is registered and classified gated; the page builds every
+snippet from the fetched command and falls back to the short name.
+
+**Independent review (session 64, read-only):** SAFE TO COMMIT; no BLOCKER or MAJOR. MINOR: this
+record said the command was "ungated" while the code gates it (the record corrected). Noted below
+its bar and fixed anyway: `parse` accepted a UNC or verbatim `\\?\` path (unreachable, the source
+is `current_exe`), now refused, with tests.

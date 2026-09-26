@@ -51,6 +51,8 @@ pub mod maintenance_state;
 pub mod model_fetch;
 mod normalization;
 pub mod process_exit;
+/// The command an AI app runs to reach Zaaheen, by its full path (ADR-111).
+pub mod server_command;
 pub mod signal_source;
 
 pub use adapter::VaultAdapter;

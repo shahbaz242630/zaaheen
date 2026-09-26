@@ -306,52 +306,52 @@ textarea.mv-input { resize: none; }
 
 /* ---------------- connect agent ---------------- */
 
-.agent-grid {
+/* Laid out like Settings (founder, session 64): the apps down the left as
+   the settings sections are, the chosen app's steps on the right as rows. */
+.connect-picker {
+  width: 100%;
+  max-width: 720px;
+  margin: 22px 0 0;
   display: grid;
-  grid-template-columns: repeat(3, 186px);
-  gap: 10px;
-  margin: 20px 0 0;
+  grid-template-columns: 170px 1fr;
+  gap: 28px;
+  text-align: left;
   flex: none;
 }
+.agent-grid { display: flex; flex-direction: column; gap: 2px; align-self: start; }
 .agent-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 13px 16px;
+  text-align: left;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font: 400 13.5px var(--sans);
+  color: var(--muted);
   cursor: pointer;
-  transition: border-color .2s, background .2s;
 }
-.agent-card:hover { border-color: var(--ink); }
-.agent-card.picked { background: var(--chip-bg); border-color: var(--ink); }
-.agent-card .nm { font: 500 14px var(--sans); color: var(--ink); }
-.agent-card .ds { font: 400 12px/1.5 var(--sans); color: var(--muted); margin-top: 4px; }
-
-.snippet-wrap {
-  width: 578px;
-  margin: 16px 0 0;
-  animation: mvFade .3s ease both;
-  flex: none;
-}
-.snippet-head {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 7px;
-}
-.snippet-hint { font: 400 12px var(--sans); color: var(--muted); }
-/* "Connect it for me" (ADR-106), above the manual steps. */
-.connect-auto {
-  width: 578px;
-  margin: 18px 0 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  animation: mvFade .3s ease both;
-  flex: none;
-}
-.connect-auto .btn-pill { padding: 10px 26px; font-size: 13px; }
+.agent-card:hover { color: var(--ink); }
+.agent-card.picked { background: var(--chip-bg); color: var(--ink); font-weight: 500; }
+.connect-pane { min-width: 0; }
+.connect-empty { margin: 8px 0 0; font: 400 13px/1.6 var(--sans); color: var(--faint-2); }
+.connect-pane .settings-title { margin-top: 2px; }
+.connect-pane .set-row:last-child { border-bottom: none; }
+/* A row whose content runs full width: the code under its words. */
+.set-row.set-stack { display: block; }
+.code-box { position: relative; margin: 10px 0 0; }
+.code-box .copy-chip { position: absolute; top: 8px; right: 8px; }
+.code-box .snippet-code { padding-right: 64px; }
+.snippet-code.tip-code { font: 400 13px/1.6 var(--sans); letter-spacing: 0; }
+/* A step with a line to type (Antigravity, session 64). */
+.opener { margin: 14px 0 0; }
+.opener-label { font: 500 12.5px var(--sans); color: var(--ink); }
+.opener .code-box { margin-top: 6px; }
+#snippet-paste-hint { margin-top: 16px; }
+.snippet-wrap, .connect-auto { animation: mvFade .3s ease both; }
+.connect-auto .btn-pill { padding: 10px 22px; font-size: 13px; white-space: nowrap; }
 .connect-auto .btn-pill:disabled { background: var(--disabled); cursor: default; }
-.connect-auto-note { margin: 0; font: 400 12px var(--sans); color: var(--muted); }
-.connect-auto-status { margin: 0; min-height: 18px; font: 400 13px/1.6 var(--sans); color: var(--ink-soft); }
+.connect-auto-note { margin: 4px 0 0; }
+.connect-auto-status { margin: 6px 0 0; font: 400 13px/1.6 var(--sans); color: var(--ink-soft); }
+.connect-auto-status:empty { display: none; }
 .copy-chip {
   font: 500 11px var(--mono);
   color: #6b6457;
@@ -584,6 +584,7 @@ textarea.mv-input { resize: none; }
    auditable — but reads as inactive: grey dot, dimmed row. */
 .a-row.revoked { opacity: .55; }
 .a-row.revoked .st { background: var(--faint-2); }
+.a-row.idle .st { background: var(--faint-2); }
 
 .center-link { text-align: center; margin: 24px 0 0; }
 /* The access-key list's heading, under the connected apps (session 59), in
@@ -593,8 +594,22 @@ textarea.mv-input { resize: none; }
   font: 500 10.5px var(--mono); color: var(--faint);
   letter-spacing: .06em; text-transform: uppercase;
 }
+/* The Agents tab: the setup's picker with "Connected apps" first on the
+   left, then the apps under a small label (founder, session 64). */
+.agent-nav-label {
+  margin: 16px 0 4px 14px;
+  font: 700 11px var(--mono); color: var(--ink);
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.a-row.a-head { padding: 10px 0; }
+.a-row.a-head .st { background: none; }
+.a-row.a-head .nm, .a-row.a-head .ac {
+  font: 500 10.5px var(--mono); color: var(--faint);
+  letter-spacing: .06em; text-transform: uppercase;
+}
 /* The setup's app picker, opened from the Agents tab (session 59). */
-.agents-connect-host { width: 578px; margin: 4px auto 40px; animation: mvFade .3s ease both; }
+.agents-connect-host { width: 100%; max-width: 720px; margin: 10px auto 40px; }
+.agents-connect-host .connect-picker { margin-top: 18px; }
 .connect-picker .snippet-code { white-space: pre-wrap; }
 
 /* settings tab: the sections down the left, the chosen one on the right,

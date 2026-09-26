@@ -41,6 +41,7 @@
     "allow-location-forget-old-copy",
     "allow-connect-app",
     "allow-show-claude-extension",
+    "allow-server-command",
     "allow-startup-state",
     "allow-link-state"
   ]
