@@ -1,0 +1,28 @@
+---
+import { DOCS_SECTIONS, POLICIES } from '../data/site';
+
+// The Documents menu on the left (founder, session 67): two dropdowns, "Using
+// Zaaheen" (the how-to sections of /docs/) and "Policies" (each policy on its
+// own page). The group holding the page you're on starts open. Plain
+// <details>, so it opens and closes with no script.
+interface Props {
+  /** '/docs/' or a policy's path. */
+  current: string;
+}
+const { current } = Astro.props;
+const onDocs = current === '/docs/';
+---
+<nav class="docs-sections" aria-label="Documents">
+  <details class="docs-group" open={onDocs}>
+    <summary>Using Zaaheen</summary>
+    {DOCS_SECTIONS.map((s) => (
+      <a href={onDocs ? `#${s.id}` : `/docs/#${s.id}`} data-section={onDocs ? s.id : undefined}>{s.title}</a>
+    ))}
+  </details>
+  <details class="docs-group" open={!onDocs}>
+    <summary>Policies</summary>
+    {POLICIES.map((p) => (
+      <a href={p.path} aria-current={p.path === current ? 'page' : undefined}>{p.label}</a>
+    ))}
+  </details>
+</nav>

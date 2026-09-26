@@ -1,0 +1,334 @@
+---
+import Policy, { type Outline } from '../layouts/Policy.astro';
+import Row from '../components/Row.astro';
+import { COMPANY, SITE } from '../data/site';
+
+// The Privacy Policy (founder, session 67). Every statement here was checked
+// against the code in session 67: the app's network calls (vault-app,
+// vault-account, vault-llm), the account Worker's record (workers/account
+// src/record.ts), the sign-up form (site/account) and the websites. A change
+// to any of those that collects, sends or keeps something new must change this
+// page in the same commit. Written from two independent research reports
+// without a lawyer (founder), taking the reading kindest to the customer where
+// the law is unclear.
+const mail = `mailto:${COMPANY.email}`;
+const ext = { target: '_blank', rel: 'noopener noreferrer' };
+
+const OUTLINE: Outline[] = [
+  { id: 'memories', title: 'Your memories', topics: [
+    { id: 'on-your-computer', title: 'Your memories stay on your computer' },
+    { id: 'local-ai', title: 'The AI that runs on your computer' },
+    { id: 'ai-apps', title: 'What your AI apps do with your memories' },
+  ] },
+  { id: 'account', title: 'Your account', topics: [
+    { id: 'account-data', title: 'What your Zaaheen account holds' },
+    { id: 'google', title: 'Signing in with Google' },
+    { id: 'payments', title: 'Payments' },
+    { id: 'app-contact', title: 'When the app contacts us' },
+  ] },
+  { id: 'websites', title: 'Our websites', topics: [
+    { id: 'zaaheen-com', title: 'zaaheen.com' },
+    { id: 'account-site', title: 'account.zaaheen.com' },
+  ] },
+  { id: 'sharing', title: 'Who we share it with', topics: [
+    { id: 'providers', title: 'The companies that run Zaaheen with us' },
+    { id: 'transfers', title: 'Data handled in other countries' },
+    { id: 'never', title: 'What we never do' },
+  ] },
+  { id: 'rights', title: 'Your rights', topics: [
+    { id: 'keeping', title: 'How long we keep it' },
+    { id: 'your-rights', title: 'Your rights and how to use them' },
+    { id: 'emails', title: 'Emails from us' },
+    { id: 'complaints', title: 'How to complain' },
+  ] },
+  { id: 'about', title: 'About this policy', topics: [
+    { id: 'who', title: 'Who we are' },
+    { id: 'children', title: 'Children' },
+    { id: 'security', title: 'How we protect your data' },
+    { id: 'changes', title: 'Changes to this policy' },
+    { id: 'contact', title: 'Contact us' },
+  ] },
+];
+const lede = `${SITE.name} was built so that your memories never have to leave your computer. This policy explains the little we do handle, why, and what you can do about it.`;
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+---
+<Policy path="/privacy/" heading="Privacy Policy" lede={lede} outline={OUTLINE}>
+  <ul slot="summary">
+    <li>Your memories are stored on your own computer, encrypted. Zaaheen never receives
+        them and cannot read them.</li>
+    <li>Your Zaaheen account holds only your name, your email address, how you sign in, and
+        your trial and subscription dates.</li>
+    <li>Paddle takes your payment as our reseller. We never see your card details.</li>
+    <li>We never sell your data, never use it for advertising, and never use your memories to
+        train AI.</li>
+    <li>You can download or delete your memories at any time in the app, and ask us to delete
+        your account by email.</li>
+  </ul>
+
+  <section id="memories" class="docs-section">
+    <h2 class="docs-title">Your memories</h2>
+
+    <Row id="on-your-computer" title={topic('on-your-computer')} where="On your computer">
+      <p>Everything your AI apps save to Zaaheen, and everything you add yourself, is stored
+         in a folder on your own computer and encrypted there. The key that unlocks it is kept
+         in Windows' own secure store on the same computer. Your memories are never uploaded
+         to us or to anyone else, so we have no copy and no way to read them.</p>
+      <p>That also means we can't recover them for you. If you lose your computer or delete
+         the folder, your memories go with it, so keep your own backup: <em>Download my
+         memories</em> in the app saves everything as one file, whether or not you
+         subscribe. <em>Delete everything</em> destroys the key and the files for good.</p>
+    </Row>
+
+    <Row id="local-ai" title={topic('local-ai')} where="On your computer">
+      <p>Zaaheen uses small AI models to search your memories and to tidy them up (merging
+         duplicates and settling facts that contradict each other). These models run on your
+         computer, not on a server, so your memories never pass through an online AI
+         service on their way.</p>
+      <p>The app downloads the models the first time it needs them, from Hugging Face, a
+         public library of AI models. The download sends nothing about you or your memories,
+         but like any download, Hugging Face sees your computer's IP address.</p>
+      <p>Zaaheen never uses your memories to train AI models.</p>
+    </Row>
+
+    <Row id="ai-apps" title={topic('ai-apps')} where="Your AI apps">
+      <p>You choose which AI apps to connect to Zaaheen, such as Claude, ChatGPT or Cursor.
+         A connected app reads memories from Zaaheen on your computer and saves new ones to
+         it. When it uses a memory to answer you, that app may send it to its maker's servers
+         as part of your conversation, just as it sends anything else you type.</p>
+      <p>What happens to it there is covered by that app's own privacy policy and your
+         settings in it, including whether conversations are used to train its models.
+         Zaaheen doesn't control that. You can remove Zaaheen from any of them at any time,
+         and Zaaheen shows which apps are connected on its <em>Agents</em> tab.</p>
+    </Row>
+  </section>
+
+  <section id="account" class="docs-section">
+    <h2 class="docs-title">Your account</h2>
+
+    <Row id="account-data" title={topic('account-data')} where="Our account service">
+      <p>You need an account to start your free trial and subscribe. It holds:</p>
+      <table>
+        <thead>
+          <tr><th scope="col">What</th><th scope="col">Why</th><th scope="col">Legal basis</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Your name and email address, and how you sign in (email or Google)</td>
+              <td>To create your account and sign you in</td>
+              <td>Our contract with you</td></tr>
+          <tr><td>When your trial started, your plan, when it renews or ends, and whether a
+                  payment failed</td>
+              <td>To give you the access you have paid for</td>
+              <td>Our contract with you</td></tr>
+          <tr><td>Paddle's customer number for you</td>
+              <td>To match your payments to your account</td>
+              <td>Our contract with you</td></tr>
+          <tr><td>Your choice about tips and product news</td>
+              <td>To email you only if you said yes</td>
+              <td>Your consent</td></tr>
+          <tr><td>Your agreement to our Terms and this policy</td>
+              <td>To show when you accepted them</td>
+              <td>Our legitimate interest in keeping a record</td></tr>
+        </tbody>
+      </table>
+      <p>If you email us, we also keep that conversation so we can help you.</p>
+    </Row>
+
+    <Row id="google" title={topic('google')} where="Optional">
+      <p>If you choose <em>Continue with Google</em>, Google shares your name, email address
+         and profile picture with us. We use your name and email address only to create your
+         account and sign you in, and we don't use the picture. We ask Google for nothing
+         else: no access to your Gmail, contacts, calendar or files.</p>
+      <p>We don't use information from Google for advertising, don't sell it, and share it
+         only with the companies below that run your account for us. Zaaheen's use of
+         information received from Google APIs will adhere to the <a
+         href="https://developers.google.com/terms/api-services-user-data-policy" {...ext}>Google
+         API Services User Data Policy</a>, including the Limited Use requirements.</p>
+    </Row>
+
+    <Row id="payments" title={topic('payments')} where="Paddle">
+      <p>Our order process is conducted by our online reseller Paddle.com, which is the
+         Merchant of Record for all our orders. Paddle collects your payment details, works out
+         and pays the tax, and sends your invoices, as a separate data controller under
+         <a href="https://www.paddle.com/legal/privacy" {...ext}>Paddle's privacy policy</a>.
+         We never see or store your card details.</p>
+      <p>When you subscribe, we give Paddle your email address so it can set up your
+         checkout, and Paddle tells us your plan and whether it is paid.</p>
+    </Row>
+
+    <Row id="app-contact" title={topic('app-contact')} where="Our account service">
+      <p>About once a day, and when you sign in or open it, the Zaaheen app checks your subscription
+         with our account service. It sends your sign-in token, the app's version number and
+         your computer's clock time, so the app can keep working offline for a while. That is
+         all: no device ID, no usage statistics, and nothing from your memories. The version
+         number is checked and not kept.</p>
+      <p>The app has no analytics, no tracking and no crash reporting. Its activity record
+         stays on your computer, never contains your memories, and only leaves your computer
+         if you save it with <em>Save activity record…</em> and send it to us yourself.</p>
+      <p>Like any server, ours sees your IP address when the app connects. We use it only to
+         stop too many requests arriving from one place, count it for one minute, and never
+         write it to our logs.</p>
+    </Row>
+  </section>
+
+  <section id="websites" class="docs-section">
+    <h2 class="docs-title">Our websites</h2>
+
+    <Row id="zaaheen-com" title={topic('zaaheen-com')} where="No cookies">
+      <p>zaaheen.com sets no cookies and uses no analytics, advertising or tracking. Because
+         we don't track you across websites, there is nothing for a browser's "Do Not Track"
+         signal to switch off. The site is hosted by Hostinger and delivered through
+         Cloudflare, whose servers see your IP address and keep standard server logs for
+         security, under their own policies.</p>
+      <p>The payment page opens Paddle's checkout, which runs under Paddle's own privacy
+         policy and may set its own cookies to complete your payment.</p>
+    </Row>
+
+    <Row id="account-site" title={topic('account-site')} where="Necessary cookies only">
+      <p>Our sign-in and sign-up pages use cookies only to keep you signed in while you use
+         them. They are strictly necessary, so they don't need your consent, and they are
+         never used for advertising. When you create an account, Cloudflare Turnstile checks
+         that you are a person and not a bot, which means it looks at information about your
+         browser.</p>
+    </Row>
+  </section>
+
+  <section id="sharing" class="docs-section">
+    <h2 class="docs-title">Who we share it with</h2>
+
+    <Row id="providers" title={topic('providers')} where="Service providers">
+      <p>We use a small number of companies to run Zaaheen. Each sees only what it needs to do
+         its job:</p>
+      <table>
+        <thead>
+          <tr><th scope="col">Company</th><th scope="col">What it does for us</th><th scope="col">What it handles</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Clerk</td><td>Sign-in and account records</td>
+              <td>Your name, email address, how you sign in, and your account record</td></tr>
+          <tr><td>Paddle</td><td>Our reseller: payments, tax and invoices (its own data controller)</td>
+              <td>Your email address, payment details, country and billing history</td></tr>
+          <tr><td>Cloudflare</td><td>Runs our account service, delivers our websites, and the bot check at sign-up</td>
+              <td>Your IP address and the requests the app and your browser send</td></tr>
+          <tr><td>Hostinger</td><td>Hosts our websites</td>
+              <td>Your IP address, in standard server logs</td></tr>
+          <tr><td>Microsoft</td><td>Our email</td>
+              <td>Emails you send us, and our replies</td></tr>
+          <tr><td>Google</td><td>Only if you sign in with Google</td>
+              <td>Your sign-in, under Google's own privacy policy</td></tr>
+          <tr><td>Hugging Face</td><td>Where the app downloads its AI models</td>
+              <td>Your IP address, during the download</td></tr>
+        </tbody>
+      </table>
+      <p>We may also share information if the law requires it, or to protect Zaaheen and its
+         users from fraud or abuse. None of these companies ever receives your memories.</p>
+    </Row>
+
+    <Row id="transfers" title={topic('transfers')} where="International">
+      <p>Zaaheen is based in the United Arab Emirates, and several of the companies above
+         handle data in the United States, Europe and elsewhere. When your account data
+         leaves your country, we rely on the protections in each company's data processing
+         terms, such as the standard contractual clauses approved for these transfers.</p>
+    </Row>
+
+    <Row id="never" title={topic('never')} where="Our promise">
+      <ul>
+        <li>We never sell or rent your personal information, and never share it for
+            advertising.</li>
+        <li>We never show you ads or build an advertising profile of you.</li>
+        <li>We never use your memories to train AI models, and we never see them.</li>
+      </ul>
+    </Row>
+  </section>
+
+  <section id="rights" class="docs-section">
+    <h2 class="docs-title">Your rights</h2>
+
+    <Row id="keeping" title={topic('keeping')} where="Retention">
+      <ul>
+        <li><strong>Your memories:</strong> only on your computer, for as long as you keep
+            them. We hold none.</li>
+        <li><strong>Your account:</strong> for as long as you have one. If you ask us to
+            delete it, we delete it within 30 days, and deleting it also cancels your
+            subscription.</li>
+        <li><strong>Payment records:</strong> Paddle keeps these as long as tax law requires,
+            under its own policy.</li>
+        <li><strong>Emails with us:</strong> for as long as we need them to help you, and no
+            more than two years after the conversation ends.</li>
+      </ul>
+      <p>Deleting your memories in the app does not delete your account, and deleting your
+         account does not touch the memories on your computer. They are separate on
+         purpose.</p>
+    </Row>
+
+    <Row id="your-rights" title={topic('your-rights')} where="Everyone">
+      <p>Wherever you live, you can ask us to:</p>
+      <ul>
+        <li>tell you what personal information we hold about you and give you a copy;</li>
+        <li>correct anything that's wrong;</li>
+        <li>delete your account and the information in it;</li>
+        <li>stop or limit how we use it, or object to a use;</li>
+        <li>give it to you in a format you can take elsewhere;</li>
+        <li>stop emailing you, if you said yes to tips and product news.</li>
+      </ul>
+      <p>Email <a href={mail}>{COMPANY.email}</a> from the address on your account. We reply
+         within one month, free of charge. These are your rights under the European and UK
+         GDPR, California's privacy laws and the UAE's data protection law, and we give them
+         to everyone. We will never treat you differently for using them.</p>
+      <p>For your memories, you don't need to ask: <em>Download my memories</em> and
+         <em>Delete everything</em> in the app do it straight away.</p>
+    </Row>
+
+    <Row id="emails" title={topic('emails')} where="Your choice">
+      <p>We email you about your account and subscription only when we need to. We send tips and product news only if you ticked
+         the box for them. Every one of those emails has an unsubscribe link, and you can also
+         just reply and ask.</p>
+    </Row>
+
+    <Row id="complaints" title={topic('complaints')} where="Regulators">
+      <p>If you're unhappy with how we handle your data, please tell us first at <a
+         href={mail}>{COMPANY.email}</a> and we will try to put it right. You can also
+         complain to a data protection regulator: in the UK the <a href="https://ico.org.uk/make-a-complaint/" {...ext}>Information
+         Commissioner's Office</a>, in the European Union the regulator where you live, and in
+         the UAE the UAE Data Office.</p>
+    </Row>
+  </section>
+
+  <section id="about" class="docs-section">
+    <h2 class="docs-title">About this policy</h2>
+
+    <Row id="who" title={topic('who')} where={COMPANY.city}>
+      <p>{SITE.name} is the trading name of {COMPANY.legalName}, a business licensed in Dubai,
+         United Arab Emirates ({COMPANY.licence}). "We" and "us" in this policy mean us. We are
+         responsible for your account information. We are not responsible for your memories,
+         because they stay with you and we never receive them.</p>
+      <p>This policy covers the Zaaheen app, your Zaaheen account, zaaheen.com and
+         account.zaaheen.com. Coaching sessions booked through the Knowledge Centre are a
+         separate service with their own privacy notice on the booking site.</p>
+    </Row>
+
+    <Row id="children" title={topic('children')} where="18 and over">
+      <p>Zaaheen is for people aged 18 and over. We don't knowingly create accounts for
+         anyone younger, and if we learn that we have, we delete it.</p>
+    </Row>
+
+    <Row id="security" title={topic('security')} where="Security">
+      <p>Your memories are encrypted on your computer, and the key never leaves it. Your
+         sign-in is kept in Windows' own secure store. Everything the app and our websites
+         send travels encrypted, and our account service holds no memories at all, so even a
+         break-in at our end could not expose them. If something ever went wrong with the
+         account information we do hold, we would tell you and the regulators as the law
+         requires.</p>
+    </Row>
+
+    <Row id="changes" title={topic('changes')} where="Updates">
+      <p>When we change this policy, we update the date at the top of this page. If a change
+         affects what we collect or how we use it, we email account holders before it takes
+         effect.</p>
+    </Row>
+
+    <Row id="contact" title={topic('contact')} where="Email">
+      <p>Questions about this policy or your data: <a href={mail}>{COMPANY.email}</a>.</p>
+    </Row>
+  </section>
+</Policy>

@@ -1,0 +1,73 @@
+---
+import Policy, { type Outline } from '../layouts/Policy.astro';
+import Row from '../components/Row.astro';
+import { COACHING, COMPANY, SITE } from '../data/site';
+
+// Company information (founder, session 67). The UAE e-commerce law asks an
+// online seller to publish its licence and contact details. The licence is
+// home-based with no business address, so no street address or phone appears
+// (founder: licence and email for now, an address and number later if a
+// virtual office is taken). Facts only from COMPANY in data/site.ts.
+const OUTLINE: Outline[] = [
+  { id: 'company', title: 'The company', topics: [
+    { id: 'details', title: 'Company details' },
+    { id: 'what-we-sell', title: 'What we sell and how' },
+  ] },
+  { id: 'contact', title: 'Contact', topics: [
+    { id: 'email', title: 'How to reach us' },
+    { id: 'complaints', title: 'Complaints' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+const mail = `mailto:${COMPANY.email}`;
+const lede = `Who is behind ${SITE.name}, where it is licensed, and how to reach us.`;
+---
+<Policy path="/company/" heading="Company Information" lede={lede} outline={OUTLINE}>
+  <ul slot="summary">
+    <li>{SITE.name} is the trading name of {COMPANY.legalName}.</li>
+    <li>Licensed in Dubai, United Arab Emirates: {COMPANY.licence}.</li>
+    <li>Email us at {COMPANY.email}.</li>
+  </ul>
+
+  <section id="company" class="docs-section">
+    <h2 class="docs-title">The company</h2>
+
+    <Row id="details" title={topic('details')} where={COMPANY.city}>
+      <table>
+        <tbody>
+          <tr><th scope="row">Trading name</th><td>{SITE.name}</td></tr>
+          <tr><th scope="row">Legal name</th><td>{COMPANY.legalName}</td></tr>
+          <tr><th scope="row">Licence</th><td>{COMPANY.licence}</td></tr>
+          <tr><th scope="row">Based in</th><td>Dubai, United Arab Emirates</td></tr>
+          <tr><th scope="row">Email</th><td><a href={mail}>{COMPANY.email}</a></td></tr>
+        </tbody>
+      </table>
+    </Row>
+
+    <Row id="what-we-sell" title={topic('what-we-sell')} where="Products">
+      <p>We make the {SITE.name} memory app for Windows, sold as a subscription. Our order
+         process is conducted by our online reseller Paddle.com. Paddle.com is the Merchant of
+         Record for all our orders. Paddle provides all customer service inquiries and handles
+         returns.</p>
+      <p>We also offer private coaching sessions through the <a href="/knowledge-centre/">Knowledge
+         Centre</a>, booked and paid for separately.</p>
+    </Row>
+  </section>
+
+  <section id="contact" class="docs-section">
+    <h2 class="docs-title">Contact</h2>
+
+    <Row id="email" title={topic('email')} where="Email">
+      <p>For the app, your account or a payment: <a href={mail}>{COMPANY.email}</a>. For coaching
+         bookings: <a href={`mailto:${COACHING.email}`}>{COACHING.email}</a>. We answer every
+         message ourselves.</p>
+    </Row>
+
+    <Row id="complaints" title={topic('complaints')} where="Email">
+      <p>If something isn't right, email <a href={mail}>{COMPANY.email}</a> with "Complaint" in
+         the subject and tell us what happened and what you would like us to do. We will look
+         into it, tell you what we found and put it right where we can.</p>
+    </Row>
+  </section>
+</Policy>

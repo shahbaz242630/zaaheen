@@ -1,0 +1,97 @@
+---
+import Policy, { type Outline } from '../layouts/Policy.astro';
+import Row from '../components/Row.astro';
+import { COMPANY, PLANS, SITE, TRIAL } from '../data/site';
+
+// The Refund Policy (founder, session 67: "they only refund the last months or
+// one months subscription paid. so we adopt the same", settled as the latest
+// payment in full within 14 days of the charge, on both plans). 14 days
+// matches the withdrawal right in Paddle's buyer terms, so this page never
+// offers less than Paddle does.
+const OUTLINE: Outline[] = [
+  { id: 'refunds', title: 'Refunds', topics: [
+    { id: 'the-rule', title: 'What we refund' },
+    { id: 'how', title: 'How to ask for a refund' },
+    { id: 'after', title: 'What happens after a refund' },
+  ] },
+  { id: 'cancelling', title: 'Cancelling', topics: [
+    { id: 'cancel', title: 'How to cancel' },
+    { id: 'trial', title: 'The free trial' },
+  ] },
+  { id: 'rights', title: 'Your rights', topics: [
+    { id: 'law', title: 'Your legal rights' },
+    { id: 'contact', title: 'Contact us' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+const mail = `mailto:${COMPANY.email}`;
+const lede = `${SITE.name} starts with a ${TRIAL.days}-day free trial with no card, so you can be sure before you pay. If you change your mind after paying, here is how refunds work.`;
+---
+<Policy path="/refunds/" heading="Refund Policy" lede={lede} outline={OUTLINE}>
+  <ul slot="summary">
+    <li>Ask within 14 days of a payment and we refund that payment in full, on the monthly or the
+        yearly plan.</li>
+    <li>We refund your latest payment only, not earlier ones.</li>
+    <li>After 14 days there is no refund, but you can cancel at any time and keep access until
+        the end of the time you've paid for.</li>
+    <li>Your memories are never affected. They stay on your computer either way.</li>
+  </ul>
+
+  <section id="refunds" class="docs-section">
+    <h2 class="docs-title">Refunds</h2>
+
+    <Row id="the-rule" title={topic('the-rule')} where="Within 14 days">
+      <p>If you ask within 14 days of being charged, we refund that payment in full. This works
+         the same on both plans: on {PLANS.monthly} it is that month's payment, and on
+         {PLANS.yearly} it is the whole year's.</p>
+      <p>We refund your latest payment only, not payments from earlier months or years. After 14
+         days a payment can't be refunded, but cancelling means you won't be charged again.</p>
+    </Row>
+
+    <Row id="how" title={topic('how')} where="Email">
+      <p>Email <a href={mail}>{COMPANY.email}</a> from the address on your Zaaheen account and
+         say you'd like a refund. You can also ask Paddle directly using the link in your receipt
+         email.</p>
+      <p>Our order process is conducted by our online reseller Paddle.com. Paddle.com is the
+         Merchant of Record for all our orders. Paddle provides all customer service inquiries
+         and handles returns. So Paddle sends your refund, back to the card or account you paid
+         with.</p>
+    </Row>
+
+    <Row id="after" title={topic('after')} where="Nothing is deleted">
+      <p>A refund ends that subscription. Zaaheen then stops serving your AI apps until you
+         subscribe again, but nothing is deleted: your memories stay on your computer, and
+         <em>Download my memories</em> keeps working.</p>
+    </Row>
+  </section>
+
+  <section id="cancelling" class="docs-section">
+    <h2 class="docs-title">Cancelling</h2>
+
+    <Row id="cancel" title={topic('cancel')} where="Settings › Account">
+      <p>Open Zaaheen, go to <em>Settings</em>, then <em>Account</em>, and choose <em>Manage
+         subscription</em>, or email us and we'll do it for you. Cancelling stops the next
+         renewal, and you keep access until the end of the month or year you've paid for.</p>
+    </Row>
+
+    <Row id="trial" title={topic('trial')} where="No card needed">
+      <p>The {TRIAL.days}-day trial is free and takes no card, so there is nothing to cancel or
+         refund. When it ends, Zaaheen asks you to subscribe.</p>
+    </Row>
+  </section>
+
+  <section id="rights" class="docs-section">
+    <h2 class="docs-title">Your rights</h2>
+
+    <Row id="law" title={topic('law')} where="Everyone">
+      <p>This policy doesn't take away any right the law gives you where you live. If Zaaheen
+         doesn't work as described, you may be entitled to a repair, a replacement or a refund
+         whatever this page says, and we will honour that.</p>
+    </Row>
+
+    <Row id="contact" title={topic('contact')} where="Email">
+      <p>Questions about a payment or a refund: <a href={mail}>{COMPANY.email}</a>.</p>
+    </Row>
+  </section>
+</Policy>

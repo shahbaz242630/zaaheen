@@ -1,0 +1,238 @@
+---
+import Policy, { type Outline } from '../layouts/Policy.astro';
+import Row from '../components/Row.astro';
+import { COMPANY, PLANS, SITE, TRIAL } from '../data/site';
+
+// The Terms of Service (founder, session 67). Drafted from two independent
+// research reports without a lawyer (founder), taking the reading kindest to
+// the customer wherever the law is unclear: no arbitration, changes only with
+// notice, termination only for cause, and nothing that limits rights the law
+// gives. The subscription facts match the app (crates/vault-tauri/dist: the
+// "ended" lock screens, Manage subscription, Download my memories) and the
+// account Worker (30-day trial, 30-day offline lease). Paddle's reseller
+// sentence is the one its seller handbook asks for, word for word.
+const OUTLINE: Outline[] = [
+  { id: 'agreement', title: 'About these terms', topics: [
+    { id: 'who', title: 'Who we are' },
+    { id: 'accepting', title: 'Agreeing to these terms' },
+    { id: 'age', title: 'Who can use Zaaheen' },
+  ] },
+  { id: 'app', title: 'The Zaaheen app', topics: [
+    { id: 'licence', title: 'Your licence to use Zaaheen' },
+    { id: 'beta', title: 'Zaaheen is in beta' },
+    { id: 'fair-use', title: 'Using Zaaheen fairly' },
+  ] },
+  { id: 'subscription', title: 'Trial and subscription', topics: [
+    { id: 'trial', title: 'Your free trial' },
+    { id: 'plans', title: 'Plans, prices and renewal' },
+    { id: 'reseller', title: 'Who takes your payment' },
+    { id: 'cancel', title: 'How to cancel' },
+    { id: 'ends', title: 'When a trial or subscription ends' },
+  ] },
+  { id: 'data', title: 'Your memories', topics: [
+    { id: 'yours', title: 'Your memories are yours' },
+    { id: 'backups', title: 'Keeping them safe' },
+    { id: 'ai-tidying', title: 'What AI tidying can get wrong' },
+    { id: 'ai-apps', title: 'The AI apps you connect' },
+  ] },
+  { id: 'legal', title: 'The legal part', topics: [
+    { id: 'responsibility', title: 'What we are responsible for' },
+    { id: 'closing', title: 'Closing an account' },
+    { id: 'changes', title: 'Changes to Zaaheen and these terms' },
+    { id: 'disputes', title: 'Law and disputes' },
+    { id: 'contact', title: 'Contact us' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+const mail = `mailto:${COMPANY.email}`;
+const lede = `These are the terms for using ${SITE.name}, the private memory for your AI apps. We have kept them as short and plain as we can.`;
+---
+<Policy path="/terms/" heading="Terms of Service" lede={lede} outline={OUTLINE}>
+  <ul slot="summary">
+    <li>Your first {TRIAL.days} days are free, with no card. After that Zaaheen is {PLANS.monthly}
+        or {PLANS.yearly}, renewing until you cancel.</li>
+    <li>You can cancel at any time in the app, and you keep access until the end of the time
+        you've paid for.</li>
+    <li>We refund your latest payment in full if you ask within 14 days of being charged.</li>
+    <li>Your memories are yours. They stay on your computer, and you can download them even if
+        you stop paying.</li>
+    <li>Nothing here takes away the rights the law gives you where you live.</li>
+  </ul>
+
+  <section id="agreement" class="docs-section">
+    <h2 class="docs-title">About these terms</h2>
+
+    <Row id="who" title={topic('who')} where={COMPANY.city}>
+      <p>{SITE.name} is the trading name of {COMPANY.legalName}, a business licensed in Dubai,
+         United Arab Emirates ({COMPANY.licence}). "We" and "us" in these terms mean us, and "you"
+         means the person using Zaaheen.</p>
+    </Row>
+
+    <Row id="accepting" title={topic('accepting')} where="Your account">
+      <p>These terms are an agreement between you and us about the Zaaheen app, your Zaaheen
+         account and your subscription. You agree to them when you create your account. Our
+         <a href="/privacy/">Privacy Policy</a> and <a href="/refunds/">Refund Policy</a> are part
+         of them.</p>
+    </Row>
+
+    <Row id="age" title={topic('age')} where="18 and over">
+      <p>You need to be 18 or over to create an account. Zaaheen is for your own use: the account
+         is yours and shouldn't be shared.</p>
+    </Row>
+  </section>
+
+  <section id="app" class="docs-section">
+    <h2 class="docs-title">The Zaaheen app</h2>
+
+    <Row id="licence" title={topic('licence')} where="Windows">
+      <p>While you have an active trial or subscription, we give you a personal licence to
+         install Zaaheen on the computers you use and to use it for yourself. The licence can't
+         be sold or passed on. We own the app itself, and some parts of it are open-source
+         software used under their own licences, which those licences still govern.</p>
+    </Row>
+
+    <Row id="beta" title={topic('beta')} where="Beta">
+      <p>Zaaheen is new, and some things will change as we improve it. We will fix problems as
+         quickly as we reasonably can, and we will never make a change that locks you out of your
+         own memories.</p>
+    </Row>
+
+    <Row id="fair-use" title={topic('fair-use')} where="Please don't">
+      <p>Use Zaaheen lawfully and for yourself. Please don't:</p>
+      <ul>
+        <li>use it to break the law, or to store information about other people that you have no
+            right to keep;</li>
+        <li>get around the trial or subscription, or copy, resell or rent Zaaheen;</li>
+        <li>take the app apart or change it, except where the law says you may;</li>
+        <li>overload, attack or try to break into our servers or other people's accounts.</li>
+      </ul>
+    </Row>
+  </section>
+
+  <section id="subscription" class="docs-section">
+    <h2 class="docs-title">Trial and subscription</h2>
+
+    <Row id="trial" title={topic('trial')} where="No card needed">
+      <p>Your {TRIAL.days}-day free trial starts when you create your account. We don't ask for a
+         card, so nothing is charged when it ends: Zaaheen simply asks you to subscribe. One trial
+         per person.</p>
+    </Row>
+
+    <Row id="plans" title={topic('plans')} where="Monthly or yearly">
+      <p>Zaaheen is {PLANS.monthly} or {PLANS.yearly}. You see the full amount, including any tax
+         where you live, before you pay.</p>
+      <p>Your subscription renews automatically at the end of each month or year, and you are
+         charged the same way each time, until you cancel. If we ever change the price, we will
+         email you before it applies to you, so you can cancel first if you wish.</p>
+    </Row>
+
+    <Row id="reseller" title={topic('reseller')} where="Paddle">
+      <p>Our order process is conducted by our online reseller Paddle.com. Paddle.com is the
+         Merchant of Record for all our orders. Paddle provides all customer service inquiries
+         and handles returns.</p>
+      <p>That means Paddle is the seller in your purchase, handles payment and tax, and sends
+         your receipts, under <a href="https://www.paddle.com/legal/buyer-terms" target="_blank"
+         rel="noopener noreferrer">Paddle's buyer terms</a>. You can still email us about anything
+         to do with your subscription, and we will help.</p>
+    </Row>
+
+    <Row id="cancel" title={topic('cancel')} where="Settings › Account">
+      <p>Open Zaaheen, go to <em>Settings</em>, then <em>Account</em>, and choose <em>Manage
+         subscription</em>. You can cancel there in a few clicks, or email us and we'll do it
+         for you. Cancelling stops the next renewal; you keep access until the end of the time
+         you've already paid for.</p>
+      <p>For refunds, see our <a href="/refunds/">Refund Policy</a>.</p>
+    </Row>
+
+    <Row id="ends" title={topic('ends')} where="Nothing is deleted">
+      <p>If your trial ends or your subscription stops, Zaaheen stops serving your AI apps until
+         you subscribe. Nothing is deleted. Everything you kept stays on your computer, and
+         <em>Download my memories</em> keeps working, so you can always take your memories with
+         you.</p>
+      <p>The app checks your subscription with us now and then, and keeps working offline for up
+         to 30 days between checks.</p>
+    </Row>
+  </section>
+
+  <section id="data" class="docs-section">
+    <h2 class="docs-title">Your memories</h2>
+
+    <Row id="yours" title={topic('yours')} where="On your computer">
+      <p>Everything you and your AI apps save to Zaaheen belongs to you. We claim no rights to it,
+         we never receive it, and we can't read it. How we handle the little we do hold is in our
+         <a href="/privacy/">Privacy Policy</a>.</p>
+    </Row>
+
+    <Row id="backups" title={topic('backups')} where="Your backup">
+      <p>Because your memories live only on your computer, we have no copy to restore. If the
+         computer is lost or damaged, or you delete the folder, your memories are gone unless you
+         kept a backup. Use <em>Download my memories</em> now and then to keep one.</p>
+      <p><em>Delete everything</em> is permanent. It destroys the key and the files, and no one,
+         including us, can undo it.</p>
+    </Row>
+
+    <Row id="ai-tidying" title={topic('ai-tidying')} where="On your computer">
+      <p>If you turn on tidying up, AI on your computer merges near-duplicates and settles facts
+         that contradict each other in favour of the newer one. Like any AI, it can occasionally
+         get something wrong, so check anything important before you rely on it.</p>
+    </Row>
+
+    <Row id="ai-apps" title={topic('ai-apps')} where="Your AI apps">
+      <p>You choose which AI apps to connect, and each one is made by another company under its
+         own terms. Those apps read your memories to answer you and may send them to their makers
+         as part of your conversations. We don't control those apps or what they say, and we
+         aren't responsible for them.</p>
+    </Row>
+  </section>
+
+  <section id="legal" class="docs-section">
+    <h2 class="docs-title">The legal part</h2>
+
+    <Row id="responsibility" title={topic('responsibility')} where="Our promise">
+      <p>We provide Zaaheen with reasonable care and skill. If we break these terms, we are
+         responsible for loss you suffer that was a foreseeable result of it.</p>
+      <p>As far as the law allows, we are not responsible for:</p>
+      <ul>
+        <li>losses you could have avoided, such as memories lost with a computer when you had no
+            backup, unless our own lack of care caused the loss;</li>
+        <li>what other companies' AI apps do, say or send;</li>
+        <li>business losses, such as lost profits or opportunities, because Zaaheen is for
+            personal use.</li>
+      </ul>
+      <p>As far as the law allows, our total responsibility to you is limited to one month of
+         your subscription: one monthly payment on the monthly plan, or a twelfth of your yearly
+         payment on the yearly plan.</p>
+      <p>None of this limits anything the law doesn't let us limit: our responsibility for death
+         or personal injury caused by our negligence, for fraud, or for your rights as a
+         consumer where you live, including your right to a service that works as described.</p>
+    </Row>
+
+    <Row id="closing" title={topic('closing')} where="Your account">
+      <p>You can stop using Zaaheen and close your account at any time by emailing us.</p>
+      <p>We will only suspend or close your account if you seriously or repeatedly break these
+         terms, or to stop fraud or abuse, and we will tell you why unless the law stops us. Even
+         then, your memories stay on your computer and you can still download them.</p>
+    </Row>
+
+    <Row id="changes" title={topic('changes')} where="With notice">
+      <p>We keep improving Zaaheen, and we may need to update these terms, for example when we add
+         a feature or the law changes. If a change affects you, we will email you before it takes
+         effect. If you don't accept it, you can cancel before then. We will never change these
+         terms in a way that takes your memories from you.</p>
+    </Row>
+
+    <Row id="disputes" title={topic('disputes')} where="Dubai">
+      <p>If something goes wrong, please email us first. Most problems can be put right
+         quickly.</p>
+      <p>These terms are governed by the laws of the United Arab Emirates as applied in Dubai, and
+         the courts of Dubai can hear any dispute. If you are a consumer living elsewhere, you
+         also keep the protection of the laws where you live that can't be set aside by
+         agreement, and you can bring a claim in your own local courts.</p>
+    </Row>
+
+    <Row id="contact" title={topic('contact')} where="Email">
+      <p>Questions about these terms: <a href={mail}>{COMPANY.email}</a>.</p>
+    </Row>
+  </section>
+</Policy>

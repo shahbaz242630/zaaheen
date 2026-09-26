@@ -32,6 +32,11 @@ const PAY_CSP =
   "default-src 'self'; script-src 'self' https://cdn.paddle.com; style-src 'self' 'unsafe-inline' https://*.paddle.com; img-src 'self' data:; " +
   "font-src 'self'; connect-src 'self' https://*.paddle.com; frame-src https://*.paddle.com; object-src 'none'; " +
   "frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+// The policy pages (founder, session 67: each on its own address). Every page's
+// footer links to each one: Paddle's domain review wants the Terms, Refund and
+// Privacy pages clearly reachable, and Google and Clerk link to them directly.
+const POLICIES = { '/terms/': 'Terms of Service', '/privacy/': 'Privacy Policy', '/refunds/': 'Refund Policy',
+  '/ai-and-your-data/': 'AI and Your Data', '/security/': 'Security page', '/company/': 'Company Information' };
 const errors = [];
 const fail = (where, msg) => errors.push(`${where}: ${msg}`);
 
@@ -54,6 +59,7 @@ for (const rel of [
   'favicon.ico', 'favicon.svg', 'favicon-192.png', 'apple-touch-icon.png',
   'icon-192.png', 'icon-512.png', 'manifest.webmanifest', 'og.png', `${INDEXNOW_KEY}.txt`,
   'pay/index.html', 'pay/.htaccess',
+  ...Object.keys(POLICIES).map((u) => `${u.slice(1)}index.html`),
 ]) {
   if (!files.includes(rel)) fail(rel, 'required file is missing from the build');
 }
@@ -95,6 +101,13 @@ for (const rel of files.filter((f) => f.endsWith('.html'))) {
     const tag = (html.match(new RegExp(`<a\\b[^>]*\\b${cls}\\b[^>]*>`)) || [])[0];
     const href = tag && (tag.match(/\shref="([^"]*)"/) || [])[1];
     if (href !== want) fail(rel, `header "${label}" must link to ${want} (found ${href ?? 'no link'})`);
+  }
+}
+for (const rel of files.filter((f) => f.endsWith('.html'))) {
+  const footer = (read(rel).match(/<footer\b[\s\S]*?<\/footer>/) || [''])[0];
+  const hrefs = [...footer.matchAll(/<a\b[^>]*\shref="([^"]*)"/g)].map((m) => m[1]);
+  for (const [url, name] of Object.entries(POLICIES)) {
+    if (!hrefs.includes(url)) fail(rel, `footer must link to the ${name} (${url})`);
   }
 }
 if (files.includes('.htaccess')) {

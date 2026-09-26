@@ -1,0 +1,19 @@
+---
+// One settings-style row on a Documents or policy page: a heading, a small tag
+// saying where it applies, and the text.
+interface Props {
+  id: string;
+  title: string;
+  where: string;
+}
+const { id, title, where } = Astro.props;
+---
+<div id={id} class="set-row">
+  <div class="set-text">
+    <div class="set-head">
+      <h3 class="set-name">{title}</h3>
+      <span class="set-where">{where}</span>
+    </div>
+    <slot />
+  </div>
+</div>

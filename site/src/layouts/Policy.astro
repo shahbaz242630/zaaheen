@@ -1,0 +1,63 @@
+---
+import Base from './Base.astro';
+import DocsNav from '../components/DocsNav.astro';
+import { pageFor } from '../data/site';
+import { lastModified } from '../lib/lastmod';
+
+// A policy page (founder, session 67): the Documents layout with the
+// "Policies" dropdown open, "The short version" first, then the full text in
+// sections of settings-style rows, and "On this page" on the right. The page
+// passes its outline; its rows use the same ids.
+export interface Outline {
+  id: string;
+  title: string;
+  topics: { id: string; title: string }[];
+}
+interface Props {
+  path: string;
+  heading: string;
+  lede: string;
+  outline: Outline[];
+}
+const { path, heading, lede, outline } = Astro.props;
+const page = pageFor(path);
+const updated = lastModified(page.sources);
+const updatedLabel = updated
+  ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  : undefined;
+---
+<Base page={page}>
+  <div class="docs">
+    <header class="docs-head">
+      <h1>{heading}</h1>
+      <p>{lede}</p>
+      {updatedLabel && <p class="doc-updated">Last updated {updatedLabel}</p>}
+    </header>
+
+    <div class="docs-layout">
+      <DocsNav current={path} />
+
+      <div class="docs-body">
+        <section class="policy-summary" aria-labelledby="short-version">
+          <h2 id="short-version">The short version</h2>
+          <slot name="summary" />
+        </section>
+        <slot />
+      </div>
+
+      <aside class="docs-toc" aria-label="On this page">
+        <p class="docs-toc-title">On this page</p>
+        {outline.map((s) => (
+          <div class="docs-toc-group" data-section={s.id}>
+            <a class="docs-toc-section" href={`#${s.id}`}>{s.title}</a>
+            <ul>
+              {s.topics.map((t) => <li><a href={`#${t.id}`} data-topic={t.id}>{t.title}</a></li>)}
+            </ul>
+          </div>
+        ))}
+      </aside>
+    </div>
+  </div>
+
+  <script src="../scripts/docs-nav.js"></script>
+</Base>
