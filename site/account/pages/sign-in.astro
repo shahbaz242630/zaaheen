@@ -1,0 +1,28 @@
+---
+// 1a Sign in (AUTH-PAGES-DESIGN D1): email → code, or Google. No passwords (D2).
+import Account from '../layouts/Account.astro';
+import CommonViews from '../components/CommonViews.astro';
+import CodeView from '../components/CodeView.astro';
+import GoogleButton from '../components/GoogleButton.astro';
+---
+<Account title="Sign in" page="sign-in" panel="unlock">
+  <CommonViews />
+
+  <div class="acct-view" data-view="start" hidden>
+    <h1>Welcome back.</h1>
+    <p class="acct-lede">Enter your email and we'll send you a code to sign in.</p>
+    <form id="start-form" class="acct-fields" novalidate>
+      <div class="acct-field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required>
+      </div>
+      <button class="acct-btn" type="submit">Send code</button>
+    </form>
+    <p class="acct-error" role="alert" hidden></p>
+    <GoogleButton />
+    <p class="acct-links">New to Zaaheen? <a href="/sign-up/" data-keep-redirect>Create an account</a></p>
+  </div>
+
+  <CodeView button="Sign in" />
+  <div id="clerk-captcha"></div>
+</Account>

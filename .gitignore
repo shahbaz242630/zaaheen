@@ -27,6 +27,7 @@ ui/.svelte-kit/
 node_modules/
 **/node_modules/
 site/dist/
+site/dist-account/
 site/.astro/
 .pnp.*
 yarn-debug.log*

@@ -1,0 +1,125 @@
+/* account.zaaheen.com: the sign-in and sign-up pages (Claude Design handoff,
+   pages 1a/1b). Tokens, fonts and the brand come from src/styles/global.css. */
+
+.acct{display:grid;grid-template-columns:1fr 1fr;min-height:100vh}
+.acct-side{display:flex;flex-direction:column;padding:36px 64px;gap:32px}
+.acct-side .brand{align-self:flex-start}
+.acct-form{flex:1;display:flex;flex-direction:column;justify-content:center;width:100%;max-width:400px}
+.acct-fine{font:400 12px var(--mono);color:var(--faint);margin:0}
+.acct-panel{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:28px;padding:48px 32px}
+
+/* ---------- the form column ---------- */
+.acct-form h1{font:450 44px/1.1 var(--serif);letter-spacing:-.015em;margin:0 0 12px}
+.acct-lede{font-size:16.5px;line-height:1.6;color:var(--ink-soft);margin:0 0 28px}
+.acct-badge{align-self:flex-start;font:400 13px var(--mono);color:var(--sage-text);background:var(--tint);
+  border:1px solid var(--tint-line);border-radius:999px;padding:5px 12px;margin:0 0 18px}
+.acct-view[hidden]{display:none}
+.acct-view{display:flex;flex-direction:column}
+.acct-fields{display:flex;flex-direction:column;gap:18px}
+.acct-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.acct-field{display:flex;flex-direction:column;gap:7px}
+.acct-field[hidden]{display:none}
+.acct-field label{font:500 14px var(--sans)}
+.acct-field input{font:400 16px var(--sans);color:var(--ink);background:var(--card);padding:13px 14px;
+  border:1px solid var(--border);border-radius:10px;outline:none;width:100%}
+.acct-field input:focus{border-color:var(--sage-deep);box-shadow:0 0 0 3px rgba(127,174,142,.2)}
+.acct-field input.is-code{font:500 22px var(--mono);letter-spacing:.3em}
+.acct-check{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.5;color:var(--ink-soft)}
+.acct-check[hidden]{display:none}
+.acct-check input{margin:3px 0 0;width:16px;height:16px;accent-color:var(--sage-deep);flex:none}
+.acct-check a{color:var(--ink)}
+.acct-btn{display:block;width:100%;text-align:center;border:0;border-radius:999px;padding:14px;cursor:pointer;
+  font:500 16px var(--sans);background:var(--ink);color:var(--paper);text-decoration:none;transition:background .15s}
+.acct-btn:hover{background:var(--ink-soft)}
+.acct-btn:disabled{opacity:.55;cursor:default}
+.acct-btn.is-quiet{background:var(--card);color:var(--ink);border:1px solid var(--border)}
+.acct-btn.is-quiet:hover{background:var(--chip)}
+.acct-google{display:flex;align-items:center;justify-content:center;gap:10px}
+.acct-or{display:flex;align-items:center;gap:12px;color:var(--faint);font:400 12px var(--mono);margin:22px 0}
+.acct-or::before,.acct-or::after{content:"";flex:1;border-top:1px solid var(--line)}
+.acct-links{display:flex;flex-wrap:wrap;gap:8px 18px;margin:18px 0 0;font-size:14px;color:var(--muted)}
+.acct-links a,.acct-link{color:var(--ink);font:500 14px var(--sans);background:none;border:0;padding:0;
+  cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.acct-link:disabled{color:var(--faint);text-decoration:none;cursor:default}
+.acct-error{margin:14px 0 0;padding:10px 14px;border-radius:10px;background:#fbf1ee;border:1px solid #ecd3cb;
+  color:#8a3b26;font-size:14px}
+.acct-error[hidden]{display:none}
+.acct-note{margin:14px 0 0;padding:10px 14px;border-radius:10px;background:var(--tint);border:1px solid var(--tint-line);
+  color:var(--sage-text);font-size:14px}
+.acct-note[hidden]{display:none}
+.acct-who{font:500 15px var(--sans);background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:14px 16px;margin:0 0 22px;word-break:break-all}
+.acct-loading{color:var(--muted)}
+#clerk-captcha{margin-top:14px}
+
+/* ---------- the app window ---------- */
+.pwin{width:460px;max-width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;
+  box-shadow:var(--shadow-win);overflow:hidden}
+.pwin-bar{display:flex;align-items:center;gap:6px;padding:10px 14px;background:var(--win-bar);border-bottom:1px solid var(--line)}
+.pwin-bar span{width:9px;height:9px;border-radius:50%;background:var(--border)}
+.pwin-bar em{font:400 12px var(--mono);font-style:normal;color:var(--faint);margin-left:8px}
+.pwin-body{height:318px;position:relative;padding:26px}
+.pcap{font:450 22px/1.3 var(--serif);text-align:center;margin:0;max-width:460px}
+
+/* 1a: locked → finishing sign-in → memories open (8s) */
+.is-unlock>*{position:absolute;inset:26px;display:flex;flex-direction:column;justify-content:center;opacity:0}
+.pu-locked{align-items:center;gap:6px;text-align:center;animation:puA 8s infinite}
+.pu-locked p{font:450 22px var(--serif);margin:10px 0 0}
+.pu-wait{align-items:center;gap:16px;animation:puB 8s infinite}
+.pu-wait p{margin:0;color:var(--ink-soft)}
+.pu-sweep{width:220px;height:4px;border-radius:4px;background:var(--chip);overflow:hidden}
+.pu-sweep i{display:block;width:40%;height:100%;background:var(--sage);animation:zSweep 1.6s ease-in-out infinite}
+.pu-mem{list-style:none;margin:0;padding:0;gap:12px;animation:puC 8s infinite}
+.pu-mem li{display:flex;align-items:center;gap:10px;background:var(--tint);border:1px solid var(--tint-line);
+  border-radius:10px;padding:12px 14px;font-size:15px;animation:puRow 8s infinite}
+.pu-mem .d2{animation-name:puRow2}
+.pu-mem .d3{animation-name:puRow3}
+@keyframes puA{0%,30%{opacity:1}35%,100%{opacity:0}}
+@keyframes puB{0%,32%{opacity:0}37%,58%{opacity:1}63%,100%{opacity:0}}
+@keyframes puC{0%,60%{opacity:0}64%,97%{opacity:1}100%{opacity:0}}
+@keyframes puRow{0%,62%{opacity:0;transform:translateY(-8px)}67%,100%{opacity:1;transform:none}}
+@keyframes puRow2{0%,68%{opacity:0;transform:translateY(-8px)}73%,100%{opacity:1;transform:none}}
+@keyframes puRow3{0%,74%{opacity:0;transform:translateY(-8px)}79%,100%{opacity:1;transform:none}}
+
+/* 1b: the apps connect one by one (7.5s) */
+.pc-head{margin:0 0 14px}
+.pc-apps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.pc-apps li{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);
+  border-radius:10px;padding:14px 16px;font:500 15px var(--sans)}
+.pc-state{display:flex;align-items:center;gap:8px;font:400 13px var(--mono);color:var(--faint)}
+/* "Waiting" and "Connected" share one grid cell and cross-fade (display
+   cannot be animated). */
+.pc-words{display:grid;justify-items:end}
+.pc-words b,.pc-words s{grid-area:1/1;font-weight:400;text-decoration:none}
+.pc-words b{color:var(--sage-text);opacity:0}
+.pc-state .chip-dot{background:var(--border)}
+.pc-apps li{animation:pcRow 7.5s infinite}
+.pc-apps li .chip-dot{animation:pcDot 7.5s infinite}
+.pc-apps li b{animation:pcOn 7.5s infinite}
+.pc-apps li s{animation:pcOff 7.5s infinite}
+.pc-apps .d2,.pc-apps .d2 .chip-dot,.pc-apps .d2 b,.pc-apps .d2 s{animation-delay:1.5s}
+.pc-apps .d3,.pc-apps .d3 .chip-dot,.pc-apps .d3 b,.pc-apps .d3 s{animation-delay:3s}
+@keyframes pcRow{0%,8%{background:var(--card)}12%,20%{background:var(--tint);border-color:var(--tint-line)}30%,100%{background:var(--card)}}
+@keyframes pcDot{0%,10%{background:var(--border)}12%,94%{background:var(--sage)}100%{background:var(--border)}}
+@keyframes pcOn{0%,10%{opacity:0}12%,94%{opacity:1}100%{opacity:0}}
+@keyframes pcOff{0%,10%{opacity:1}12%,94%{opacity:0}100%{opacity:1}}
+
+@media (prefers-reduced-motion:reduce){
+  .pu-locked,.pu-wait,.pu-sweep i,.pu-mem,.pu-mem li,.pc-apps li,.pc-apps li .chip-dot,.pc-apps li b,.pc-apps li s{animation:none}
+  .pu-mem,.pu-mem li{opacity:1;transform:none}
+  .pc-apps li .chip-dot{background:var(--sage)}
+  .pc-apps li b{opacity:1}
+  .pc-apps li s{opacity:0}
+}
+
+/* ---------- narrow screens: the form alone ---------- */
+@media (max-width:900px){
+  .acct{grid-template-columns:1fr}
+  .acct-panel{display:none}
+  .acct-side{padding:24px 16px}
+  .acct-form h1{font-size:36px}
+}
+@media (max-width:420px){
+  .acct-row{grid-template-columns:1fr}
+}

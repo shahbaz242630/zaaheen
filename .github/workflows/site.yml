@@ -60,6 +60,16 @@ jobs:
         run: npm run check -- --release
       - name: Prove the audit still catches what it claims to
         run: npm test
+      # account.zaaheen.com (AUTH-PAGES-DESIGN): built here with fixed, made-up
+      # development settings, so its tests and audit run on every change. Not
+      # published: its own deploy (real settings, --release audit) comes with
+      # the production setup.
+      - name: Prove the vendored Clerk file is exactly what npm published
+        run: node scripts/vendor-clerk.mjs --check
+      - name: Build the account pages (test settings)
+        run: npm run build:account:test
+      - name: Test the account pages (redirect check, states, source rules, audit)
+        run: npm run test:account
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: site-dist

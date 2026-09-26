@@ -1,0 +1,10 @@
+---
+import Account from '../layouts/Account.astro';
+import { SITE } from '../../src/data/site';
+---
+<Account title="Page not found" page="not-found" panel="unlock">
+  <div class="acct-view">
+    <h1>Page not found.</h1>
+    <p class="acct-lede">To sign in, open the Zaaheen app and press Sign in, or go to <a href="/sign-in/">the sign-in page</a>. Everything else is at <a href={SITE.origin}>zaaheen.com</a>.</p>
+  </div>
+</Account>
