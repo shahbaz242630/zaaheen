@@ -1,0 +1,105 @@
+---
+import Policy, { type Outline } from '../layouts/Policy.astro';
+import Row from '../components/Row.astro';
+import { COMPANY, SITE } from '../data/site';
+
+// How Zaaheen protects your memories (founder, session 67; both research
+// reports: "Security page, recommended"). Facts checked in session 67: the
+// vault is encrypted at rest with its key in Windows Credential Manager;
+// Delete everything is cryptographic erasure (vault-app erasure.rs); sign-in
+// is OAuth with PKCE in the browser (vault-account); the keeper's named pipe
+// rejects remote clients (vault-app keeper/transport.rs); the account Worker
+// holds no memories (workers/account record.ts). White label: no library,
+// cipher or vendor names beyond what a reader needs.
+const OUTLINE: Outline[] = [
+  { id: 'computer', title: 'On your computer', topics: [
+    { id: 'encrypted', title: 'Your memories are encrypted' },
+    { id: 'key', title: 'The key never leaves your computer' },
+    { id: 'local-only', title: 'Only apps on your computer can connect' },
+    { id: 'erase', title: 'Delete everything means everything' },
+  ] },
+  { id: 'online', title: 'Online', topics: [
+    { id: 'sign-in', title: 'Signing in' },
+    { id: 'server', title: 'Our server holds no memories' },
+  ] },
+  { id: 'report', title: 'Reporting a problem', topics: [
+    { id: 'beta', title: 'What we are still working on' },
+    { id: 'vulnerability', title: 'Found a security issue?' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+const mail = `mailto:${COMPANY.email}`;
+const lede = `${SITE.name} is built so that your memories are safe even if something goes wrong at our end, because they are never there. Here is how it protects them.`;
+---
+<Policy path="/security/" heading="Security" lede={lede} outline={OUTLINE}>
+  <ul slot="summary">
+    <li>Your memories are encrypted on your computer, and the key never leaves it.</li>
+    <li>Only apps on your own computer can connect to Zaaheen, never anything from the
+        internet.</li>
+    <li>Our server holds no memories, so a break-in there could not expose them.</li>
+    <li><em>Delete everything</em> destroys the key, so nothing can be recovered from the
+        files, even from a copy.</li>
+  </ul>
+
+  <section id="computer" class="docs-section">
+    <h2 class="docs-title">On your computer</h2>
+
+    <Row id="encrypted" title={topic('encrypted')} where="At rest">
+      <p>Your memories are encrypted on disk, and so is everything Zaaheen builds from them: the
+         index it uses to search them and the summaries it writes when tidying up. Someone who copied the folder would
+         see only scrambled data.</p>
+    </Row>
+
+    <Row id="key" title={topic('key')} where="Windows">
+      <p>The key that unlocks your memories is created on your computer and kept in Windows' own
+         secure store for your user account. It is never uploaded, never sent to us, and never
+         written into the memory folder itself.</p>
+    </Row>
+
+    <Row id="local-only" title={topic('local-only')} where="Local only">
+      <p>Your AI apps talk to Zaaheen through a private channel inside your computer. Zaaheen
+         refuses connections from other computers and opens nothing to the internet, and each
+         app has to introduce itself before Zaaheen answers.</p>
+    </Row>
+
+    <Row id="erase" title={topic('erase')} where="Settings › Your memories">
+      <p><em>Delete everything</em> destroys the key first, then the files. Without the key,
+         anything left behind on the disk, in a backup or in a copy can never be unlocked
+         again.</p>
+    </Row>
+  </section>
+
+  <section id="online" class="docs-section">
+    <h2 class="docs-title">Online</h2>
+
+    <Row id="sign-in" title={topic('sign-in')} where="Your browser">
+      <p>You sign in through your own web browser, so the app never sees your password. It
+         receives a sign-in token, kept in Windows' secure store, which it uses only to check your
+         subscription. Signing in has nothing to do with the key to your memories.</p>
+    </Row>
+
+    <Row id="server" title={topic('server')} where="Our account service">
+      <p>Our account service knows who you are and whether you have paid, and nothing else. It
+         never receives your memories, so there is nothing there to leak. Everything between the
+         app, our websites and our service travels encrypted.</p>
+    </Row>
+  </section>
+
+  <section id="report" class="docs-section">
+    <h2 class="docs-title">Reporting a problem</h2>
+
+    <Row id="beta" title={topic('beta')} where="Beta">
+      <p>While Zaaheen is in beta, its Windows installer is not yet code-signed, which is why
+         Windows says the publisher is unknown when you install it. Signing comes before the full
+         launch.</p>
+    </Row>
+
+    <Row id="vulnerability" title={topic('vulnerability')} where="Email">
+      <p>If you think you have found a security problem, please email <a href={mail}>{COMPANY.email}</a>
+         with "Security" in the subject, and tell us how to see it. Please give us a chance to fix
+         it before telling anyone else. We will reply, keep you updated, and thank you publicly if
+         you would like.</p>
+    </Row>
+  </section>
+</Policy>

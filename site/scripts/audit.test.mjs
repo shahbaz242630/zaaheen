@@ -19,6 +19,20 @@ const edit = (rel, fn) => (dir) => {
   fs.writeFileSync(p, fn(fs.readFileSync(p, 'utf8')));
 };
 const inject = (html) => edit('index.html', (s) => s.replace('</main>', `${html}</main>`));
+// Points the header anchor carrying `cls` somewhere else; throws if the build
+// has no such anchor, so a case can never pass by testing nothing.
+const headerHref = (cls, href) => edit('index.html', (s) => {
+  const out = s.replace(new RegExp(`<a\\b[^>]*\\b${cls}\\b[^>]*>`), (tag) => tag.replace(/\shref="[^"]*"/, ` href="${href}"`));
+  if (out === s) throw new Error(`audit.test: no header anchor with class ${cls}`);
+  return out;
+});
+// Removes the footer link to `href` from the Documents page; throws if the
+// footer has no such link, so the case can never pass by testing nothing.
+const footerLink = (href) => edit('docs/index.html', (s) => {
+  const out = s.replace(/<footer\b[\s\S]*?<\/footer>/, (f) => f.replace(new RegExp(`<a\\b[^>]*\\shref="${href}"[^>]*>[\\s\\S]*?<\\/a>`), ''));
+  if (out === s) throw new Error(`audit.test: no footer link to ${href}`);
+  return out;
+});
 // The /pay page's build-time Paddle config, as pay.astro renders it. An unset
 // value renders as a bare attribute (no ="..."), so both forms are replaced,
 // and a build that matched neither would throw rather than test nothing.
@@ -77,6 +91,19 @@ const cases = [
   ['sandbox checkout on a release build', onSaleWith('sandbox', `test_${'a'.repeat(27)}`), /pay\/index\.html: checkout is not set up for live payments/, ['--release']],
   ['live environment with a sandbox token', onSaleWith('production', `test_${'a'.repeat(27)}`), /pay\/index\.html: checkout is not set up for live payments/, ['--release']],
   ['sandbox environment with a live token', onSaleWith('sandbox', `live_${'b'.repeat(27)}`), /pay\/index\.html: checkout is not set up for live payments/, ['--release']],
+  // The header's account buttons and the /sign-in, /sign-up forwards (AUTH-PAGES-DESIGN D1).
+  ['header Sign in not on the account origin', headerHref('bar-signin', '/#how'), /index\.html: header "Sign in" must link to https:\/\/account\.zaaheen\.com\/sign-in\//],
+  ['header Get started elsewhere', headerHref('bar-start', 'https://evil.example/sign-up/'), /index\.html: header "Get started" must link to https:\/\/account\.zaaheen\.com\/sign-up\//],
+  ['header Sign in removed', edit('index.html', (s) => s.replace(/<a\b[^>]*\bbar-signin\b[^>]*>[\s\S]*?<\/a>/, '')), /index\.html: header "Sign in" must link to/],
+  ['sign-in forward missing', edit('.htaccess', (s) => s.replace(/^.*account\.zaaheen\.com.*$/gm, '')), /\.htaccess: \/sign-in and \/sign-up must forward to the account origin/],
+  ['sign-in forward keeps the query', edit('.htaccess', (s) => s.replace('account.zaaheen.com/sign-$1/?', 'account.zaaheen.com/sign-$1/')), /\.htaccess: \/sign-in and \/sign-up must forward to the account origin/],
+  // The policy pages: each one built, and linked from every page's footer
+  // (Paddle's domain review wants them "clearly accessible via navigation").
+  ['footer Privacy link removed', footerLink('/privacy/'), /docs\/index\.html: footer must link to the Privacy Policy \(\/privacy\/\)/],
+  ['footer Terms link removed', footerLink('/terms/'), /docs\/index\.html: footer must link to the Terms of Service \(\/terms\/\)/],
+  ['footer Refunds link removed', footerLink('/refunds/'), /docs\/index\.html: footer must link to the Refund Policy \(\/refunds\/\)/],
+  ['refunds page missing', (d) => fs.rmSync(path.join(d, 'refunds'), { recursive: true }), /refunds\/index\.html: required file is missing/],
+  ['privacy page missing', (d) => fs.rmSync(path.join(d, 'privacy'), { recursive: true }), /privacy\/index\.html: required file is missing/],
 ];
 
 if (!fs.existsSync(DIST)) {

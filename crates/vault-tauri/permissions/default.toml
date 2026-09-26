@@ -201,6 +201,13 @@ identifier = "allow-show-claude-extension"
 description = "Allow invoking the show_claude_extension command (open the Downloads folder the Claude extension was saved in). Takes nothing from the page."
 commands.allow = ["show_claude_extension"]
 
+# The copy-paste steps' command (ADR-111). Gated, the same setup step.
+
+[[permission]]
+identifier = "allow-server-command"
+description = "Allow invoking the server_command command (the command an AI app runs to reach Zaaheen, for the copy-paste steps: the installed program's full path from Windows, or the short name). Takes nothing from the page."
+commands.allow = ["server_command"]
+
 # Where this start is (ADR-105 amendment 1, L-f). Open before the lock,
 # founder-approved (ADR-SEC-030 amendment 1).
 

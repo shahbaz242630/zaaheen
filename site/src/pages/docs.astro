@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import DocsNav from '../components/DocsNav.astro';
 import { COMPANY, PLANS, RELEASE, TRIAL, pageFor } from '../data/site';
 import { lastModified } from '../lib/lastmod';
 
@@ -20,7 +21,8 @@ const updatedLabel = updated
   : undefined;
 
 // The page outline: sections (left) and their topics (right). The ids are the
-// anchors of the rows below; keep the two in step.
+// anchors of the rows below; keep the two in step, and the section ids and
+// titles in step with DOCS_SECTIONS (the left menu, data/site.ts).
 const OUTLINE = [
   { id: 'getting-started', title: 'Getting started', topics: [
     { id: 'install', title: 'How to install Zaaheen' },
@@ -59,9 +61,7 @@ const topic = (id: string) =>
     </header>
 
     <div class="docs-layout">
-      <nav class="docs-sections" aria-label="Sections">
-        {OUTLINE.map((s) => <a href={`#${s.id}`} data-section={s.id}>{s.title}</a>)}
-      </nav>
+      <DocsNav current="/docs/" />
 
       <div class="docs-body">
         <section id="getting-started" class="docs-section">
@@ -134,6 +134,10 @@ const topic = (id: string) =>
                  does not ask, Zaaheen saves the extension to your Downloads folder: in Claude, open
                  Settings, then Extensions, then Advanced settings, then Install Extension, and choose
                  "Zaaheen for Claude.mcpb".</p>
+              <p>Claude looks in its own memory first. So it checks Zaaheen by itself, add this to
+                 your personal preferences in Claude's Settings: "Before answering anything about me,
+                 my preferences, my work or my plans, also check my Zaaheen memory, even when your own
+                 memory has nothing."</p>
             </div>
           </div>
 
@@ -158,11 +162,17 @@ const topic = (id: string) =>
                  Server, and fill it in:</p>
               <ul>
                 <li>Name: <code>Zaaheen</code></li>
-                <li>Command: <code>zaaheen</code></li>
+                <li>Command: where Zaaheen is installed, usually
+                    <code>C:\Program Files\Zaaheen\zaaheen.exe</code> (the <em>Agents</em> tab shows
+                    yours exactly, ready to copy)</li>
                 <li>Arguments: <code>mcp</code> and <code>serve</code>, as two separate items</li>
               </ul>
               <p>Save it, then use Zaaheen in ChatGPT's Work or Codex mode. Its Chat mode cannot
                  connect to apps on your computer.</p>
+              <p>ChatGPT looks in its own memory first. So it checks Zaaheen by itself, open
+                 Settings, then Personalization, then Custom instructions, and add: "Before answering
+                 anything about me, my preferences, my work or my plans, also check my Zaaheen memory,
+                 even when your own memory has nothing."</p>
             </div>
           </div>
 

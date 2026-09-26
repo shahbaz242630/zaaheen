@@ -2474,9 +2474,17 @@ fn the_agents_tab_offers_the_same_picker_as_setup() {
         .find("id=\"setup-connect-host\"")
         .expect("its setup place");
     assert!(setup_host < picker, "the picker starts in the setup step");
-    assert!(html
-        .contains("<div id=\"agents-connect-host\" class=\"agents-connect-host hidden\"></div>"));
-    assert!(html.contains(">+ Connect an AI app</button>"));
+    // Session 64: laid out like Settings, the picker always shown, with
+    // "Connected apps" first on its left (no "+ Connect an AI app" toggle).
+    assert!(html.contains("<div id=\"agents-connect-host\" class=\"agents-connect-host\"></div>"));
+    let connected = html
+        .find("id=\"connected-view\"")
+        .expect("the connected apps' view");
+    assert!(
+        picker < connected && connected < html.find("id=\"connect-empty\"").unwrap(),
+        "inside the picker's right side"
+    );
+    assert!(!html.contains("+ Connect an AI app"));
     for gone in [
         "id=\"agents-panel\"",
         "id=\"agents-snippet\"",
@@ -2499,7 +2507,13 @@ fn the_agents_tab_offers_the_same_picker_as_setup() {
     let open = &js_function(&functions, "renderAgentsConnect").body;
     assert!(open.contains("placeConnectPicker(\"agents-connect-host\");"));
     assert!(open.contains("renderAgentCards();"));
-    assert!(code.contains("$(\"connect-panel-label\").addEventListener(\"click\""));
+    let cards = &js_function(&functions, "renderAgentCards").body;
+    assert!(
+        cards.contains("data-i=\"connected\">Connected apps</button>")
+            && cards.contains("const showConnected = onAgentsTab && state.agentPicked === null;"),
+        "the Agents tab's list opens with Connected apps"
+    );
+    assert!(!code.contains("connect-panel-label"));
     assert!(!code.contains("copy-agents-snippet"));
 }
 
@@ -2514,19 +2528,36 @@ fn apps_without_an_install_route_get_exact_steps() {
         "In ChatGPT, open Settings, then Integrations, then Plugins. Choose Add, then Add MCP \
          Server, and fill it in as below. Put mcp and serve in Arguments as two separate items.",
         "its Chat mode can't connect to apps on your computer",
-        "Command:    zaaheen",
+        "Command:    ${command}",
         "Arguments:  mcp\n            serve",
-        "notepad %USERPROFILE%\\\\.gemini\\\\config\\\\mcp_config.json",
-        "for the Antigravity IDE, use .gemini\\\\antigravity instead of .gemini\\\\config",
-        "If it already lists other apps, add the zaaheen part next to them.",
+        // Session 64: each line to type in its own copy box.
+        "{ label: \"Antigravity app\", command: \"notepad %USERPROFILE%\\\\.gemini\\\\config\\\\mcp_config.json\" }",
+        "{ label: \"Antigravity IDE\", command: \"notepad %USERPROFILE%\\\\.gemini\\\\antigravity\\\\mcp_config.json\" }",
+        "If the file already lists other apps, add the zaaheen part next to them.",
+        "copyText(opener.command, button)",
         "close Antigravity fully and open it again",
-        "\"claude mcp add --transport stdio --scope user zaaheen -- zaaheen mcp serve\"",
+        "`claude mcp add --transport stdio --scope user zaaheen -- ${command === SHORT_NAME \
+         ? command : `\"${command}\"`} mcp serve`",
     ] {
         assert!(code.contains(words), "{words}");
     }
     assert!(
         !code.contains("settings.json"),
         "Antigravity's settings file is mcp_config.json"
+    );
+}
+
+/// "Run now" says it finished and the words stay (session 64: a "Done ✓"
+/// cleared after 3 s was missed after a few minutes' wait).
+#[test]
+fn run_now_says_it_finished_and_the_words_stay() {
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let run = &js_function(&functions, "runMaintenanceNow").body;
+    assert!(run.contains("note.textContent = \"Done. Your memories are tidied up.\""));
+    assert!(
+        !run.contains("setTimeout"),
+        "the outcome is not cleared on a timer"
     );
 }
 
@@ -2540,7 +2571,7 @@ fn the_agents_tab_lists_the_apps_actually_connected() {
     let html = html();
     for words in [
         "<div class=\"headline\">Your AI apps.</div>",
-        "No AI app is connected right now. An app connects when you open it, and shows here while it's open.",
+        "No AI app has connected yet. Choose yours on the left to connect it.",
         "<div id=\"agent-keys\" class=\"hidden\">",
         "<div class=\"rows-label\">Access keys</div>",
     ] {
@@ -2554,13 +2585,26 @@ fn the_agents_tab_lists_the_apps_actually_connected() {
     assert!(refresh.contains("await invoke(\"list_connected_apps\")"));
     let rows = &js_function(&functions, "renderConnectedApps").body;
     assert!(
-        rows.contains("${esc(friendlyAppName(a.name))}"),
+        rows.contains("${esc(name)}") && refresh.contains("rememberApps(state.connectedApps)"),
         "names are escaped"
     );
-    assert!(rows.contains("${esc(when)}"));
+    assert!(rows.contains("active now") && rows.contains("last used ${relTime(seen)}"));
+    // Session 64: the apps ever seen, so a tidy-up (a new keeper, an empty
+    // live list) no longer reads as "no AI app connected".
+    let remember = &js_function(&functions, "rememberApps").body;
+    assert!(
+        remember.contains("friendlyAppName(a.name)")
+            && remember.contains("store.set(KNOWN_APPS_KEY, known)")
+    );
+    let erase = &js_function(&functions, "eraseEverything").body;
+    assert!(
+        erase.contains("store.set(KNOWN_APPS_KEY, {})"),
+        "Delete everything forgets them"
+    );
     let footer = &js_function(&functions, "renderFooter").body;
-    assert!(footer.contains("state.connectedApps.length"));
-    assert!(footer.contains("\"no AI app connected right now\""));
+    assert!(footer.contains("Object.keys(knownApps()).length"));
+    assert!(footer.contains("\"no AI app connected yet\""));
+    assert!(!code.contains("no AI app connected right now"));
     assert!(!code.contains("mcp · stdio"), "no jargon");
     let names = &js_function(&functions, "friendlyAppName").body;
     for (raw, shown) in [

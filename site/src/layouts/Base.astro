@@ -6,7 +6,8 @@ import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/600.css';
 import '../styles/global.css';
 import Logo from '../components/Logo.astro';
-import { SITE, NAV, COMPANY, absolute, type PageEntry } from '../data/site';
+import Footer from '../components/Footer.astro';
+import { SITE, NAV, ACCOUNT, absolute, type PageEntry } from '../data/site';
 import { lastModified } from '../lib/lastmod';
 import { graphFor } from '../lib/seo';
 
@@ -60,11 +61,10 @@ const jsonLd = noindex ? null : graphFor(page, lastModified(page.sources));
         <a href={item.href} aria-current={page.path === item.href ? 'page' : undefined}>{item.label}</a>
       ))}
     </nav>
-    <!-- Both lead to "How it works" until the account pages live on this site
-         (founder, session 61): an account is created inside the app. -->
+    <!-- Our own account pages on account.zaaheen.com (AUTH-PAGES-DESIGN D1). -->
     <div class="bar-actions">
-      <a class="bar-signin" href="/#how">Sign in</a>
-      <a class="bar-start" href="/#how">Get started</a>
+      <a class="bar-signin" href={ACCOUNT.signIn}>Sign in</a>
+      <a class="bar-start" href={ACCOUNT.signUp}>Get started</a>
     </div>
   </div>
 </header>
@@ -73,11 +73,7 @@ const jsonLd = noindex ? null : graphFor(page, lastModified(page.sources));
   <slot />
 </main>
 
-<footer>
-  <p>{SITE.name} · <span class="mono">zaaheen.com</span></p>
-  <p class="fine">Your memories never leave your device.</p>
-  <p class="fine">{COMPANY.legalName} · {COMPANY.licence} · <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></p>
-</footer>
+<Footer />
 
 </body>
 </html>

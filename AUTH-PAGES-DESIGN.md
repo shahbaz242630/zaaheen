@@ -17,6 +17,9 @@ revised in place and is not kept separately.
   password pages (1c, 1d) and the password copy do not apply (D2).
 - The consent box wording (D6): *"yes that wording is fine partner"*.
 - Page wording chosen by me, reviewed at the pre-launch check (HANDOFF §3 item 9).
+- The subdomain, confirmed after the pages were built (session 65: *"ok lets keep the subdomain
+  setup"*). With the header wiring, `zaaheen.com/sign-in` and `/sign-up` forward to the account
+  origin (a redirect only; no form on zaaheen.com).
 
 ## Context
 
@@ -50,6 +53,131 @@ equal to a copy taken before (`C:\Projects\MemoryVault-artifacts\auth-pages-spik
 
 **The spike loaded clerk-js from Clerk's CDN, not bundled** (reviewer B). Build step 1 repeats items
 4–5 with the bundled script under the pinned CSP before anything else is built (D3).
+
+## Build step 1 — measured (session 65, 2026-09-26)
+
+On the second Clerk app "Zaaheen pages (dev)" only (D9), configured to match the real sandbox
+(passwords off, names required, passkeys, MFA optional, email code, Google, bot check `smart`)
+plus `paths.sign_in/sign_up`, `development_origin = http://127.0.0.1:4400`, `legal_consent` on,
+and one public, PKCE, consent-screen, loopback-only OAuth app. The real sandbox was read first and
+is unchanged (identical to the session-61 `before.json`). Measurement pages and a server sending
+the D5 headers, byte for byte, with a `securitypolicyviolation` listener:
+`C:\Projects\MemoryVault-artifacts\auth-pages-step1\` (`server.mjs`, `src/flow.js`, `tt.js`).
+clerk-js **6.34.1** (npm; 6.33.0 was the writing-time version). Every flow was started as the app
+starts it (PKCE, `state`, loopback `127.0.0.1:53999/callback`) and ended at the loopback with a
+`code`, the right `iss` and a matching `state`.
+
+| # | Measured | Result |
+|---|---|---|
+| M1 | Bundled clerk-js under the pinned CSP (spike items 4-5 again, no CDN) | ✅ Both builds. **A** Vite-bundled `clerk.mjs`: 568,502 B gzipped, one file. **B** self-hosted `clerk.browser.js`: 81,973 B gzipped; sign-in and sign-up loaded only that file (its lazy chunks, UI and wallet code, were never requested). Neither contains `eval(` or `new Function`; both carry wallet SDK code (Coinbase, Solana) that never runs here. |
+| M2 | What the no-UI flow needs from the CSP | **One thing.** With `require-trusted-types-for 'script'` Clerk cannot insert Turnstile's `api.js`, so every sign-up fails closed with `captcha_invalid` (sign-in, which shows no challenge, works). Fixed without widening any source: see amendment S1-1. Clerk's blob Worker is also refused; Clerk logs "Cannot create worker from blob" and carries on (every flow completed). No `worker-src`, no `img.clerk.com`, no `'unsafe-inline'` needed. |
+| M3 | Email-code sign-up and sign-in on our page | ✅ Both builds; the bot check passed invisibly (`smart`); `+clerk_test` addresses, code 424242. |
+| M4 | Already signed in on load | ✅ `Clerk.user` set on load; "Continue" + `buildUrlWithAuth` reached the loopback. |
+| M5 | Terms and consent recorded | ✅ Server-side `legal_accepted_at` set; `unsafe_metadata.marketing_consent` carried. `legal_consent` **cannot be switched on without `terms_of_service_url`** (Clerk 422): the Terms and Privacy pages are a hard prerequisite, not a nice-to-have. |
+| M6 | Google through `/sso-callback/` (the founder's own Google account) | ✅ after one new state. Google from the **sign-in** page for a person with no account becomes a sign-up with `missing_requirements` = `["legal_accepted"]` (Google supplied both names). Our page ticked the Terms box and called `signUp.update({ legalAccepted: true })` → `complete` → loopback ✅. See amendment S1-2. |
+| M7 | D7: does the Portal's `/sign-up` forward to our page? | **Partly:** it forwards to our **`/sign-in/`**, not `/sign-up/`. Amendment S1-3. |
+| M8 | Dev-only navigation by clerk-js | Reproduced spike item 3: on load, clerk-js on our page followed `authorize-with-immediate-redirect` itself and came back to our page with `redirect_url=<Portal>/oauth-consent?…&__clerk_db_jwt=…` (dev instances only, as D4 says). |
+| M9 | A subdomain for production `paths.*` | Clerk's docs state the rule for the production **OAuth consent** URL: `https`, same registrable domain as the instance, subdomains allowed. The sign-in/up rule is not stated separately; confirmed at the production setup (unchanged from D1's fallback). |
+
+**Amendments from step 1 (to be reviewed with the build, before its commit):**
+- **S1-1 (D5, ADR-SEC-034): one Trusted Types policy instead of dropping Trusted Types.** The
+  origin's CSP adds `trusted-types default`; every page loads `/tt.js` first (a static file, `'self'`)
+  which creates the only policy the origin can have. Its `createScriptURL` returns the input only if
+  it equals `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit` exactly, and
+  throws for anything else; `createHTML` and `createScript` always throw. Measured: sign-up passes the
+  bot check with zero violations; the blob Worker is refused through the policy and Clerk carries on.
+  Dropping Trusted Types was the alternative and was rejected: it would re-open every string-to-script
+  sink on the page to save one line. Tests: the audit pins `tt.js` word for word and its first place
+  on every page; a browser test proves another script URL and `innerHTML` are refused.
+- **S1-2 (D1 states):** the state list gains **"Terms not yet accepted"**: after Google, `missing_requirements`
+  with `legal_accepted` shows the Terms line and box (and the unticked tips box), then
+  `signUp.update({ legalAccepted: true, unsafeMetadata })`. Missing names and missing Terms can come
+  together; one screen asks for whatever `missingFields` lists. Any other missing field → the fixed line.
+- **S1-3 (D7):** decided: `sign_up_page()` returns our own page (`https://account.zaaheen.com/sign-up/`
+  in production, from the site-origin constant; the development pages' origin for the sandbox), with
+  the authorize URL as `redirect_url`, as D7 already describes for this outcome.
+- **S1-4 (D3):** build **B** (self-hosted `clerk.browser.js`) is chosen: 82 KB instead of 569 KB on a
+  page people open just to sign in. Its chunk loader can only load from our origin (`currentScript`
+  base) and, under S1-1, cannot insert any script at all, so a flow that ever needs a chunk fails closed
+  and the browser test catches it. The pin moves to the version current at the build, exact, with
+  its lockfile. D3's "Which build is served is measured at build step 1" is answered.
+- **Clean-up done:** the three test users on "Zaaheen pages (dev)" (two `+clerk_test`, one the
+  founder's Google address) deleted by the founder's command ("deleted 3 test users; left on the
+  practice app: 0"); the app's settings stay as configured for step 2.
+
+## Build step 2 — the pages (session 65, 2026-09-26)
+
+Built tests first: `site/scripts/redirect.test.mjs` (D4, 23 tests), `signin-state.test.mjs` (D1 + S1-2,
+16), `account-source.test.mjs` (source rules, 7) and `audit-account.test.mjs` (32 negative controls
+on a copy of the real build). Each validator rule that is the only guard against an attack was shown
+to fail its tests when removed (13 planted bugs; one test added when a plant was missed; the
+backslash check is a second layer, its cases are also refused by the raw-path and `state` rules).
+Layout: `site/account/` (pages, components, `scripts/redirect.js`, `account-state.js`, `account.js`,
+`csp.js`, `clerk-pin.js`), `site/account-public/` (`tt.js`, `robots.txt`, `favicon.svg`, the Clerk file),
+`site/astro.account.config.mjs` (fails the build without valid settings; writes `.htaccess` from
+`account/htaccess.template` and `csp.js`), output `site/dist-account/`. `npm run build:account`,
+`check:account` (the audit), `build:account:test` + `test:account` (CI, with made-up development
+settings; `site.yml`). `scripts/serve-account.mjs` serves a build with its `.htaccess` headers.
+
+**Browser test on "Zaaheen pages (dev)"** (real pages, pinned headers, an app stand-in doing PKCE
+with a 43-character `state` and a loopback listener; `C:\Projects\MemoryVault-artifacts\auth-pages-step1\app-standin.mjs`):
+sign-up from the app's "Create an account" (our `/sign-up/` directly, S1-3) and from the sign-in
+page's link; the Terms box refused unticked; a wrong code gets our line; a reload resumes at the code
+step; sign-in of a returning person; a tampered `redirect_url` shows only the bad-link view; signed
+in with no `redirect_url` shows "You're signed in" and the zaaheen.com line; phone width (390 px).
+The founder, in Edge: email-code sign-up with a real inbox; Google as a new person (the "One more
+step" Terms view, S1-2) and Google as a returning person (straight to consent). Every run reached the
+loopback with a `code`, the right `iss` and a matching `state`; no CSP or Trusted Types violation in
+any run. Test users deleted afterwards.
+
+**Observed, development only:** after a sign-up from the app's `/oauth/authorize` link, Clerk's
+development instance sent the browser back to our `/sign-in/` once more, which showed "You're signed
+in" + Continue (the D1 already-signed-in state) before consent. Production's session cookie is on our
+own domain; the production test confirms the extra step does not appear there.
+
+**Amendment S2-1 (D3): Clerk's file is vendored, not an npm dependency.** `@clerk/clerk-js` pulls
+wallet SDKs (Coinbase, Solana) into the lockfile that never run on these pages; `npm audit` counted 13
+moderate advisories in them, which would sit as GitHub alerts on the public repo. The pages serve one
+file, so `scripts/vendor-clerk.mjs <version>` fetches the tarball, checks the registry's sha512
+integrity, and writes `dist/clerk.browser.js` as `account-public/clerk/clerk.browser.<version>.js`
+(6.34.1: 313,762 bytes, byte-identical to the file measured in step 1). Its SHA-256 is pinned in
+`account/scripts/clerk-pin.js`; the audit refuses any other bytes or any other file in `clerk/`;
+`.gitattributes` keeps it byte-exact in git. Upgrading = run the script, paste the new pin, repeat the
+browser test. This replaces D3's "committed lockfile" for this one file with a stronger pin.
+
+**Independent review of step 2 (session 65, read-only): SAFE WITH FIXES**, no blocker or major;
+about 30 hostile `redirect_url` inputs refused or harmless; `tt.js`, DOM handling, fail-closed settings
+and headers found sound. Dispositions:
+1. *A finished Google sign-in is navigated by Clerk itself* (to its redirect props, not through our
+   `navigate`, and without checking `allowedRedirectOrigins`). Safe because all four props are `done`
+   (validator output or our own `/sign-in/`); now pinned by `account-source.test.mjs`, comments
+   corrected. **Residual:** a pending session task after Google is handled by Clerk's own navigator,
+   not our fixed line; no task is configured on the instance (D9 invariant).
+2. *A pk_test_ build could be deployed:* the build now refuses a `pk_test_` key unless `ACCOUNT_DEV=1`;
+   the deploy job (to be built) runs the `--release` audit.
+3. *The CSP text was not pinned* (only `.htaccess` = `csp.js`): a word-for-word test of `csp.js` added.
+4. *The audit read only `Header always set` lines:* the whole server file is now pinned
+   (`SERVER_FILE_SHA256`, the template with `{{CSP}}`); three new negative controls (unset, a renamed
+   `<IfModule>`, an added rewrite).
+5. *MFA is optional on the instances, but the pages cannot do a second factor* (a person who enrols one
+   would be locked out): D9 invariant added, MFA off on every instance these pages serve; turned off on
+   the practice app by the founder's command. Revisit with passkeys (D2).
+6. *The app still sends "Create an account" to the Portal:* S1-3 (`sign_up_page()`) must ship before or
+   with the pages going live, and the Portal is not retired before it (step 3, with the full gates).
+7. *The vendored file's pin is only checked against itself:* `vendor-clerk.mjs --check` in `site.yml`
+   re-fetches npm's published file and requires it equals the pin and the committed file.
+8. Nits fixed: `clerk.load()` times out after 20 s to the fixed line; "We sent a new code." is a status
+   note, not an alert; the Terms and Privacy links open in a new tab; `serve-account.mjs`'s path check.
+
+Re-run after the fixes: 48 unit tests, 35 audit negative controls, `--check` against npm, all pass; the
+reviewer's scenarios planted one at a time each fail a test.
+
+**New prerequisite for production (founder, session 65: "it says clerk on google shouldnt it say
+zaaheen?"):** the development instance uses Clerk's shared Google credentials, so Google's screen
+names Clerk. Production needs Zaaheen's own Google OAuth client (Google Cloud console: app name
+Zaaheen, logo, zaaheen.com as the authorised domain, links to the Terms and Privacy pages; basic
+scopes only, so no sensitive-scope review), its client ID and secret set on the production instance.
+White-label rule (HANDOFF §5).
 
 ## ADR-109 — the account pages
 
@@ -143,7 +271,8 @@ navigates with `location.assign(parsed.href)`, never the raw string (reviewer A 
 Google, carried through `/sso-callback/`). The validator is one pure module with its own tests.
 
 Instance invariants (D9): exactly one OAuth application, loopback-only; Dynamic Client Registration
-and client-ID metadata documents off. A config-check script compares the instance against these and
+and client-ID metadata documents off; MFA (authenticator app, backup codes) off and no session tasks,
+because these pages cannot complete a second factor or a task (step-2 review, finding 5). A config-check script compares the instance against these and
 the build step fails the live test if they drift.
 
 ### D5 The origin's CSP
@@ -308,5 +437,19 @@ account deletion and the profile. It never controls a vault: sign-in never touch
 
 ## Prerequisites and open items
 - **Terms and Privacy pages** (the sign-up line links to them; Paddle needs them).
-- A second Clerk application for page development (D9): free, founder's yes needed.
-- Production: `clerk.zaaheen.com` and `account.zaaheen.com` DNS, the licence, the Pro decision.
+- ✅ A second Clerk application for page development (D9).
+- ✅ **Production (session 66, OPS-HANDOFF §I):** instance on `zaaheen.com`, free plan (founder: no Pro, so
+  passkeys and MFA off); `clerk.`/`accounts.`/email DNS verified; the OAuth application (client ID
+  `sKtut4UNaAyJtImJ`); CIMD and DCR off, PKCE required; Zaaheen's own Google OAuth client (Google
+  still in Testing until a privacy URL exists). A local build with `pk_live_Y2xlcmsuemFhaGVlbi5jb20k` and that
+  client ID passes `audit-account --release`.
+- ✅ **Built (session 66), switched off:** site.yml `account-build` / `account-deploy` (branch
+  `account-deploy`, repository variables `CLERK_PUBLISHABLE_KEY`, `ZAAHEEN_CLIENT_ID`, switch
+  `ACCOUNT_PUBLISH`; zaaheen.com's deploy refuses to run while it is off); zaaheen.com's header links to
+  `/sign-in/` and `/sign-up/` here and `.htaccess` forwards `/sign-in`, `/sign-up` (302, query dropped),
+  both pinned by `scripts/audit.mjs` with negative controls.
+- Still to do to switch on: the Hostinger site for `account.zaaheen.com` deploying `account-deploy`, its DNS
+  record, branch protection on `account-deploy`, Cloudflare script-injecting features off for it, the
+  repository variables; the post-deploy check (D9 invariants incl. MFA off, CIMD/DCR off, the headers).
+- Still to build: the Worker's `user.created` consent copy (D6); the Rust side (S1-3 `sign_up_page()`,
+  D8 loopback page) with the batch's full gates; the end-to-end installer test (build order step 4).

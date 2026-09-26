@@ -7,8 +7,8 @@
 //! - **Cursor:** its documented install link (`external_link`).
 //! - **Claude Desktop:** a desktop extension, "Zaaheen for Claude.mcpb",
 //!   saved to the person's Downloads folder. It carries no program: its
-//!   server is the Zaaheen already installed, by its short name, which a live
-//!   test on the founder's machine showed Claude runs (session 55). Opened
+//!   server is the Zaaheen already installed, by its full path (ADR-111;
+//!   session 55 showed Claude runs either form). Opened
 //!   straight away where Windows opens `.mcpb` files; otherwise the page
 //!   says where to install it from in Claude's settings.
 
@@ -17,6 +17,7 @@ use std::io::{self, Cursor, Write};
 use std::path::Path;
 
 use crate::external_link::{ExternalLink, LinkError};
+use crate::server_command::ServerCommand;
 
 /// The Claude extension's file name, in the person's Downloads folder.
 pub const CLAUDE_EXTENSION_FILE: &str = "Zaaheen for Claude.mcpb";
@@ -63,12 +64,18 @@ impl ConnectOutcome {
 /// Ask Cursor to install Zaaheen. Blocking (it asks Windows first).
 #[must_use]
 pub fn connect_cursor() -> ConnectOutcome {
-    connect_cursor_with(|| scheme_is_registered("cursor"), ExternalLink::open)
+    connect_cursor_with(
+        || scheme_is_registered("cursor"),
+        &ServerCommand::installed(),
+        ExternalLink::open,
+    )
 }
 
-/// [`connect_cursor`] with the installed check and the opener given.
+/// [`connect_cursor`] with the installed check, the command and the opener
+/// given.
 pub(crate) fn connect_cursor_with(
     installed: impl FnOnce() -> bool,
+    command: &ServerCommand,
     open: impl FnOnce(&ExternalLink) -> Result<(), LinkError>,
 ) -> ConnectOutcome {
     // Without Cursor, Windows would offer to find an app for the link in
@@ -76,7 +83,7 @@ pub(crate) fn connect_cursor_with(
     if !installed() {
         return ConnectOutcome::AppNotFound;
     }
-    let Ok(link) = ExternalLink::install_in_cursor() else {
+    let Ok(link) = ExternalLink::install_in_cursor(command) else {
         return ConnectOutcome::CouldNotOpen;
     };
     match open(&link) {
@@ -95,6 +102,7 @@ pub fn connect_claude(downloads: Option<&Path>, icon_png: &[u8]) -> ConnectOutco
     connect_claude_with(
         || scheme_is_registered("claude"),
         downloads,
+        &ServerCommand::installed(),
         icon_png,
         || file_type_is_registered(".mcpb"),
         |file| {
@@ -109,6 +117,7 @@ pub fn connect_claude(downloads: Option<&Path>, icon_png: &[u8]) -> ConnectOutco
 pub(crate) fn connect_claude_with(
     installed: impl FnOnce() -> bool,
     downloads: Option<&Path>,
+    command: &ServerCommand,
     icon_png: &[u8],
     opens_mcpb: impl FnOnce() -> bool,
     open: impl FnOnce(&Path) -> Result<(), ()>,
@@ -121,7 +130,7 @@ pub(crate) fn connect_claude_with(
         return ConnectOutcome::CouldNotSave;
     };
     let file = downloads.join(CLAUDE_EXTENSION_FILE);
-    let saved = claude_extension(icon_png).and_then(|bytes| save(&file, &bytes));
+    let saved = claude_extension(icon_png, command).and_then(|bytes| save(&file, &bytes));
     if let Err(e) = saved {
         tracing::warn!(target: "vault_app::connect", error = %e, "could not save the Claude extension");
         return ConnectOutcome::CouldNotSave;
@@ -151,14 +160,14 @@ pub fn show_downloads(downloads: &Path) -> bool {
 }
 
 /// "Zaaheen for Claude.mcpb": a desktop-extension bundle (MCPB manifest
-/// 0.3) whose server is the installed `zaaheen mcp serve`, the manual
+/// 0.3) whose server is `command` with `mcp serve`, the manual
 /// snippet's server. Stored, not compressed, with a fixed date, so the same
 /// icon always makes the same bytes.
 ///
 /// # Errors
 ///
 /// Only if the zip cannot be written in memory.
-pub fn claude_extension(icon_png: &[u8]) -> io::Result<Vec<u8>> {
+pub fn claude_extension(icon_png: &[u8], command: &ServerCommand) -> io::Result<Vec<u8>> {
     let manifest = serde_json::json!({
         "manifest_version": "0.3",
         "name": "zaaheen",
@@ -171,7 +180,7 @@ pub fn claude_extension(icon_png: &[u8]) -> io::Result<Vec<u8>> {
         "server": {
             "type": "binary",
             "entry_point": CLAUDE_ENTRY_POINT,
-            "mcp_config": { "command": "zaaheen", "args": ["mcp", "serve"] }
+            "mcp_config": command.server_json()
         },
         "compatibility": { "platforms": ["win32"] }
     });

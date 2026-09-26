@@ -1,0 +1,17 @@
+---
+// Google's return page (AUTH-PAGES-DESIGN D1): Clerk finishes the Google step
+// here. A finished sign-in goes to the checked way back, which account.js
+// passes as every redirect prop (Clerk navigates there itself); every other
+// step goes through redirect.js checkNavigation. A Google sign-up is created
+// here, so the bot check's element is present.
+import Account from '../layouts/Account.astro';
+import CommonViews from '../components/CommonViews.astro';
+---
+<Account title="Signing in" page="sso-callback" panel="unlock">
+  <CommonViews />
+  <div class="acct-view" data-view="callback" hidden>
+    <h1>Finishing sign-in…</h1>
+    <p class="acct-lede">This takes a moment.</p>
+  </div>
+  <div id="clerk-captcha"></div>
+</Account>

@@ -1,0 +1,53 @@
+---
+import Logo from './Logo.astro';
+import { COMPANY, SITE } from '../data/site';
+
+// The footer on every page (founder, session 67: "a little bit professional
+// footer", after the Best Answer Hub one): the brand, three columns of links,
+// then the company line. Every policy page must stay linked here
+// (scripts/audit.mjs POLICIES).
+const year = new Date().getFullYear();
+const COLUMNS = [
+  { title: 'Product', links: [
+    { label: 'The memory app', href: '/products/' },
+    { label: 'Pricing', href: '/pricing/' },
+    { label: 'Documents', href: '/docs/' },
+    { label: 'AI and your data', href: '/ai-and-your-data/' },
+  ] },
+  { title: 'Company', links: [
+    { label: 'Company information', href: '/company/' },
+    { label: 'Knowledge Centre', href: '/knowledge-centre/' },
+    { label: 'Security', href: '/security/' },
+    { label: 'Contact us', href: `mailto:${COMPANY.email}` },
+  ] },
+  { title: 'Legal', links: [
+    { label: 'Terms of Service', href: '/terms/' },
+    { label: 'Privacy Policy', href: '/privacy/' },
+    { label: 'Refund Policy', href: '/refunds/' },
+  ] },
+];
+---
+<footer class="site-foot">
+  <div class="foot-inner">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="foot-logo" href="/" aria-label={`${SITE.name} home`}>
+          <Logo size={32} />
+          <span>{SITE.name}</span>
+        </a>
+        <p>A private memory for your AI apps. Your memories stay encrypted on your own computer
+           and never reach us.</p>
+      </div>
+      {COLUMNS.map((c) => (
+        <nav class="foot-col" aria-label={c.title}>
+          <p class="foot-title">{c.title}</p>
+          {c.links.map((l) => <a href={l.href}>{l.label}</a>)}
+        </nav>
+      ))}
+    </div>
+    <div class="foot-bottom">
+      <p>© {year} {COMPANY.legalName}. All rights reserved.</p>
+      <p>{COMPANY.licence} · <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></p>
+    </div>
+  </div>
+</footer>

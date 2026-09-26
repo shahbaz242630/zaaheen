@@ -1,0 +1,47 @@
+---
+// The right-hand app window (Claude Design handoff, pages 1a/1b). CSS-only
+// loops (account.css); with reduced motion it shows its last frame, still.
+// A picture, not a claim: only VERIFIED_APPS are named.
+import Logo from '../../src/components/Logo.astro';
+import { VERIFIED_APPS } from '../../src/data/site';
+
+interface Props { kind: 'unlock' | 'connect' }
+const { kind } = Astro.props;
+const MEMORIES = [
+  'Prefers short answers in plain English',
+  'Book meetings after 10am, never on Fridays',
+  'Launching the new website in March',
+];
+---
+<div class="pwin">
+  <div class="pwin-bar"><span></span><span></span><span></span><em>Zaaheen</em></div>
+  {kind === 'unlock' ? (
+    <div class="pwin-body is-unlock">
+      <div class="pu-locked">
+        <Logo size={44} />
+        <p>Locked on this computer</p>
+        <span class="mono-note">Sign in to open your memories</span>
+      </div>
+      <div class="pu-wait">
+        <p>Finishing sign-in in your browser…</p>
+        <div class="pu-sweep"><i></i></div>
+      </div>
+      <ul class="pu-mem">
+        {MEMORIES.map((m, i) => <li class={`d${i + 1}`}><span class="chip-dot"></span>{m}</li>)}
+      </ul>
+    </div>
+  ) : (
+    <div class="pwin-body is-connect">
+      <p class="pc-head mono-note">Connected apps</p>
+      <ul class="pc-apps">
+        {VERIFIED_APPS.map((app, i) => (
+          <li class={`d${i + 1}`}>
+            <span class="pc-name">{app}</span>
+            <span class="pc-state"><span class="chip-dot"></span><span class="pc-words"><b>Connected</b><s>Waiting</s></span></span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+</div>
+<p class="pcap">{kind === 'unlock' ? 'Sign in once. Your memories open on this computer.' : 'One memory for all your AI apps.'}</p>
