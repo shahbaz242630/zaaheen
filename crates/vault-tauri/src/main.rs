@@ -158,6 +158,7 @@ fn main() {
             // "Connect it for me" (ADR-106). Gated.
             vault_tauri::commands::connect::connect_app,
             vault_tauri::commands::connect::show_claude_extension,
+            vault_tauri::commands::connect::server_command,
             // Where this start is (ADR-105 amendment 1, L-f). Open before the
             // lock, founder-approved: see the module.
             vault_tauri::commands::startup::startup_state,

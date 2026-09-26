@@ -296,6 +296,8 @@ pub const GATED_COMMANDS: &[&str] = &[
     // "Connect it for me" (ADR-106): a setup action after sign-in, so gated.
     "connect_app",
     "show_claude_extension",
+    // The copy-paste steps' command (ADR-111): part of the same setup step.
+    "server_command",
 ];
 
 /// Commands that run whatever the entitlement answer is.

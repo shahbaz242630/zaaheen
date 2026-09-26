@@ -361,22 +361,30 @@ function renderMaintEngineStatus() {
   }
 }
 
-// MCP connection snippets name `zaaheen`, the binary the installer actually
-// lays down and puts on PATH (ADR-SEC-018), invoked with no paths because
-// ADR-101 taught it to find its own vault and models. This pairing is pinned by
+// MCP connection snippets run `zaaheen`, the binary the installer actually
+// lays down (ADR-SEC-018), invoked with no paths because ADR-101 taught it to
+// find its own vault and models. This pairing is pinned by
 // installer_contract.rs: a comment claiming the snippet works is worth nothing,
 // which is exactly how `vault-cli` survived the rename here and would have sent
 // every tester a config for a program that does not exist.
-const SNIPPET_JSON = `{
+//
+// ADR-111 (session 64): by its FULL path, which `server_command` reads from
+// Windows. An AI app open before the install never sees the new PATH, so the
+// short name failed on the first connection ("'zaaheen' is not recognized").
+// The short name stays the fallback until the answer arrives, or if it can't.
+const SHORT_NAME = "zaaheen";
+// JSON.stringify quotes the path for JSON and, identically, for a TOML
+// basic string (backslashes doubled).
+const SNIPPET_JSON = (command) => `{
   "mcpServers": {
     "zaaheen": {
-      "command": "zaaheen",
+      "command": ${JSON.stringify(command)},
       "args": ["mcp", "serve"]
     }
   }
 }`;
-const SNIPPET_TOML = `[mcp_servers.zaaheen]
-command = "zaaheen"
+const SNIPPET_TOML = (command) => `[mcp_servers.zaaheen]
+command = ${JSON.stringify(command)}
 args = ["mcp", "serve"]`;
 
 // Plain words for people, not developers (founder's walk-through, session 55):
@@ -385,22 +393,51 @@ args = ["mcp", "serve"]`;
 // no install route, so their steps name the exact screen or file, and
 // ChatGPT's form keeps the command and its two arguments apart (the whole
 // line typed into "Arguments" was the founder's first attempt, and it fails).
-const SNIPPET_FORM = `Name:       Zaaheen
-Command:    zaaheen
+const SNIPPET_FORM = (command) => `Name:       Zaaheen
+Command:    ${command}
 Arguments:  mcp
             serve`;
 // As documented at code.claude.com/docs/en/mcp: user scope, so every project
-// has it; everything after `--` is the server's own command line.
-const SNIPPET_CLAUDE_CODE = "claude mcp add --transport stdio --scope user zaaheen -- zaaheen mcp serve";
+// has it; everything after `--` is the server's own command line. A full path
+// has a space ("Program Files"), so it is quoted for the terminal.
+const SNIPPET_CLAUDE_CODE = (command) =>
+  `claude mcp add --transport stdio --scope user zaaheen -- ${command === SHORT_NAME ? command : `"${command}"`} mcp serve`;
 const AGENTS = [
   { name: "Claude Desktop", desc: "The Claude app for your computer, in Chat and Cowork", hint: "In Claude, open Settings, then Developer, then Edit Config. Add this to the file it shows you, save it, then quit Claude and open it again:", snippet: SNIPPET_JSON, connect: "claude_desktop" },
   { name: "Cursor", desc: "AI code editor", hint: "Add this to Cursor's settings file, mcp.json, in the .cursor folder in your home folder. Save it, then restart Cursor:", snippet: SNIPPET_JSON, connect: "cursor" },
   { name: "ChatGPT", desc: "The ChatGPT app for your computer, in Work and Codex", hint: "In ChatGPT, open Settings, then Integrations, then Plugins. Choose Add, then Add MCP Server, and fill it in as below. Put mcp and serve in Arguments as two separate items. Save it, then use Zaaheen in ChatGPT's Work or Codex mode (its Chat mode can't connect to apps on your computer):", snippet: SNIPPET_FORM },
-  { name: "Antigravity", desc: "Google's AI app and code editor", hint: "Press Windows and R together, type notepad %USERPROFILE%\\.gemini\\config\\mcp_config.json and press Enter (for the Antigravity IDE, use .gemini\\antigravity instead of .gemini\\config). If the file is empty, paste this in. If it already lists other apps, add the zaaheen part next to them. Save it, then close Antigravity fully and open it again:", snippet: SNIPPET_JSON },
+  // Broken into steps, each line to type in its own copy box (founder,
+  // session 64: "break it down .. and make type notepad commands copy able").
+  { name: "Antigravity", desc: "Google's AI app and code editor", hint: "First open its settings file in Notepad: press Windows and R together, paste the line for your Antigravity, and press Enter.", openers: [
+    { label: "Antigravity app", command: "notepad %USERPROFILE%\\.gemini\\config\\mcp_config.json" },
+    { label: "Antigravity IDE", command: "notepad %USERPROFILE%\\.gemini\\antigravity\\mcp_config.json" },
+  ], pasteHint: "Then paste this in. If the file already lists other apps, add the zaaheen part next to them. Save it, then close Antigravity fully and open it again:", snippet: SNIPPET_JSON },
   { name: "Claude Code", desc: "Claude in your terminal", hint: "In a terminal, run this once. Zaaheen is then available in every Claude Code project:", snippet: SNIPPET_CLAUDE_CODE },
   { name: "Codex", desc: "OpenAI's coding assistant in your terminal", hint: "Add this to Codex's settings file, config.toml, in the .codex folder in your home folder. Save it, then restart Codex:", snippet: SNIPPET_TOML },
   { name: "Another app", desc: "Any AI app that can connect to Zaaheen", hint: "Give your app this setting:", snippet: SNIPPET_JSON },
 ];
+
+// How to see it worked, in each app's own screens (session 64's live test;
+// Antigravity's in the founder's words: "go to settings .. customization
+// under token usage mcp tools click on show breakdown .. see zaaheen shows
+// up and has green circle").
+const AGENT_CHECKS = {
+  "Claude Desktop": "In Claude, open Settings, then Extensions. Zaaheen is listed there and switched on.",
+  "Cursor": "In Cursor, open Settings, then MCP (Tools & MCP in newer versions). Zaaheen has a green dot.",
+  "ChatGPT": "In ChatGPT, open Settings, then Integrations, then Plugins. Zaaheen is listed there.",
+  "Antigravity": "In Antigravity, open Settings, then Customization. Under Token usage, next to MCP tools, click Show breakdown. Zaaheen is listed with a green circle.",
+  "Claude Code": "In a terminal, run claude mcp list. Zaaheen shows as connected.",
+  "Codex": "In a terminal, run codex mcp list. Zaaheen is listed.",
+  "Another app": "Your app's list of tools or MCP servers shows Zaaheen.",
+};
+
+// Session 64: Claude and ChatGPT look in their own memory first and may stop
+// there. One line in their own instructions makes them check Zaaheen too.
+const TIP_LINE = "Before answering anything about me, my preferences, my work or my plans, also check my Zaaheen memory, even when your own memory has nothing.";
+const AGENT_TIPS = {
+  "Claude Desktop": "Claude looks in its own memory first. In Claude, open Settings, then Profile, and add this line to your personal preferences:",
+  "ChatGPT": "ChatGPT looks in its own memory first. In ChatGPT, open Settings, then Personalization, then Custom instructions, and add this line:",
+};
 
 // "Connect it for me" (ADR-106): Zaaheen asks the app through its own
 // install route and never writes the app's settings, so the app asks the
@@ -539,6 +576,10 @@ const state = {
   onboardSteps: store.get(RESUME_KEY, null) === "with_sign_in" ? ONBOARDING_WITH_SIGN_IN : ONBOARDING,
   checksDone: 0,
   agentPicked: null,
+  // What the copy-paste steps run (ADR-111): the short name until
+  // `server_command` answers with the full path.
+  serverCommand: SHORT_NAME,
+  serverCommandAsked: false,
   memType: "semantic",
   addType: "semantic",
   tab: "memories",
@@ -551,7 +592,6 @@ const state = {
   connectedApps: [],                         // from list_connected_apps
   grantedAgents: [],                         // from list_agents (access keys)
   boundaries: [],                            // from list_boundaries
-  showConnectPanel: false,
   showInlineAdd: false,
   showBoundaryAdd: false,
   toastTimer: null,
@@ -763,30 +803,81 @@ async function beginSetup() {
 function placeConnectPicker(hostId) {
   const host = $(hostId);
   const picker = $("connect-picker");
-  if (host && picker && picker.parentElement !== host) host.appendChild(picker);
+  if (host && picker && picker.parentElement !== host) {
+    host.appendChild(picker);
+    // Its list depends on where it is ("Connected apps" on the Agents tab
+    // only, session 64), so it is drawn again for its new place.
+    renderAgentCards();
+  }
 }
 
 function renderAgentCards() {
-  $("agent-grid").innerHTML = AGENTS.map((a, i) => `
-    <div class="agent-card${state.agentPicked === i ? " picked" : ""}" data-i="${i}">
-      <div class="nm">${esc(a.name)}</div>
-      <div class="ds">${esc(a.desc)}</div>
-    </div>`).join("");
+  // On the Agents tab the list opens with "Connected apps" (session 64),
+  // shown while no app is picked; setup has no such item.
+  const onAgentsTab = $("connect-picker").parentElement === $("agents-connect-host");
+  const showConnected = onAgentsTab && state.agentPicked === null;
+  const apps = AGENTS.map((a, i) => `
+    <button class="agent-card${state.agentPicked === i ? " picked" : ""}" data-i="${i}">${esc(a.name)}</button>`).join("");
+  $("agent-grid").innerHTML = onAgentsTab
+    ? `<button class="agent-card${showConnected ? " picked" : ""}" data-i="connected">Connected apps</button>
+       <div class="agent-nav-label">Connect an app</div>${apps}`
+    : apps;
+  $("connected-view").classList.toggle("hidden", !showConnected);
   const picked = state.agentPicked;
-  $("snippet-wrap").classList.toggle("hidden", picked === null);
-  const auto = picked === null ? null : AGENTS[picked].connect || null;
+  const agent = picked === null ? null : AGENTS[picked];
+  const auto = agent ? agent.connect || null : null;
+  $("connect-empty").classList.toggle("hidden", agent !== null || showConnected);
+  $("connect-head").classList.toggle("hidden", agent === null);
+  $("snippet-wrap").classList.toggle("hidden", agent === null);
   $("connect-auto").classList.toggle("hidden", auto === null);
   $("connect-auto-status").textContent = "";
   $("connect-auto-show").classList.add("hidden");
   if (auto !== null) $("connect-auto-note").textContent = CONNECT_WORDS[auto].note;
-  if (picked !== null) {
-    const hint = AGENTS[picked].hint;
-    $("snippet-hint").textContent = auto === null ? hint : `Or add it yourself. ${hint}`;
-    $("snippet-code").textContent = AGENTS[picked].snippet;
+  const check = agent ? AGENT_CHECKS[agent.name] || null : null;
+  $("connect-check").classList.toggle("hidden", check === null);
+  if (check !== null) $("connect-check-text").textContent = check;
+  const tip = agent ? AGENT_TIPS[agent.name] || null : null;
+  $("connect-tip").classList.toggle("hidden", tip === null);
+  if (tip !== null) {
+    $("connect-tip-where").textContent = tip;
+    $("connect-tip-text").textContent = TIP_LINE;
+  }
+  if (agent !== null) {
+    $("connect-app-name").textContent = agent.name;
+    $("connect-app-desc").textContent = agent.desc;
+    $("snippet-title").textContent = auto === null ? "Add it yourself" : "Or add it yourself";
+    $("snippet-hint").textContent = agent.hint;
+    const openers = agent.openers || [];
+    $("snippet-openers").innerHTML = openers.map((o, i) => `
+      <div class="opener">
+        <div class="opener-label">${esc(o.label)}</div>
+        <div class="code-box">
+          <div class="snippet-code">${esc(o.command)}</div>
+          <button class="copy-chip" data-opener="${i}">copy</button>
+        </div>
+      </div>`).join("");
+    $("snippet-paste-hint").classList.toggle("hidden", !agent.pasteHint);
+    $("snippet-paste-hint").textContent = agent.pasteHint || "";
+    $("snippet-code").textContent = agent.snippet(state.serverCommand);
     $("connect-cta").textContent = "I've added it, continue";
+    askServerCommand();
   } else {
     $("connect-cta").textContent = "Continue";
   }
+}
+
+// Once per session, when an app is first picked (after sign-in: the command
+// is gated). A refusal leaves the short name and asks again next time.
+function askServerCommand() {
+  if (state.serverCommandAsked) return;
+  state.serverCommandAsked = true;
+  invoke("server_command").then((answer) => {
+    if (!answer || typeof answer.command !== "string" || answer.command === "") return;
+    state.serverCommand = answer.command;
+    if (state.agentPicked !== null) {
+      $("snippet-code").textContent = AGENTS[state.agentPicked].snippet(state.serverCommand);
+    }
+  }).catch(() => { state.serverCommandAsked = false; });
 }
 
 // "Connect it for me" (ADR-106): the page names only the app; the link and
@@ -966,7 +1057,12 @@ function renderNav() {
   $("nav").innerHTML = items.map((n) =>
     `<span class="${state.tab === n.key ? "on" : ""}" data-k="${n.key}">${n.label}</span>`).join("");
   [...$("nav").children].forEach((el) => {
-    el.addEventListener("click", () => { state.tab = el.dataset.k; renderTab(); });
+    el.addEventListener("click", () => {
+      // The Agents tab opens on "Connected apps" (session 64).
+      if (el.dataset.k === "agents") state.agentPicked = null;
+      state.tab = el.dataset.k;
+      renderTab();
+    });
   });
 }
 
@@ -1153,6 +1249,8 @@ function friendlyAppName(raw) {
   if (n === "an ai app" || n === "zaaheen-relay") return "An AI app";
   if (n.includes("claude-code") || n.includes("claude code")) return "Claude Code";
   if (n.startsWith("claude")) return "Claude";
+  // Claude Desktop's Cowork mode introduces itself this way (session 64).
+  if (n.startsWith("local-agent-mode")) return "Claude";
   if (n.includes("cursor")) return "Cursor";
   if (n.includes("chatgpt") || n.includes("codex") || n.includes("openai")) return "ChatGPT";
   if (n.includes("antigravity")) return "Antigravity";
@@ -1167,21 +1265,51 @@ async function refreshConnectedApps() {
   } catch {
     state.connectedApps = [];
   }
+  rememberApps(state.connectedApps);
   renderFooter();
 }
 
+// Every AI app ever seen connected, by the name people know it by, with when
+// it was last seen. Session 64: the keeper's live list starts empty after
+// every tidy-up (a new keeper), so the tab and the footer said "no AI app
+// connected" while three were set up and working (founder: "in agents tab it
+// shows no agent connected? but we have already 3 connected"). Names and
+// times only, on this page; "Delete everything" clears it.
+const KNOWN_APPS_KEY = "mv_known_apps";
+
+function knownApps() {
+  const known = store.get(KNOWN_APPS_KEY, {});
+  return known && typeof known === "object" && !Array.isArray(known) ? known : {};
+}
+
+function rememberApps(apps) {
+  const known = knownApps();
+  let changed = false;
+  for (const a of apps) {
+    const name = friendlyAppName(a.name);
+    const seen = a.last_used || a.since || new Date().toISOString();
+    if (!known[name] || Date.parse(seen) > Date.parse(known[name])) {
+      known[name] = seen;
+      changed = true;
+    }
+  }
+  if (changed) store.set(KNOWN_APPS_KEY, known);
+}
+
 function renderConnectedApps() {
-  const apps = state.connectedApps;
-  $("no-apps").classList.toggle("hidden", apps.length > 0);
-  $("app-rows").innerHTML = apps.map((a) => {
-    const when = a.last_used ? `last used ${relTime(a.last_used)}` : `connected ${relTime(a.since)}`;
+  const active = new Set(state.connectedApps.map((a) => friendlyAppName(a.name)));
+  const known = Object.entries(knownApps())
+    .sort((x, y) => Date.parse(y[1]) - Date.parse(x[1]));
+  $("no-apps").classList.toggle("hidden", known.length > 0);
+  $("app-table").classList.toggle("hidden", known.length === 0);
+  $("app-rows").innerHTML = known.map(([name, seen]) => {
+    const on = active.has(name);
     return `
-      <div class="a-row">
+      <div class="a-row${on ? "" : " idle"}">
         <span class="st"></span>
-        <span class="nm">${esc(friendlyAppName(a.name))}</span>
+        <span class="nm">${esc(name)}</span>
         <span class="tr"></span>
-        <span class="ac">${esc(when)}</span>
-        <span class="ac"></span>
+        <span class="ac">${esc(on ? "active now" : `last used ${relTime(seen)}`)}</span>
       </div>`;
   }).join("");
 }
@@ -1247,16 +1375,12 @@ async function renderAgents() {
   renderAgentsConnect();
 }
 
-// "+ Connect an AI app" opens the same picker the setup uses, "Connect it
-// for me" included.
+// "Connect another app" shows the same picker the setup uses, "Connect it
+// for me" included, under its own heading (session 64: always shown, no
+// toggle).
 function renderAgentsConnect() {
-  const open = state.showConnectPanel;
-  $("connect-panel-label").textContent = open ? "Close" : "+ Connect an AI app";
-  if (open) {
-    placeConnectPicker("agents-connect-host");
-    renderAgentCards();
-  }
-  $("agents-connect-host").classList.toggle("hidden", !open);
+  placeConnectPicker("agents-connect-host");
+  renderAgentCards();
 }
 
 // -- settings tab --
@@ -1393,6 +1517,9 @@ async function eraseEverything() {
   $("erase-status").textContent = leftover > 0
     ? "Your memories are permanently deleted and can no longer be read. A few files could not be removed from disk, but they are now unreadable. Zaaheen will close."
     : "Your memories are permanently deleted. Zaaheen will close.";
+  // The apps it had seen connect go too: names and times, but the person
+  // asked for everything.
+  store.set(KNOWN_APPS_KEY, {});
 
   // The app is now running against a vault that no longer exists; staying
   // open would show stale, already-unreadable state. Close rather than
@@ -2667,14 +2794,16 @@ async function runMaintenanceNow() {
   const note = $("maint-run-note");
   renderMaintEngineStatus(); // disables the run button while it runs
   if (note) note.textContent = "Consolidating now. This can take a few minutes…";
+  // The outcome stays until the next run (session 64: "Done ✓" was cleared
+  // after 3 s, so after a few minutes' wait the founder saw "no message
+  // just finished").
   try {
     await invoke("run_maintenance_now");
-    if (note) note.textContent = "Done ✓";
+    if (note) note.textContent = "Done. Your memories are tidied up.";
   } catch (err) {
     if (note) note.textContent = friendlyMaintError(String(err)) + ".";
   } finally {
     state.maintRunning = false;
-    setTimeout(() => { if (note) note.textContent = ""; }, 3200);
     renderMaintenance();
   }
 }
@@ -2740,11 +2869,12 @@ async function finishFromMaintenance() {
 // -- footer --
 
 function renderFooter() {
-  // Counts the AI apps connected right now (the keeper's list, session 59),
-  // not apps the person merely copied a setting for.
-  const n = state.connectedApps.length;
+  // Counts the AI apps that have connected (session 64: the keeper's live
+  // list alone read "none" after every tidy-up), not apps the person merely
+  // copied a setting for.
+  const n = Object.keys(knownApps()).length;
   $("footer-status").textContent = "Encrypted on this device · " +
-    (n > 0 ? `${n} AI app${n > 1 ? "s" : ""} connected` : "no AI app connected right now");
+    (n > 0 ? `${n} AI app${n > 1 ? "s" : ""} connected` : "no AI app connected yet");
 }
 
 // ---------------------------------------------------------------- wiring
@@ -2792,12 +2922,19 @@ function init() {
   $("agent-grid").addEventListener("click", (e) => {
     const card = e.target.closest(".agent-card");
     if (!card) return;
-    state.agentPicked = Number(card.dataset.i);
+    state.agentPicked = card.dataset.i === "connected" ? null : Number(card.dataset.i);
     renderAgentCards();
-    $("snippet-wrap").scrollIntoView({ behavior: "smooth", block: "end" });
+    $("connect-head").scrollIntoView({ behavior: "smooth", block: "nearest" });
   });
   $("copy-snippet").addEventListener("click", () => {
-    if (state.agentPicked !== null) copyText(AGENTS[state.agentPicked].snippet, $("copy-snippet"));
+    if (state.agentPicked !== null) copyText(AGENTS[state.agentPicked].snippet(state.serverCommand), $("copy-snippet"));
+  });
+  $("copy-tip").addEventListener("click", () => copyText(TIP_LINE, $("copy-tip")));
+  $("snippet-openers").addEventListener("click", (e) => {
+    const button = e.target.closest("[data-opener]");
+    const agent = state.agentPicked === null ? null : AGENTS[state.agentPicked];
+    const opener = button && agent && agent.openers ? agent.openers[Number(button.dataset.opener)] : null;
+    if (opener) copyText(opener.command, button);
   });
   $("connect-auto-btn").addEventListener("click", onConnectAuto);
   $("connect-auto-show").addEventListener("click", () => {
@@ -2886,12 +3023,6 @@ function init() {
   });
   $("boundary-desc").addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); saveBoundary(); }
-  });
-
-  // home — agents
-  $("connect-panel-label").addEventListener("click", () => {
-    state.showConnectPanel = !state.showConnectPanel;
-    renderAgentsConnect();
   });
 
   // home — maintenance
