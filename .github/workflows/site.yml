@@ -12,6 +12,13 @@ name: Site
 # both the release audit (no placeholder copy, live payments) and the deploy
 # job. Until it is 'true', main builds and audits the site and publishes
 # nothing, so the site can live on main before its copy is final.
+#
+# account.zaaheen.com (AUTH-PAGES-DESIGN D1) is its own site: the account-build
+# and account-deploy jobs publish it to the account-deploy branch, which its own
+# Hostinger site deploys. Switched on separately by ACCOUNT_PUBLISH, with the
+# production settings in repository variables CLERK_PUBLISHABLE_KEY (pk_live_)
+# and ZAAHEEN_CLIENT_ID. zaaheen.com links to it from every header, so it is
+# never published while ACCOUNT_PUBLISH is off.
 
 on:
   pull_request:
@@ -58,6 +65,13 @@ jobs:
         # Same condition as the deploy job: only main publishes, once switched on.
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.SITE_PUBLISH == 'true'
         run: npm run check -- --release
+      - name: Refuse to publish zaaheen.com before its account pages
+        # Every header links to account.zaaheen.com: publishing without it
+        # would ship "Sign in" and "Get started" buttons that lead nowhere.
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.SITE_PUBLISH == 'true' && vars.ACCOUNT_PUBLISH != 'true'
+        run: |
+          echo "::error::SITE_PUBLISH is on but ACCOUNT_PUBLISH is not: publish account.zaaheen.com first (AUTH-PAGES-DESIGN D1)."
+          exit 1
       - name: Prove the audit still catches what it claims to
         run: npm test
       # account.zaaheen.com (AUTH-PAGES-DESIGN): built here with fixed, made-up
@@ -161,3 +175,89 @@ jobs:
         # zaaheen.com. Until then there is no live site to check.
         if: steps.publish.outputs.pushed == 'true' && vars.SITE_LIVE == 'true'
         run: node site/scripts/post-deploy.mjs --sha "$GITHUB_SHA" --changed changed.txt --wait 600
+
+  account-build:
+    name: Build and audit account.zaaheen.com (production settings)
+    # Only for a publish: pull requests and main already build and test the
+    # account pages with made-up settings in the build job above.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.ACCOUNT_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - name: Prove the vendored Clerk file is exactly what npm published
+        run: node scripts/vendor-clerk.mjs --check
+      - name: Build the account pages (production settings)
+        run: npm run build:account
+        env:
+          # Both public (D3): the Frontend API host is decoded from the key.
+          # The build refuses a pk_test_ key (no ACCOUNT_DEV here).
+          PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY }}
+          PUBLIC_ZAAHEEN_CLIENT_ID: ${{ vars.ZAAHEEN_CLIENT_ID }}
+      - name: Release audit (pk_live_ for clerk.zaaheen.com, pinned CSP and headers)
+        run: npm run check:account -- --release
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: account-dist
+          path: site/dist-account
+          # The origin's CSP and headers live in .htaccess, a dot-file.
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  account-deploy:
+    name: Publish account.zaaheen.com to Hostinger
+    needs: account-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Like the site deploy: the only job that can write, and it never installs
+    # or runs npm packages. The account-deploy branch is protected so only this
+    # workflow can push to it (ADR-SEC-034).
+    permissions:
+      contents: write
+    concurrency:
+      group: account-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: account-dist
+          path: dist
+      - name: Commit the build to the account-deploy branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -f dist/.htaccess || { echo "::error::.htaccess (the origin's CSP) missing from the artifact"; exit 1; }
+          echo "$GITHUB_SHA" > dist/build.txt
+
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          work="$RUNNER_TEMP/account-deploy"
+          mkdir -p "$work" && cd "$work"
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch -q --depth=1 "$remote" account-deploy 2>/dev/null; then
+            git checkout -q -b account-deploy FETCH_HEAD
+          else
+            git checkout -q --orphan account-deploy
+          fi
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "$GITHUB_WORKSPACE/dist/." .
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Build identical to what is deployed; nothing to publish."
+            exit 0
+          fi
+          git commit -q -m "Deploy account.zaaheen.com from ${GITHUB_SHA}"
+          git push -q "$remote" account-deploy
+          echo "Published account.zaaheen.com from ${GITHUB_SHA}."

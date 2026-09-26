@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ORIGIN = 'https://zaaheen.com';
+const ACCOUNT_ORIGIN = 'https://account.zaaheen.com';
 const args = process.argv.slice(2);
 const RELEASE = args.includes('--release');
 const DIST = path.resolve(args.find((a) => !a.startsWith('--')) || 'dist');
@@ -82,6 +83,29 @@ if (RELEASE && ON_SALE && files.includes('pay/index.html')) {
     fail('pay/index.html', 'checkout is not set up for live payments (PUBLIC_PADDLE_ENVIRONMENT=production and a live_ client-side token)');
   }
 }
+// --- The account pages' entry points (AUTH-PAGES-DESIGN D1) -------------------------
+// Sign-in and sign-up live on account.zaaheen.com (ACCOUNT in src/data/site.ts).
+// Every page's header links there, and /sign-in, /sign-up forward there with
+// any query string dropped: a temporary redirect, so it can be moved later.
+const ACCOUNT_LINKS = { 'bar-signin': ['Sign in', `${ACCOUNT_ORIGIN}/sign-in/`], 'bar-start': ['Get started', `${ACCOUNT_ORIGIN}/sign-up/`] };
+for (const rel of files.filter((f) => f.endsWith('.html'))) {
+  const html = read(rel);
+  if (!/\bbar-actions\b/.test(html)) continue;
+  for (const [cls, [label, want]] of Object.entries(ACCOUNT_LINKS)) {
+    const tag = (html.match(new RegExp(`<a\\b[^>]*\\b${cls}\\b[^>]*>`)) || [])[0];
+    const href = tag && (tag.match(/\shref="([^"]*)"/) || [])[1];
+    if (href !== want) fail(rel, `header "${label}" must link to ${want} (found ${href ?? 'no link'})`);
+  }
+}
+if (files.includes('.htaccess')) {
+  const forward = 'RewriteRule ^sign-(in|up)/?$ https://account.zaaheen.com/sign-$1/? [R=302,L]';
+  const lines = read('.htaccess').split(/\r?\n/).map((l) => l.trim());
+  const mentions = lines.filter((l) => !l.startsWith('#') && l.includes('account.zaaheen.com'));
+  if (mentions.length !== 1 || mentions[0] !== forward) {
+    fail('.htaccess', `/sign-in and /sign-up must forward to the account origin, exactly: ${forward}`);
+  }
+}
+
 if (files.includes(`${INDEXNOW_KEY}.txt`) && read(`${INDEXNOW_KEY}.txt`).trim() !== INDEXNOW_KEY) {
   fail(`${INDEXNOW_KEY}.txt`, 'IndexNow key file does not contain its own key');
 }
