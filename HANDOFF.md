@@ -10,7 +10,15 @@
 
 ## 1 · 🟢 Next — website and Knowledge Centre go-live (founder, session 63), then the live test
 
-**Next session opens with step 3a (the account pages), then the main Zaaheen pages.** Founder at session 63 close: *"knowledge center is not priority for now .. Zaaheen main pages are so next session we pick that up"*. The founder's wording walk-through of the home page and Documents happened in session 63 (changes below, in the session-63 summary); the Knowledge Centre walk-through waits. Preview: `cd site; npm run dev -- --port 4329` (through `fnm exec --using=24`), live reload.
+**Session 63 closed mid-flight. Do first, in order:**
+1. **PR #83** (ADR-110 fix: the stand-in jobs' names now carry "(<os>)"; auto-merge armed, founder: *"please merge it when its green"*). ✅ Merged 2026-09-25 (`main` `96dd399`); every workflow green (session 64).
+2. **PR #82** (the founder's walk-through, website-only): blocked only because the stand-ins reported bare names before #83. Update its branch from `main` (`gh pr update-branch 82 --rebase`), re-arm auto-merge with the new full head sha (`gh pr merge 82 --auto --rebase --match-head-commit <sha>`; founder approved merging it). **This is the proof of ADR-110:** it should finish in minutes and merge by itself. If it sits on "Expected", the naming is still wrong.
+3. **The live test on `Zaaheen_0.2.2_s62-d4-sandbox.msi` (founder: *"we will test in next session"*).** Clean slate done in session 63 with the founder's yes: old vault (`%APPDATA%\com.zaaheen.app`, 3.4 GB) and `%LOCALAPPDATA%\com.zaaheen.app` deleted; all 47 Zaaheen Credential Manager entries deleted; old `Downloads\Zaaheen for Claude.mcpb` deleted; the zaaheen MCP entry removed from Cursor (`~/.cursor/mcp.json`), Antigravity (`~/.gemini/config/mcp_config.json`; the `antigravity` path is a link to it) and Codex (`codex mcp remove zaaheen`; ChatGPT desktop's Work/Codex modes read that config). Claude Code never had it. Backups: session-63 scratchpad `backups\`. **Still to remove: the Claude Desktop extension** (`%APPDATA%\Claude\Claude Extensions\local.mcpb.zaaheen.zaaheen\` + its entry in `extensions-installations.json`): the founder could not remove it in the UI; do it with Claude Desktop fully quit (tray → Quit; its processes run from `WindowsApps\Claude_*`, never kill `~\.local\bin\claude.exe`, that is Claude Code), backup first. Then confirm the sandbox Clerk `paths`/`development_origin` are empty, install, walk through with the founder.
+4. **Then step 3a (the account pages), then the main Zaaheen pages.**
+
+**Disk:** C: had 26.7 GB free at session-63 close (65 GB that morning; not our builds, likely the founder's Docker).
+
+**The account pages come first after the live test.** Founder at session 63 close: *"knowledge center is not priority for now .. Zaaheen main pages are so next session we pick that up"*. The founder's wording walk-through of the home page and Documents happened in session 63 (changes below, in the session-63 summary); the Knowledge Centre walk-through waits. Preview: `cd site; npm run dev -- --port 4329` (through `fnm exec --using=24`), live reload.
 
 **Founder, session 63:** *"before we do live run on product.. we need to finish with our website and knowldde center wiring up... so we are good to go live.. I already have the license"*. The website comes first; the product live test below follows it.
 
@@ -116,6 +124,7 @@ Roughly in priority order; the founder picks. Context for each is in `HANDOFF_V0
 - **"Delete everything" is not refused while a move is waiting** (nothing lost; untidy).
 - **A V0.1 bridge snapshot `vault.db.pre_v0_2_bridge`**, on a machine where the (now deleted) bridge once ran, is not in `erasure::VAULT_ENTRIES` and survives "Delete everything". Only the founder's own machine could have one; check and remove by hand.
 - **The lance NaN-distance upstream issue:** file a minimal repro.
+- **A live-move test leaks Credential Manager entries:** session 63 found ~45 `default.com.zaaheen.test.v0.2.live_move.<hex>` entries on the founder's machine (one per run). The live-only keychain/move test should delete its test key on the way out, including on failure.
 - **The site's installer facts are stale** (`site/src/data/site.ts` `RELEASE.windows`): "206 MB" is the old `adr103` MSI; the s62 build is 155,373,568 bytes. Set file, size and URL when the public installer is built (go-live step 6). At the same time fix the home page JSON-LD `offers` (`site/src/lib/seo.ts`): it says price 0 in GBP, which is neither the $5/$48 plan nor its currency.
 
 ---
