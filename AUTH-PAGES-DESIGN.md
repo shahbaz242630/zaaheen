@@ -157,7 +157,7 @@ and headers found sound. Dispositions:
    the deploy job (to be built) runs the `--release` audit.
 3. *The CSP text was not pinned* (only `.htaccess` = `csp.js`): a word-for-word test of `csp.js` added.
 4. *The audit read only `Header always set` lines:* the whole server file is now pinned
-   (`HTACCESS_SHA256`, the template with `{{CSP}}`); three new negative controls (unset, a renamed
+   (`SERVER_FILE_SHA256`, the template with `{{CSP}}`); three new negative controls (unset, a renamed
    `<IfModule>`, an added rewrite).
 5. *MFA is optional on the instances, but the pages cannot do a second factor* (a person who enrols one
    would be locked out): D9 invariant added, MFA off on every instance these pages serve; turned off on

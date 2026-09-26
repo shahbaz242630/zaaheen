@@ -23,7 +23,7 @@ const TT_SHA256 = 'ae1d1042194145e894e023f94d3eeb44ec4f20aa85c626f69da0a95f7b362
 // {{CSP}}, pinned the same way: an added "Header unset", "edit", or a renamed
 // <IfModule> that silently drops every header is a change to this line
 // (independent review, session 65, finding 4).
-const HTACCESS_SHA256 = '8f5c1c70cd666bb721b2d529219d02a8e6a21ff86784cca53a9f7c5c587bc593';
+const SERVER_FILE_SHA256 = '8f5c1c70cd666bb721b2d529219d02a8e6a21ff86784cca53a9f7c5c587bc593';
 const PAGES = ['sign-in/index.html', 'sign-up/index.html', 'sso-callback/index.html'];
 // Patterns no script we serve may contain. innerHTML and friends only in our
 // own code: Clerk's file carries its UI library's (unused here, and refused at
@@ -78,8 +78,8 @@ if (files.includes('.htaccess')) {
     fail('.htaccess', 'the CSP is not the pinned policy (account/scripts/csp.js)');
   }
   const asTemplate = config ? conf.replace(/\r\n/g, '\n').split(accountCsp(config.fapiHost)).join('{{CSP}}') : '';
-  if (sha256(asTemplate) !== HTACCESS_SHA256) {
-    fail('.htaccess', 'the server file is not the pinned template (HTACCESS_SHA256 in scripts/audit-account.mjs)');
+  if (sha256(asTemplate) !== SERVER_FILE_SHA256) {
+    fail('.htaccess', 'the server file is not the pinned template (SERVER_FILE_SHA256 in scripts/audit-account.mjs)');
   }
   const pinned = {
     'X-Robots-Tag': ['noindex', 'X-Robots-Tag noindex'],
