@@ -21,6 +21,12 @@ ErrorDocument 404 /404.html
   RewriteCond %{HTTP_HOST} ^www\.zaaheen\.com$ [NC]
   RewriteRule ^(.*)$ https://zaaheen.com/$1 [R=301,L]
 
+  # Sign-in and sign-up live on their own origin (AUTH-PAGES-DESIGN D1). A
+  # temporary redirect, and the trailing "?" drops any query string, so this
+  # can never carry a redirect_url onto the sign-in page. Pinned by
+  # scripts/audit.mjs.
+  RewriteRule ^sign-(in|up)/?$ https://account.zaaheen.com/sign-$1/? [R=302,L]
+
   # Hostinger's Git deployment can leave repository metadata in the web root.
   RewriteRule (^|/)\.git(/|$) - [F,L]
 </IfModule>

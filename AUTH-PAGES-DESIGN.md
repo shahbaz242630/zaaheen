@@ -437,9 +437,19 @@ account deletion and the profile. It never controls a vault: sign-in never touch
 
 ## Prerequisites and open items
 - **Terms and Privacy pages** (the sign-up line links to them; Paddle needs them).
-- A second Clerk application for page development (D9): free, founder's yes needed.
-- Production: `clerk.zaaheen.com` and `account.zaaheen.com` DNS, the licence, the Pro decision.
-- Production: Zaaheen's own Google OAuth client (build step 2, "New prerequisite").
-- Still to build: the account origin's deploy (its own branch and Hostinger site, real settings,
-  `--release` audit); the Worker's `user.created` consent copy (D6); the Rust side (S1-3 `sign_up_page()`,
+- ✅ A second Clerk application for page development (D9).
+- ✅ **Production (session 66, OPS-HANDOFF §I):** instance on `zaaheen.com`, free plan (founder: no Pro, so
+  passkeys and MFA off); `clerk.`/`accounts.`/email DNS verified; the OAuth application (client ID
+  `sKtut4UNaAyJtImJ`); CIMD and DCR off, PKCE required; Zaaheen's own Google OAuth client (Google
+  still in Testing until a privacy URL exists). A local build with `pk_live_Y2xlcmsuemFhaGVlbi5jb20k` and that
+  client ID passes `audit-account --release`.
+- ✅ **Built (session 66), switched off:** site.yml `account-build` / `account-deploy` (branch
+  `account-deploy`, repository variables `CLERK_PUBLISHABLE_KEY`, `ZAAHEEN_CLIENT_ID`, switch
+  `ACCOUNT_PUBLISH`; zaaheen.com's deploy refuses to run while it is off); zaaheen.com's header links to
+  `/sign-in/` and `/sign-up/` here and `.htaccess` forwards `/sign-in`, `/sign-up` (302, query dropped),
+  both pinned by `scripts/audit.mjs` with negative controls.
+- Still to do to switch on: the Hostinger site for `account.zaaheen.com` deploying `account-deploy`, its DNS
+  record, branch protection on `account-deploy`, Cloudflare script-injecting features off for it, the
+  repository variables; the post-deploy check (D9 invariants incl. MFA off, CIMD/DCR off, the headers).
+- Still to build: the Worker's `user.created` consent copy (D6); the Rust side (S1-3 `sign_up_page()`,
   D8 loopback page) with the batch's full gates; the end-to-end installer test (build order step 4).

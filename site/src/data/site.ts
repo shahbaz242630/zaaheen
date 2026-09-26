@@ -28,6 +28,16 @@ export const COMPANY = {
   email: 'customerservice@zaaheen.com',
 } as const;
 
+// Our own sign-in and sign-up pages, on their own origin (AUTH-PAGES-DESIGN D1,
+// astro.account.config.mjs). The header's "Sign in" / "Get started" link here,
+// and public/.htaccess forwards /sign-in and /sign-up here; scripts/audit.mjs
+// pins both. Deployed by site.yml's account jobs, switched on by ACCOUNT_PUBLISH;
+// zaaheen.com itself is never published before them (site.yml).
+export const ACCOUNT = {
+  signIn: 'https://account.zaaheen.com/sign-in/',
+  signUp: 'https://account.zaaheen.com/sign-up/',
+} as const;
+
 export const RELEASE = {
   // false until the public installer is uploaded and live payments are set up
   // (founder, session 63: the website and coaching go live first). While false,
