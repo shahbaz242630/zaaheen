@@ -31,13 +31,21 @@ http.createServer((req, res) => {
   if (url.pathname === '/') return send(302, { Location: '/sign-in/' }, '');
   const rel = path.normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '');
   let file = path.join(DIST, rel);
-  if (!(file === DIST || file.startsWith(DIST + path.sep)) || path.basename(file).startsWith('.')) return send(404, { 'Content-Type': TYPES['.html'] }, fs.readFileSync(path.join(DIST, '404.html')));
-  if (fs.existsSync(file) && fs.statSync(file).isDirectory()) {
+  const notFound = () => send(404, { 'Content-Type': TYPES['.html'] }, fs.readFileSync(path.join(DIST, '404.html')));
+  if (!(file === DIST || file.startsWith(DIST + path.sep)) || path.basename(file).startsWith('.')) return notFound();
+  // Read, and let the read decide: no exists-then-read gap (CodeQL js/file-system-race).
+  let body;
+  try {
+    body = fs.readFileSync(file);
+  } catch (e) {
+    if (e.code !== 'EISDIR') return notFound();
     if (!url.pathname.endsWith('/')) return send(301, { Location: `${url.pathname}/${url.search}` }, '');
     file = path.join(file, 'index.html');
+    try {
+      body = fs.readFileSync(file);
+    } catch {
+      return notFound();
+    }
   }
-  if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
-    return send(404, { 'Content-Type': TYPES['.html'] }, fs.readFileSync(path.join(DIST, '404.html')));
-  }
-  send(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' }, fs.readFileSync(file));
+  send(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' }, body);
 }).listen(PORT, '127.0.0.1', () => console.log(`account pages on http://127.0.0.1:${PORT} (${DIST})`));

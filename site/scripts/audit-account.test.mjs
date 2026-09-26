@@ -37,7 +37,7 @@ const cases = [
   ['framing allowed', htaccess((s) => s.replace('"DENY"', '"SAMEORIGIN"')), /X-Frame-Options/],
   ['referrer sent', htaccess((s) => s.replace('"no-referrer"', '"origin"')), /Referrer-Policy/],
   ['HSTS without subdomains', htaccess((s) => s.replace('max-age=31536000; includeSubDomains', 'max-age=31536000')), /Strict-Transport-Security/],
-  ['CSP unset afterwards', htaccess((s) => s.replace('</IfModule>\n', '</IfModule>\n').replace(/(Header always set Cache-Control[^\n]*\n)/, '$1  Header always unset Content-Security-Policy\n')), /not the pinned template/],
+  ['CSP unset afterwards', htaccess((s) => s.replace(/(Header always set Cache-Control[^\n]*\n)/, '$1  Header always unset Content-Security-Policy\n')), /not the pinned template/],
   ['headers switched off', htaccess((s) => s.replace('<IfModule mod_headers.c>', '<IfModule mod_nothing.c>')), /not the pinned template/],
   ['rewrite rule added', htaccess((s) => s.replace('RewriteEngine On', 'RewriteEngine On\n  RewriteRule ^x$ https://evil.example/ [R=302,L]')), /not the pinned template/],
   // The Trusted Types policy file (S1-1).
