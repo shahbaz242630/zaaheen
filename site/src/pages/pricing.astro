@@ -1,0 +1,73 @@
+---
+import Base from '../layouts/Base.astro';
+import { PRICES, RELEASE, TRIAL, pageFor } from '../data/site';
+
+// Pricing (founder, session 67: Paddle's domain review asks for "pricing
+// details or a pricing page"). One product, two ways to pay; the facts match
+// the Terms and Refund Policy (renewal, cancelling, the 14-day refund). While
+// the app is not on sale (RELEASE.available) the buttons say so, exactly as
+// on the home page.
+const page = pageFor('/pricing/');
+const saving = PRICES.monthly * 12 - PRICES.yearly;
+const INCLUDED = [
+  'As many memories as you like, stored and encrypted on your own computer',
+  'Every AI app you connect: Claude, ChatGPT, Cursor and more',
+  'Tidying up on your computer, daily or weekly, whenever you choose',
+  'Download my memories at any time, even after you stop paying',
+  'Delete everything in one step, for good',
+  'Help by email from the people who build it',
+];
+---
+<Base page={page}>
+  <div class="pricing">
+    <header class="pricing-head">
+      <p class="eyebrow">Start with {TRIAL.days} days free, no card needed</p>
+      <h1>One plan. Everything included.</h1>
+      <p class="lede">Zaaheen gives all your AI apps one private memory, kept on your own computer.
+         Try it free for {TRIAL.days} days, then choose how you'd like to pay.</p>
+    </header>
+
+    <div class="plans">
+      <section class="plan" aria-labelledby="plan-monthly">
+        <h2 id="plan-monthly">Monthly</h2>
+        <p class="plan-price"><span class="plan-amount">${PRICES.monthly}</span> a month</p>
+        <p class="plan-note">Renews every month until you cancel.</p>
+        {RELEASE.available
+          ? <a class="cta" href="/docs/#install">Start your free trial</a>
+          : <span class="cta cta-soon">Coming soon for Windows</span>}
+      </section>
+      <section class="plan plan-best" aria-labelledby="plan-yearly">
+        <p class="plan-tag">Save ${saving} a year</p>
+        <h2 id="plan-yearly">Yearly</h2>
+        <p class="plan-price"><span class="plan-amount">${PRICES.yearly}</span> a year</p>
+        <p class="plan-note">Renews every year until you cancel.</p>
+        {RELEASE.available
+          ? <a class="cta" href="/docs/#install">Start your free trial</a>
+          : <span class="cta cta-soon">Coming soon for Windows</span>}
+      </section>
+    </div>
+
+    <section class="pricing-included" aria-labelledby="included">
+      <h2 id="included">What's included, on both plans</h2>
+      <ul>
+        {INCLUDED.map((item) => <li>{item}</li>)}
+      </ul>
+    </section>
+
+    <section class="pricing-small" aria-labelledby="small-print">
+      <h2 id="small-print">The small print, in plain words</h2>
+      <ul>
+        <li>Your {TRIAL.days}-day trial takes no card, so nothing is charged when it ends. Zaaheen
+            simply asks you to subscribe.</li>
+        <li>Prices are in US dollars. You see the full amount, including any tax where you live,
+            before you pay.</li>
+        <li>Your plan renews automatically until you cancel. Cancel any time in the app under
+            Settings, Account, Manage subscription, and keep access until the end of the time you've
+            paid for.</li>
+        <li>Ask within 14 days of a payment and we refund it in full. See the <a
+            href="/refunds/">Refund Policy</a> and the <a href="/terms/">Terms of Service</a>.</li>
+        <li>Payments are handled by Paddle.com, our reseller and Merchant of Record.</li>
+      </ul>
+    </section>
+  </div>
+</Base>

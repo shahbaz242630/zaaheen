@@ -1,0 +1,112 @@
+---
+import Policy, { type Outline } from '../layouts/Policy.astro';
+import Row from '../components/Row.astro';
+import { COMPANY, SITE } from '../data/site';
+
+// How Zaaheen uses AI (founder, session 67; both research reports: "AI & Data
+// page, recommended", and no peer has one). Facts checked in session 67: the
+// search model ships in the installer, the ranking and tidying models are
+// downloaded (vault-app model_fetch.rs, vault-llm phi4_mini.rs), the read path
+// has no language model (the architectural lock: the vault returns facts, the
+// agent composes), and tidying is off until switched on. White label: no model
+// or vendor names here, only what each one does.
+const OUTLINE: Outline[] = [
+  { id: 'models', title: 'The AI inside Zaaheen', topics: [
+    { id: 'what', title: 'What the AI in Zaaheen does' },
+    { id: 'where', title: 'Where it runs' },
+    { id: 'answers', title: 'Zaaheen finds facts, your AI app answers' },
+  ] },
+  { id: 'tidying', title: 'Tidying up', topics: [
+    { id: 'how-tidying', title: 'What tidying changes' },
+    { id: 'control', title: 'You decide when it runs' },
+  ] },
+  { id: 'promises', title: 'Our promises', topics: [
+    { id: 'no-training', title: 'Your memories never train AI' },
+    { id: 'your-apps', title: 'What your AI apps send to their makers' },
+    { id: 'contact', title: 'Questions' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+const lede = `${SITE.name} uses AI to keep your memories easy to find. All of it runs on your own computer. Here is exactly what it does, and what it never does.`;
+---
+<Policy path="/ai-and-your-data/" heading="AI and Your Data" lede={lede} outline={OUTLINE}>
+  <ul slot="summary">
+    <li>Zaaheen's AI runs on your computer. Your memories are never sent to an online AI
+        service by Zaaheen.</li>
+    <li>It finds the right memories for your AI apps. It doesn't chat with you or write
+        answers.</li>
+    <li>Tidying up is off until you turn it on, and it never deletes a memory.</li>
+    <li>Your memories are never used to train AI, by us or for anyone else.</li>
+  </ul>
+
+  <section id="models" class="docs-section">
+    <h2 class="docs-title">The AI inside Zaaheen</h2>
+
+    <Row id="what" title={topic('what')} where="Three small models">
+      <p>Zaaheen uses three small AI models, each with one job:</p>
+      <ul>
+        <li><strong>Understanding meaning</strong>, so a search for "my coffee order" also finds
+            "I drink flat whites". It comes with the app.</li>
+        <li><strong>Ranking results</strong>, so the most relevant memories come first. The app
+            downloads it the first time it starts.</li>
+        <li><strong>Tidying up</strong>, which merges duplicates and settles contradictions. The
+            app downloads it only when you turn tidying on, about 2.5 GB, once.</li>
+      </ul>
+    </Row>
+
+    <Row id="where" title={topic('where')} where="On your computer">
+      <p>All three run on your own computer, using its processor. Once downloaded, they work
+         offline, and your memories never pass through an online AI service on the way. That is
+         why Zaaheen can promise that we never see your memories: there is no server in the
+         middle to see them.</p>
+    </Row>
+
+    <Row id="answers" title={topic('answers')} where="Your AI apps">
+      <p>When an AI app such as Claude or ChatGPT asks Zaaheen a question, Zaaheen hands back the
+         memories that match, as they are stored. It doesn't make up an answer or
+         talk to you. The AI app you are using writes the reply, using those facts.</p>
+    </Row>
+  </section>
+
+  <section id="tidying" class="docs-section">
+    <h2 class="docs-title">Tidying up</h2>
+
+    <Row id="how-tidying" title={topic('how-tidying')} where="Consolidation">
+      <p>Tidying up merges near-duplicates into one memory, settles facts that contradict each
+         other in favour of the newer one, and moves memories you never use out of everyday
+         recall. It also writes short summaries of each topic and adds other ways of phrasing a
+         memory, so your AI apps find it whatever words they use.</p>
+      <p>It works only from what you have saved and never deletes a memory. Like any AI, it can
+         occasionally get something wrong, so check anything important before relying on it.</p>
+    </Row>
+
+    <Row id="control" title={topic('control')} where="Settings">
+      <p>Tidying is off unless you switch on <em>Keep my vault tidy automatically</em>. You choose
+         every day or once a week and the time, or run it yourself whenever you like. You can
+         turn it off again at any time.</p>
+    </Row>
+  </section>
+
+  <section id="promises" class="docs-section">
+    <h2 class="docs-title">Our promises</h2>
+
+    <Row id="no-training" title={topic('no-training')} where="Always">
+      <p>We never use your memories to train AI models, and we never give them to anyone who
+         would. We couldn't even if we wanted to: they never reach us.</p>
+    </Row>
+
+    <Row id="your-apps" title={topic('your-apps')} where="Your choice">
+      <p>The AI apps you connect are made by other companies. When one uses a memory to answer
+         you, it may send that memory to its maker's servers as part of your conversation. What
+         happens next, including whether your conversations train their models, depends on that
+         company's policy and your settings with them. You choose which apps to connect, and you
+         can remove Zaaheen from any of them at any time.</p>
+      <p>More about what we handle is in our <a href="/privacy/">Privacy Policy</a>.</p>
+    </Row>
+
+    <Row id="contact" title={topic('contact')} where="Email">
+      <p>Questions about how Zaaheen uses AI: <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>.</p>
+    </Row>
+  </section>
+</Policy>

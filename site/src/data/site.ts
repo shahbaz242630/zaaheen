@@ -78,8 +78,13 @@ export const verifiedAppList = (): string =>
 // The subscription, as the app sells it (SIGNIN-DESIGN.md §8.26, ADR-104).
 export const TRIAL = { days: 30, card: false } as const;
 
-// The plan buttons' prices, as the app shows them ("$5 a month" / "$48 a year").
-export const PLANS = { monthly: '$5 a month', yearly: '$48 a year' } as const;
+// The prices in US dollars (Paddle's catalogue), and the plan buttons' words as
+// the app shows them ("$5 a month" / "$48 a year").
+export const PRICES = { monthly: 5, yearly: 48, currency: 'USD' } as const;
+export const PLANS = {
+  monthly: `$${PRICES.monthly} a month`,
+  yearly: `$${PRICES.yearly} a year`,
+} as const;
 
 // The home page's FAQ, above the footer (founder, session 63: written during the
 // SEO setup). Questions people actually search for, the first one defining the
@@ -100,11 +105,13 @@ export const COACHING = {
   email: 'knowledgecentre@zaaheen.com',
 } as const;
 
-// The top bar on every page. Labels and order are the founder's.
+// The top bar on every page. Labels and order are the founder's (Pricing added
+// session 67).
 export const NAV = [
   { href: '/products/', label: 'Products' },
   { href: '/docs/', label: 'Documents' },
   { href: '/knowledge-centre/', label: 'Knowledge Centre' },
+  { href: '/pricing/', label: 'Pricing' },
 ] as const;
 
 export interface PageEntry {
@@ -149,7 +156,78 @@ export const PAGES: PageEntry[] = [
       'Learn to work with AI properly: private 1-to-1 AI coaching sessions from Zaaheen, built around a real task and booked online.',
     sources: ['src/pages/knowledge-centre.astro', 'src/data/site.ts'],
   },
+  {
+    path: '/privacy/',
+    title: 'Privacy Policy · Zaaheen',
+    description:
+      'How Zaaheen handles your data: your memories stay encrypted on your own computer and never reach us. What your account holds, and your rights.',
+    sources: ['src/pages/privacy.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
+  },
+  {
+    path: '/terms/',
+    title: 'Terms of Service · Zaaheen',
+    description:
+      'The terms for using Zaaheen: your 30-day free trial, your subscription and how to cancel, and why your memories always stay yours, on your computer.',
+    sources: ['src/pages/terms.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
+  },
+  {
+    path: '/refunds/',
+    title: 'Refund Policy · Zaaheen',
+    description:
+      'Zaaheen refunds your latest payment in full if you ask within 14 days of being charged, on the monthly or yearly plan. How to cancel and how to ask.',
+    sources: ['src/pages/refunds.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
+  },
+  {
+    path: '/ai-and-your-data/',
+    title: 'AI and Your Data · Zaaheen',
+    description:
+      'How Zaaheen uses AI: small models run on your own computer to find and tidy your memories. Nothing goes to an online AI, and nothing trains AI.',
+    sources: ['src/pages/ai-and-your-data.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
+  },
+  {
+    path: '/security/',
+    title: 'Security · Zaaheen',
+    description:
+      'How Zaaheen protects your memories: encrypted on your computer, a key that never leaves it, sign-in in your browser, and a server that holds none of them.',
+    sources: ['src/pages/security.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
+  },
+  {
+    path: '/company/',
+    title: 'Company Information · Zaaheen',
+    description:
+      'Zaaheen is the trading name of Zaaheen Artificial Intelligence Developing Services, licensed in Dubai. Our licence details and how to contact us.',
+    sources: ['src/pages/company.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
+  },
+  {
+    path: '/pricing/',
+    title: 'Pricing · Zaaheen',
+    description:
+      `Zaaheen pricing: ${TRIAL.days} days free with no card, then ${PLANS.monthly} or ${PLANS.yearly}. One plan with everything included, cancel any time in the app.`,
+    sources: ['src/pages/pricing.astro', 'src/data/site.ts'],
+  },
 ];
+
+// The policies, each on its own address (founder, session 67), in the order the
+// Documents menu lists them. The footer (components/Footer.astro) links each,
+// and scripts/audit.mjs POLICIES pins that: each page built and linked from
+// every footer. Each also has a PAGES entry (title, description, sitemap).
+export const POLICIES = [
+  { path: '/terms/', label: 'Terms of Service' },
+  { path: '/privacy/', label: 'Privacy Policy' },
+  { path: '/refunds/', label: 'Refund Policy' },
+  { path: '/ai-and-your-data/', label: 'AI and Your Data' },
+  { path: '/security/', label: 'Security' },
+  { path: '/company/', label: 'Company Information' },
+] as const;
+
+// The Documents menu: how-to sections (anchors on /docs/) and the policies.
+export const DOCS_SECTIONS = [
+  { id: 'getting-started', title: 'Getting started' },
+  { id: 'connecting', title: 'Connecting your AI apps' },
+  { id: 'memories', title: 'Your memories' },
+  { id: 'account', title: 'Account and subscription' },
+  { id: 'support', title: 'Help' },
+] as const;
 
 export const pageFor = (path: string): PageEntry => {
   const page = PAGES.find((p) => p.path === path);

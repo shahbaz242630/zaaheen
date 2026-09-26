@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import DocsNav from '../components/DocsNav.astro';
 import { COMPANY, PLANS, RELEASE, TRIAL, pageFor } from '../data/site';
 import { lastModified } from '../lib/lastmod';
 
@@ -20,7 +21,8 @@ const updatedLabel = updated
   : undefined;
 
 // The page outline: sections (left) and their topics (right). The ids are the
-// anchors of the rows below; keep the two in step.
+// anchors of the rows below; keep the two in step, and the section ids and
+// titles in step with DOCS_SECTIONS (the left menu, data/site.ts).
 const OUTLINE = [
   { id: 'getting-started', title: 'Getting started', topics: [
     { id: 'install', title: 'How to install Zaaheen' },
@@ -59,9 +61,7 @@ const topic = (id: string) =>
     </header>
 
     <div class="docs-layout">
-      <nav class="docs-sections" aria-label="Sections">
-        {OUTLINE.map((s) => <a href={`#${s.id}`} data-section={s.id}>{s.title}</a>)}
-      </nav>
+      <DocsNav current="/docs/" />
 
       <div class="docs-body">
         <section id="getting-started" class="docs-section">
