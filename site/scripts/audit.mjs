@@ -100,7 +100,9 @@ for (const rel of files.filter((f) => f.endsWith('.html'))) {
 if (files.includes('.htaccess')) {
   const forward = 'RewriteRule ^sign-(in|up)/?$ https://account.zaaheen.com/sign-$1/? [R=302,L]';
   const lines = read('.htaccess').split(/\r?\n/).map((l) => l.trim());
-  const mentions = lines.filter((l) => !l.startsWith('#') && /\baccount\.zaaheen\.com\b/.test(l));
+  const accountHost = new URL(ACCOUNT_ORIGIN).host;
+  const hostsIn = (l) => [...l.matchAll(/https?:\/\/([^/\s?#]+)/gi)].map((m) => m[1].toLowerCase());
+  const mentions = lines.filter((l) => !l.startsWith('#') && hostsIn(l).some((h) => h === accountHost));
   if (mentions.length !== 1 || mentions[0] !== forward) {
     fail('.htaccess', `/sign-in and /sign-up must forward to the account origin, exactly: ${forward}`);
   }
