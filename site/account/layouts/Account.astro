@@ -1,0 +1,61 @@
+---
+// The account pages' frame (AUTH-PAGES-DESIGN D1, the Claude Design handoff
+// pages 1a/1b): a 50/50 split, the form on the left, a small animated app
+// window on the right. Scripts, in this order, all from our own origin:
+// tt.js (the only Trusted Types policy, S1-1), Clerk's pinned file (D3), then
+// the page module. Nothing inline (scripts/audit-account.mjs).
+import '@fontsource-variable/newsreader/opsz.css';
+import '@fontsource/ibm-plex-sans/400.css';
+import '@fontsource/ibm-plex-sans/500.css';
+import '@fontsource/ibm-plex-mono/400.css';
+import '../../src/styles/global.css';
+import '../styles/account.css';
+import Logo from '../../src/components/Logo.astro';
+import Panel from '../components/Panel.astro';
+import { SITE } from '../../src/data/site';
+import { CLERK_JS } from '../scripts/clerk-pin.js';
+
+interface Props {
+  title: string;
+  page: 'sign-in' | 'sign-up' | 'sso-callback' | 'not-found';
+  panel: 'unlock' | 'connect';
+}
+const { title, page, panel } = Astro.props;
+const publishableKey = import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY;
+const clientId = import.meta.env.PUBLIC_ZAAHEEN_CLIENT_ID;
+---
+<!doctype html>
+<html lang={SITE.lang}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{`${title} · ${SITE.name}`}</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content={SITE.themeColor}>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script is:inline src="/tt.js"></script>
+{page !== 'not-found' && (
+  <script is:inline src={`/clerk/${CLERK_JS.file}`} data-clerk-publishable-key={publishableKey}></script>
+)}
+</head>
+<body data-page={page} data-pk={publishableKey} data-client-id={clientId}>
+<main class="acct">
+  <section class="acct-side">
+    <a class="brand" href={SITE.origin} aria-label={`${SITE.name} home`}>
+      <Logo size={40} />
+      <span>{SITE.name}</span>
+    </a>
+    <div class="acct-form">
+      <slot />
+      <noscript><p class="acct-lede">These pages need JavaScript to sign you in. Please switch it on and reload.</p></noscript>
+    </div>
+    <p class="acct-fine">Your memories stay on your computer. Your account never holds them.</p>
+  </section>
+  <aside class="acct-panel" aria-hidden="true">
+    <Panel kind={panel} />
+  </aside>
+</main>
+{page !== 'not-found' && <script>import '../scripts/account.js';</script>}
+</body>
+</html>

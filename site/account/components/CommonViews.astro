@@ -1,0 +1,33 @@
+---
+// The views every account page shares (account-state.js): loading, a bad
+// link, the fixed error line, and "You're signed in". account.js shows one
+// view at a time; all text it adds goes through textContent.
+import { SITE } from '../../src/data/site';
+import { BAD_LINK_LINE, FIXED_LINE } from '../scripts/account-state.js';
+---
+<div class="acct-view" data-view="loading">
+  <p class="acct-loading">One moment…</p>
+</div>
+
+<div class="acct-view" data-view="bad-link" hidden>
+  <h1>Let's start again.</h1>
+  <p class="acct-lede">{BAD_LINK_LINE}</p>
+</div>
+
+<div class="acct-view" data-view="error" hidden>
+  <h1>Let's try that again.</h1>
+  <p class="acct-lede" id="error-line">{FIXED_LINE}</p>
+</div>
+
+<div class="acct-view" data-view="signed-in" hidden>
+  <h1>You're signed in.</h1>
+  <p class="acct-who" id="signed-in-as" hidden></p>
+  <div id="continue-box" hidden>
+    <button class="acct-btn" id="continue" type="button">Continue to the Zaaheen app</button>
+  </div>
+  <p class="acct-lede" id="no-app-line" hidden>
+    Open the Zaaheen app on your computer to use your account. New here? Get the app at
+    <a href={SITE.origin}>zaaheen.com</a>.
+  </p>
+  <p class="acct-error" role="alert" hidden></p>
+</div>

@@ -8,7 +8,11 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "node scripts/audit.mjs",
-    "test": "node --test scripts/pay.test.mjs scripts/coaching-sync.test.mjs && node scripts/audit.test.mjs"
+    "test": "node --test scripts/pay.test.mjs scripts/coaching-sync.test.mjs && node scripts/audit.test.mjs",
+    "build:account": "astro build --config astro.account.config.mjs",
+    "build:account:test": "node scripts/build-account-test.mjs",
+    "check:account": "node scripts/audit-account.mjs",
+    "test:account": "node --test scripts/redirect.test.mjs scripts/signin-state.test.mjs scripts/account-source.test.mjs && node scripts/audit-account.test.mjs"
   },
   "engines": {
     "node": ">=22.12.0"

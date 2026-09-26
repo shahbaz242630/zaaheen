@@ -1,0 +1,3 @@
+# Vendored third-party file pinned by its SHA-256 (site/account/scripts/clerk-pin.js):
+# stored and checked out byte for byte, never line-ending converted.
+site/account-public/clerk/*.js -text
