@@ -15,3 +15,12 @@
 # every run since; triaged 2026-09-10.
 cf153f1578e71e9367558a8930458cc2bf403d12:HANDOFF.md:generic-api-key:581
 1d72aac74412b9cefb7293ea8c48fed10458a3a1:HANDOFF_V0.1_ARCHIVE.md:generic-api-key:1101
+#
+# The SHA-256 of site/account/htaccess.template, the account pages' public
+# server-settings file, pinned in site/scripts/audit-account.mjs so the audit
+# refuses any other version. A file checksum of a file in this repo, not a
+# credential. generic-api-key matched `HTACCESS_SHA256 = '<hex>'` (the name
+# contains "access"). The constant was renamed SERVER_FILE_SHA256 in the next
+# commit so later edits do not trip the rule. Found by the full-history scan on
+# commit 53cfa93 (2026-09-26); triaged the same day.
+53cfa9306ff6cb649089700c6da0a617c7dfa178:site/scripts/audit-account.mjs:generic-api-key:26
