@@ -29,6 +29,7 @@ const config: Config = {
     webhookSecret: SECRET,
   },
   lease: { kid: "primary", pkcs8: rfcPkcs8("primary") },
+  trials: { key: "k".repeat(32) },
   killSwitch: false,
 };
 

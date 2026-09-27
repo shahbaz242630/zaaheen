@@ -162,6 +162,16 @@ identifier = "allow-account-refresh-now"
 description = "Allow invoking the account_refresh_now command (\"I've paid\": check the subscription again straight away rather than waiting for the daily check). Never given the vault."
 commands.allow = ["account_refresh_now"]
 
+[[permission]]
+identifier = "allow-delete-account-start"
+description = "Allow invoking the delete_account_start command (Delete my account: permanently destroy every memory on this computer as erase_everything does, sign this computer out, then open the fixed page where the person confirms deleting their account). Takes no argument; the page is decided by the application. Irreversible."
+commands.allow = ["delete_account_start"]
+
+[[permission]]
+identifier = "allow-delete-account-open"
+description = "Allow invoking the delete_account_open command (open the fixed delete-account page again). Takes no argument and erases nothing. Never given the vault."
+commands.allow = ["delete_account_open"]
+
 # Where the memories live (ADR-105 L-e). All four are gated.
 
 [[permission]]

@@ -314,6 +314,9 @@
             <p class="lock-small">Save everything you've kept as one file. It's yours, whether or not you subscribe.</p>
             <p id="lock-export-status" class="lock-small"></p>
           </div>
+          <!-- On every lock screen (ADR-112 D1): people whose trial ended are
+               the likeliest to leave, and they can't reach Settings. -->
+          <p class="lock-small"><button id="lock-delete" class="link-underline">Delete my account</button></p>
           <p class="lock-help">Need help? <span class="support-email">customerservice@zaaheen.com</span></p>
         </div>
       </div>
@@ -554,6 +557,15 @@
               </div>
               <div class="set-action"><button id="account-manage-btn" class="btn-quiet">Manage subscription</button></div>
             </div>
+            <!-- Delete my account (ADR-112, ACCOUNT-DELETION-DESIGN D1/D2):
+                 always here, signed in or not; the dialog is below. -->
+            <div id="account-delete" class="set-row">
+              <div class="set-text">
+                <div class="set-name">Delete my account</div>
+                <p class="set-desc">Deletes the memories on this computer, then opens a page where you confirm deleting your Zaaheen account.</p>
+              </div>
+              <div class="set-action"><button id="account-delete-btn" class="danger-button">Delete my account</button></div>
+            </div>
             <div id="account-paying" class="set-row hidden">
               <div class="set-text">
                 <div class="set-name">Waiting for your payment</div>
@@ -705,6 +717,42 @@
         <div class="confirm-actions">
           <button id="confirm-cancel" class="btn-ghost">Cancel</button>
           <button id="confirm-go" class="btn-danger"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete my account (ADR-112, ACCOUNT-DELETION-DESIGN D2). The words
+         are the design's. Cancel takes focus; DELETE typed enables the
+         button. Once it has run, the finish panel stays: this path never
+         closes the window by itself. -->
+    <div id="delete-account-overlay" class="confirm-overlay hidden" role="presentation">
+      <div class="confirm-box" role="alertdialog" aria-modal="true"
+           aria-labelledby="delete-account-title" aria-describedby="delete-account-body">
+        <div id="delete-account-ask">
+          <div id="delete-account-title" class="confirm-title">Delete my account</div>
+          <p id="delete-account-body" class="confirm-body">Delete my account deletes the memories on this computer, then opens a page where you confirm deleting your Zaaheen account. Deleting the account also removes it from coaching bookings and cancels any subscription straight away, with no refund of the time left.</p>
+          <p class="confirm-body">Want a copy first? <button id="delete-account-export" class="link-underline">Download my memories</button></p>
+          <p id="delete-account-export-status" class="data-note"></p>
+          <label class="erase-label" for="delete-account-phrase">
+            Type <strong>DELETE</strong> to confirm:
+          </label>
+          <input id="delete-account-phrase" class="erase-input" type="text"
+                 autocomplete="off" spellcheck="false" />
+          <p id="delete-account-status" class="erase-status"></p>
+          <div class="confirm-actions">
+            <button id="delete-account-cancel" class="btn-ghost">Cancel</button>
+            <button id="delete-account-go" class="btn-danger" disabled>Delete my account</button>
+          </div>
+        </div>
+        <div id="delete-account-done" class="hidden">
+          <div class="confirm-title">Finish on the page</div>
+          <p id="delete-account-done-line" class="confirm-body"></p>
+          <p class="confirm-body">The page: <span id="delete-account-page" class="support-email"></span></p>
+          <p id="delete-account-reopen-status" class="data-note"></p>
+          <div class="confirm-actions">
+            <button id="delete-account-close" class="btn-ghost">Close Zaaheen</button>
+            <button id="delete-account-reopen" class="btn-quiet">Open the page again</button>
+          </div>
         </div>
       </div>
     </div>

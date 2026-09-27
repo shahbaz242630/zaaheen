@@ -1,0 +1,79 @@
+---
+// Delete my account (ACCOUNT-DELETION-DESIGN D1, D3): sign in (email code or
+// Google), confirm with DELETE typed, then Clerk's own self-deletion. Clerk
+// refuses a sign-in older than its reverification window; the page then asks
+// for one fresh code in place. The billing webhook cancels any subscription.
+// A Google sign-in finishes here through /sso-callback/?after=delete, and
+// never creates an account (D4). Reached from the app and from the website.
+import Account from '../layouts/Account.astro';
+import CommonViews from '../components/CommonViews.astro';
+import CodeView from '../components/CodeView.astro';
+import GoogleButton from '../components/GoogleButton.astro';
+import { COMPANY } from '../../src/data/site';
+---
+<Account title="Delete my account" page="delete-account" panel="none">
+  <CommonViews />
+
+  <div class="acct-view" data-view="start" hidden>
+    <h1>Sign in to delete your account.</h1>
+    <p class="acct-lede">To keep your account safe, we ask you to sign in first. We'll send a code to
+       your email.</p>
+    <p class="acct-error" id="start-note" role="status" hidden></p>
+    <form id="start-form" class="acct-fields" novalidate>
+      <div class="acct-field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required>
+      </div>
+      <button class="acct-btn" type="submit">Send code</button>
+    </form>
+    <p class="acct-error" role="alert" hidden></p>
+    <GoogleButton />
+  </div>
+
+  <CodeView button="Sign in" />
+
+  <div class="acct-view" data-view="confirm" hidden>
+    <h1>Delete your Zaaheen account?</h1>
+    <p class="acct-lede">Signed in as <strong id="delete-email"></strong>. Deleting it removes, for good:</p>
+    <ul class="acct-gone">
+      <li>your Zaaheen account: your name, your email address and how you sign in;</li>
+      <li>your sign-in for coaching in the Knowledge Centre, which uses the same account;</li>
+      <li>any subscription, cancelled straight away with no refund of the time left. If you paid
+          in the last 14 days, email us for a refund first.</li>
+    </ul>
+    <p class="acct-lede">It doesn't touch the memories on your computers. To remove those, use
+       <em>Delete everything</em> in the Zaaheen app.</p>
+    <form id="delete-form" class="acct-fields" novalidate>
+      <div class="acct-field">
+        <label for="delete-typed">Type DELETE to confirm</label>
+        <input id="delete-typed" name="delete-typed" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+      </div>
+      <button class="acct-btn is-danger" id="delete-btn" type="submit" disabled>Delete my account</button>
+    </form>
+    <p class="acct-error" role="alert" hidden></p>
+  </div>
+
+  <div class="acct-view" data-view="reverify" hidden>
+    <h1>One more check.</h1>
+    <p class="acct-lede">For your security, enter the code we just sent to <strong id="reverify-to"></strong>.
+       Then we'll delete your account.</p>
+    <form id="reverify-form" class="acct-fields" novalidate>
+      <div class="acct-field">
+        <label for="reverify-code">Code</label>
+        <input id="reverify-code" class="is-code" name="reverify-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+      </div>
+      <button class="acct-btn is-danger" type="submit">Delete my account</button>
+    </form>
+    <p class="acct-error" role="alert" hidden></p>
+  </div>
+
+  <div class="acct-view" data-view="deleted" hidden>
+    <h1>Your account has been deleted.</h1>
+    <p class="acct-lede">Any subscription is being cancelled, so you won't be charged again. The memories
+       on your computers are not affected by this page; to remove them, use <em>Delete everything</em>
+       in the Zaaheen app.</p>
+    <p class="acct-lede">Questions? Email <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>.</p>
+  </div>
+
+  <div id="clerk-captcha"></div>
+</Account>

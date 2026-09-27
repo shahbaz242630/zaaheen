@@ -132,6 +132,19 @@ impl KeeperLink {
             .map(|dir| dir.path().to_path_buf())
     }
 
+    /// Whether a vault location was ever recorded on this computer
+    /// (ACCOUNT-DELETION-DESIGN D2: with none there is nothing to erase).
+    /// A record whose folder is missing still counts: that vault may be on
+    /// a drive that is not plugged in, so it is not "no vault".
+    pub fn vault_recorded(&self) -> bool {
+        !matches!(
+            vault_app::location::resolve(&self.homes),
+            Err(vault_core::VaultError::VaultLocation(
+                vault_core::VaultLocationFailure::Unset
+            ))
+        )
+    }
+
     /// Call an admin tool; the tool's JSON text, or a stable code (or the
     /// error text the desktop always showed for it).
     ///

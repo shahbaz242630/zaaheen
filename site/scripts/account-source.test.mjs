@@ -17,7 +17,7 @@ const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\
 const ACCOUNT = code(fs.readFileSync(path.join(DIR, 'account.js'), 'utf8'));
 
 test('the scripts exist and are the ones this test knows about', () => {
-  assert.deepEqual(SOURCES.map(([f]) => f).sort(), ['account-state.js', 'account.js', 'clerk-pin.js', 'csp.js', 'redirect.js']);
+  assert.deepEqual(SOURCES.map(([f]) => f).sort(), ['account-state.js', 'account.js', 'clerk-pin.js', 'csp.js', 'delete-state.js', 'redirect.js']);
 });
 
 test('no HTML from strings, no eval, anywhere in our scripts', () => {
@@ -71,19 +71,51 @@ test('redirect_url goes to Clerk only as validator output', () => {
 // navigated by Clerk itself to its redirect props, never through our checked
 // navigate function. So those props must be validator output or our own page.
 test('every URL Clerk navigates to by itself is validator output or our own sign-in page', () => {
-  assert.match(ACCOUNT, /const done = REDIRECT\.state === 'ok' \? REDIRECT\.url\.href : signIn;/);
-  assert.match(ACCOUNT, /const signIn = new URL\(`\/sign-in\/\$\{keepQuery\(\)\}`, location\.origin\)\.href;/);
+  // ...or, on Google's return from the delete page, the one fixed delete address
+  // (ACCOUNT-DELETION-DESIGN D4): a constant on our own origin, never a URL
+  // read from the address bar.
+  assert.match(ACCOUNT, /const done = AFTER_DELETE \? DELETE_URL : REDIRECT\.state === 'ok' \? REDIRECT\.url\.href : signIn;/);
+  assert.match(ACCOUNT, /const signIn = AFTER_DELETE \? NO_ACCOUNT_URL : new URL\(`\/sign-in\/\$\{keepQuery\(\)\}`, location\.origin\)\.href;/);
+  assert.match(ACCOUNT, /const DELETE_URL = new URL\(DELETE_PATH, location\.origin\)\.href;/);
+  assert.match(ACCOUNT, /const NO_ACCOUNT_URL = new URL\(NO_ACCOUNT_PATH, location\.origin\)\.href;/);
+  assert.match(ACCOUNT, /const AFTER_DELETE = PAGE === 'sso-callback' && deleteMarker\(location\.search\);/);
   for (const prop of ['signInFallbackRedirectUrl', 'signUpFallbackRedirectUrl', 'signInForceRedirectUrl', 'signUpForceRedirectUrl']) {
     const uses = [...ACCOUNT.matchAll(new RegExp(`${prop}:\\s*([^,}\\s]+)`, 'g'))].map((m) => m[1]);
     assert.deepEqual(uses, ['done'], `${prop} must be exactly \`done\`, once`);
   }
   // The only other URL handed to Clerk to finish on: Google's redirectUrlComplete.
   const complete = [...ACCOUNT.matchAll(/redirectUrlComplete:\s*([^\n]+)/g)].map((m) => m[1].trim());
-  assert.deepEqual(complete, ["REDIRECT.state === 'ok' ? REDIRECT.url.href : new URL('/sign-in/', location.origin).href,"]);
+  assert.deepEqual(complete, ["DELETING ? DELETE_URL : REDIRECT.state === 'ok' ? REDIRECT.url.href : new URL('/sign-in/', location.origin).href,"]);
   // No other redirect-carrying option is passed to Clerk anywhere.
   for (const re of [/afterSignInUrl/, /afterSignUpUrl/, /signInUrl:(?!\s*signIn\b)/, /signUpUrl:(?!\s*signUp\b)/, /redirectUrl:(?!\s*new URL\(`\/sso-callback\/)/]) {
     assert.doesNotMatch(ACCOUNT, re, `${re}`);
   }
+});
+
+// ACCOUNT-DELETION-DESIGN D3, D4 and its review: Google from the delete page
+// never creates an account; nothing signs out (that would also end coaching's
+// session); a failed delete can never read as success; one Clerk delete call.
+test('the delete path: no account creation, no sign-out, no false success', () => {
+  const transfer = [...ACCOUNT.matchAll(/transferable\s*:[^}\n]*/g)].map((m) => m[0].trim());
+  assert.deepEqual(transfer, ['transferable: false']);
+  assert.match(ACCOUNT, /\.\.\.\(AFTER_DELETE \? \{ transferable: false \} : \{\}\)/);
+  assert.match(ACCOUNT, /redirectUrl: new URL\(`\/sso-callback\/\$\{DELETING \? '\?after=delete' : keepQuery\(\)\}`, location\.origin\)\.href,/);
+  assert.doesNotMatch(ACCOUNT, /signOut\s*\(/);
+  assert.equal([...ACCOUNT.matchAll(/\.delete\(\)/g)].length, 1, 'one user.delete() call');
+  assert.match(ACCOUNT, /await clerk\.user\.delete\(\);\s*\n\s*next = afterDelete\(null, reverified\);/);
+  assert.match(ACCOUNT, /next = afterDelete\(codeOf\(e\) \|\| 'unknown', reverified\);/);
+});
+
+// Session 67's review of the delete build: m1 (an existing session on the
+// delete page goes to confirm, not the "signed in" dead end), m3 (the fixed
+// line stays the default; only the delete and re-verify paths say "couldn't
+// delete"), m2 (no email-code factor is its own line, not "try again").
+test('the delete page: its error lines go only where they belong', () => {
+  assert.match(ACCOUNT, /if \(code === 'session_exists'\) return DELETING \? showConfirm\(\) : showSignedIn\(\);/);
+  assert.match(ACCOUNT, /function fatal\(line = FIXED_LINE\) \{/);
+  assert.doesNotMatch(ACCOUNT, /line = DELETING/);
+  assert.match(ACCOUNT, /const plan = reverifyPlan\(verification\);\s*\n\s*if \(plan\.view === 'error'\) return fatal\(plan\.line\);/);
+  assert.doesNotMatch(ACCOUNT, /reverifyFactor\(/);
 });
 
 // Independent review, finding 3: the policy text itself, word for word. The

@@ -1,7 +1,9 @@
 // The account Worker (SIGNIN-DESIGN.md §5). Every account-specific value
 // (keys, secrets, Clerk and Paddle ids) is a Cloudflare secret, or
 // `.dev.vars` locally (gitignored), never this file (§8.30): see
-// `src/config.ts` for the names.
+// `src/config.ts` for the names. TRIAL_KEY (ACCOUNT-DELETION-DESIGN D8) is
+// one of them: 32 random bytes as text, made offline, one per deployment,
+// never rotated (a new key forgets every earlier trial).
 //
 // Two deployments, never sharing a secret or a signing key:
 //   --env sandbox   api-sandbox.zaaheen.com: Paddle sandbox + Clerk development.
@@ -20,6 +22,11 @@
   // Flood protection for /v1/lease and /v1/checkout (src/flood.ts): per
   // client address, per Cloudflare location. Far above real use.
   "ratelimits": [{ "name": "FLOOD", "namespace_id": "1001", "simple": { "limit": 60, "period": 60 } }],
+  // One free trial per email (src/trials.ts, ACCOUNT-DELETION-DESIGN D8):
+  // HMAC fingerprint -> first trial start, kept two years. NOT CREATED YET:
+  // a placeholder id. The founder creates the namespace and puts its id here
+  // before any deploy. Tests use a local, simulated namespace.
+  "kv_namespaces": [{ "binding": "TRIALS", "id": "00000000000000000000000000000001" }],
   "env": {
     "sandbox": {
       "name": "zaaheen-account-sandbox",
@@ -28,7 +35,10 @@
       "routes": [{ "pattern": "api-sandbox.zaaheen.com", "custom_domain": true }],
       "triggers": { "crons": ["17 3 * * *"] },
       // Its own namespace, so sandbox traffic never counts against production.
-      "ratelimits": [{ "name": "FLOOD", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } }]
+      "ratelimits": [{ "name": "FLOOD", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } }],
+      // Its own TRIALS too (sandbox trials never block production ones).
+      // NOT CREATED YET: placeholder, replaced by the founder before a deploy.
+      "kv_namespaces": [{ "binding": "TRIALS", "id": "00000000000000000000000000000002" }]
     }
   }
 }

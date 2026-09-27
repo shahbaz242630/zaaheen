@@ -6,6 +6,13 @@
 .acct-side .brand{align-self:flex-start}
 .acct-form{flex:1;display:flex;flex-direction:column;justify-content:center;width:100%;max-width:400px}
 .acct-fine{font:400 12px var(--mono);color:var(--faint);margin:0}
+/* The delete page: one column, no app window (ACCOUNT-DELETION-DESIGN D3). */
+.acct.is-solo{grid-template-columns:1fr}
+.acct.is-solo .acct-form{align-self:center}
+.acct-gone{margin:0 0 24px;padding-left:20px;color:var(--ink-soft);font-size:15.5px;line-height:1.6}
+.acct-gone li{margin:0 0 6px}
+.acct-btn.is-danger{background:#b3261e}
+.acct-btn.is-danger:hover{background:#8f1f18}
 .acct-panel{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:28px;padding:48px 32px}
 

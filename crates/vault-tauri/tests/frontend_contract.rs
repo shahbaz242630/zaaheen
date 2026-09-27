@@ -2691,3 +2691,119 @@ fn the_opening_line_is_the_approved_one() {
     assert!(line.body.contains("\"Opening your memories…\""));
     assert!(INDEX_HTML.contains("id=\"link-notice\""));
 }
+
+// ---- Delete my account (ADR-112, ACCOUNT-DELETION-DESIGN D1/D2) -------------
+
+/// D2: the dialog says what happens, in the design's words, and offers the
+/// download first; DELETE typed is checked before the command is invoked,
+/// as for Delete everything.
+#[test]
+fn delete_my_account_says_what_happens_and_is_gated_behind_delete_typed() {
+    let html = html();
+    let dialog = html
+        .split_once("id=\"delete-account-overlay\"")
+        .expect("index.html has the Delete my account dialog")
+        .1;
+    for words in [
+        "Delete my account deletes the memories on this computer, then opens a page where you \
+         confirm deleting your Zaaheen account.",
+        "Deleting the account also removes it from coaching bookings and cancels any \
+         subscription straight away, with no refund of the time left.",
+        "Want a copy first?",
+        "id=\"delete-account-export\"",
+        "id=\"delete-account-phrase\"",
+        "id=\"delete-account-go\" class=\"btn-danger\" disabled",
+    ] {
+        assert!(dialog.contains(words), "the dialog is missing {words:?}");
+    }
+
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let start = &js_function(&functions, "deleteAccountStart").body;
+    let guard = start
+        .find("if ($(\"delete-account-phrase\").value !== DELETE_ACCOUNT_PHRASE) return;")
+        .expect("deleteAccountStart early-returns unless DELETE was typed");
+    let call = start
+        .find("invoke(\"delete_account_start\")")
+        .expect("deleteAccountStart invokes the command");
+    assert!(
+        guard < call,
+        "the phrase check must come before the command"
+    );
+    assert!(code.contains("const DELETE_ACCOUNT_PHRASE = \"DELETE\";"));
+    assert!(calls(
+        &js_function(&functions, "onDeleteAccountExport").body,
+        "exportMemories"
+    ));
+}
+
+/// D1: the button is in Settings > Account and in the lock screen's foot,
+/// so it is on every lock screen whatever the reason.
+#[test]
+fn delete_my_account_is_in_settings_and_on_every_lock_screen() {
+    let html = html();
+    let account = html
+        .split_once("id=\"account-section\"")
+        .expect("Settings has an Account section")
+        .1
+        .split_once("</section>")
+        .expect("the section closes")
+        .0;
+    assert!(account.contains("id=\"account-delete-btn\""));
+    let foot = html
+        .split_once("class=\"lock-foot\"")
+        .expect("the lock screen has a foot")
+        .1;
+    assert!(foot.contains("id=\"lock-delete\""));
+
+    let code = js_code();
+    assert!(
+        code.contains("$(\"account-delete-btn\").addEventListener(\"click\", openDeleteAccount)")
+    );
+    assert!(code.contains("$(\"lock-delete\").addEventListener(\"click\", openDeleteAccount)"));
+    let functions = top_level_functions(&code);
+    assert!(
+        !js_function(&functions, "renderLock")
+            .body
+            .contains("lock-delete"),
+        "renderLock must not hide Delete my account for any reason"
+    );
+}
+
+/// D2: this path never closes the window by itself. It shows the page's
+/// address as text, says so when the browser did not open, and offers to
+/// open it again (a command that takes no URL).
+#[test]
+fn delete_my_account_never_auto_closes_and_shows_the_address() {
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    for name in [
+        "openDeleteAccount",
+        "closeDeleteAccount",
+        "deleteAccountStart",
+        "onDeleteAccountReopen",
+    ] {
+        let body = &js_function(&functions, name).body;
+        for banned in ["setTimeout", "setInterval", ".close()", "onCloseApp"] {
+            assert!(!body.contains(banned), "{name} contains `{banned}`");
+        }
+    }
+    let start = &js_function(&functions, "deleteAccountStart").body;
+    assert!(start.contains("$(\"delete-account-page\").textContent ="));
+    assert!(start.contains("\"Your browser did not open, so go to the address below to finish.\""));
+    assert!(start.contains("\"Finish on the page that just opened.\""));
+    assert!(js_function(&functions, "closeDeleteAccount")
+        .body
+        .contains("if (deleteAccountDone) return;"));
+    assert!(js_function(&functions, "onDeleteAccountReopen")
+        .body
+        .contains("invoke(\"delete_account_open\")"));
+    assert!(
+        !code.contains("invoke(\"delete_account_open\", "),
+        "no argument, ever"
+    );
+    assert!(
+        !code.contains("invoke(\"delete_account_start\", "),
+        "no argument, ever"
+    );
+}

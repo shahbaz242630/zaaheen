@@ -147,6 +147,60 @@ describe("writing the record", () => {
   });
 });
 
+describe("writing other private metadata (AUTH-PAGES-DESIGN D6)", () => {
+  it("merges the fields at the top of private_metadata", async () => {
+    const { clerk, seen } = client(() => json(200, { id: USER }));
+    expect(await clerk.mergePrivate(USER, { marketing: { consent: true } })).toBe(true);
+    expect(seen[0]?.method).toBe("PATCH");
+    expect(seen[0]?.url.href).toBe(`https://api.clerk.com/v1/users/${USER}/metadata`);
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ private_metadata: { marketing: { consent: true } } });
+  });
+
+  it("a gone user is false; anything else is an upstream failure", async () => {
+    expect(await client(() => json(404, {})).clerk.mergePrivate(USER, { marketing: {} })).toBe(false);
+    for (const answer of [() => json(422, {}), () => json(500, {}), () => "network-error" as const]) {
+      await expect(client(answer).clerk.mergePrivate(USER, { marketing: {} })).rejects.toThrow(UpstreamError);
+    }
+  });
+
+  it("never writes our record, and never an unchecked id", async () => {
+    const { clerk, seen } = client(() => json(200, {}));
+    await expect(clerk.mergePrivate(USER, { zaaheen_memory: {} })).rejects.toThrow(UpstreamError);
+    await expect(clerk.mergePrivate("user_x/../y", { marketing: {} })).rejects.toThrow(UpstreamError);
+    expect(seen).toHaveLength(0);
+  });
+});
+
+// Session 68 (review M1): the sweep's positive instance check. The list's
+// shape (`data[]` of OAuth applications with `client_id`, plus
+// `total_count`) was read from a real dev instance before this was written.
+describe("confirming the key's instance", () => {
+  const app = (clientId: unknown) => ({ object: "oauth_application", id: "oa_1", client_id: clientId });
+
+  it("sends the documented request and is true when our OAuth application is listed", async () => {
+    const { clerk, seen } = client(() => json(200, { data: [app("someone_else"), app(CLIENT_ID)], total_count: 2 }));
+    expect(await clerk.instanceHasOurApp()).toBe(true);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.method).toBe("GET");
+    expect(`${seen[0]?.url.origin}${seen[0]?.url.pathname}`).toBe("https://api.clerk.com/v1/oauth_applications");
+    expect(seen[0]?.url.searchParams.get("limit")).toBe("100");
+  });
+
+  it("is false when the key's instance does not have our OAuth application", async () => {
+    for (const data of [[], [app("someone_else")], [app(null)], [{}]]) {
+      const { clerk } = client(() => json(200, { data, total_count: data.length }));
+      expect(await clerk.instanceHasOurApp()).toBe(false);
+    }
+  });
+
+  it("any failure or unreadable answer is an upstream failure", async () => {
+    for (const answer of [() => json(401, {}), () => json(500, {}), () => json(200, { data: "x" }), () => "network-error" as const]) {
+      const { clerk } = client(answer);
+      await expect(clerk.instanceHasOurApp()).rejects.toThrow(UpstreamError);
+    }
+  });
+});
+
 describe("errors never carry secrets", () => {
   it("the secret key and the token appear in no error message", async () => {
     const { clerk } = client(() => json(500, { echo: SECRET }));

@@ -1,6 +1,6 @@
 # Zaaheen (Memory Vault) — Build Handoff
 
-**Current version:** V0.2 Closed Beta (BRD §6.2). **Last updated:** 2026-09-26, session 67.
+**Current version:** V0.2 Closed Beta (BRD §6.2). **Last updated:** 2026-09-27, session 68 (every pre-build item done; the batch is uncommitted, waiting for the founder's yes; see §1).
 
 > **How to read this file.** §1 is what to do next; act on it. §2 is where things stand. §3–§7 are the working rules and reference. Everything older lives in the archives (§8): quote them, never paraphrase. Reset to this short form in session 60 (founder: *"lets archive it and start fresh clean handoff"*); the previous file is `HANDOFF_V0.2_PART5_ARCHIVE.md`, word for word.
 >
@@ -8,7 +8,22 @@
 
 ---
 
-## 1 · 🟢 Next — "Delete my account" (design first), then the switch-on list (founder, session 66: *"our priority is wire everything up .. all pages should be connected.... but remain switched off not going live yet"*)
+## 1 · 🟢 Next — the full gate run and a new installer (founder's go), then the live tests, then the switch-on list (founder, session 68: *"we need to finish all pending outstandings before the big build"*)
+
+**Session 68 (2026-09-27): every pre-build item finished. NOTHING COMMITTED YET: the batch below is uncommitted, waiting for the founder's yes to commit + push (PR #84).** Founder: *"you dont need my permission to perform any task.. once all pending tasks are done and completed report back"*.
+- **Delete my account, web + Worker (from 67), review fixes:** M1: `readConfig` refuses Paddle `live` with Clerk `sk_test_` (and the reverse); before any cancel the sweep proves the key is our instance's (`GET /v1/oauth_applications?limit=100` must list our client id; shape read from the dev instance first), else cancels none and logs `gone_guard`; one call reserved in the budget (an exact-edge test caught the planted "no reserve" bug the old budget test missed). m1 `session_exists` → confirm on the delete page; m2 no email-code factor → its own line (`NO_REVERIFY_LINE`), never "try again"; m3 `fatal()` defaults to `FIXED_LINE`; m5 design D3 matches the code; NITs: `+x@` emails keep the name, a gone account with no usable subscription id counts as `failed`, "DELETE (spaces ignored)" in the docs.
+- **Delete my account, the app (ADR-112 D1/D2/D5, "Build notes, session 68" in `ACCOUNT-DELETION-DESIGN.md`):** `delete_account_start` (page first, then erase if a vault was ever recorded, sign out, open; `{page, opened, erased}`) and `delete_account_open` ("Open the page again"), both in `OPEN_COMMANDS`' account slot; `ExternalLink::delete_account` from `AccountConfig::delete_account_page()` (production `account.<domain>/delete-account/`; a sandbox build Clerk's hosted `<name>.accounts.dev/user`); Settings › Account button, a link on every lock screen, its own dialog (the design's words, Download my memories, DELETE typed), a finish panel that never auto-closes. Exercised in the UI harness (dialog, finish, busy failure, browser not opened, no vault).
+- **AUTH-PAGES S1-3:** production `sign_up_page()` → `https://account.<domain>/sign-up/` (sandbox keeps Clerk's hosted page: the dev pages are a local http server). **D8:** the loopback "You're signed in" page has one hashed `<style>`, and an exact CSP (`default-src 'none'; style-src 'sha256-…'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`), checked in a browser. **D6:** the Worker's `user.created` copies a ticked tips box into `private_metadata.marketing` (`tips-2026-09`).
+- **Checks:** Worker 344/344 + typecheck clean; site account tests 60/60 + audit 39/39; planted bugs caught (M1 ×3, budget edge, m1, m2, loose consent). **The Rust is written but NOT compiled** (no local builds): vault-account, vault-app, vault-tauri changes and their tests compile for the first time in the full gate run; `cargo fmt` done. Independent review of the whole batch: **GO WITH TWO SMALL FIXES, no blocker, no likely compile or clippy error found** (it also recomputed the CSP hash and reasoned through every existing guard/contract test). Fixed: the busy/failed line now mentions an unplugged drive; an empty account slot refuses Delete my account (test). Its m1 (raw codes in the dialog) was wrong: the `invoke` wrapper already maps account codes to plain English. Rest to tech debt / the post-deploy check below.
+
+**Do next, in order:**
+1. **Founder: yes to commit + push** the batch on PR #84.
+2. **The full gate run (founder's go; ~heavy, freezes the laptop):** wipe `target/`, build, test, clippy, fmt; fix whatever the first compile of the new Rust finds.
+3. **New installer — sandbox first** (my recommendation: the live tests below need the sandbox; the production config is for the launch installer). Before the live test the founder runs, from `workers/account`: `npx wrangler kv namespace create TRIALS --env sandbox` (id → `env.sandbox` in `wrangler.jsonc`), `openssl rand -hex 32 | npx wrangler secret put TRIAL_KEY --env sandbox`, then deploy the sandbox Worker (**without `TRIAL_KEY` every route answers 503**). Post-deploy: `/clerk/webhook` answers 2xx (m4); the secrets pair (Paddle `live` with Clerk `sk_live_`, `sandbox` with `sk_test_`, or every route is 503); one real sweep instance check (watch the log for `gone_guard`: the `oauth_applications` shape is only unit-tested); the sandbox Clerk webhook subscribes to `user.created` and `user.deleted`, self-delete on.
+4. **Live test on the sandbox installer:** sign in, Create an account, Delete my account from Settings and from a lock screen (the hosted `/user` page on the sandbox), the lease for a deleted user answers signed out; the delete page itself on the dev instance again.
+5. Then the switch-on list (item 3 of session 66 below), production Clerk settings (self-delete on, reverification 5 min, webhook on `user.created` + `user.deleted`), D7's website wording, Google publish.
+
+### Session 67 (reference)
 
 **Session 67 (2026-09-26): the policy pages, written and approved by the founder page by page.** Two independent research agents (reports kept in `C:\Projects\MemoryVault-artifacts\legal-research-s67\`, A and B), reconciled, the big points checked at source; Paddle's seller rules read (domain review + seller handbook). **No lawyer** (founder: *"no need to lawyer partner.. we are not a legal firm"*): where the law is unclear, the reading kindest to the customer.
 - **Pages (each its own address, founder):** `/terms/`, `/privacy/`, `/refunds/`, `/ai-and-your-data/`, `/security/`, `/company/`. Shared `layouts/Policy.astro` ("The short version" box, rows, "On this page") and `components/Row.astro`; Documents' left menu is `components/DocsNav.astro`, two `<details>` dropdowns "Using Zaaheen" / "Policies" (founder's pick); every footer links all six (`POLICIES` in `site.ts`; `audit.mjs` `POLICIES` fails a page whose footer misses one or a missing policy page; +5 negative controls, 43/43). UK spelling (founder). Every factual line checked against the code (an Explore trace: no telemetry/updater/crash reporting; models from Hugging Face; the Worker never logs IPs; zaaheen.com sets no cookies; the keeper's pipe rejects remote clients).
@@ -18,7 +33,7 @@
 - **Open legal risks, the founder's to decide before selling there:** EU and UK Art. 27 representatives (paid; both reports agree they're likely needed); UAE Decree-Law 14/2023 (B: publish a physical address + phone) and Arabic for UAE consumer contracts (K&L Gates); email Paddle support whether the Knowledge Centre coaching page on zaaheen.com troubles domain review (Paddle's AUP bans selling coaching through Paddle); California's auto-renewal law needs a reminder email 15-45 days before the yearly renewal (a Worker feature, not built; the Privacy Policy makes no such claim yet).
 
 **Do next, in order:**
-1. **"Delete my account" (founder: *"we need to have delete option which wipes out the account and everything ... add it ... before we do the big run"*).** One action: Delete everything locally + delete the Clerk user (a new authenticated Worker route calling Clerk's Backend API) → the existing `user.deleted` webhook cancels Paddle. Security-relevant: re-read BRD §11, an ADR + ADR-SEC (next free: ADR-112, ADR-SEC-035) and show the founder the design first; tests first; independent review. Then the Privacy Policy's "email us to delete your account" becomes the button.
+1. ✅ **"Delete my account", web page and Worker:** designed, reviewed, spiked, built (above). The app's side rides with the big run.
 2. **Google:** once `/privacy/` and `/terms/` are live, set them in Google Branding → **Publish app**; logo + brand verification; Clerk legal consent (Terms URL).
 3. Then items 3-6 below (switch-on list, the Worker's consent copy, the full gate run, Claude Desktop checks).
 
@@ -31,8 +46,8 @@
 1. ✅ Committed and pushed (`d0a830d`, then the CodeQL fix in session 67); `gh pr checks 84` until green. **Do not merge #84 yet** (owes the full gate run and a new installer). **No local cargo builds until the founder says** (session 65).
 2. ✅ **Terms and Privacy pages:** done in session 67 (above).
 3. **Switch-on list (founder's go, at launch):** Hostinger site for `account.zaaheen.com` deploying `account-deploy`; its DNS record in Cloudflare; branch protection on `account-deploy`; Cloudflare script-injecting features off for it; repo variables `CLERK_PUBLISHABLE_KEY`, `ZAAHEEN_CLIENT_ID`, then `ACCOUNT_PUBLISH=true`; a post-deploy check (D9 invariants incl. MFA/CIMD/DCR off, headers) to build before that.
-4. **The Worker's consent copy (D6):** `workers/account` `user.created` → `private_metadata.marketing` with server time and wording version; tests first. Production webhook + signing secret; Clerk allowed subdomains.
-5. **With the next full gate run (founder's go only):** Rust S1-3 `sign_up_page()` → our `/sign-up/`; D8 loopback page CSP; the release app's config → production (`pk_live_`, client ID above); new installer; end-to-end installer test.
+4. ✅ (session 68) **The Worker's consent copy (D6):** `workers/account` `user.created` → `private_metadata.marketing` with server time and wording version; tests first. Production webhook + signing secret; Clerk allowed subdomains.
+5. **With the next full gate run (founder's go only):** ✅ written in session 68: Rust S1-3 `sign_up_page()` → our `/sign-up/`; D8 loopback page CSP; the release app's config → production (`pk_live_`, client ID above); new installer; end-to-end installer test.
 6. **Still to confirm on the founder's Claude Desktop:** where the personal-preferences box is, and Settings → Extensions shows Zaaheen with a switch.
 
 **Lessons (66):** Clerk refuses a production clone while dev has Pro features on. zaaheen.com DNS is at Cloudflare, not Hostinger. `MSYS_NO_PATHCONV=1` before `clerk api /path` in Git Bash. Claude Code's auto-mode blocked some production changes and even one read-only check; the founder's explicit go in chat cleared the DNS and OAuth-app ones. Never paste secrets (Google client secret) myself: the founder pastes. `fnm exec npm` fails on Windows: call `node node_modules/astro/bin/astro.mjs` directly.
@@ -131,6 +146,8 @@
 - **Accounts:** Clerk, Microsoft 365, Paddle, Cloudflare, the bank. Details only in the local `OPS-HANDOFF.md`; this repo is public.
 
 ### Recent sessions
+- **68 (2026-09-27):** every pre-build item finished, uncommitted: the delete batch's review fixes (M1 instance check + live/test pairing, m1-m5, NITs); Delete my account in the app (two open commands, Settings + every lock screen, its own dialog, never auto-closes); S1-3 sign-up page; D8 loopback page style + exact CSP; D6 consent copy. Worker 344, site 60 + audit 39, planted bugs caught; the Rust is written, fmt-clean and reviewed but uncompiled until the gate run.
+- **67, second half:** "Delete my account" (ADR-112, ADR-SEC-035): designed, two reviews, spiked on the dev Clerk app, built tests-first (the delete page; the Worker's deleted-account backstop with a mass-cancel guard; one free trial per email via an HMAC fingerprint in KV). Browser-tested end to end on the dev instance. Site account tests 58 + audit 39, Worker 321.
 - **67 (2026-09-26):** PR #84's CodeQL alerts fixed (two rounds: substring, then an unanchored regex; now an exact host comparison). The policy pages built and approved: Terms, Privacy, Refunds, AI and Your Data, Security, Company Information, each on its own address, in a Documents "Policies" dropdown and every footer; a Pricing page (in the top menu) and a new professional footer; researched by two independent agents, no lawyer (founder). Audit 43/43, site tests 15/15.
 - **66 (2026-09-26):** Clerk production on the free plan (passkeys/MFA off), Cloudflare DNS verified, prod OAuth app `sKtut4UNaAyJtImJ`, Zaaheen's own Google client (Testing until a privacy URL); zaaheen.com header + `/sign-in`, `/sign-up` forward to `account.zaaheen.com`, `site.yml` account deploy, all switched off (`ACCOUNT_PUBLISH`). Tests first, all site suites green.
 - **65 (2026-09-26):** Account pages steps 1-2 (ADR-109, ADR-SEC-034 amendments S1-1…S2-1): measured on a practice Clerk app, built tests-first (48 unit tests, 35 audit controls), browser-tested incl. the founder's email and Google runs, independent review SAFE WITH FIXES (all fixed), pushed on PR #84 (`53cfa93`, `1a1edc5`, `ca3b814`). Founder kept `account.zaaheen.com`; production needs Terms/Privacy pages and Zaaheen's own Google OAuth client. No local builds until the founder says.
@@ -167,6 +184,13 @@ Roughly in priority order; the founder picks. Context for each is in `HANDOFF_V0
 ---
 
 ## 4 · 🐛 Tech debt (live, with anchors)
+
+- **Delete my account (session 68, from the reviews):**
+  - the web delete page's re-verify view has no "send a new code" (a reload works);
+  - the desktop dialog does not trap focus after it has run (Tab reaches controls that talk to a poisoned link);
+  - `copyConsent` (`workers/account/src/routes/clerk-webhook.ts`) rewrites `marketing.at` on each Svix retry, so the stored time can move later;
+  - `crates/vault-account/src/signin/http.rs` is 591 lines (soft cap 500; mostly tests);
+  - no Rust test pins `delete_page_wire`'s exact fields (vault-tauri cannot name `AccountConfig` to build a link in a test).
 
 - **D4 (session 60):**
   - the full-host admin ops (`vault_app::admin::ops` over a real `Application`) have no local test; the keeper-side surface is pinned over a locked host (`tests/keeper_admin.rs`);
@@ -245,6 +269,7 @@ Full rules live in memory (`~/.claude/projects/C--Projects-GitHub-Memory-Vault/m
 
 | File | Covers | ADRs (full text) |
 |---|---|---|
+| `ACCOUNT-DELETION-DESIGN.md` | **Live, web page + Worker built (session 67):** "Delete my account"; the app's side rides with the big run | ADR-112, ADR-SEC-035 (amends ADR-SEC-034) |
 | `AUTH-PAGES-DESIGN.md` | **Live, steps 1-2 built (session 65):** our own account pages on `account.zaaheen.com` | ADR-109, ADR-SEC-034 (session 61), amendments S1-1…S1-4, S2-1 (session 65) |
 | `DESKTOP-CLIENT-DESIGN.md` | **Live:** the desktop as a client of the keeper (D4) | ADR-108, ADR-SEC-033, the ADR-104 amendment (session 60) |
 | `CONNECT-APPS-DESIGN.md` | **Live:** connecting AI apps | ADR-106 + ADR-SEC-031 (s55); ADR-SEC-032, ADR-107 (s59) |
@@ -257,4 +282,4 @@ Full rules live in memory (`~/.claude/projects/C--Projects-GitHub-Memory-Vault/m
 | `HANDOFF_V0.2_PART1_ARCHIVE.md` | T0.2.0 → T0.2.3c2 | 037–046 |
 | `HANDOFF_V0.1_ARCHIVE.md` | V0.1 | 001–036 |
 
-**Next free numbers:** ADR-112 and ADR-SEC-035.
+**Next free numbers:** ADR-113 and ADR-SEC-036.

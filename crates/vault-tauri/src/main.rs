@@ -147,6 +147,9 @@ fn main() {
             vault_tauri::commands::account::account_sign_out,
             vault_tauri::commands::account::account_subscribe,
             vault_tauri::commands::account::account_refresh_now,
+            // Delete my account (ADR-112, ADR-SEC-035): the account slot.
+            vault_tauri::commands::erasure::delete_account_start,
+            vault_tauri::commands::account::delete_account_open,
             // Download my memories (S4). Ungated: the promise it keeps is
             // that it works when everything else is refused.
             vault_tauri::commands::export::export_memories,

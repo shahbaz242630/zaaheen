@@ -65,30 +65,50 @@ impl AccountConfig {
         &self.client_id
     }
 
-    /// The account service's hosted sign-up page, derived from the issuer
-    /// by the service's fixed naming (§8.41): a development issuer
-    /// `https://<name>.clerk.accounts.dev` has its hosted pages at
-    /// `https://<name>.accounts.dev`, a production issuer `https://clerk.<domain>`
-    /// at `https://accounts.<domain>`. `None` for any other shape (or a port):
-    /// never a guessed address.
+    /// The sign-up page, derived from the issuer by the service's fixed
+    /// naming (§8.41). A production issuer `https://clerk.<domain>` gets our
+    /// own page, `https://account.<domain>/sign-up/` (AUTH-PAGES-DESIGN
+    /// S1-3). A development issuer `https://<name>.clerk.accounts.dev` keeps
+    /// the service's hosted page at `https://<name>.accounts.dev`: our pages
+    /// are not hosted for a development instance. `None` for any other shape
+    /// (or a port): never a guessed address.
     pub fn sign_up_page(&self) -> Option<String> {
+        Some(match self.instance()? {
+            Instance::Development(name) => format!("https://{name}.accounts.dev/sign-up"),
+            Instance::Production(domain) => format!("https://account.{domain}/sign-up/"),
+        })
+    }
+
+    /// The page where a person deletes their account (ACCOUNT-DELETION-DESIGN
+    /// D5): a fixed address with no parameters. Production is our own
+    /// `https://account.<domain>/delete-account/`; a development issuer gets
+    /// the service's hosted profile page, `https://<name>.accounts.dev/user`,
+    /// which offers deletion once self-delete is on. `None` for any other
+    /// shape.
+    pub fn delete_account_page(&self) -> Option<String> {
+        Some(match self.instance()? {
+            Instance::Development(name) => format!("https://{name}.accounts.dev/user"),
+            Instance::Production(domain) => format!("https://account.{domain}/delete-account/"),
+        })
+    }
+
+    /// Which kind of instance the issuer names, by the service's fixed naming.
+    fn instance(&self) -> Option<Instance<'_>> {
         let host = self.issuer.strip_prefix("https://")?;
         if host.contains(':') {
             return None;
         }
-        let pages = if let Some(name) = host.strip_suffix(".clerk.accounts.dev") {
+        if let Some(name) = host.strip_suffix(".clerk.accounts.dev") {
             if name.is_empty() || name.contains('.') {
                 return None;
             }
-            format!("{name}.accounts.dev")
-        } else {
-            let domain = host.strip_prefix("clerk.")?;
-            if !domain.contains('.') || domain == "accounts.dev" {
-                return None;
-            }
-            format!("accounts.{domain}")
-        };
-        Some(format!("https://{pages}/sign-up"))
+            return Some(Instance::Development(name));
+        }
+        let domain = host.strip_prefix("clerk.")?;
+        if !domain.contains('.') || domain == "accounts.dev" {
+            return None;
+        }
+        Some(Instance::Production(domain))
     }
 
     /// `issuer + path`, e.g. `endpoint("/oauth/token")`. Clerk's endpoint
@@ -106,6 +126,12 @@ impl AccountConfig {
             client_id: "client_test".into(),
         }
     }
+}
+
+/// An issuer's instance: a development `<name>` or a production `<domain>`.
+enum Instance<'a> {
+    Development(&'a str),
+    Production(&'a str),
 }
 
 fn invalid(reason: &str) -> AccountError {
@@ -205,10 +231,11 @@ mod tests {
         }
     }
 
-    /// §8.41: the hosted sign-up page, from the issuer's own naming — and
-    /// none for an issuer of any other shape.
+    /// §8.41 and AUTH-PAGES-DESIGN S1-3: production's sign-up page is our
+    /// own (`account.<domain>/sign-up/`); a development issuer keeps the
+    /// service's hosted page. None for an issuer of any other shape.
     #[test]
-    fn the_hosted_sign_up_page_follows_the_issuers_naming() {
+    fn the_sign_up_page_follows_the_issuers_naming() {
         let page = |issuer: &str| AccountConfig::new(issuer, "c").unwrap().sign_up_page();
         assert_eq!(
             page("https://example-name-12.clerk.accounts.dev").as_deref(),
@@ -216,7 +243,39 @@ mod tests {
         );
         assert_eq!(
             page("https://clerk.zaaheen.com").as_deref(),
-            Some("https://accounts.zaaheen.com/sign-up")
+            Some("https://account.zaaheen.com/sign-up/")
+        );
+        for other in [
+            "https://issuer.example",
+            "https://accounts.example:8443",
+            "https://clerk.zaaheen.com:8443",
+            "https://clerk.accounts.dev",
+            "https://clerk.com",
+            "https://auth.clerk.zaaheen.com.evil.test",
+        ] {
+            assert_eq!(page(other), None, "{other}");
+        }
+    }
+
+    /// ACCOUNT-DELETION-DESIGN D5: a fixed page, no parameters. Production
+    /// is our own delete page; a development issuer, whose pages we do not
+    /// host, gets the service's hosted profile page (it offers deletion
+    /// once self-delete is on; session 68 checked it answers, and that an
+    /// unknown path does not). Same shapes refused as the sign-up page.
+    #[test]
+    fn the_delete_account_page_follows_the_issuers_naming() {
+        let page = |issuer: &str| {
+            AccountConfig::new(issuer, "c")
+                .unwrap()
+                .delete_account_page()
+        };
+        assert_eq!(
+            page("https://clerk.zaaheen.com").as_deref(),
+            Some("https://account.zaaheen.com/delete-account/")
+        );
+        assert_eq!(
+            page("https://example-name-12.clerk.accounts.dev").as_deref(),
+            Some("https://example-name-12.accounts.dev/user")
         );
         for other in [
             "https://issuer.example",

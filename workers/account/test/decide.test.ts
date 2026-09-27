@@ -170,6 +170,8 @@ function fake(
     killSwitch?: boolean;
     subs?: unknown[] | "fail";
     write?: "fail";
+    /** What the trial store answers for a record with no start (D8); default now. */
+    firstTrial?: number | "fail";
   } = {},
 ): Fake {
   const fetches: string[] = [];
@@ -178,6 +180,10 @@ function fake(
     now: opts.now ?? T,
     killSwitch: opts.killSwitch ?? false,
     productId: OURS,
+    firstTrialStart: async () => {
+      if (opts.firstTrial === "fail") throw new Error("kv down");
+      return opts.firstTrial ?? opts.now ?? T;
+    },
     fetchSubscriptions: async (customerId) => {
       fetches.push(customerId);
       if (opts.subs === "fail") throw new Error("paddle 502");
@@ -205,6 +211,34 @@ describe("decideLease", () => {
   it("a trial whose start could not be saved is never signed", async () => {
     const f = fake({ write: "fail" });
     expect(await decideLease({}, f.deps)).toEqual({ kind: "unavailable" });
+  });
+
+  it("a first call for an email that had a trial continues it from its first day (ACCOUNT-DELETION-DESIGN D8)", async () => {
+    const f = fake({ firstTrial: T - 40 * DAY });
+    expect(await decideLease({}, f.deps)).toEqual({ kind: "lease", terms: { state: "ended", trial_ends_at: T - 10 * DAY } });
+    expect(f.writes).toEqual([{ trial_started_at: T - 40 * DAY }]);
+  });
+
+  it("a first call whose trial lookup fails signs nothing and writes nothing (D8)", async () => {
+    const f = fake({ firstTrial: "fail", subs: [activeSub(T + 30 * DAY)] });
+    expect(await decideLease({}, f.deps)).toEqual({ kind: "unavailable" });
+    expect(await decideLease({ paddle_customer_id: CUSTOMER, checkout_at: T - MINUTE }, f.deps)).toEqual({ kind: "unavailable" });
+    expect(f.writes).toEqual([]);
+    expect(f.fetches).toEqual([]);
+  });
+
+  it("a record that has a start never asks the trial store (D8)", async () => {
+    const f = fake({ firstTrial: "fail" });
+    expect(await decideLease({ trial_started_at: T - DAY }, f.deps)).toMatchObject({ kind: "lease", terms: { state: "trial" } });
+  });
+
+  it("comp_until still wins over an inherited, long-over trial (D8)", async () => {
+    const f = fake({ firstTrial: T - 400 * DAY });
+    expect(await decideLease({ comp_until: T + 60 * DAY }, f.deps)).toEqual({
+      kind: "lease",
+      terms: { state: "active", active_until: T + 60 * DAY, trial_ends_at: T - 370 * DAY },
+    });
+    expect(f.writes).toEqual([{ trial_started_at: T - 400 * DAY }]);
   });
 
   it("an unchanged record is not written", async () => {

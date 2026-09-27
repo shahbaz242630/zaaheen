@@ -96,6 +96,10 @@ starts it (PKCE, `state`, loopback `127.0.0.1:53999/callback`) and ended at the 
 - **S1-3 (D7):** decided: `sign_up_page()` returns our own page (`https://account.zaaheen.com/sign-up/`
   in production, from the site-origin constant; the development pages' origin for the sandbox), with
   the authorize URL as `redirect_url`, as D7 already describes for this outcome.
+  **Built (session 68):** production as decided. **Sandbox amended:** the development pages'
+  origin is a local `http` test server that an installed app cannot reach (and `ExternalLink`
+  opens `https` only), so a development issuer keeps Clerk's hosted `<name>.accounts.dev/sign-up`.
+  Our `/sign-up/` validator already accepts exactly the app's authorize URL as `redirect_url`.
 - **S1-4 (D3):** build **B** (self-hosted `clerk.browser.js`) is chosen: 82 KB instead of 569 KB on a
   page people open just to sign in. Its chunk loader can only load from our origin (`currentScript`
   base) and, under S1-1, cannot insert any script at all, so a flow that ever needs a chunk fails closed
@@ -305,7 +309,12 @@ any time." (founder-approved). The choice goes into the sign-up as `unsafeMetada
 (also through `authenticateWithRedirect` for Google). `unsafeMetadata` is user-writable, so it is
 only the carrier (reviewer A #8, B #10): the account Worker's `user.created` handler copies it into
 `private_metadata.marketing` with the server's time and a wording version, and the dashboard reads
-only that copy. Withdrawal is the unsubscribe link in each email (clears the private copy). Clerk's
+only that copy. Withdrawal is the unsubscribe link in each email (clears the private copy).
+**Built (session 68):** `workers/account/src/routes/clerk-webhook.ts`, `user.created`: exactly
+`true` is copied as `private_metadata.marketing = {consent: true, at: <server time>, wording:
+"tips-2026-09"}` (`MARKETING_WORDING_VERSION`); anything else writes nothing; a 404 is done, any
+other failure is 503 so Svix retries. The production webhook must subscribe to `user.created` as
+well as `user.deleted`. Clerk's
 `legal_consent` is turned on so `legalAccepted: true` records the Terms acceptance on Clerk's server.
 
 ### D7 "Create an account" from the app
@@ -321,7 +330,9 @@ the sandbox it returns the development pages' origin, so the sandbox button exer
 block allowed by its exact hash, system fonts, no script, no images, and
 `frame-ancestors 'none'; base-uri 'none'; form-action 'none'` (they do not fall back to
 `default-src`). The CSP test becomes an exact match, not a prefix (reviewer A #12). Rust: rides with
-the batch's full gates.
+the batch's full gates. **Built (session 68):** `STYLE` + `content_security_policy()` (hash
+computed from the constant, pinned in the test); checked in a browser that the style applies
+under the exact policy.
 
 ### D9 Instances and testing
 - **Page development uses a second Clerk application** ("Zaaheen pages (dev)", free plan), with its

@@ -6,7 +6,8 @@
 //
 // Order: request checks (no upstream call for a bad request), the signing
 // key (so a broken deploy fails before any write), Clerk verify, the user,
-// the §5 decision, then the signature. The lease is signed for the subject
+// the §5 decision (whose first call looks the email up in TRIALS,
+// ACCOUNT-DELETION-DESIGN D8), then the signature. The lease is signed for the subject
 // Clerk verified, never for anything the client sent.
 
 import { ClerkClient } from "../clerk";
@@ -17,6 +18,7 @@ import { type LeasePayload, type LeaseSigningKey, importLeaseKey, signLease } fr
 import { PaddleClient } from "../paddle";
 import { parseRecord } from "../record";
 import { OFFLINE_DAYS } from "../time";
+import { TrialError, firstTrialStart } from "../trials";
 import { UpstreamError } from "../upstream";
 import { type RouteDeps, authenticate, log, readJsonObject } from "./common";
 
@@ -53,6 +55,15 @@ export async function handleLease(request: Request, config: Config, deps: RouteD
       now,
       killSwitch: config.killSwitch,
       productId: config.paddle.productId,
+      // ACCOUNT-DELETION-DESIGN D8: the email and fingerprint are never logged.
+      firstTrialStart: async () => {
+        try {
+          return await firstTrialStart(deps.trials, config.trials.key, auth.user.primaryEmail, now);
+        } catch (e) {
+          log("lease", "trial_store_error", e instanceof TrialError ? e.message : undefined);
+          throw e;
+        }
+      },
       fetchSubscriptions: (customerId) => paddle.listSubscriptions(customerId),
       writeRecord: (patch) => clerk.mergeRecord(auth.sub, patch),
     });

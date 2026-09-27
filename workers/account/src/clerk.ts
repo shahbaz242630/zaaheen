@@ -2,6 +2,7 @@
 //
 //   POST  /v1/oauth_applications/access_tokens/verify   {access_token}
 //   GET   /v1/users/{user_id}
+//   GET   /v1/oauth_applications?limit=100  (the sweep's instance check)
 //   PATCH /v1/users/{user_id}/metadata   {private_metadata}  (deep merge;
 //                                         null deletes a key)
 //
@@ -74,6 +75,20 @@ export class ClerkClient {
     return { id: userId, primaryEmail: primaryEmail(body), privateMetadata: body["private_metadata"] };
   }
 
+  /**
+   * Whether the secret key's instance lists our OAuth application (session 68,
+   * review M1): a positive proof that the key is the right instance's, asked
+   * before the sweep cancels anything. Throws on any failure.
+   */
+  async instanceHasOurApp(): Promise<boolean> {
+    const what = "clerk list oauth applications";
+    const response = await send(this.fetch, what, `${API}/oauth_applications?limit=100`, { method: "GET", headers: this.headers({}) });
+    if (response.status !== 200) throw new UpstreamError(`${what}: status ${response.status}`);
+    const body = await readJson(what, response);
+    if (!isObject(body) || !Array.isArray(body["data"])) throw new UpstreamError(`${what}: unexpected body`);
+    return body["data"].some((app) => isObject(app) && app["client_id"] === this.config.clientId);
+  }
+
   /** Deep-merge `patch` into `private_metadata.zaaheen_memory`. */
   async mergeRecord(userId: string, patch: RecordPatch): Promise<void> {
     const what = "clerk merge metadata";
@@ -84,6 +99,25 @@ export class ClerkClient {
       body: JSON.stringify({ private_metadata: { [RECORD_KEY]: patch } }),
     });
     if (response.status !== 200) throw new UpstreamError(`${what}: status ${response.status}`);
+  }
+
+  /**
+   * Deep-merge top-level `private_metadata` keys other than our record
+   * (AUTH-PAGES-DESIGN D6's `marketing`). `false` when Clerk has no such
+   * user (404); throws on any other failure.
+   */
+  async mergePrivate(userId: string, fields: Record<string, unknown>): Promise<boolean> {
+    const what = "clerk merge private metadata";
+    if (!USER_ID.test(userId)) throw new UpstreamError(`${what}: bad user id`);
+    if (RECORD_KEY in fields) throw new UpstreamError(`${what}: the record has its own writer`);
+    const response = await send(this.fetch, what, `${API}/users/${userId}/metadata`, {
+      method: "PATCH",
+      headers: this.headers({ "content-type": "application/json" }),
+      body: JSON.stringify({ private_metadata: fields }),
+    });
+    if (response.status === 404) return false;
+    if (response.status !== 200) throw new UpstreamError(`${what}: status ${response.status}`);
+    return true;
   }
 
   private headers(extra: Record<string, string>): Record<string, string> {

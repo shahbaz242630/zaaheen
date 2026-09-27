@@ -288,6 +288,17 @@ impl AccountOps {
         Ok(())
     }
 
+    /// The delete-account page's link (ACCOUNT-DELETION-DESIGN D5), built
+    /// from this build's own configuration. Nothing the webview sends can
+    /// steer it: it takes no argument.
+    ///
+    /// # Errors
+    ///
+    /// [`OpsError::Link`] when this build's issuer gives no such page.
+    pub fn delete_account_link(&self) -> Result<ExternalLink, OpsError> {
+        Ok(ExternalLink::delete_account(&self.config)?)
+    }
+
     /// "I've paid" and the checkout poll: one refresh, then the fresh view.
     ///
     /// # Errors

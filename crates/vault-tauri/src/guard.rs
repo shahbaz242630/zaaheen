@@ -356,6 +356,15 @@ pub const OPEN_COMMANDS: &[&str] = &[
     // The lock and sign-in screens never wait on it; it holds no vault and
     // no account -- see `commands/keeper.rs` and its source test.
     "link_state",
+    // A **widening**, approved with ADR-112 (session 67; ADR-SEC-035): "Delete
+    // my account" must be reachable from every lock screen, because people
+    // whose trial ended are the likeliest to leave. The account slot, argued
+    // as ADR-SEC-030 amendment 1 argued its own: `delete_account_open` holds
+    // only the account (no vault); `delete_account_start` is given no vault
+    // handle, and its one vault effect is the erasure `erase_everything`
+    // (already open) runs, through the same keeper path.
+    "delete_account_start",
+    "delete_account_open",
 ];
 
 #[cfg(test)]
@@ -882,12 +891,15 @@ mod tests {
                 "export_memories",
                 "startup_state",
                 "link_state",
+                "delete_account_start",
+                "delete_account_open",
             ],
             "widening the allowlist is a founder decision, not a refactor. The six \
              account entries fill 8.26 6.4's existing `account` slot (steps 4b and \
              4d-1, 8.37 and 8.38); `export_memories` fills the `export` slot (4c); \
              `startup_state` is the founder-approved widening of session 55 \
-             (ADR-SEC-030 amendment 1); `link_state` is ADR-108's (session 60)."
+             (ADR-SEC-030 amendment 1); `link_state` is ADR-108's (session 60); \
+             the two `delete_account_*` are ADR-112's (session 67, ADR-SEC-035)."
         );
     }
 
