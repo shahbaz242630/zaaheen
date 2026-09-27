@@ -1,4 +1,13 @@
-import { SITE, RELEASE, COMPANY, absolute, type PageEntry } from '../data/site';
+import { SITE, RELEASE, COMPANY, PRICES, absolute, breadcrumbsFor, type PageEntry } from '../data/site';
+
+// A subscription plan as a schema.org Offer: the price per billing period.
+const plan = (name: string, price: number, billingDuration: 'P1M' | 'P1Y') => ({
+  '@type': 'Offer',
+  name,
+  price: String(price),
+  priceCurrency: PRICES.currency,
+  priceSpecification: { '@type': 'UnitPriceSpecification', price: String(price), priceCurrency: PRICES.currency, billingDuration },
+});
 
 // JSON-LD for a page. Everything stated here must also be visible on the page:
 // structured data describes content, it never adds claims of its own.
@@ -10,7 +19,7 @@ import { SITE, RELEASE, COMPANY, absolute, type PageEntry } from '../data/site';
 //   expected, not a bug).
 // - FAQPage / HowTo: those rich results no longer exist.
 // - sameAs: added once the founder names the official profiles.
-export function graphFor(page: PageEntry, modified?: string): string {
+export function graphFor(page: PageEntry, modified?: string, published?: string): string {
   const org = `${SITE.origin}/#organization`;
   const website = `${SITE.origin}/#website`;
   const app = `${SITE.origin}/#app`;
@@ -71,10 +80,39 @@ export function graphFor(page: PageEntry, modified?: string): string {
         ? {
             downloadUrl: RELEASE.windows.url,
             fileSize: RELEASE.windows.size,
-            offers: { '@type': 'Offer', price: '0', priceCurrency: 'GBP' },
+            // One Offer per plan, from PRICES; the free trial is stated in the
+            // page text. scripts/audit.mjs requires exactly these.
+            offers: [plan('Monthly', PRICES.monthly, 'P1M'), plan('Yearly', PRICES.yearly, 'P1Y')],
           }
         : {}),
       publisher: { '@id': org },
+    });
+  }
+
+  // A how-to guide: an Article whose headline is the page's H1 (Guide.astro
+  // renders page.heading), written and published by the company.
+  if (page.heading) {
+    graph.push({
+      '@type': 'Article',
+      '@id': `${url}#article`,
+      headline: page.heading,
+      description: page.description,
+      inLanguage: SITE.lang,
+      mainEntityOfPage: { '@id': `${url}#webpage` },
+      image: absolute(SITE.ogImage),
+      author: { '@id': org },
+      publisher: { '@id': org },
+      ...(published ? { datePublished: published } : {}),
+      ...(modified ? { dateModified: modified } : {}),
+    });
+  }
+
+  // Nested pages only, the same trail components/Breadcrumbs.astro shows.
+  const trail = breadcrumbsFor(page);
+  if (trail.length) {
+    graph.push({
+      '@type': 'BreadcrumbList',
+      itemListElement: trail.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: absolute(c.path) })),
     });
   }
 

@@ -9,6 +9,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { expectedOffers } from './site-facts.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(HERE, '..', 'dist');
@@ -57,6 +58,34 @@ const payConfig = (env, token) => edit('pay/index.html', (s) => {
   }
   return out;
 });
+
+// Rewrites the JSON-LD graph of `rel`; throws if the page has none or the edit
+// changed nothing, so a case can never pass by testing nothing.
+const ldEdit = (rel, fn) => edit(rel, (s) => {
+  const out = s.replace(/(<script type="application\/ld\+json">)([\s\S]*?)(<\/script>)/, (_, open, json, close) => {
+    const doc = JSON.parse(json);
+    fn(doc['@graph']);
+    return `${open}${JSON.stringify(doc)}${close}`;
+  });
+  if (out === s) throw new Error(`audit.test: the JSON-LD edit on ${rel} changed nothing`);
+  return out;
+});
+const appNode = (graph) => {
+  const app = graph.find((n) => n['@type'] === 'SoftwareApplication');
+  if (!app) throw new Error('audit.test: the home page JSON-LD has no SoftwareApplication');
+  return app;
+};
+// The offers as lib/seo.ts writes them, built from PRICES (scripts/site-facts.mjs).
+const offersFor = (list) => list.map((o) => ({
+  '@type': 'Offer', price: String(o.price), priceCurrency: o.priceCurrency,
+  priceSpecification: { '@type': 'UnitPriceSpecification', price: String(o.price), priceCurrency: o.priceCurrency, billingDuration: o.billingDuration },
+}));
+const KC_TERMS = 'knowledge-centre/terms/index.html';
+const crumbList = (graph) => {
+  const list = graph.find((n) => n['@type'] === 'BreadcrumbList');
+  if (!list) throw new Error('audit.test: the page has no BreadcrumbList');
+  return list;
+};
 
 // The app on sale: an installer link on the home page (RELEASE.available in
 // src/data/site.ts). Only then must a release build take live payments.
@@ -126,6 +155,34 @@ const cases = [
   ['privacy page missing', (d) => fs.rmSync(path.join(d, 'privacy'), { recursive: true }), /privacy\/index\.html: required file is missing/],
   ['security.txt missing', (d) => fs.rmSync(path.join(d, '.well-known'), { recursive: true }), /\.well-known\/security\.txt: required file is missing/],
   ['security.txt expired', edit('.well-known/security.txt', (s) => s.replace(/^Expires: .*$/m, 'Expires: 2020-01-01T00:00:00.000Z')), /security\.txt: Expires must be between 30 days and a year from now/],
+  // The app's prices in JSON-LD must be PRICES in src/data/site.ts (SEO-HANDOFF §1 step 2).
+  ['on sale with no prices in JSON-LD', onSale, /index\.html: the app is on sale but its JSON-LD states no prices/],
+  ['free, in pounds (the old offer)', ldEdit('index.html', (g) => { appNode(g).offers = { '@type': 'Offer', price: '0', priceCurrency: 'GBP' }; }), /index\.html: JSON-LD offers do not match PRICES/],
+  ['wrong currency', ldEdit('index.html', (g) => { appNode(g).offers = offersFor(expectedOffers().map((o) => ({ ...o, priceCurrency: 'GBP' }))); }), /index\.html: JSON-LD offers do not match PRICES/],
+  ['monthly and yearly swapped', ldEdit('index.html', (g) => { appNode(g).offers = offersFor(expectedOffers().reverse()); }), /index\.html: JSON-LD offers do not match PRICES/],
+  ['yearly plan missing', ldEdit('index.html', (g) => { appNode(g).offers = offersFor(expectedOffers().slice(0, 1)); }), /index\.html: JSON-LD offers do not match PRICES/],
+  ['price specification disagrees', ldEdit('index.html', (g) => { const o = offersFor(expectedOffers()); o[0].priceSpecification.price = '1'; appNode(g).offers = o; }), /index\.html: JSON-LD offers do not match PRICES/],
+  // Breadcrumbs on nested pages only, the JSON-LD identical to the visible trail (step 3).
+  ['nested page without a visible trail', edit(KC_TERMS, (s) => s.replace(/<nav\b[^>]*aria-label="Breadcrumb"[\s\S]*?<\/nav>/, '')), /knowledge-centre\/terms\/index\.html: a nested or policy page must show one breadcrumb trail/],
+  ['nested page without BreadcrumbList', ldEdit(KC_TERMS, (g) => { g.splice(g.indexOf(crumbList(g)), 1); }), /knowledge-centre\/terms\/index\.html: a nested or policy page must carry one BreadcrumbList/],
+  ['breadcrumb name differs', ldEdit(KC_TERMS, (g) => { crumbList(g).itemListElement[1].name = 'Coaching'; }), /knowledge-centre\/terms\/index\.html: the breadcrumb JSON-LD does not match the visible trail/],
+  ['breadcrumb URL differs', ldEdit(KC_TERMS, (g) => { crumbList(g).itemListElement[1].item = 'https://zaaheen.com/docs/'; }), /knowledge-centre\/terms\/index\.html: the breadcrumb JSON-LD does not match the visible trail/],
+  ['breadcrumb item dropped', ldEdit(KC_TERMS, (g) => { crumbList(g).itemListElement.pop(); }), /knowledge-centre\/terms\/index\.html: the breadcrumb JSON-LD does not match the visible trail/],
+  ['trail not ending on the page', edit(KC_TERMS, (s) => { const out = s.replace(/\saria-current="page"(?=[^<]*>[^<]*<\/span>\s*<\/li>\s*<\/ol>)/, ''); if (out === s) throw new Error('audit.test: no current crumb'); return out; }), /knowledge-centre\/terms\/index\.html: the breadcrumb trail must run from Home/],
+  // The policies' trail is Home › Documents › the page (founder, session 71).
+  ['policy page without a visible trail', edit('terms/index.html', (s) => s.replace(/<nav\b[^>]*aria-label="Breadcrumb"[\s\S]*?<\/nav>/, '')), /terms\/index\.html: a nested or policy page must show one breadcrumb trail/],
+  ['policy page without BreadcrumbList', ldEdit('privacy/index.html', (g) => { g.splice(g.indexOf(crumbList(g)), 1); }), /privacy\/index\.html: a nested or policy page must carry one BreadcrumbList/],
+  ['policy crumb under the wrong parent', ldEdit('refunds/index.html', (g) => { crumbList(g).itemListElement[1].item = 'https://zaaheen.com/knowledge-centre/'; }), /refunds\/index\.html: the breadcrumb JSON-LD does not match the visible trail/],
+  // Full snippets and large image previews on every listed page (step 4).
+  ['robots meta removed', edit('pricing/index.html', (s) => { const out = s.replace(/<meta name="robots"[^>]*>/, ''); if (out === s) throw new Error('audit.test: no robots meta'); return out; }), /pricing\/index\.html: robots meta must allow "max-snippet:-1"/],
+  ['snippet length capped', edit('index.html', (s) => { const out = s.replace('max-snippet:-1', 'max-snippet:50'); if (out === s) throw new Error('audit.test: no max-snippet'); return out; }), /index\.html: robots meta must allow "max-snippet:-1"/],
+  ['small image previews', edit('index.html', (s) => { const out = s.replace('max-image-preview:large', 'max-image-preview:standard'); if (out === s) throw new Error('audit.test: no max-image-preview'); return out; }), /index\.html: robots meta must allow "max-image-preview:large"/],
+  // Guides are Articles by the company, headline = H1 (step 6).
+  ['guide without an Article', ldEdit('docs/connect-claude/index.html', (g) => { const i = g.findIndex((n) => n['@type'] === 'Article'); if (i < 0) throw new Error('audit.test: no Article'); g.splice(i, 1); }), /docs\/connect-claude\/index\.html: a guide must carry one Article/],
+  ['Article headline differs from the H1', ldEdit('docs/connect-cursor/index.html', (g) => { g.find((n) => n['@type'] === 'Article').headline = 'Cursor memory'; }), /docs\/connect-cursor\/index\.html: the Article headline "Cursor memory" is not the page's H1/],
+  ['Article by someone else', ldEdit('docs/troubleshooting/index.html', (g) => { g.find((n) => n['@type'] === 'Article').author = { '@type': 'Person', name: 'x' }; }), /docs\/troubleshooting\/index\.html: the Article author and publisher must be the company/],
+  ['guide missing', (d) => fs.rmSync(path.join(d, 'docs', 'getting-started'), { recursive: true }), /broken internal link or asset: \/docs\/getting-started\//],
+  ['breadcrumb on a top-level page', edit('docs/index.html', (s) => s.replace('<main>', '<main><nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li></ol></nav>')), /docs\/index\.html: a top-level page must not carry a breadcrumb trail/],
   ['security.txt wrong contact', edit('.well-known/security.txt', (s) => s.replace('customerservice@', 'someone@')), /security\.txt: must have "Contact: mailto:customerservice@zaaheen\.com"/],
 ];
 
@@ -190,5 +247,23 @@ console.log(`${clean.status === 0 ? 'ok  ' : 'FAIL'}  untouched build passes${cl
   }
 }
 
-console.log(failed ? `\naudit.test: ${failed} failure(s)` : `\naudit.test: all ${cases.length + 3} passed`);
+// The other side of the price cases: on sale, with the offers lib/seo.ts writes
+// from PRICES, the audit raises nothing about the offers.
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zaaheen-audit-'));
+  try {
+    fs.cpSync(DIST, dir, { recursive: true });
+    onSale(dir);
+    ldEdit('index.html', (g) => { appNode(g).offers = offersFor(expectedOffers()); })(dir);
+    const r = spawnSync(process.execPath, [AUDIT, dir], { encoding: 'utf8' });
+    const out = `${r.stdout}${r.stderr}`;
+    const accepted = r.status === 0;
+    if (!accepted) failed++;
+    console.log(`${accepted ? 'ok  ' : 'FAIL'}  on sale with the offers from PRICES passes${accepted ? '' : `\n${out}`}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+console.log(failed ? `\naudit.test: ${failed} failure(s)` : `\naudit.test: all ${cases.length + 4} passed`);
 process.exit(failed ? 1 : 0);

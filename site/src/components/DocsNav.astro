@@ -1,19 +1,20 @@
 ---
-import { COACHING_POLICIES, DOCS_SECTIONS, POLICIES } from '../data/site';
+import { COACHING_POLICIES, DOCS_SECTIONS, GUIDES, POLICIES } from '../data/site';
 
-// The Documents menu on the left (founder, session 67): two dropdowns, "Using
-// Zaaheen" (the how-to sections of /docs/) and "Policies" (each policy on its
-// own page). The group holding the page you're on starts open. Plain
+// The Documents menu on the left (founder, session 67): dropdowns for "Using
+// Zaaheen" (the how-to sections of /docs/), "Guides" (one task per page,
+// session 71) and "Policies" (each policy on its own page). The group holding the page you're on starts open. Plain
 // <details>, so it opens and closes with no script. On a coaching document
 // (founder, session 70: coaching is "a completely separate thing") it lists
 // coaching's own documents only.
 interface Props {
-  /** '/docs/' or a policy's path. */
+  /** '/docs/', a guide's path or a policy's path. */
   current: string;
   coaching?: boolean;
 }
 const { current, coaching = false } = Astro.props;
 const onDocs = current === '/docs/';
+const onGuide = GUIDES.some((g) => g.path === current);
 ---
 {coaching ? (
   <nav class="docs-sections" aria-label="Coaching documents">
@@ -33,7 +34,13 @@ const onDocs = current === '/docs/';
         <a href={onDocs ? `#${s.id}` : `/docs/#${s.id}`} data-section={onDocs ? s.id : undefined}>{s.title}</a>
       ))}
     </details>
-    <details class="docs-group" open={!onDocs}>
+    <details class="docs-group" open={onGuide}>
+      <summary>Guides</summary>
+      {GUIDES.map((g) => (
+        <a href={g.path} aria-current={g.path === current ? 'page' : undefined}>{g.label}</a>
+      ))}
+    </details>
+    <details class="docs-group" open={!onDocs && !onGuide}>
       <summary>Policies</summary>
       {POLICIES.map((p) => (
         <a href={p.path} aria-current={p.path === current ? 'page' : undefined}>{p.label}</a>

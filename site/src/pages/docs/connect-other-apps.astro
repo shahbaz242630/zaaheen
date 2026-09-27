@@ -1,0 +1,51 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import Row from '../../components/Row.astro';
+import { INSTALL_PATH, verifiedAppList } from '../../data/site';
+
+// Any other MCP app, in the app's own words: AGENTS "Another app" and
+// AGENT_CHECKS in crates/vault-tauri/dist/app.js. Only apps in VERIFIED_APPS
+// are named on the site (SEO-HANDOFF §3 rule 6); the app's Agents tab has
+// steps for more.
+const snippet = `{
+  "mcpServers": {
+    "zaaheen": {
+      "command": ${JSON.stringify(INSTALL_PATH)},
+      "args": ["mcp", "serve"]
+    }
+  }
+}`;
+const OUTLINE = [
+  { id: 'what', title: 'What your app needs' },
+  { id: 'setting', title: 'The setting' },
+  { id: 'check', title: 'Check it worked' },
+];
+---
+<Guide
+  path="/docs/connect-other-apps/"
+  lede="Zaaheen connects to AI apps over MCP, the standard way AI apps connect to tools. Give your app the setting below, or copy it from the Agents tab in Zaaheen, which shows it for your computer exactly."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row id="what" title="What your app needs" where="MCP">
+      <p>Your AI app needs to support MCP servers that run on your computer. We have tested Zaaheen
+         with {verifiedAppList()}, and each has its own guide. Other apps that support MCP should
+         work the same way. The <em>Agents</em> tab in Zaaheen has step-by-step instructions for
+         more apps.</p>
+    </Row>
+
+    <Row id="setting" title="The setting" where="Agents › Another app">
+      <p>Most apps take the setting in this form. Add it where your app keeps its MCP servers, save
+         it, then restart the app:</p>
+      <pre><code>{snippet}</code></pre>
+      <p>That is where Zaaheen usually installs. In Zaaheen, the <em>Agents</em> tab, then
+         <em>+ Connect an AI app</em>, then <em>Another app</em> shows the setting for your computer
+         exactly, ready to copy.</p>
+    </Row>
+
+    <Row id="check" title="Check it worked" where="Your app">
+      <p>Your app's list of tools or MCP servers shows Zaaheen. While the app is open and connected,
+         it also shows in Zaaheen's <em>Agents</em> tab.</p>
+    </Row>
+  </section>
+</Guide>

@@ -1,0 +1,51 @@
+---
+import Base from './Base.astro';
+import DocsNav from '../components/DocsNav.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import { pageFor } from '../data/site';
+import { lastModified } from '../lib/lastmod';
+
+// A how-to guide (SEO-HANDOFF §1 step 6): one task per page. The breadcrumb
+// trail, the H1 (the PAGES entry's heading, also the Article JSON-LD headline),
+// the answer in the lede, then the steps as settings-style rows, with the
+// Documents menu on the left and "On this page" on the right. Every step uses
+// the desktop app's own words (crates/vault-tauri/dist/app.js), so a label
+// renamed there must be renamed here too.
+interface Props {
+  path: string;
+  /** The answer, in a sentence or two. */
+  lede: string;
+  /** The page's sections, for "On this page"; the rows use the same ids. */
+  outline: { id: string; title: string }[];
+}
+const { path, lede, outline } = Astro.props;
+const page = pageFor(path);
+if (!page.heading) throw new Error(`Guide ${path} needs a heading in its PAGES entry`);
+const updated = lastModified(page.sources);
+const updatedLabel = updated
+  ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  : undefined;
+---
+<Base page={page}>
+  <div class="docs">
+    <header class="docs-head">
+      <Breadcrumbs page={page} />
+      <h1>{page.heading}</h1>
+      <p>{lede}</p>
+      {updatedLabel && <p class="doc-updated">Last updated {updatedLabel}</p>}
+    </header>
+
+    <div class="docs-layout">
+      <DocsNav current={path} />
+
+      <div class="docs-body">
+        <slot />
+      </div>
+
+      <aside class="docs-toc" aria-label="On this page">
+        <p class="docs-toc-title">On this page</p>
+        {outline.map((s) => <a class="docs-toc-section" href={`#${s.id}`}>{s.title}</a>)}
+      </aside>
+    </div>
+  </div>
+</Base>

@@ -1,0 +1,66 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import Row from '../../components/Row.astro';
+import { INSTALL_PATH, TIP_LINE } from '../../data/site';
+
+// Claude Desktop, in the app's own words: CONNECT_WORDS.claude_desktop,
+// AGENTS (the setting by hand), AGENT_CHECKS and AGENT_TIPS in
+// crates/vault-tauri/dist/app.js. "Connect it for me" is ADR-106.
+const snippet = `{
+  "mcpServers": {
+    "zaaheen": {
+      "command": ${JSON.stringify(INSTALL_PATH)},
+      "args": ["mcp", "serve"]
+    }
+  }
+}`;
+const OUTLINE = [
+  { id: 'connect', title: 'Connect it' },
+  { id: 'not-asked', title: "If Claude doesn't ask" },
+  { id: 'by-hand', title: 'Add the setting yourself' },
+  { id: 'check', title: 'Check it worked' },
+  { id: 'tip', title: 'Make Claude check Zaaheen' },
+];
+---
+<Guide
+  path="/docs/connect-claude/"
+  lede="In Zaaheen, open the Agents tab, choose + Connect an AI app, then Claude Desktop and Connect it for me. Claude asks you to install Zaaheen: click Install, and it's connected. It works in Claude's Chat and Cowork."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row id="connect" title="Connect it" where="Agents › Connect">
+      <p>Zaaheen connects to the Claude app for your computer. It saves a small Claude extension,
+         and Claude asks you to install it. Zaaheen never changes Claude's settings itself.</p>
+      <ol>
+        <li>In Zaaheen, open the <em>Agents</em> tab and choose <em>+ Connect an AI app</em>.</li>
+        <li>Choose <em>Claude Desktop</em>, then <em>Connect it for me</em>.</li>
+        <li>Claude asks you to install Zaaheen. Click <em>Install</em>, and it's connected.</li>
+      </ol>
+    </Row>
+
+    <Row id="not-asked" title="If Claude doesn't ask" where="Claude › Settings">
+      <p>Zaaheen saves the extension to your Downloads folder. In Claude, open Settings, then
+         Extensions, then Advanced settings, then Install Extension, and choose
+         "Zaaheen for Claude.mcpb".</p>
+    </Row>
+
+    <Row id="by-hand" title="Add the setting yourself" where="Claude › Developer">
+      <p>If Zaaheen says it couldn't find, save or open Claude, add the setting yourself. In Claude,
+         open Settings, then Developer, then Edit Config. Add this to the file it shows you, save it,
+         then quit Claude and open it again:</p>
+      <pre><code>{snippet}</code></pre>
+      <p>That is where Zaaheen usually installs. The <em>Agents</em> tab shows the setting for your
+         computer exactly, ready to copy.</p>
+    </Row>
+
+    <Row id="check" title="Check it worked" where="Claude › Extensions">
+      <p>In Claude, open Settings, then Extensions. Zaaheen is listed there and switched on.</p>
+    </Row>
+
+    <Row id="tip" title="Make Claude check Zaaheen" where="Claude › Settings">
+      <p>Claude looks in its own memory first and may stop there. So it checks Zaaheen as well, add
+         this line to your personal preferences in Claude's Settings:</p>
+      <pre><code>{TIP_LINE}</code></pre>
+    </Row>
+  </section>
+</Guide>
