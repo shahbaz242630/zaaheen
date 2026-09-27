@@ -36,7 +36,8 @@ const PAY_CSP =
 // footer links to each one: Paddle's domain review wants the Terms, Refund and
 // Privacy pages clearly reachable, and Google and Clerk link to them directly.
 const POLICIES = { '/terms/': 'Terms of Service', '/privacy/': 'Privacy Policy', '/refunds/': 'Refund Policy',
-  '/ai-and-your-data/': 'AI and Your Data', '/security/': 'Security page', '/company/': 'Company Information' };
+  '/ai-and-your-data/': 'AI and Your Data', '/security/': 'Security page', '/company/': 'Company Information',
+  '/licences/': 'Open-source licences' };
 const errors = [];
 const fail = (where, msg) => errors.push(`${where}: ${msg}`);
 
@@ -58,7 +59,7 @@ for (const rel of [
   'index.html', '404.html', 'robots.txt', 'sitemap.xml', 'llms.txt', '.htaccess',
   'favicon.ico', 'favicon.svg', 'favicon-192.png', 'apple-touch-icon.png',
   'icon-192.png', 'icon-512.png', 'manifest.webmanifest', 'og.png', `${INDEXNOW_KEY}.txt`,
-  'pay/index.html', 'pay/.htaccess',
+  'pay/index.html', 'pay/.htaccess', '.well-known/security.txt',
   ...Object.keys(POLICIES).map((u) => `${u.slice(1)}index.html`),
 ]) {
   if (!files.includes(rel)) fail(rel, 'required file is missing from the build');
@@ -123,6 +124,22 @@ if (files.includes('.htaccess')) {
 
 if (files.includes(`${INDEXNOW_KEY}.txt`) && read(`${INDEXNOW_KEY}.txt`).trim() !== INDEXNOW_KEY) {
   fail(`${INDEXNOW_KEY}.txt`, 'IndexNow key file does not contain its own key');
+}
+
+// --- security.txt (RFC 9116; LEGAL-DOCUMENTS-DESIGN, session 69) -------------------
+// It must name our support address and must not have expired: an expired file
+// tells researchers the contact is stale. RFC 9116 asks for an expiry less than
+// a year ahead; this fails 30 days before it lapses, so it is renewed in time.
+if (files.includes('.well-known/security.txt')) {
+  const txt = read('.well-known/security.txt').replace(/\r/g, '');
+  if (!/^Contact: mailto:customerservice@zaaheen\.com$/m.test(txt)) {
+    fail('.well-known/security.txt', 'must have "Contact: mailto:customerservice@zaaheen.com"');
+  }
+  const expires = Date.parse((txt.match(/^Expires: (\S+)$/m) || [])[1] || '');
+  const now = Date.now();
+  if (!(expires > now + 30 * 86400000) || expires > now + 366 * 86400000) {
+    fail('.well-known/security.txt', 'Expires must be between 30 days and a year from now; renew it');
+  }
 }
 
 // --- Nothing private or build-internal is published ------------------------------

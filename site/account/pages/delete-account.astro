@@ -9,7 +9,7 @@ import Account from '../layouts/Account.astro';
 import CommonViews from '../components/CommonViews.astro';
 import CodeView from '../components/CodeView.astro';
 import GoogleButton from '../components/GoogleButton.astro';
-import { COMPANY } from '../../src/data/site';
+import { COACHING, COMPANY } from '../../src/data/site';
 ---
 <Account title="Delete my account" page="delete-account" panel="none">
   <CommonViews />
@@ -37,12 +37,12 @@ import { COMPANY } from '../../src/data/site';
     <p class="acct-lede">Signed in as <strong id="delete-email"></strong>. Deleting it removes, for good:</p>
     <ul class="acct-gone">
       <li>your Zaaheen account: your name, your email address and how you sign in;</li>
-      <li>your sign-in for coaching in the Knowledge Centre, which uses the same account;</li>
       <li>any subscription, cancelled straight away with no refund of the time left. If you paid
           in the last 14 days, email us for a refund first.</li>
     </ul>
     <p class="acct-lede">It doesn't touch the memories on your computers. To remove those, use
-       <em>Delete everything</em> in the Zaaheen app.</p>
+       <em>Delete everything</em> in the Zaaheen app. Coaching bookings are kept separately: to
+       have them deleted, email <a href={`mailto:${COACHING.email}`}>{COACHING.email}</a>.</p>
     <form id="delete-form" class="acct-fields" novalidate>
       <div class="acct-field">
         <label for="delete-typed">Type DELETE to confirm</label>

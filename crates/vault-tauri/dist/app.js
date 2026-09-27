@@ -1641,6 +1641,26 @@ async function onDeleteAccountReopen() {
   }
 }
 
+// -- documents (founder, session 69; ADR-SEC-036) --
+
+// A document is asked for by its name; the app holds the only list of
+// addresses and opens the browser itself, so nothing on this page can
+// steer where it goes.
+async function onDocumentClick(e) {
+  const button = e.target.closest("button[data-doc]");
+  if (!button) return;
+  const status = $("documents-status");
+  status.textContent = "";
+  try {
+    const result = await invoke("open_document", { doc: button.dataset.doc });
+    if (!(result && result.opened)) {
+      status.textContent = `Your browser did not open. The page is at ${result && result.page ? result.page : "zaaheen.com"}.`;
+    }
+  } catch (_) {
+    status.textContent = "That page could not be opened. Our guides and policies are on zaaheen.com.";
+  }
+}
+
 // -- diagnostic log export (ADR-SEC-017) --
 
 // The save dialog. Guarded like the other bridges so the UI still renders in a
@@ -3142,6 +3162,7 @@ function init() {
   // home — settings
   $("settings-nav").addEventListener("click", onSettingsNav);
   $("export-logs").addEventListener("click", exportLogs);
+  $("documents-list").addEventListener("click", onDocumentClick);
 
   // home — settings — delete everything (ADR-SEC-008)
   $("erase-reveal").addEventListener("click", revealEraseConfirm);

@@ -199,11 +199,18 @@ export const PAGES: PageEntry[] = [
     sources: ['src/pages/company.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
   },
   {
+    path: '/licences/',
+    title: 'Open-source licences · Zaaheen',
+    description:
+      'Zaaheen includes open-source software and AI models used under their own licences, such as MIT and Apache 2.0. How we honour them and where to find the notices.',
+    sources: ['src/pages/licences.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
+  },
+  {
     path: '/pricing/',
     title: 'Pricing · Zaaheen',
     description:
-      `Zaaheen pricing: ${TRIAL.days} days free with no card, then ${PLANS.monthly} or ${PLANS.yearly}. One plan with everything included, cancel any time in the app.`,
-    sources: ['src/pages/pricing.astro', 'src/data/site.ts'],
+      `Zaaheen pricing: ${TRIAL.days} days free with no card, then ${PLANS.monthly} or ${PLANS.yearly}. How Zaaheen compares with other AI memory tools and ChatGPT and Claude memory.`,
+    sources: ['src/pages/pricing.astro', 'src/data/site.ts', 'src/data/pricing.ts'],
   },
 ];
 
@@ -218,6 +225,7 @@ export const POLICIES = [
   { path: '/ai-and-your-data/', label: 'AI and Your Data' },
   { path: '/security/', label: 'Security' },
   { path: '/company/', label: 'Company Information' },
+  { path: '/licences/', label: 'Open-source licences' },
 ] as const;
 
 // The Documents menu: how-to sections (anchors on /docs/) and the policies.

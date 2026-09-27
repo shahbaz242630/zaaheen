@@ -38,8 +38,8 @@ const lede = `${SITE.name} is built so that your memories are safe even if somet
     <li>Only apps on your own computer can connect to Zaaheen, never anything from the
         internet.</li>
     <li>Our server holds no memories, so a break-in there could not expose them.</li>
-    <li><em>Delete everything</em> destroys the key, so nothing can be recovered from the
-        files, even from a copy.</li>
+    <li><em>Delete everything</em> destroys the key, so the encrypted files can never be
+        unlocked again, even from a backup of your computer.</li>
   </ul>
 
   <section id="computer" class="docs-section">
@@ -61,12 +61,16 @@ const lede = `${SITE.name} is built so that your memories are safe even if somet
       <p>Your AI apps talk to Zaaheen through a private channel inside your computer. Zaaheen
          refuses connections from other computers and opens nothing to the internet, and each
          app has to introduce itself before Zaaheen answers.</p>
+      <p>This also means Zaaheen cannot protect your memories from harmful software already
+         running on your computer, or from someone who can sign in to your Windows account. Keep
+         Windows up to date and your account protected with a password or PIN.</p>
     </Row>
 
     <Row id="erase" title={topic('erase')} where="Settings › Your memories">
-      <p><em>Delete everything</em> destroys the key first, then the files. Without the key,
-         anything left behind on the disk, in a backup or in a copy can never be unlocked
-         again.</p>
+      <p><em>Delete everything</em> destroys the key first, then the memory files. Without the
+         key, any encrypted copy of those files left on the disk or in a backup of your computer
+         can never be unlocked again. Files you saved with <em>Download my memories</em> are
+         readable copies that are not affected, so delete them yourself.</p>
     </Row>
   </section>
 
@@ -80,8 +84,9 @@ const lede = `${SITE.name} is built so that your memories are safe even if somet
     </Row>
 
     <Row id="server" title={topic('server')} where="Our account service">
-      <p>Our account service knows who you are and whether you have paid, and nothing else. It
-         never receives your memories, so there is nothing there to leak. Everything between the
+      <p>Our account service knows who you are, when your trial started, whether you have paid
+         and the choices you made at sign-up. It never receives your memories, so there is
+         nothing there to leak. Everything between the
          app, our websites and our service travels encrypted.</p>
     </Row>
   </section>
@@ -96,9 +101,12 @@ const lede = `${SITE.name} is built so that your memories are safe even if somet
     </Row>
 
     <Row id="vulnerability" title={topic('vulnerability')} where="Email">
-      <p>If you think you have found a security problem, please email <a href={mail}>{COMPANY.email}</a>
-         with "Security" in the subject, and tell us how to see it. Please give us a chance to fix
-         it before telling anyone else. We will reply, keep you updated, and thank you publicly if
+      <p>If you think you have found a security problem in Zaaheen or our websites, email <a
+         href={mail}>{COMPANY.email}</a> with "Security" in the subject and tell us how to
+         reproduce it. We reply within 5 working days and keep you updated until it is fixed.</p>
+      <p>Please give us 90 days to fix it before telling anyone else, do not access or change
+         other people's data, and do not disrupt our services. If you follow these rules, we will
+         not take legal action against you for your research, and we will thank you publicly if
          you would like.</p>
     </Row>
   </section>

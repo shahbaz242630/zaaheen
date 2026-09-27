@@ -218,6 +218,13 @@ identifier = "allow-server-command"
 description = "Allow invoking the server_command command (the command an AI app runs to reach Zaaheen, for the copy-paste steps: the installed program's full path from Windows, or the short name). Takes nothing from the page."
 commands.allow = ["server_command"]
 
+# Settings > Documents (ADR-SEC-036). Gated.
+
+[[permission]]
+identifier = "allow-open-document"
+description = "Allow invoking the open_document command (open a guide or policy on zaaheen.com in the browser). Takes only the document's name from a closed list; the address is fixed in the app, never sent by the page."
+commands.allow = ["open_document"]
+
 # Where this start is (ADR-105 amendment 1, L-f). Open before the lock,
 # founder-approved (ADR-SEC-030 amendment 1).
 

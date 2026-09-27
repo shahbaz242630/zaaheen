@@ -377,8 +377,27 @@ p.placeholder{border:1px dashed var(--border);border-radius:10px;padding:14px 18
 .plan-tag{position:absolute;top:-13px;left:26px;margin:0;background:var(--sage-text);color:#fff;font:500 12.5px var(--mono);border-radius:999px;padding:4px 12px}
 .plan-price{margin:0 0 6px;color:var(--muted);font-size:16px}
 .plan-amount{font:500 52px/1 var(--serif);color:var(--ink);margin-right:4px}
+.plan-tax{margin:0 0 10px;color:var(--muted);font-size:13px}
 .plan-note{margin:0 0 24px;color:var(--muted);font-size:15px}
 .plan .cta{margin-top:auto}
+.pricing-compare{max-width:1120px;margin:0 auto 56px}
+.pricing-compare h2,.pricing-faq h2{font-size:26px;margin:0 0 10px}
+.pricing-compare-lede{color:var(--ink-soft);margin:0 0 20px;max-width:680px}
+.vs-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+.vs{width:100%;min-width:900px;border-collapse:collapse;font-size:15px;line-height:1.5}
+.vs th,.vs td{padding:14px 16px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+.vs thead th{font:600 12px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.vs tbody tr:last-child th,.vs tbody tr:last-child td{border-bottom:none}
+.vs tbody th{font-weight:600;color:var(--ink)}
+.vs-plan{display:block;font-weight:400;font-size:13px;color:var(--muted)}
+.vs td{color:var(--ink-soft)}
+.vs-us{background:var(--tint)}
+.vs-us th{color:var(--sage-text)}
+.vs-where{font-weight:500;color:var(--ink)}
+.vs-us td{color:var(--ink)}
+.vs-note{font-size:13px;color:var(--muted);margin:14px 0 0;max-width:760px}
+.pricing-faq{max-width:760px;margin:0 auto 64px}
+.pricing-faq .faq-list{margin-top:20px}
 .pricing-included,.pricing-small{max-width:760px;margin:0 auto 44px}
 .pricing-included h2,.pricing-small h2{font-size:26px;margin:0 0 16px}
 .pricing-included ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 28px}

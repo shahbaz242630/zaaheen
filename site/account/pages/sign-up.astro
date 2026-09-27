@@ -9,6 +9,7 @@ import { SITE, TRIAL } from '../../src/data/site';
 
 const terms = new URL('/terms/', SITE.origin).href;
 const privacy = new URL('/privacy/', SITE.origin).href;
+const refunds = new URL('/refunds/', SITE.origin).href;
 ---
 <Account title="Create an account" page="sign-up" panel="connect">
   <CommonViews />
@@ -32,7 +33,7 @@ const privacy = new URL('/privacy/', SITE.origin).href;
         <label for="email">Email</label>
         <input id="email" name="email" type="email" autocomplete="email" required>
       </div>
-      <label class="acct-check"><input id="terms" type="checkbox" required> <span>I agree to the <a href={terms} target="_blank" rel="noopener noreferrer">Terms</a> and the <a href={privacy} target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span></label>
+      <label class="acct-check"><input id="terms" type="checkbox" required> <span>I am 18 or over, and I agree to the <a href={terms} target="_blank" rel="noopener noreferrer">Terms of Service</a> and the <a href={refunds} target="_blank" rel="noopener noreferrer">Refund Policy</a>. I have read the <a href={privacy} target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span></label>
       <label class="acct-check"><input id="tips" type="checkbox"> <span>Send me occasional tips and product news. You can unsubscribe at any time.</span></label>
       <button class="acct-btn" type="submit">Create account</button>
     </form>
@@ -57,7 +58,7 @@ const privacy = new URL('/privacy/', SITE.origin).href;
           <input id="more-last-name" autocomplete="family-name">
         </div>
       </div>
-      <label class="acct-check" data-field="legal_accepted" hidden><input id="more-terms" type="checkbox"> <span>I agree to the <a href={terms} target="_blank" rel="noopener noreferrer">Terms</a> and the <a href={privacy} target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span></label>
+      <label class="acct-check" data-field="legal_accepted" hidden><input id="more-terms" type="checkbox"> <span>I am 18 or over, and I agree to the <a href={terms} target="_blank" rel="noopener noreferrer">Terms of Service</a> and the <a href={refunds} target="_blank" rel="noopener noreferrer">Refund Policy</a>. I have read the <a href={privacy} target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span></label>
       <label class="acct-check" data-field="legal_accepted" hidden><input id="more-tips" type="checkbox"> <span>Send me occasional tips and product news. You can unsubscribe at any time.</span></label>
       <button class="acct-btn" type="submit">Continue</button>
     </form>

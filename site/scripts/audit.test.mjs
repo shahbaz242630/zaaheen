@@ -104,6 +104,9 @@ const cases = [
   ['footer Refunds link removed', footerLink('/refunds/'), /docs\/index\.html: footer must link to the Refund Policy \(\/refunds\/\)/],
   ['refunds page missing', (d) => fs.rmSync(path.join(d, 'refunds'), { recursive: true }), /refunds\/index\.html: required file is missing/],
   ['privacy page missing', (d) => fs.rmSync(path.join(d, 'privacy'), { recursive: true }), /privacy\/index\.html: required file is missing/],
+  ['security.txt missing', (d) => fs.rmSync(path.join(d, '.well-known'), { recursive: true }), /\.well-known\/security\.txt: required file is missing/],
+  ['security.txt expired', edit('.well-known/security.txt', (s) => s.replace(/^Expires: .*$/m, 'Expires: 2020-01-01T00:00:00.000Z')), /security\.txt: Expires must be between 30 days and a year from now/],
+  ['security.txt wrong contact', edit('.well-known/security.txt', (s) => s.replace('customerservice@', 'someone@')), /security\.txt: must have "Contact: mailto:customerservice@zaaheen\.com"/],
 ];
 
 if (!fs.existsSync(DIST)) {

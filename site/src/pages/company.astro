@@ -46,12 +46,13 @@ const lede = `Who is behind ${SITE.name}, where it is licensed, and how to reach
     </Row>
 
     <Row id="what-we-sell" title={topic('what-we-sell')} where="Products">
-      <p>We make the {SITE.name} memory app for Windows, sold as a subscription. Our order
-         process is conducted by our online reseller Paddle.com. Paddle.com is the Merchant of
-         Record for all our orders. Paddle provides all customer service inquiries and handles
-         returns.</p>
+      <p>We make the {SITE.name} memory app for Windows, sold as a subscription. For the app:
+         Our order process is conducted by our online reseller Paddle.com. Paddle.com is the
+         Merchant of Record for all our orders. Paddle provides all customer service inquiries
+         and handles returns.</p>
       <p>We also offer private coaching sessions through the <a href="/knowledge-centre/">Knowledge
-         Centre</a>, booked and paid for separately.</p>
+         Centre</a>. Coaching is sold by us directly, booked and paid for separately, under its
+         own terms. Paddle has no part in it.</p>
     </Row>
   </section>
 
@@ -65,9 +66,14 @@ const lede = `Who is behind ${SITE.name}, where it is licensed, and how to reach
     </Row>
 
     <Row id="complaints" title={topic('complaints')} where="Email">
-      <p>If something isn't right, email <a href={mail}>{COMPANY.email}</a> with "Complaint" in
-         the subject and tell us what happened and what you would like us to do. We will look
-         into it, tell you what we found and put it right where we can.</p>
+      <p>If something isn't right, email <a href={mail}>{COMPANY.email}</a> (app, account or
+         payment) or <a href={`mailto:${COACHING.email}`}>{COACHING.email}</a> (coaching) with
+         "Complaint" in the subject, and tell us what happened and what you would like us to do.
+         We reply within 5 working days and give you our answer within 14 days. If we need longer,
+         we tell you why and when you will hear from us.</p>
+      <p>For a payment for the app, you can also contact Paddle using the link in your receipt.
+         If you are not satisfied with our answer, you can contact the consumer protection
+         authority where you live.</p>
     </Row>
   </section>
 </Policy>

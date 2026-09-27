@@ -45,6 +45,7 @@
     "allow-show-claude-extension",
     "allow-server-command",
     "allow-startup-state",
-    "allow-link-state"
+    "allow-link-state",
+    "allow-open-document"
   ]
 }

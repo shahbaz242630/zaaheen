@@ -51,6 +51,7 @@ const COMMAND_SOURCES: &[(&str, &str)] = &[
     ("connect.rs", include_str!("../src/commands/connect.rs")),
     ("startup.rs", include_str!("../src/commands/startup.rs")),
     ("keeper.rs", include_str!("../src/commands/keeper.rs")),
+    ("documents.rs", include_str!("../src/commands/documents.rs")),
 ];
 
 /// The command modules' list, to hold [`COMMAND_SOURCES`] to it.
@@ -2707,8 +2708,8 @@ fn delete_my_account_says_what_happens_and_is_gated_behind_delete_typed() {
     for words in [
         "Delete my account deletes the memories on this computer, then opens a page where you \
          confirm deleting your Zaaheen account.",
-        "Deleting the account also removes it from coaching bookings and cancels any \
-         subscription straight away, with no refund of the time left.",
+        "Deleting the account cancels any subscription straight away, with no refund of \
+         the time left. Coaching bookings are kept separately.",
         "Want a copy first?",
         "id=\"delete-account-export\"",
         "id=\"delete-account-phrase\"",
@@ -2806,4 +2807,85 @@ fn delete_my_account_never_auto_closes_and_shows_the_address() {
         !code.contains("invoke(\"delete_account_start\", "),
         "no argument, ever"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Settings > Documents (founder, session 69; ADR-SEC-036)
+// ---------------------------------------------------------------------------
+
+/// The website's list of guides and policies, which the app's list must match.
+const SITE_TS: &str = include_str!("../../../site/src/data/site.ts");
+
+/// The `data-doc` names in Settings > Documents, in screen order.
+fn documents_on_screen() -> Vec<&'static str> {
+    INDEX_HTML
+        .split("data-doc=\"")
+        .skip(1)
+        .filter_map(|rest| rest.split('"').next())
+        .collect()
+}
+
+/// Every link on the screen names a listed document, each once, in the
+/// app's own order: a link the app has no address for would do nothing, and
+/// a listed document with no link would be unreachable.
+#[test]
+fn settings_documents_shows_exactly_the_listed_documents() {
+    use vault_app::external_link::Document;
+    let names = documents_on_screen();
+    let docs: Vec<Document> = names
+        .iter()
+        .map(|name| {
+            serde_json::from_value(serde_json::json!(name))
+                .unwrap_or_else(|_| panic!("data-doc=\"{name}\" is not a listed document"))
+        })
+        .collect();
+    assert_eq!(docs, Document::ALL.to_vec());
+}
+
+/// The app's addresses are pages the website builds: each guide is a
+/// `DOCS_SECTIONS` id, each policy a `POLICIES` path (`site/src/data/site.ts`).
+#[test]
+fn every_document_is_a_page_the_website_has() {
+    use vault_app::external_link::Document;
+    // Only inside the two lists, so an entry elsewhere in site.ts (PAGES has
+    // `path: '/terms/'` too) cannot stand in for a dropped document.
+    let block = |start: &str| -> &str {
+        let from = SITE_TS
+            .split_once(start)
+            .unwrap_or_else(|| panic!("site.ts has {start}"))
+            .1;
+        from.split_once("] as const;")
+            .unwrap_or_else(|| panic!("{start} closes"))
+            .0
+    };
+    let policies = block("export const POLICIES = [");
+    let sections = block("export const DOCS_SECTIONS = [");
+    for doc in Document::ALL {
+        let path = doc.path();
+        let (list, entry) = match path.strip_prefix("/docs/#") {
+            Some(id) => (sections, format!("id: '{id}'")),
+            None => (policies, format!("path: '{path}'")),
+        };
+        assert!(
+            list.contains(&entry),
+            "{doc:?} opens {path}, which site/src/data/site.ts does not list ({entry})"
+        );
+    }
+}
+
+/// The page sends a document's name and nothing else: no address anywhere
+/// in the handler, and the words for a browser that did not open.
+#[test]
+fn the_documents_handler_sends_only_a_name() {
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let body = &js_function(&functions, "onDocumentClick").body;
+    assert!(body.contains("invoke(\"open_document\", { doc: button.dataset.doc })"));
+    assert!(
+        !body.contains("https://"),
+        "no address in the page's handler"
+    );
+    assert!(body.contains("Your browser did not open."));
+    assert!(APP_JS.contains("$(\"documents-list\").addEventListener(\"click\", onDocumentClick);"));
+    assert!(INDEX_HTML.contains("<button data-section=\"documents\">Documents</button>"));
 }

@@ -654,6 +654,21 @@ textarea.mv-input { resize: none; }
 .set-action { flex: none; }
 .set-action.account-actions { margin: 0; }
 .settings-section > .data-note:empty { display: none; }
+/* Documents (session 69): two dropdowns, like the website's Documents menu. */
+.doc-group { border-bottom: 1px solid var(--line); padding: 4px 0; }
+.doc-group summary {
+  padding: 12px 0; cursor: pointer;
+  font: 500 13.5px var(--sans); color: var(--ink);
+}
+.doc-group[open] summary { padding-bottom: 6px; }
+.doc-link {
+  display: block; width: 100%; text-align: left;
+  padding: 7px 0 7px 16px; border: none; background: none; cursor: pointer;
+  font: 400 13px var(--sans); color: var(--muted);
+}
+.doc-link::after { content: " \2197"; color: var(--faint); }
+.doc-link:hover { color: var(--ink); }
+.doc-group[open] .doc-link:last-child { margin-bottom: 8px; }
 .s-row {
   display: flex; align-items: baseline; justify-content: space-between; gap: 20px;
   padding: 14px 0;

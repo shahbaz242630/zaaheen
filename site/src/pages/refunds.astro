@@ -7,10 +7,13 @@ import { COMPANY, PLANS, SITE, TRIAL } from '../data/site';
 // one months subscription paid. so we adopt the same", settled as the latest
 // payment in full within 14 days of the charge, on both plans). 14 days
 // matches the withdrawal right in Paddle's buyer terms, so this page never
-// offers less than Paddle does.
+// offers less than Paddle does. Session 69 (LEGAL-DOCUMENTS-DESIGN.md L2,
+// founder: "we are not exploited"): one refund per person, no part refunds,
+// abuse, bank reversals, app-only scope, and the legal exception.
 const OUTLINE: Outline[] = [
   { id: 'refunds', title: 'Refunds', topics: [
     { id: 'the-rule', title: 'What we refund' },
+    { id: 'limits', title: 'What we do not refund' },
     { id: 'how', title: 'How to ask for a refund' },
     { id: 'after', title: 'What happens after a refund' },
   ] },
@@ -32,9 +35,10 @@ const lede = `${SITE.name} starts with a ${TRIAL.days}-day free trial with no ca
   <ul slot="summary">
     <li>Ask within 14 days of a payment and we refund that payment in full, on the monthly or the
         yearly plan.</li>
-    <li>We refund your latest payment only, not earlier ones.</li>
-    <li>After 14 days there is no refund, but you can cancel at any time and keep access until
-        the end of the time you've paid for.</li>
+    <li>We refund your latest payment only, not earlier ones, and one payment per person.</li>
+    <li>After 14 days there is no refund, except where the law gives you one, but you can
+        cancel at any time and keep access until the end of the time you've paid for.</li>
+    <li>This policy covers the Zaaheen app only. Coaching has its own cancellation rules.</li>
     <li>Your memories are never affected. They stay on your computer either way.</li>
   </ul>
 
@@ -46,17 +50,42 @@ const lede = `${SITE.name} starts with a ${TRIAL.days}-day free trial with no ca
          the same on both plans: on {PLANS.monthly} it is that month's payment, and on
          {PLANS.yearly} it is the whole year's.</p>
       <p>We refund your latest payment only, not payments from earlier months or years. After 14
-         days a payment can't be refunded, but cancelling means you won't be charged again.</p>
+         days we do not refund a payment, except where the law gives you a right to one, but
+         cancelling means you won't be charged again.</p>
+      <p>This policy covers the Zaaheen app only. Coaching sessions have their own cancellation
+         and refund rules, which you see before you book.</p>
+    </Row>
+
+    <Row id="limits" title={topic('limits')} where="Fair for everyone">
+      <p><strong>One refund per person.</strong> We refund one payment per person. If you have had
+         a refund before, on this account or another one, later payments are not refundable,
+         except where the law gives you a right to a refund.</p>
+      <p><strong>No part refunds.</strong> When you cancel, you keep access until the end of the
+         time you paid for. We do not refund the unused part of a month or a year, except where
+         our <a href="/terms/">Terms of Service</a> say so, for example if we stop offering
+         Zaaheen.</p>
+      <p><strong>Using refunds to avoid paying.</strong> We refuse a refund when it is being used
+         to get Zaaheen without paying, such as repeated sign-ups and refunds across
+         accounts.</p>
+      <p><strong>Bank reversals.</strong> If you ask your bank to reverse a payment, your
+         subscription ends when the reversal is made. Please email us first: a refund is
+         quicker.</p>
+      <p><strong>Deleting your account.</strong> Deleting your account cancels your subscription
+         with no refund of the time left. If you paid in the last 14 days and want your money
+         back, ask for the refund before you delete the account.</p>
     </Row>
 
     <Row id="how" title={topic('how')} where="Email">
       <p>Email <a href={mail}>{COMPANY.email}</a> from the address on your Zaaheen account and
-         say you'd like a refund. You can also ask Paddle directly using the link in your receipt
-         email.</p>
-      <p>Our order process is conducted by our online reseller Paddle.com. Paddle.com is the
-         Merchant of Record for all our orders. Paddle provides all customer service inquiries
-         and handles returns. So Paddle sends your refund, back to the card or account you paid
-         with.</p>
+         say you'd like a refund. We reply within 5 working days, confirm the refund and instruct
+         Paddle to send it. You can also ask Paddle directly using the link in your receipt email;
+         if Paddle declines a refund this policy gives you, email us and we will instruct it
+         ourselves.</p>
+      <p>For the Zaaheen app and your subscription: Our order process is conducted by our online
+         reseller Paddle.com. Paddle.com is the Merchant of Record for all our orders. Paddle
+         provides all customer service inquiries and handles returns. So Paddle sends your
+         refund, back to the card or account you paid with. Your bank may take a few days to
+         show it.</p>
     </Row>
 
     <Row id="after" title={topic('after')} where="Nothing is deleted">
@@ -85,9 +114,11 @@ const lede = `${SITE.name} starts with a ${TRIAL.days}-day free trial with no ca
     <h2 class="docs-title">Your rights</h2>
 
     <Row id="law" title={topic('law')} where="Everyone">
-      <p>This policy doesn't take away any right the law gives you where you live. If Zaaheen
-         doesn't work as described, you may be entitled to a repair, a replacement or a refund
-         whatever this page says, and we will honour that.</p>
+      <p>This policy doesn't take away any right the law gives you where you live. If you live in
+         the United Kingdom or the European Union, the law gives you 14 days from a purchase to
+         cancel it, and our 14-day refund gives you at least that. If Zaaheen doesn't work as
+         described, you are entitled to a repair, a replacement or a refund where the law says
+         so, whatever this page says, and we honour that.</p>
     </Row>
 
     <Row id="contact" title={topic('contact')} where="Email">
