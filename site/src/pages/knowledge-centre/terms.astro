@@ -1,0 +1,210 @@
+---
+import Policy, { type Outline } from '../../layouts/Policy.astro';
+import Row from '../../components/Row.astro';
+import { COACHING, COMPANY, SITE } from '../../data/site';
+import { DELIVERY } from '../../data/coaching';
+
+// The Coaching Terms (founder, session 70: "we are not an institute ... we
+// don't issue certificates ... we are simply saying if you need to learn we
+// can help"). Separate from the app's /terms/. Clauses and their sources:
+// MemoryVault-artifacts/legal-research-s70, reports A and B. The booking,
+// moving and refund rules live in /knowledge-centre/booking-and-refunds/, which
+// these terms include; the governing-law clause keeps consumers' home rights
+// (Rome I art 6, CRA s 74) and has no arbitration (UAE e-commerce law).
+const OUTLINE: Outline[] = [
+  { id: 'about', title: 'About these terms', topics: [
+    { id: 'who', title: 'Who we are' },
+    { id: 'agreement', title: 'This agreement' },
+    { id: 'age', title: 'Who can book' },
+  ] },
+  { id: 'coaching', title: 'The coaching', topics: [
+    { id: 'session', title: 'What a session is' },
+    { id: 'is-not', title: 'What coaching is not' },
+    { id: 'prerequisites', title: 'Choosing the right session' },
+    { id: 'price', title: 'Price and payment' },
+    { id: 'changes', title: 'Moving, missing and refunds' },
+  ] },
+  { id: 'in-session', title: 'During the session', topics: [
+    { id: 'recording', title: 'No recording' },
+    { id: 'your-work', title: 'Your work and your data' },
+    { id: 'materials', title: 'Our materials' },
+    { id: 'conduct', title: 'Respect' },
+  ] },
+  { id: 'responsibility', title: 'Responsibility', topics: [
+    { id: 'our-promise', title: 'What we promise' },
+    { id: 'limits', title: 'Limits on our responsibility' },
+  ] },
+  { id: 'general', title: 'General', topics: [
+    { id: 'complaints', title: 'Complaints' },
+    { id: 'updates', title: 'Changes to these terms' },
+    { id: 'law', title: 'Law and courts' },
+    { id: 'contact', title: 'Contact us' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+const mail = `mailto:${COACHING.email}`;
+const policy = '/knowledge-centre/booking-and-refunds/';
+const lede = `These terms apply when you book private 1-to-1 AI coaching from the ${SITE.name} Knowledge Centre. Please read them, and the Booking and Refund Policy, before you pay.`;
+---
+<Policy path="/knowledge-centre/terms/" heading="Coaching Terms" lede={lede} outline={OUTLINE} coaching>
+  <ul slot="summary">
+    <li>A session is {DELIVERY.durationMinutes} minutes of private 1-to-1 coaching on
+        {DELIVERY.platform}, built around a real task you bring.</li>
+    <li>Coaching is guidance, not a guaranteed result. We are not a school or institute, and we
+        issue no certificates or qualifications.</li>
+    <li><strong>No refund for a change of mind or a missed session. Move your session free if you
+        ask at least 24 hours before.</strong> The <a href={policy}>Booking and Refund Policy</a>
+        has the details, including when we always refund.</li>
+    <li>Neither of us records the session.</li>
+    <li>Nothing here takes away the rights the law gives you where you live.</li>
+  </ul>
+
+  <section id="about" class="docs-section">
+    <h2 class="docs-title">About these terms</h2>
+
+    <Row id="who" title={topic('who')} where={COMPANY.city}>
+      <p>{SITE.name} is the trading name of {COMPANY.legalName}, a business licensed in Dubai,
+         United Arab Emirates ({COMPANY.licence}). The Knowledge Centre is our coaching service.
+         "We" and "us" mean us, and "you" means the person who books, or the person they send in
+         their place.</p>
+    </Row>
+
+    <Row id="agreement" title={topic('agreement')} where="When you pay">
+      <p>These terms are an agreement between you and us about coaching sessions. You accept
+         them, and the <a href={policy}>Booking and Refund Policy</a>, which is part of them, when
+         you tick the box before paying. Our <a href="/knowledge-centre/privacy/">Coaching Privacy
+         Notice</a> explains how we use your details.</p>
+      <p>Coaching is a separate purchase from the {SITE.name} app. The app's own terms do not
+         apply to coaching, and these terms do not apply to the app.</p>
+    </Row>
+
+    <Row id="age" title={topic('age')} where="18 and over">
+      <p>You must be 18 or over, and able to make a binding contract, to book. By booking you
+         confirm that you are. If you book for your employer or business, you confirm you may
+         agree to these terms for it.</p>
+    </Row>
+  </section>
+
+  <section id="coaching" class="docs-section">
+    <h2 class="docs-title">The coaching</h2>
+
+    <Row id="session" title={topic('session')} where={DELIVERY.platform}>
+      <p>Each session is {DELIVERY.durationMinutes} minutes of live, one-to-one coaching over
+         {DELIVERY.platform}, at the time you book, with a written summary of what to do next
+         afterwards. Each session page describes what it covers. We send the meeting link in
+         your confirmation email.</p>
+      <p>You need a device that runs {DELIVERY.platform}, a working internet connection, a
+         microphone and, ideally, a camera. The AI tools you want to work with are yours to
+         provide.</p>
+    </Row>
+
+    <Row id="is-not" title={topic('is-not')} where="Please read">
+      <p><strong>Coaching is personal guidance on using AI tools in your own work. We are not a
+         school, institute or training provider, and we do not issue certificates,
+         qualifications or accreditation.</strong></p>
+      <p>We do not promise any result, such as a job, income, a business outcome or a finished
+         project. What you achieve depends on your own work. Coaching is not legal, financial,
+         tax, medical or other professional advice. AI tools can be wrong, so check anything
+         they produce before you rely on it.</p>
+    </Row>
+
+    <Row id="prerequisites" title={topic('prerequisites')} where="Before you book">
+      <p>Some sessions build on earlier ones and list prerequisites on their page. Please check
+         them before you book. If you are not sure which session suits you, email
+         <a href={mail}>{COACHING.email}</a> before booking and we will help you choose.</p>
+    </Row>
+
+    <Row id="price" title={topic('price')} where="AED">
+      <p>The price is shown in UAE dirhams (AED) on the session page and at checkout, and it is
+         the full price you pay. You pay in full when you book, by card through our payment
+         provider, Stripe. Your booking is confirmed when payment has gone through and we have
+         emailed you. Your bank may charge a fee to pay in AED; that is between you and your
+         bank.</p>
+    </Row>
+
+    <Row id="changes" title={topic('changes')} where="Booking and Refund Policy">
+      <p>The <a href={policy}>Booking and Refund Policy</a> sets out how to move a session, what
+         happens if you are late or miss it, the cases where we always refund, and your legal
+         right to cancel if you live in the UK or the EU. In short: <strong>no refund for a change
+         of mind or a missed session; move your session free if you ask at least 24 hours
+         before; and if we cancel, you choose a full refund or a new time.</strong></p>
+    </Row>
+  </section>
+
+  <section id="in-session" class="docs-section">
+    <h2 class="docs-title">During the session</h2>
+
+    <Row id="recording" title={topic('recording')} where="Both of us">
+      <p>We do not record sessions, and you must not record them, by any means, without our
+         written agreement. This protects your privacy and ours.</p>
+    </Row>
+
+    <Row id="your-work" title={topic('your-work')} where="Yours">
+      <p>What you create in or after a session is yours. Only share what you are allowed to
+         share: do not show us other people's personal data, or your employer's confidential
+         information, unless you have permission. We keep what you show us confidential and use
+         it only to coach you, as our <a href="/knowledge-centre/privacy/">Coaching Privacy
+         Notice</a> explains.</p>
+    </Row>
+
+    <Row id="materials" title={topic('materials')} where="Personal use">
+      <p>Any notes, summaries, prompts or guides we give you are for your own use and your own
+         work. Please do not resell or republish them as your own course or product.</p>
+    </Row>
+
+    <Row id="conduct" title={topic('conduct')} where="Both ways">
+      <p>We treat you with respect and expect the same. If you are abusive, threatening or
+         harassing, or use the session for anything unlawful, the coach may end it. If we end a
+         session for that reason, the rest of it is not refunded.</p>
+    </Row>
+  </section>
+
+  <section id="responsibility" class="docs-section">
+    <h2 class="docs-title">Responsibility</h2>
+
+    <Row id="our-promise" title={topic('our-promise')} where="Every session">
+      <p>We run every session with reasonable care and skill, and as we describe it. If we do
+         not, the <a href={`${policy}#not-right`}>Booking and Refund Policy</a> explains what we
+         do to put it right, including a repeat session or a refund.</p>
+    </Row>
+
+    <Row id="limits" title={topic('limits')} where="The price you paid">
+      <p>Our total responsibility to you for a session is limited to the price you paid for it.
+         We are not responsible for losses we could not have foreseen when you booked, for
+         business losses, or for decisions you make or results you get from using AI tools.</p>
+      <p>Nothing in these terms limits our responsibility for death or personal injury caused by
+         our negligence, for fraud, or for anything else the law does not allow us to limit, and
+         nothing takes away your legal rights as a consumer.</p>
+    </Row>
+  </section>
+
+  <section id="general" class="docs-section">
+    <h2 class="docs-title">General</h2>
+
+    <Row id="complaints" title={topic('complaints')} where="Email">
+      <p>If you are unhappy with anything, email <a href={mail}>{COACHING.email}</a> and tell us
+         what happened. We reply within 2 working days and aim to resolve it within 14 days. If
+         we cannot agree, you can take it to a consumer authority or a court as set out
+         below.</p>
+    </Row>
+
+    <Row id="updates" title={topic('updates')} where="Future bookings">
+      <p>We may update these terms. A change applies only to bookings made after it; a session
+         you have already booked stays under the terms you accepted.</p>
+    </Row>
+
+    <Row id="law" title={topic('law')} where="Dubai">
+      <p>These terms are governed by the law of the United Arab Emirates as applied in Dubai, and
+         the courts of Dubai can hear any dispute. If you are a consumer living elsewhere, you
+         also keep the protection of the laws of the country where you live that cannot be
+         changed by agreement, and you can bring a claim in your local courts. There is no
+         arbitration.</p>
+    </Row>
+
+    <Row id="contact" title={topic('contact')} where="Email">
+      <p>Coaching questions, bookings and complaints: <a href={mail}>{COACHING.email}</a>. Our
+         company details are on our <a href="/company/">Company Information</a> page.</p>
+    </Row>
+  </section>
+</Policy>

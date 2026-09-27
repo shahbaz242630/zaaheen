@@ -38,6 +38,15 @@ const PAY_CSP =
 const POLICIES = { '/terms/': 'Terms of Service', '/privacy/': 'Privacy Policy', '/refunds/': 'Refund Policy',
   '/ai-and-your-data/': 'AI and Your Data', '/security/': 'Security page', '/company/': 'Company Information',
   '/licences/': 'Open-source licences' };
+// The Knowledge Centre (founder, session 70: coaching is "a completely separate
+// thing") carries its own footer (data-footer="coaching", components/Footer.astro)
+// on every page under COACHING_ROOT, and only there. That footer links Company
+// Information (who is selling) and each coaching document below, and no other
+// app policy. A coaching document is added here when it goes live
+// (COACHING_POLICIES live: true in src/data/site.ts).
+const COACHING_ROOT = 'knowledge-centre/';
+const COACHING_POLICIES = { '/company/': 'Company Information', '/knowledge-centre/terms/': 'the Coaching Terms',
+  '/knowledge-centre/booking-and-refunds/': 'the Booking and Refund Policy', '/knowledge-centre/privacy/': 'the Coaching Privacy Notice' };
 const errors = [];
 const fail = (where, msg) => errors.push(`${where}: ${msg}`);
 
@@ -61,6 +70,7 @@ for (const rel of [
   'icon-192.png', 'icon-512.png', 'manifest.webmanifest', 'og.png', `${INDEXNOW_KEY}.txt`,
   'pay/index.html', 'pay/.htaccess', '.well-known/security.txt',
   ...Object.keys(POLICIES).map((u) => `${u.slice(1)}index.html`),
+  ...Object.keys(COACHING_POLICIES).map((u) => `${u.slice(1)}index.html`),
 ]) {
   if (!files.includes(rel)) fail(rel, 'required file is missing from the build');
 }
@@ -107,6 +117,19 @@ for (const rel of files.filter((f) => f.endsWith('.html'))) {
 for (const rel of files.filter((f) => f.endsWith('.html'))) {
   const footer = (read(rel).match(/<footer\b[\s\S]*?<\/footer>/) || [''])[0];
   const hrefs = [...footer.matchAll(/<a\b[^>]*\shref="([^"]*)"/g)].map((m) => m[1]);
+  const coaching = (footer.match(/^<footer\b[^>]*\sdata-footer="([^"]*)"/) || [])[1] === 'coaching';
+  const inKc = rel.startsWith(COACHING_ROOT);
+  if (inKc && !coaching) fail(rel, 'the Knowledge Centre must use the coaching footer (data-footer="coaching")');
+  if (!inKc && coaching) fail(rel, 'the coaching footer is only for the Knowledge Centre');
+  if (inKc || coaching) {
+    for (const [url, name] of Object.entries(COACHING_POLICIES)) {
+      if (!hrefs.includes(url)) fail(rel, `the coaching footer must link to ${name} (${url})`);
+    }
+    for (const [url, name] of Object.entries(POLICIES)) {
+      if (!(url in COACHING_POLICIES) && hrefs.includes(url)) fail(rel, `the coaching footer must not link to the app's ${name} (${url})`);
+    }
+    continue;
+  }
   for (const [url, name] of Object.entries(POLICIES)) {
     if (!hrefs.includes(url)) fail(rel, `footer must link to the ${name} (${url})`);
   }

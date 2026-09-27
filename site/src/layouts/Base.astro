@@ -15,9 +15,11 @@ interface Props {
   page: PageEntry;
   /** Only for pages that must never be indexed: the 404 page and /pay (UNLISTED in scripts/audit.mjs). */
   noindex?: boolean;
+  /** "coaching" only on the Knowledge Centre's pages (components/Footer.astro). */
+  footer?: 'app' | 'coaching';
 }
 
-const { page, noindex = false } = Astro.props;
+const { page, noindex = false, footer = 'app' } = Astro.props;
 const canonical = absolute(page.path);
 const jsonLd = noindex ? null : graphFor(page, lastModified(page.sources));
 ---
@@ -73,7 +75,7 @@ const jsonLd = noindex ? null : graphFor(page, lastModified(page.sources));
   <slot />
 </main>
 
-<Footer />
+<Footer variant={footer} />
 
 </body>
 </html>

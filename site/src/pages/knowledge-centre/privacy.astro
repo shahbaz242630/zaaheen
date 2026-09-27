@@ -1,0 +1,201 @@
+---
+import Policy, { type Outline } from '../../layouts/Policy.astro';
+import Row from '../../components/Row.astro';
+import { COACHING, COMPANY, SITE } from '../../data/site';
+import { DELIVERY } from '../../data/coaching';
+
+// The Coaching Privacy Notice (founder, session 70: coaching's documents are
+// separate from the app's). Contents per UK/EU GDPR art 13 incl. 13(2)(ca)
+// (complain to us first), UAE PDPL art 13, and Stripe's DPA 4.3 duty to tell
+// customers about Stripe (its Privacy Center paragraph, quoted as published).
+// What we collect is read from the booking app's code (Training Page repo,
+// research reports A and B section 1). It assumes the 90-day attribution cookie
+// is removed before launch (both reports); if it stays, this page and a consent
+// banner must change first.
+const OUTLINE: Outline[] = [
+  { id: 'collect', title: 'What we collect', topics: [
+    { id: 'booking', title: 'When you book' },
+    { id: 'after-payment', title: 'After you pay' },
+    { id: 'session', title: 'In the session' },
+    { id: 'automatic', title: 'Collected automatically' },
+  ] },
+  { id: 'use', title: 'How we use it', topics: [
+    { id: 'purposes', title: 'Why, and on what basis' },
+    { id: 'marketing', title: 'Emails about new sessions' },
+    { id: 'never', title: 'What we never do' },
+  ] },
+  { id: 'share', title: 'Who helps us', topics: [
+    { id: 'providers', title: 'Our service providers' },
+    { id: 'stripe', title: 'Payments by Stripe' },
+    { id: 'transfers', title: 'Data outside your country' },
+  ] },
+  { id: 'keep', title: 'Keeping and your rights', topics: [
+    { id: 'retention', title: 'How long we keep it' },
+    { id: 'cookies', title: 'Cookies' },
+    { id: 'your-rights', title: 'Your rights' },
+    { id: 'complaints', title: 'Complaints' },
+    { id: 'contact', title: 'Contact us' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+const mail = `mailto:${COACHING.email}`;
+const lede = `What we collect when you book coaching with the ${SITE.name} Knowledge Centre, why we need it, who helps us run your booking, and your rights over it.`;
+---
+<Policy path="/knowledge-centre/privacy/" heading="Coaching Privacy Notice" lede={lede} outline={OUTLINE} coaching>
+  <ul slot="summary">
+    <li>We collect only what we need to book, run and follow up your session, and to keep the
+        records the law requires.</li>
+    <li>We never sell your data, and we never use what you share in a session to train AI.</li>
+    <li>Card details go straight to Stripe, our payment provider. We never see your full card
+        number.</li>
+    <li>We do not record sessions.</li>
+    <li>You can ask to see, correct or delete your data at any time by emailing
+        {COACHING.email}.</li>
+  </ul>
+
+  <section id="collect" class="docs-section">
+    <h2 class="docs-title">What we collect</h2>
+
+    <Row id="booking" title={topic('booking')} where="Booking form">
+      <p>Your first and last name, email address, phone number (optional), time zone, the
+         session and time you choose, and what you want to get out of the session. You also tell
+         us whether you would like emails about new sessions.</p>
+      <p>When you tick the box to accept our terms, we keep a record of it: the time, the
+         wording you agreed to and its version, and your IP address and browser type. This is
+         our proof of what you agreed to.</p>
+    </Row>
+
+    <Row id="after-payment" title={topic('after-payment')} where="Short questionnaire">
+      <p>After you pay, we ask a few questions so the coach can prepare: your experience with AI,
+         the tools you use, and the real task you want to work on.</p>
+      <p>Please do not include health information, religious or political beliefs, or other
+         sensitive details about yourself or anyone else. We do not need them.</p>
+    </Row>
+
+    <Row id="session" title={topic('session')} where={DELIVERY.platform}>
+      <p>The session is live on {DELIVERY.platform}. We do not record it. The coach may keep short
+         notes to write your summary and to prepare any later session. {DELIVERY.platform} keeps
+         an attendance record (who joined and when), which we use as proof that a session took
+         place or was missed.</p>
+    </Row>
+
+    <Row id="automatic" title={topic('automatic')} where="Our website">
+      <p>Your IP address, to protect the booking site from abuse (for example, too many requests
+         at once). From Stripe, a record of your payment: the amount, date, the last four digits
+         and type of your card, and whether it succeeded.</p>
+    </Row>
+  </section>
+
+  <section id="use" class="docs-section">
+    <h2 class="docs-title">How we use it</h2>
+
+    <Row id="purposes" title={topic('purposes')} where="Our reasons">
+      <ul>
+        <li><strong>To book and run your session</strong>: arranging the time, the meeting link,
+            confirmation and reminder emails, and your summary. We need this to carry out our
+            contract with you.</li>
+        <li><strong>To take payment and keep accounts</strong>: invoices and payment records.
+            The law requires us to keep these.</li>
+        <li><strong>To handle problems</strong>: moving sessions, refunds, complaints, and
+            answering a bank dispute with the record of what you agreed to and whether the
+            session took place. This is our legitimate interest in defending ourselves.</li>
+        <li><strong>To keep the site secure</strong>: IP addresses to stop abuse. This is our
+            legitimate interest in protecting the service.</li>
+      </ul>
+      <p>You need to give us your booking details to book. Everything else is optional.</p>
+    </Row>
+
+    <Row id="marketing" title={topic('marketing')} where="Only if you ask">
+      <p>We email you about new sessions and offers only if you tick the box for it. It is never
+         ticked for you. Every such email has an unsubscribe link, or you can email us.</p>
+    </Row>
+
+    <Row id="never" title={topic('never')} where="Never">
+      <p>We never sell your data or share it for advertising. We never use your questionnaire
+         answers or anything you show us in a session to train AI. We make no decisions about
+         you by automated means.</p>
+    </Row>
+  </section>
+
+  <section id="share" class="docs-section">
+    <h2 class="docs-title">Who helps us</h2>
+
+    <Row id="providers" title={topic('providers')} where="Under contract">
+      <p>These companies process data for us, only on our instructions and under data protection
+         agreements:</p>
+      <ul>
+        <li><strong>Stripe</strong>: payments (see below).</li>
+        <li><strong>Microsoft</strong>: {DELIVERY.platform} for the session, our calendar, and
+            sending emails.</li>
+        <li><strong>Supabase</strong>: the database that holds your booking.</li>
+        <li><strong>Hostinger</strong>: hosts the booking website.</li>
+      </ul>
+      <p>We may also share data where the law requires it, or to deal with a legal claim.</p>
+    </Row>
+
+    <Row id="stripe" title={topic('stripe')} where="Payments">
+      <p>We use Stripe for payments, analytics, and other business services. Stripe may collect
+         personal data including via cookies and similar technologies. The personal data Stripe
+         collects may include transactional data and identifying information about devices that
+         connect to its services. Stripe uses this information to operate and improve the
+         services it provides to us, including for fraud detection and prevention,
+         authentication, analytics related to the performance of its services, and to enhance
+         and customize the user experience. You can learn more about Stripe and read its privacy
+         policy at <a href="https://stripe.com/privacy">https://stripe.com/privacy</a>.</p>
+    </Row>
+
+    <Row id="transfers" title={topic('transfers')} where="Safeguards">
+      <p>We are based in the United Arab Emirates, and our providers store data in other
+         countries. Where data about someone in the UK or the EU goes to a country without an
+         adequacy decision, each provider's agreement with us includes the standard contractual
+         clauses approved for this (and the UK addendum). You can ask us for a copy.</p>
+    </Row>
+  </section>
+
+  <section id="keep" class="docs-section">
+    <h2 class="docs-title">Keeping and your rights</h2>
+
+    <Row id="retention" title={topic('retention')} where="No longer than needed">
+      <ul>
+        <li><strong>Bookings, payments, invoices and the record of what you agreed to</strong>:
+            7 years after the end of the tax year, as UAE tax law requires.</li>
+        <li><strong>Questionnaire answers and coach's notes</strong>: 12 months after your last
+            session.</li>
+        <li><strong>A booking you started but did not pay for</strong>: 30 days.</li>
+        <li><strong>Your choice about marketing emails</strong>: until you unsubscribe, and the
+            record of your choice for as long as we may need to show it.</li>
+        <li><strong>Security logs with IP addresses</strong>: a few days.</li>
+      </ul>
+    </Row>
+
+    <Row id="cookies" title={topic('cookies')} where="One cookie">
+      <p>The booking site sets one cookie while you book. It holds your booking in progress and
+         expires after 2 hours. The booking cannot work without it, so it needs no consent. We
+         use no advertising or tracking cookies. Stripe's own pages set cookies to process
+         payments and prevent fraud.</p>
+    </Row>
+
+    <Row id="your-rights" title={topic('your-rights')} where="Everyone">
+      <p>You can ask us to show you the data we hold about you, correct it, delete it, send it to
+         you in a portable form, or stop or limit how we use it. Where we rely on your consent
+         (marketing emails), you can withdraw it at any time. Some records we must keep by law,
+         such as invoices; we tell you if that applies. We reply within one month.</p>
+    </Row>
+
+    <Row id="complaints" title={topic('complaints')} where="Us first, then a regulator">
+      <p>If you are unhappy with how we handle your data, please tell us first at
+         <a href={mail}>{COACHING.email}</a>. We reply within 5 working days. You can also
+         complain to your data protection regulator: in the UK, the Information Commissioner's
+         Office (ico.org.uk); in the EU, the authority in your country; in the UAE, the UAE Data
+         Office.</p>
+    </Row>
+
+    <Row id="contact" title={topic('contact')} where="Email">
+      <p>The organisation responsible for your data is {COMPANY.legalName}, trading as
+         {SITE.name}, {COMPANY.city}, United Arab Emirates ({COMPANY.licence}). For anything about
+         coaching data, email <a href={mail}>{COACHING.email}</a>. The {SITE.name} app has its own
+         <a href="/privacy/">Privacy Policy</a>.</p>
+    </Row>
+  </section>
+</Policy>

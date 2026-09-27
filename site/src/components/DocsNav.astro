@@ -1,28 +1,43 @@
 ---
-import { DOCS_SECTIONS, POLICIES } from '../data/site';
+import { COACHING_POLICIES, DOCS_SECTIONS, POLICIES } from '../data/site';
 
 // The Documents menu on the left (founder, session 67): two dropdowns, "Using
 // Zaaheen" (the how-to sections of /docs/) and "Policies" (each policy on its
 // own page). The group holding the page you're on starts open. Plain
-// <details>, so it opens and closes with no script.
+// <details>, so it opens and closes with no script. On a coaching document
+// (founder, session 70: coaching is "a completely separate thing") it lists
+// coaching's own documents only.
 interface Props {
   /** '/docs/' or a policy's path. */
   current: string;
+  coaching?: boolean;
 }
-const { current } = Astro.props;
+const { current, coaching = false } = Astro.props;
 const onDocs = current === '/docs/';
 ---
-<nav class="docs-sections" aria-label="Documents">
-  <details class="docs-group" open={onDocs}>
-    <summary>Using Zaaheen</summary>
-    {DOCS_SECTIONS.map((s) => (
-      <a href={onDocs ? `#${s.id}` : `/docs/#${s.id}`} data-section={onDocs ? s.id : undefined}>{s.title}</a>
-    ))}
-  </details>
-  <details class="docs-group" open={!onDocs}>
-    <summary>Policies</summary>
-    {POLICIES.map((p) => (
-      <a href={p.path} aria-current={p.path === current ? 'page' : undefined}>{p.label}</a>
-    ))}
-  </details>
-</nav>
+{coaching ? (
+  <nav class="docs-sections" aria-label="Coaching documents">
+    <details class="docs-group" open>
+      <summary>Coaching policies</summary>
+      {COACHING_POLICIES.filter((p) => p.live).map((p) => (
+        <a href={p.path} aria-current={p.path === current ? 'page' : undefined}>{p.label}</a>
+      ))}
+    </details>
+    <a href="/knowledge-centre/">Back to the Knowledge Centre</a>
+  </nav>
+) : (
+  <nav class="docs-sections" aria-label="Documents">
+    <details class="docs-group" open={onDocs}>
+      <summary>Using Zaaheen</summary>
+      {DOCS_SECTIONS.map((s) => (
+        <a href={onDocs ? `#${s.id}` : `/docs/#${s.id}`} data-section={onDocs ? s.id : undefined}>{s.title}</a>
+      ))}
+    </details>
+    <details class="docs-group" open={!onDocs}>
+      <summary>Policies</summary>
+      {POLICIES.map((p) => (
+        <a href={p.path} aria-current={p.path === current ? 'page' : undefined}>{p.label}</a>
+      ))}
+    </details>
+  </nav>
+)}

@@ -1,0 +1,179 @@
+---
+import Policy, { type Outline } from '../../layouts/Policy.astro';
+import Row from '../../components/Row.astro';
+import { COACHING, COMPANY, SITE } from '../../data/site';
+import { DELIVERY } from '../../data/coaching';
+
+// The coaching Booking and Refund Policy (founder, session 70: no refunds for a
+// change of mind, move only with 24 hours' notice, a no-show counts as used,
+// shown in bold before anyone books). The exceptions below are the ones the
+// law will not let us remove, from two independent research reports
+// (MemoryVault-artifacts/legal-research-s70, A and B agree): we cancel or
+// cannot deliver (UAE Cabinet Resolution 66/2023 art 13, CRA Sch 2 para 4),
+// a session not done with reasonable care (UAE art 29, CRA ss 49-57), the
+// UK/EU 14-day right (CCR regs 29-36, CRD arts 9, 16(a)), and never a bare
+// "no refunds" (UAE art 34(11)). Separate from the app's /refunds/.
+const OUTLINE: Outline[] = [
+  { id: 'booking', title: 'Your booking', topics: [
+    { id: 'paying', title: 'Paying' },
+    { id: 'no-refund', title: 'No refund for a change of mind' },
+  ] },
+  { id: 'changes', title: 'Changes and missed sessions', topics: [
+    { id: 'moving', title: 'Moving your session' },
+    { id: 'late-notice', title: 'Less than 24 hours before' },
+    { id: 'someone-else', title: 'Sending someone else' },
+    { id: 'missed', title: 'Late or missed sessions' },
+  ] },
+  { id: 'we-refund', title: 'When we always refund', topics: [
+    { id: 'we-cancel', title: 'If we cancel' },
+    { id: 'outside-control', title: 'Events outside our control' },
+    { id: 'not-right', title: 'If a session is not done properly' },
+  ] },
+  { id: 'rights', title: 'Your legal rights', topics: [
+    { id: 'cancel-14', title: 'UK and EU: 14 days to cancel' },
+    { id: 'form', title: 'Model cancellation form' },
+    { id: 'law', title: 'Your other rights' },
+    { id: 'contact', title: 'Contact us' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+const mail = `mailto:${COACHING.email}`;
+const lede = `Each coaching session reserves ${DELIVERY.durationMinutes} minutes of the coach's time for you alone. This page explains how to move a session, what happens if you miss it, and when we refund. You see these terms, in bold, before you pay.`;
+---
+<Policy path="/knowledge-centre/booking-and-refunds/" heading="Booking and Refund Policy" lede={lede} outline={OUTLINE} coaching>
+  <ul slot="summary">
+    <li><strong>You pay the full price, in UAE dirhams (AED), when you book.</strong></li>
+    <li><strong>No refund if you change your mind, cannot attend or miss your session.</strong></li>
+    <li><strong>To move your session, email us at least 24 hours before it starts.</strong> You can
+        move it free to any open time within 90 days. Less than 24 hours before, it cannot be
+        moved.</li>
+    <li><strong>If you have not joined within 15 minutes of the start, the session counts as
+        used.</strong></li>
+    <li><strong>If we cancel, or cannot run the session, you choose a full refund or a new
+        time.</strong></li>
+    <li>If you live in the UK or the EU, the law lets you cancel within 14 days of booking for a
+        full refund, as long as your session has not taken place.</li>
+    <li>This policy covers coaching only. The Zaaheen app has its own policies.</li>
+  </ul>
+
+  <section id="booking" class="docs-section">
+    <h2 class="docs-title">Your booking</h2>
+
+    <Row id="paying" title={topic('paying')} where="When you book">
+      <p>You pay the full price of the session when you book, in UAE dirhams (AED). Your booking
+         is confirmed when your payment has gone through and we have emailed you the date, the
+         time and the {DELIVERY.platform} link. Each payment is for one session at one time.</p>
+    </Row>
+
+    <Row id="no-refund" title={topic('no-refund')} where="Our rule">
+      <p><strong>We do not refund a session because you change your mind, no longer need it,
+         cannot attend or miss it.</strong> When you book, we hold that time for you alone and
+         turn other people away from it, and we cannot fill it at short notice. That is why we
+         do not refund.</p>
+      <p>This does not change the cases where we always refund, set out below, or your legal
+         rights.</p>
+    </Row>
+  </section>
+
+  <section id="changes" class="docs-section">
+    <h2 class="docs-title">Changes and missed sessions</h2>
+
+    <Row id="moving" title={topic('moving')} where="24 hours or more before">
+      <p>If you email us at <a href={mail}>{COACHING.email}</a> at least 24 hours before your
+         session starts, we move it free to any open time you choose within 90 days of the
+         original date. You can do this more than once, as long as each request is at least 24
+         hours before the session it moves. If we cannot offer you any time within those 90
+         days, we refund you in full.</p>
+      <p>Moving a session is the way to change your plans. It is not exchanged for money.</p>
+    </Row>
+
+    <Row id="late-notice" title={topic('late-notice')} where="Under 24 hours">
+      <p>Less than 24 hours before the start, a session cannot be moved or cancelled. It goes
+         ahead at the booked time, and if you do not attend it counts as used.</p>
+    </Row>
+
+    <Row id="someone-else" title={topic('someone-else')} where="24 hours or more before">
+      <p>If you cannot attend, you can give your session to someone else. Email us their name
+         and email address at least 24 hours before the start. The same terms then apply to
+         them.</p>
+    </Row>
+
+    <Row id="missed" title={topic('missed')} where="15 minutes">
+      <p>Sessions start and end at the booked time. If you join late, the session still ends at
+         the booked time. <strong>If you have not joined within 15 minutes of the start, the
+         session counts as used and is not refunded.</strong> The coach waits in the meeting and
+         messages you during those 15 minutes, and we keep a record of this.</p>
+      <p>Please test {DELIVERY.platform} on your device before the session. A problem with your
+         own device or internet connection counts as a missed session.</p>
+    </Row>
+  </section>
+
+  <section id="we-refund" class="docs-section">
+    <h2 class="docs-title">When we always refund</h2>
+
+    <Row id="we-cancel" title={topic('we-cancel')} where="Your choice">
+      <p>If we cancel or move your session, or the coach does not attend or cannot run it,
+         including because the coach's own equipment or connection fails, <strong>you choose
+         either a full refund or a new time</strong>. If only part of the session was lost, you
+         choose extra time or a refund of that part.</p>
+      <p>We refund to the card you paid with within 14 days of your choice. Your bank may take a
+         few more days to show it.</p>
+    </Row>
+
+    <Row id="outside-control" title={topic('outside-control')} where="Your choice">
+      <p>If the session cannot take place because of something neither of us could control, such
+         as a widespread failure of {DELIVERY.platform} or of the internet, you choose a full
+         refund or a new time. This does not cover your own device or connection, which counts
+         as a missed session.</p>
+    </Row>
+
+    <Row id="not-right" title={topic('not-right')} where="Within 14 days">
+      <p>We run every session with reasonable care and skill, and as we describe it. If we did
+         not, tell us within 14 days of the session and say what went wrong. We will first offer
+         to run it again, free. If we cannot, or the repeat does not put it right, we refund
+         part or all of the price, depending on how much of the session you received.</p>
+    </Row>
+  </section>
+
+  <section id="rights" class="docs-section">
+    <h2 class="docs-title">Your legal rights</h2>
+
+    <Row id="cancel-14" title={topic('cancel-14')} where="UK and EU consumers">
+      <p>If you live in the United Kingdom or the European Union and book for yourself, not for
+         your business, the law gives you 14 days from the day you book to cancel, without
+         giving a reason.</p>
+      <ul>
+        <li>If you cancel before your session has taken place, we refund the full price.</li>
+        <li>If your session falls within those 14 days, we ask you before you pay to confirm that
+            you want it to go ahead. If you then cancel during the session, you pay for the part
+            already delivered. Once the session has been delivered in full, you can no longer
+            cancel.</li>
+      </ul>
+      <p>To cancel, use the <em>Withdraw from contract here</em> link in your booking confirmation
+         email, or email <a href={mail}>{COACHING.email}</a> before the 14 days end. You can use
+         the form below, but you do not have to. We confirm by email straight away and refund
+         within 14 days, to the card you paid with, at no cost to you.</p>
+    </Row>
+
+    <Row id="form" title={topic('form')} where="Optional">
+      <p>To: {COMPANY.legalName}, {COMPANY.city}, United Arab Emirates, {COACHING.email}</p>
+      <p>I give notice that I cancel my contract for the following coaching session:
+         [session name and date]. Booked on: [date]. Name: [your name]. Email used to book:
+         [your email]. Date: [today's date].</p>
+    </Row>
+
+    <Row id="law" title={topic('law')} where="Everyone">
+      <p>Nothing in this policy takes away any right the law gives you where you live. The full
+         terms of your booking are in the <a href="/knowledge-centre/terms/">Coaching
+         Terms</a>.</p>
+      <p>If you have a problem, please email us before you ask your bank to reverse a payment. We
+         reply within 2 working days, and it is quicker for both of us.</p>
+    </Row>
+
+    <Row id="contact" title={topic('contact')} where="Email">
+      <p>To move a session, cancel or ask about a refund: <a href={mail}>{COACHING.email}</a>.
+         {SITE.name} coaching is run by {COMPANY.legalName} ({COMPANY.licence}).</p>
+    </Row>
+  </section>
+</Policy>
