@@ -11,6 +11,7 @@
 // own generated HTML: no dependencies, and the markup is ours to keep simple.
 import fs from 'node:fs';
 import path from 'node:path';
+import { expectedOffers } from './site-facts.mjs';
 
 const ORIGIN = 'https://zaaheen.com';
 const ACCOUNT_ORIGIN = 'https://account.zaaheen.com';
@@ -189,6 +190,81 @@ const attr = (tag, name) => (tag.match(new RegExp(`\\s${name}="([^"]*)"`, 'i')) 
 const metaContent = (html, key, val) =>
   all(html, /<meta\b[^>]*>/gi).map((m) => m[0]).filter((t) => attr(t, key) === val).map((t) => attr(t, 'content'));
 
+// --- The app's prices in JSON-LD (SEO-HANDOFF §1 step 2) ---------------------------
+// Structured data may only restate what the page says, so the SoftwareApplication's
+// offers must be exactly PRICES in src/data/site.ts: one Offer per plan, its
+// billing period, the currency. While the app is on sale they must be there;
+// while it is not, there is nothing to buy and they may be absent.
+const OFFERS = expectedOffers();
+const plainText = (s) => s.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&#39;|&#x27;/g, "'").replace(/\s+/g, ' ').trim();
+function checkOffers(rel, graph) {
+  const app = graph.find((n) => n['@type'] === 'SoftwareApplication');
+  if (!app) return;
+  if (app.offers === undefined) {
+    if (ON_SALE && rel === 'index.html') fail(rel, 'the app is on sale but its JSON-LD states no prices (offers from PRICES in src/data/site.ts)');
+    return;
+  }
+  const got = (Array.isArray(app.offers) ? app.offers : [app.offers]).map((o) => ({
+    price: Number(o?.price),
+    priceCurrency: o?.priceCurrency,
+    billingDuration: o?.priceSpecification?.billingDuration,
+    specAgrees: Number(o?.priceSpecification?.price) === Number(o?.price) && o?.priceSpecification?.priceCurrency === o?.priceCurrency,
+  }));
+  const ok = got.length === OFFERS.length && got.every((g, i) => g.specAgrees && g.price === OFFERS[i].price
+    && g.priceCurrency === OFFERS[i].priceCurrency && g.billingDuration === OFFERS[i].billingDuration);
+  if (!ok) fail(rel, `JSON-LD offers do not match PRICES in src/data/site.ts (want ${OFFERS.map((o) => `${o.price} ${o.priceCurrency} ${o.billingDuration}`).join(', ')})`);
+}
+
+// --- Breadcrumbs (SEO-HANDOFF §1 step 3) ---------------------------------------------
+// A nested page (two or more path levels) and every policy page (reached through
+// the Documents menu: Home › Documents › the page) shows a visible trail and
+// carries the same trail as BreadcrumbList JSON-LD: the same names, the same
+// URLs, in order, from Home to the page itself. Other top-level pages carry
+// neither. Markup that disagrees with the page is what Google's structured-data
+// policy penalises.
+function checkBreadcrumbs(rel, url, html, graph) {
+  const needed = url.split('/').filter(Boolean).length >= 2 || url in POLICIES;
+  const navs = all(html, /<nav\b[^>]*aria-label="Breadcrumb"[^>]*>([\s\S]*?)<\/nav>/gi);
+  const lists = graph.filter((n) => n['@type'] === 'BreadcrumbList');
+  if (!needed) {
+    if (navs.length || lists.length) fail(rel, 'a top-level page must not carry a breadcrumb trail');
+    return;
+  }
+  if (navs.length !== 1) { fail(rel, `a nested or policy page must show one breadcrumb trail (nav aria-label="Breadcrumb"), found ${navs.length}`); return; }
+  if (lists.length !== 1) { fail(rel, `a nested or policy page must carry one BreadcrumbList in its JSON-LD, found ${lists.length}`); return; }
+  const visible = all(navs[0][1], /<li\b[^>]*>([\s\S]*?)<\/li>/gi).map((li) => {
+    const a = li[1].match(/<a\b[^>]*\shref="([^"]*)"[^>]*>([\s\S]*?)<\/a>/i);
+    if (a) return { name: plainText(a[2]), item: `${ORIGIN}${a[1]}` };
+    const cur = li[1].match(/<[^>]*\saria-current="page"[^>]*>([\s\S]*?)<\//i);
+    return cur ? { name: plainText(cur[1]), item: `${ORIGIN}${url}`, current: true } : { name: plainText(li[1]), item: '', current: false };
+  });
+  const last = visible[visible.length - 1];
+  if (visible.length < 3 || visible[0].item !== `${ORIGIN}/` || !last?.current || !last.name
+    || visible.slice(0, -1).some((v) => v.current)) {
+    fail(rel, 'the breadcrumb trail must run from Home (/) to this page, the last item marked aria-current="page"');
+  }
+  const items = [...(lists[0].itemListElement || [])].sort((a, b) => a.position - b.position);
+  const same = items.length === visible.length && items.every((it, i) =>
+    it['@type'] === 'ListItem' && it.position === i + 1 && it.name === visible[i].name && it.item === visible[i].item);
+  if (!same) fail(rel, 'the breadcrumb JSON-LD does not match the visible trail (names, URLs and order must be identical)');
+}
+
+// --- Guides (SEO-HANDOFF §1 step 6) --------------------------------------------------
+// Every how-to guide under /docs/ is an Article written and published by the
+// company, its headline exactly the page's H1, so what Google reads matches
+// what the reader sees.
+function checkArticle(rel, url, html, graph) {
+  const segments = url.split('/').filter(Boolean);
+  if (!(segments.length === 2 && segments[0] === 'docs')) return;
+  const articles = graph.filter((n) => n['@type'] === 'Article');
+  if (articles.length !== 1) { fail(rel, `a guide must carry one Article in its JSON-LD, found ${articles.length}`); return; }
+  const a = articles[0];
+  const h1 = plainText((html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i) || [])[1] || '');
+  if (a.headline !== h1) fail(rel, `the Article headline "${a.headline}" is not the page's H1 "${h1}"`);
+  const org = `${ORIGIN}/#organization`;
+  if (a.author?.['@id'] !== org || a.publisher?.['@id'] !== org) fail(rel, 'the Article author and publisher must be the company (the Organization @id)');
+}
+
 const indexable = [];
 for (const rel of htmlFiles) {
   const html = read(rel);
@@ -219,6 +295,12 @@ for (const rel of htmlFiles) {
       if (robotsMeta.split(/[\s,]+/).includes(bad)) fail(rel, `robots meta contains "${bad}"`);
     }
     if (/data-nosnippet/i.test(html)) fail(rel, 'data-nosnippet hides text from snippets and AI answers');
+    // SEO-HANDOFF §1 step 4: allow full-length snippets and large image previews.
+    // Restricts nothing; without it Google may cap both.
+    const directives = robotsMeta.split(/[\s,]+/).filter(Boolean);
+    for (const want of ['max-snippet:-1', 'max-image-preview:large']) {
+      if (!directives.includes(want)) fail(rel, `robots meta must allow "${want}"`);
+    }
     if (canonicals.length !== 1) fail(rel, `expected exactly one canonical, found ${canonicals.length}`);
     else if (canonicals[0] !== `${ORIGIN}${url}`) fail(rel, `canonical ${canonicals[0]} is not ${ORIGIN}${url}`);
 
@@ -237,6 +319,9 @@ for (const rel of htmlFiles) {
         const types = graph.map((n) => n['@type']);
         for (const t of ['WebSite', 'Organization', 'WebPage']) if (!types.includes(t)) fail(rel, `JSON-LD lacks ${t}`);
         if (JSON.stringify(graph).match(/"(aggregateRating|review)"/)) fail(rel, 'JSON-LD claims ratings or reviews; a beta has none (section 3, rule 5)');
+        checkOffers(rel, graph);
+        checkBreadcrumbs(rel, url, html, graph);
+        checkArticle(rel, url, html, graph);
       } catch (e) {
         fail(rel, `JSON-LD does not parse: ${e.message}`);
       }

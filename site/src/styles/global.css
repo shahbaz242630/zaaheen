@@ -215,6 +215,15 @@ a{color:inherit}
    list stays open and nothing is highlighted. */
 .docs{max-width:1280px;margin:0 auto;padding:56px 32px 90px}
 .docs-head{max-width:720px;margin:0 0 40px}
+/* Settings and lines to copy in the guides (layouts/Guide.astro). */
+.set-text pre{background:var(--chip);border-radius:10px;padding:14px 16px;overflow-x:auto;margin:10px 0 14px}
+.set-text pre code{background:none;padding:0;font:13.5px/1.55 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+/* The breadcrumb trail on nested pages (components/Breadcrumbs.astro). */
+.crumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:4px 0;margin:0 0 18px;padding:0;font-size:14px;color:var(--muted)}
+.crumbs li+li::before{content:"›";margin:0 10px;color:var(--faint)}
+.crumbs a{color:var(--muted);text-decoration:none}
+.crumbs a:hover{color:var(--ink);text-decoration:underline}
+.crumbs [aria-current="page"]{color:var(--ink)}
 .docs-head h1{font-size:clamp(32px,5vw,44px);line-height:1.15;margin:0 0 14px}
 .docs-head p{color:var(--ink-soft);margin:0 0 10px}
 .doc-updated{font:13px var(--mono);color:var(--faint)!important}

@@ -8,7 +8,7 @@ import '../styles/global.css';
 import Logo from '../components/Logo.astro';
 import Footer from '../components/Footer.astro';
 import { SITE, NAV, ACCOUNT, absolute, type PageEntry } from '../data/site';
-import { lastModified } from '../lib/lastmod';
+import { firstPublished, lastModified } from '../lib/lastmod';
 import { graphFor } from '../lib/seo';
 
 interface Props {
@@ -21,7 +21,7 @@ interface Props {
 
 const { page, noindex = false, footer = 'app' } = Astro.props;
 const canonical = absolute(page.path);
-const jsonLd = noindex ? null : graphFor(page, lastModified(page.sources));
+const jsonLd = noindex ? null : graphFor(page, lastModified(page.sources), page.heading ? firstPublished(page.sources) : undefined);
 ---
 <!doctype html>
 <html lang={SITE.lang}>
@@ -31,6 +31,8 @@ const jsonLd = noindex ? null : graphFor(page, lastModified(page.sources));
 <title>{page.title}</title>
 <meta name="description" content={page.description}>
 {noindex ? <meta name="robots" content="noindex"> : <link rel="canonical" href={canonical}>}
+{/* Full-length snippets and large image previews in search and AI answers; restricts nothing (SEO-HANDOFF §1 step 4). */}
+{!noindex && <meta name="robots" content="max-snippet:-1, max-image-preview:large">}
 <meta name="theme-color" content={SITE.themeColor}>
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">

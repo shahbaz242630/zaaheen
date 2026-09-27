@@ -1,0 +1,53 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import Row from '../../components/Row.astro';
+import { INSTALL_PATH, TIP_LINE } from '../../data/site';
+
+// ChatGPT desktop, in the app's own words: AGENTS (ChatGPT's form),
+// AGENT_CHECKS and AGENT_TIPS in crates/vault-tauri/dist/app.js. ChatGPT has
+// no install route, so it is added by hand (live-tested in session 59).
+const OUTLINE = [
+  { id: 'before', title: 'Before you start' },
+  { id: 'add', title: 'Add Zaaheen to ChatGPT' },
+  { id: 'check', title: 'Check it worked' },
+  { id: 'tip', title: 'Make ChatGPT check Zaaheen' },
+];
+---
+<Guide
+  path="/docs/connect-chatgpt/"
+  lede="In the ChatGPT app for your computer, open Settings, then Integrations, then Plugins, choose Add, then Add MCP Server, and fill in Zaaheen's setting. Then use Zaaheen in ChatGPT's Work or Codex mode."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row id="before" title="Before you start" where="ChatGPT for your computer">
+      <p>Zaaheen connects to the ChatGPT app for your computer, in its Work and Codex modes. ChatGPT's
+         Chat mode can't connect to apps on your computer.</p>
+    </Row>
+
+    <Row id="add" title="Add Zaaheen to ChatGPT" where="ChatGPT › Settings">
+      <ol>
+        <li>In ChatGPT, open Settings, then Integrations, then Plugins.</li>
+        <li>Choose Add, then Add MCP Server, and fill it in:
+          <ul>
+            <li>Name: <code>Zaaheen</code></li>
+            <li>Command: <code>{INSTALL_PATH}</code>, where Zaaheen usually installs. The
+                <em>Agents</em> tab in Zaaheen shows yours exactly, ready to copy.</li>
+            <li>Arguments: <code>mcp</code> and <code>serve</code>, as two separate items. Typed
+                together on one line, they don't work.</li>
+          </ul>
+        </li>
+        <li>Save it, then use Zaaheen in ChatGPT's Work or Codex mode.</li>
+      </ol>
+    </Row>
+
+    <Row id="check" title="Check it worked" where="ChatGPT › Plugins">
+      <p>In ChatGPT, open Settings, then Integrations, then Plugins. Zaaheen is listed there.</p>
+    </Row>
+
+    <Row id="tip" title="Make ChatGPT check Zaaheen" where="ChatGPT › Personalization">
+      <p>ChatGPT looks in its own memory first and may stop there. So it checks Zaaheen as well, open
+         Settings, then Personalization, then Custom instructions, and add this line:</p>
+      <pre><code>{TIP_LINE}</code></pre>
+    </Row>
+  </section>
+</Guide>

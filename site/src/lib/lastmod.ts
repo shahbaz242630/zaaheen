@@ -27,3 +27,19 @@ export function lastModified(sources: string[]): string | undefined {
   }
   return newest;
 }
+
+// When a page was first published: the commit that added its own page file
+// (the first source), as ISO 8601. Undefined before that file is committed.
+export function firstPublished(sources: string[]): string | undefined {
+  const rel = sources[0];
+  if (!rel) return undefined;
+  try {
+    const stamps = execFileSync('git', ['log', '--diff-filter=A', '--format=%cI', '--', rel], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    }).trim().split('\n').filter(Boolean);
+    return stamps[stamps.length - 1];
+  } catch {
+    return undefined;
+  }
+}

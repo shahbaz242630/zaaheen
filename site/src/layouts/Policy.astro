@@ -1,6 +1,7 @@
 ---
 import Base from './Base.astro';
 import DocsNav from '../components/DocsNav.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
 import { pageFor } from '../data/site';
 import { lastModified } from '../lib/lastmod';
 
@@ -31,6 +32,7 @@ const updatedLabel = updated
 <Base page={page} footer={coaching ? 'coaching' : 'app'}>
   <div class="docs">
     <header class="docs-head">
+      <Breadcrumbs page={page} />
       <h1>{heading}</h1>
       <p>{lede}</p>
       {updatedLabel && <p class="doc-updated">Last updated {updatedLabel}</p>}

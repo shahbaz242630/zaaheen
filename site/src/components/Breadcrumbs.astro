@@ -1,0 +1,21 @@
+---
+import { breadcrumbsFor, type PageEntry } from '../data/site';
+
+// "Home › Knowledge Centre › Coaching Terms" on nested pages; nothing on the
+// home page and top-level pages. The same trail is in the page's JSON-LD
+// (lib/seo.ts), and scripts/audit.mjs requires the two to match.
+interface Props {
+  page: PageEntry;
+}
+const trail = breadcrumbsFor(Astro.props.page);
+const last = trail.length - 1;
+---
+{trail.length > 0 && (
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <ol>
+      {trail.map((c, i) => (
+        <li>{i === last ? <span aria-current="page">{c.name}</span> : <a href={c.path}>{c.name}</a>}</li>
+      ))}
+    </ol>
+  </nav>
+)}
