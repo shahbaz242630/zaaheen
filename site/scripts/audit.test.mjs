@@ -88,8 +88,9 @@ const crumbList = (graph) => {
 };
 
 // The app on sale: an installer link on the home page (RELEASE.available in
-// src/data/site.ts). Only then must a release build take live payments.
-const onSale = inject('<a href="https://dl.zaaheen.com/Zaaheen_x.msi">x</a>');
+// src/data/site.ts). Only then must a release build take live payments. The
+// link carries no words, so the page's text, and so its date, stay the same.
+const onSale = inject('<a href="https://dl.zaaheen.com/Zaaheen_x.msi" aria-label="x"></a>');
 const onSaleWith = (env, token) => (d) => {
   onSale(d);
   payConfig(env, token)(d);
@@ -184,6 +185,16 @@ const cases = [
   ['guide missing', (d) => fs.rmSync(path.join(d, 'docs', 'getting-started'), { recursive: true }), /broken internal link or asset: \/docs\/getting-started\//],
   ['breadcrumb on a top-level page', edit('docs/index.html', (s) => s.replace('<main>', '<main><nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li></ol></nav>')), /docs\/index\.html: a top-level page must not carry a breadcrumb trail/],
   ['security.txt wrong contact', edit('.well-known/security.txt', (s) => s.replace('customerservice@', 'someone@')), /security\.txt: must have "Contact: mailto:customerservice@zaaheen\.com"/],
+  // SEO audit, session 72.
+  ['guide heading skips a level', edit('docs/connect-claude/index.html', (s) => { const out = s.replace(/<h2 class="set-name">([\s\S]*?)<\/h2>/, '<h3 class="set-name">$1</h3>'); if (out === s) throw new Error('audit.test: no guide row heading'); return out; }), /docs\/connect-claude\/index\.html: heading level skipped: an <h3> follows an <h1>/],
+  ['page text changed, date kept', edit('terms/index.html', (s) => s.replace('</main>', '<p>A new clause.</p></main>')), /terms\/index\.html: the page text changed since its date: run npm run stamp/],
+  ['new listed page with no date', (d) => {
+    fs.mkdirSync(path.join(d, 'extra'));
+    fs.writeFileSync(path.join(d, 'extra', 'index.html'), fs.readFileSync(path.join(d, 'terms', 'index.html'), 'utf8'));
+  }, /extra\/index\.html: the page has no recorded date: run npm run stamp/],
+  ['sitemap date not the recorded one', edit('sitemap.xml', (s) => { const out = s.replace(/<lastmod>[^<]*<\/lastmod>/, '<lastmod>2020-01-01T00:00:00Z</lastmod>'); if (out === s) throw new Error('audit.test: no lastmod'); return out; }), /sitemap\.xml: lastmod for \/ is 2020-01-01T00:00:00Z, not its recorded date/],
+  ['absolute security claim', inject('<p>Zaaheen is unhackable.</p>'), /index\.html: absolute security claim "unhackable"/],
+  ['absolute security claim in llms.txt', edit('llms.txt', (s) => `${s}\nYour memories are 100% secure.\n`), /llms\.txt: absolute security claim "100% secure"/],
 ];
 
 if (!fs.existsSync(DIST)) {
@@ -265,5 +276,38 @@ console.log(`${clean.status === 0 ? 'ok  ' : 'FAIL'}  untouched build passes${cl
   }
 }
 
-console.log(failed ? `\naudit.test: ${failed} failure(s)` : `\naudit.test: all ${cases.length + 4} passed`);
+// The other side of the date cases: a markup-only change (a class, a heading
+// level) changes no words, so it keeps the page's date and passes.
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zaaheen-audit-'));
+  try {
+    fs.cpSync(DIST, dir, { recursive: true });
+    edit('terms/index.html', (s) => { const out = s.replace('class="set-row"', 'class="set-row is-new"'); if (out === s) throw new Error('audit.test: no set-row'); return out; })(dir);
+    const r = spawnSync(process.execPath, [AUDIT, dir], { encoding: 'utf8' });
+    const accepted = r.status === 0;
+    if (!accepted) failed++;
+    console.log(`${accepted ? 'ok  ' : 'FAIL'}  a markup-only change keeps its date${accepted ? '' : `\n${r.stdout}${r.stderr}`}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// The other side of the claim cases: the honest, negated wording is allowed.
+// (Checks only that no claim is reported: the added words re-date the page.)
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zaaheen-audit-'));
+  try {
+    fs.cpSync(DIST, dir, { recursive: true });
+    inject('<p>No system is 100% secure, and nothing online is completely safe.</p>')(dir);
+    const r = spawnSync(process.execPath, [AUDIT, dir], { encoding: 'utf8' });
+    const out = `${r.stdout}${r.stderr}`;
+    const accepted = !/absolute security claim/.test(out);
+    if (!accepted) failed++;
+    console.log(`${accepted ? 'ok  ' : 'FAIL'}  a negated security claim is allowed${accepted ? '' : `\n${out}`}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+console.log(failed ? `\naudit.test: ${failed} failure(s)` : `\naudit.test: all ${cases.length + 6} passed`);
 process.exit(failed ? 1 : 0);

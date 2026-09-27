@@ -27,7 +27,7 @@ const OUTLINE = [
   outline={OUTLINE}
 >
   <section class="docs-section">
-    <Row id="connect" title="Connect it" where="Agents › Connect">
+    <Row level={2} id="connect" title="Connect it" where="Agents › Connect">
       <p>Zaaheen opens Cursor's own install link, and Cursor asks you. Zaaheen never changes Cursor's
          settings itself.</p>
       <ol>
@@ -37,7 +37,7 @@ const OUTLINE = [
       </ol>
     </Row>
 
-    <Row id="by-hand" title="Add the setting yourself" where="Cursor › mcp.json">
+    <Row level={2} id="by-hand" title="Add the setting yourself" where="Cursor › mcp.json">
       <p>If Zaaheen says it couldn't find or open Cursor, add the setting yourself. Add this to
          Cursor's settings file, mcp.json, in the .cursor folder in your home folder. Save it, then
          restart Cursor:</p>
@@ -46,12 +46,12 @@ const OUTLINE = [
          computer exactly, ready to copy.</p>
     </Row>
 
-    <Row id="check" title="Check it worked" where="Cursor › Settings">
+    <Row level={2} id="check" title="Check it worked" where="Cursor › Settings">
       <p>In Cursor, open Settings, then MCP (Tools &amp; MCP in newer versions). Zaaheen has a green
          dot.</p>
     </Row>
 
-    <Row id="using" title="Using it" where="Cursor">
+    <Row level={2} id="using" title="Using it" where="Cursor">
       <p>Cursor checks Zaaheen by itself when you ask about yourself, your preferences or your work.
          What it saves there, your other connected AI apps can use too.</p>
     </Row>

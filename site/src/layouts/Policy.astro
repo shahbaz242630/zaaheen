@@ -24,7 +24,7 @@ interface Props {
 }
 const { path, heading, lede, outline, coaching = false } = Astro.props;
 const page = pageFor(path);
-const updated = lastModified(page.sources);
+const updated = lastModified(page.path);
 const updatedLabel = updated
   ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   : undefined;

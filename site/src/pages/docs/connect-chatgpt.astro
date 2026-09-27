@@ -19,12 +19,12 @@ const OUTLINE = [
   outline={OUTLINE}
 >
   <section class="docs-section">
-    <Row id="before" title="Before you start" where="ChatGPT for your computer">
+    <Row level={2} id="before" title="Before you start" where="ChatGPT for your computer">
       <p>Zaaheen connects to the ChatGPT app for your computer, in its Work and Codex modes. ChatGPT's
          Chat mode can't connect to apps on your computer.</p>
     </Row>
 
-    <Row id="add" title="Add Zaaheen to ChatGPT" where="ChatGPT › Settings">
+    <Row level={2} id="add" title="Add Zaaheen to ChatGPT" where="ChatGPT › Settings">
       <ol>
         <li>In ChatGPT, open Settings, then Integrations, then Plugins.</li>
         <li>Choose Add, then Add MCP Server, and fill it in:
@@ -40,11 +40,11 @@ const OUTLINE = [
       </ol>
     </Row>
 
-    <Row id="check" title="Check it worked" where="ChatGPT › Plugins">
+    <Row level={2} id="check" title="Check it worked" where="ChatGPT › Plugins">
       <p>In ChatGPT, open Settings, then Integrations, then Plugins. Zaaheen is listed there.</p>
     </Row>
 
-    <Row id="tip" title="Make ChatGPT check Zaaheen" where="ChatGPT › Personalization">
+    <Row level={2} id="tip" title="Make ChatGPT check Zaaheen" where="ChatGPT › Personalization">
       <p>ChatGPT looks in its own memory first and may stop there. So it checks Zaaheen as well, open
          Settings, then Personalization, then Custom instructions, and add this line:</p>
       <pre><code>{TIP_LINE}</code></pre>

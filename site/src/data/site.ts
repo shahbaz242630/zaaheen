@@ -165,9 +165,10 @@ export interface PageEntry {
   title: string;
   description: string;
   /**
-   * Files (relative to site/) whose committed content makes up this page. The
-   * sitemap's lastmod is the newest git commit date across them, never the
-   * build time, so an unchanged page never looks fresh.
+   * Files (relative to site/) whose content makes up this page, its own page
+   * file first: a guide's datePublished is the commit that added that file
+   * (lib/lastmod.ts). Its last-updated date is not taken from these but from
+   * its own words (scripts/page-dates.mjs).
    */
   sources: string[];
   /**
@@ -199,7 +200,7 @@ export const PAGES: PageEntry[] = [
   },
   {
     path: '/products/',
-    title: 'Products · Zaaheen',
+    title: 'Products: the memory app and AI coaching · Zaaheen',
     description:
       'The products Zaaheen makes, starting with a private, encrypted memory that your AI assistants share on your own computer.',
     sources: ['src/pages/products.astro', 'src/data/site.ts'],
@@ -207,7 +208,7 @@ export const PAGES: PageEntry[] = [
   {
     path: '/docs/',
     crumb: 'Documents',
-    title: 'Documents · Zaaheen',
+    title: 'Help and guides for the memory app · Zaaheen',
     description:
       'Guides for Zaaheen products: connecting Claude, Cursor and other AI apps, keeping your data safe, and fixing common problems.',
     sources: ['src/pages/docs.astro', 'src/data/site.ts'],
@@ -215,7 +216,7 @@ export const PAGES: PageEntry[] = [
   {
     path: '/knowledge-centre/',
     crumb: 'Knowledge Centre',
-    title: 'Knowledge Centre · Zaaheen',
+    title: 'Knowledge Centre: AI coaching sessions · Zaaheen',
     description:
       'Learn to work with AI properly: private 1-to-1 AI coaching sessions from Zaaheen, built around a real task and booked online.',
     sources: ['src/pages/knowledge-centre/index.astro', 'src/data/site.ts'],
@@ -365,7 +366,7 @@ export const PAGES: PageEntry[] = [
   },
   {
     path: '/pricing/',
-    title: 'Pricing · Zaaheen',
+    title: `Pricing: ${PLANS.monthly} after ${TRIAL.days} days free · Zaaheen`,
     description:
       `Zaaheen pricing: ${TRIAL.days} days free with no card, then ${PLANS.monthly} or ${PLANS.yearly}. How Zaaheen compares with other AI memory tools and ChatGPT and Claude memory.`,
     sources: ['src/pages/pricing.astro', 'src/data/site.ts', 'src/data/pricing.ts'],

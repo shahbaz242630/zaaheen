@@ -21,7 +21,7 @@ const OUTLINE = [
   outline={OUTLINE}
 >
   <section class="docs-section">
-    <Row id="not-using" title="My AI app answers without using Zaaheen" where="Claude, ChatGPT">
+    <Row level={2} id="not-using" title="My AI app answers without using Zaaheen" where="Claude, ChatGPT">
       <p>Claude and ChatGPT look in their own memory first and may stop there. Add this line to
          Claude's personal preferences, or to ChatGPT's Custom instructions, and they check Zaaheen as
          well:</p>
@@ -30,7 +30,7 @@ const OUTLINE = [
          booked". Cursor checks Zaaheen by itself when you ask about yourself.</p>
     </Row>
 
-    <Row id="not-listed" title="My app isn't in the Agents tab" where="Agents">
+    <Row level={2} id="not-listed" title="My app isn't in the Agents tab" where="Agents">
       <p>An app shows in the <em>Agents</em> tab only while it is open and connected. Open the app,
          then check its own settings: each connection guide has a "Check it worked" step
          (<a href="/docs/connect-claude/">Claude</a>, <a href="/docs/connect-cursor/">Cursor</a>,
@@ -38,31 +38,31 @@ const OUTLINE = [
          again.</p>
     </Row>
 
-    <Row id="chatgpt" title="ChatGPT can't see Zaaheen" where="ChatGPT">
+    <Row level={2} id="chatgpt" title="ChatGPT can't see Zaaheen" where="ChatGPT">
       <p>Use ChatGPT's Work or Codex mode: its Chat mode can't connect to apps on your computer. Then
          check the setting: <code>mcp</code> and <code>serve</code> must be two separate items under
          Arguments, not one line. See <a href="/docs/connect-chatgpt/">Connect ChatGPT</a>.</p>
     </Row>
 
-    <Row id="claude" title="Claude didn't ask me to install Zaaheen" where="Claude › Extensions">
+    <Row level={2} id="claude" title="Claude didn't ask me to install Zaaheen" where="Claude › Extensions">
       <p>Zaaheen saves the extension to your Downloads folder. In Claude, open Settings, then
          Extensions, then Advanced settings, then Install Extension, and choose
          "Zaaheen for Claude.mcpb".</p>
     </Row>
 
-    <Row id="unknown-publisher" title="Windows says the publisher is unknown" where="Installer">
+    <Row level={2} id="unknown-publisher" title="Windows says the publisher is unknown" where="Installer">
       <p>Choose <em>More info</em>, then <em>Run anyway</em>. Zaaheen is in beta and its installer is
          not code-signed yet; signing comes before the full launch.</p>
     </Row>
 
-    <Row id="stopped" title="My apps stopped using Zaaheen" where="Settings › Account">
+    <Row level={2} id="stopped" title="My apps stopped using Zaaheen" where="Settings › Account">
       <p>If your free trial or subscription has ended, Zaaheen stops serving your AI apps until you
          subscribe. Nothing is deleted: your memories stay on your computer, and <em>Download my
          memories</em> keeps working. Choose <em>Subscribe</em> in the app, and your apps pick
          Zaaheen up again.</p>
     </Row>
 
-    <Row id="else" title="Something else went wrong" where="Settings › Help">
+    <Row level={2} id="else" title="Something else went wrong" where="Settings › Help">
       <p>Choose <em>Save activity record…</em> in Settings, then email the file to
          <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> with what you were doing. The record
          contains none of your memories.</p>

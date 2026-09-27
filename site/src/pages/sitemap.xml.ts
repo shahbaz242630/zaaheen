@@ -3,12 +3,12 @@ import { PAGES, absolute } from '../data/site';
 import { lastModified } from '../lib/lastmod';
 
 // Built from PAGES, so a page cannot exist without being listed, or be listed
-// without existing (scripts/audit.mjs checks both directions). lastmod comes
-// from git, never the clock; see lib/lastmod.ts. priority and changefreq are
-// omitted because Google ignores them.
+// without existing (scripts/audit.mjs checks both directions). lastmod is when
+// the page's words last changed, never the clock (lib/lastmod.ts). priority
+// and changefreq are omitted because Google ignores them.
 export const GET: APIRoute = () => {
   const entries = PAGES.map((p) => {
-    const modified = lastModified(p.sources);
+    const modified = lastModified(p.path);
     const lastmod = modified ? `\n    <lastmod>${modified}</lastmod>` : '';
     return `  <url>\n    <loc>${absolute(p.path)}</loc>${lastmod}\n  </url>`;
   });
