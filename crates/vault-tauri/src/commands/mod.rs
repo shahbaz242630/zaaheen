@@ -62,6 +62,7 @@ pub mod account;
 pub mod agent;
 pub mod boundary;
 pub mod connect;
+pub mod documents;
 pub mod engine;
 pub mod erasure;
 pub mod export;

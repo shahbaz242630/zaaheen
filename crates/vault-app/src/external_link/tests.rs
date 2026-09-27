@@ -296,3 +296,84 @@ fn without_a_known_delete_page_there_is_no_link() {
         );
     }
 }
+
+// ------------------------------------------------------------- the documents
+
+#[test]
+fn every_document_opens_on_our_own_site_over_https() {
+    for doc in Document::ALL {
+        let link = ExternalLink::document(doc).expect("every listed document makes a link");
+        let url = Url::parse(link.as_str()).expect("a built link parses");
+        assert_eq!(url.scheme(), "https", "{doc:?}");
+        assert_eq!(url.host_str(), Some("zaaheen.com"), "{doc:?}");
+        assert!(url.query().is_none(), "{doc:?} carries a query");
+        assert_eq!(
+            link.as_str(),
+            format!("https://zaaheen.com{}", doc.path()),
+            "{doc:?}"
+        );
+    }
+}
+
+#[test]
+fn the_guides_are_sections_of_the_docs_page_and_the_policies_their_own_pages() {
+    assert_eq!(
+        ExternalLink::document(Document::GettingStarted)
+            .expect("valid")
+            .as_str(),
+        "https://zaaheen.com/docs/#getting-started"
+    );
+    assert_eq!(
+        ExternalLink::document(Document::Terms)
+            .expect("valid")
+            .as_str(),
+        "https://zaaheen.com/terms/"
+    );
+    assert_eq!(
+        ExternalLink::document(Document::AiAndYourData)
+            .expect("valid")
+            .as_str(),
+        "https://zaaheen.com/ai-and-your-data/"
+    );
+}
+
+#[test]
+fn only_a_listed_document_name_is_accepted() {
+    for (wire, doc) in [
+        ("getting-started", Document::GettingStarted),
+        ("support", Document::Support),
+        ("terms", Document::Terms),
+        ("ai-and-your-data", Document::AiAndYourData),
+        ("company", Document::Company),
+    ] {
+        let got: Document = serde_json::from_value(serde_json::json!(wire)).expect("listed");
+        assert_eq!(got, doc);
+    }
+    for refused in [
+        serde_json::json!("Terms"),
+        serde_json::json!("terms/"),
+        serde_json::json!("/terms/"),
+        serde_json::json!("https://zaaheen.com/terms/"),
+        serde_json::json!("https://evil.test/"),
+        serde_json::json!("file:///C:/Windows/System32/cmd.exe"),
+        serde_json::json!("ai_and_your_data"),
+        serde_json::json!({ "terms": true }),
+        serde_json::json!(""),
+    ] {
+        assert!(
+            serde_json::from_value::<Document>(refused.clone()).is_err(),
+            "accepted {refused}"
+        );
+    }
+}
+
+#[test]
+fn every_document_path_is_a_plain_site_path() {
+    for doc in Document::ALL {
+        let path = doc.path();
+        assert!(path.starts_with('/'), "{doc:?}");
+        assert!(!path.starts_with("//"), "{doc:?} would name another host");
+        assert!(!path.contains('?'), "{doc:?}");
+        assert!(!path.contains('@'), "{doc:?}");
+    }
+}

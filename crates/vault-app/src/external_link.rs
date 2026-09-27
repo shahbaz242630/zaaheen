@@ -55,6 +55,71 @@ const PAY_PARAM: &str = "_ptxn";
 /// decodes (session 64 spike).
 const CURSOR_INSTALL_BASE: &str = "cursor://anysphere.cursor-deeplink/mcp/install";
 
+/// The website every [`Document`] lives on. Documents are public pages, the
+/// same for a sandbox and a production build, so this is not derived from the
+/// account configuration.
+const SITE: &str = "https://zaaheen.com";
+
+/// A guide or policy on the website that Settings › Documents opens
+/// (founder, session 69; ADR-SEC-036). The page sends only a name from this
+/// closed list; the address is looked up here, so nothing the page sends can
+/// steer the browser anywhere else.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Document {
+    GettingStarted,
+    Connecting,
+    Memories,
+    Account,
+    Support,
+    Terms,
+    Privacy,
+    Refunds,
+    AiAndYourData,
+    Security,
+    Company,
+    Licences,
+}
+
+impl Document {
+    /// Every document, in the order Settings shows them.
+    pub const ALL: [Document; 12] = [
+        Document::GettingStarted,
+        Document::Connecting,
+        Document::Memories,
+        Document::Account,
+        Document::Support,
+        Document::Terms,
+        Document::Privacy,
+        Document::Refunds,
+        Document::AiAndYourData,
+        Document::Security,
+        Document::Company,
+        Document::Licences,
+    ];
+
+    /// Where it lives on [`SITE`]: a guide is a section of `/docs/`, a
+    /// policy its own page (`site/src/data/site.ts` `DOCS_SECTIONS` and
+    /// `POLICIES`, which a vault-tauri contract test holds this list to).
+    #[must_use]
+    pub const fn path(self) -> &'static str {
+        match self {
+            Document::GettingStarted => "/docs/#getting-started",
+            Document::Connecting => "/docs/#connecting",
+            Document::Memories => "/docs/#memories",
+            Document::Account => "/docs/#account",
+            Document::Support => "/docs/#support",
+            Document::Terms => "/terms/",
+            Document::Privacy => "/privacy/",
+            Document::Refunds => "/refunds/",
+            Document::AiAndYourData => "/ai-and-your-data/",
+            Document::Security => "/security/",
+            Document::Company => "/company/",
+            Document::Licences => "/licences/",
+        }
+    }
+}
+
 /// A link this application is allowed to open.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ExternalLink(Url);
@@ -129,6 +194,24 @@ impl ExternalLink {
         let page = config.delete_account_page().ok_or(LinkError::NotAllowed)?;
         let url = Url::parse(&page).map_err(|_| LinkError::NotAllowed)?;
         if url.query().is_some() || url.fragment().is_some() {
+            return Err(LinkError::NotAllowed);
+        }
+        Self::checked(url)
+    }
+
+    /// A guide or policy on the website (ADR-SEC-036): [`SITE`] plus the
+    /// document's fixed path, with no query.
+    ///
+    /// # Errors
+    ///
+    /// [`LinkError::NotAllowed`] only if [`SITE`] or a path were edited into
+    /// something that is not a plain `https` page on our own site: a
+    /// refusal, never a panic.
+    pub fn document(doc: Document) -> Result<Self, LinkError> {
+        let url = Url::parse(SITE)
+            .and_then(|site| site.join(doc.path()))
+            .map_err(|_| LinkError::NotAllowed)?;
+        if url.host_str() != Some("zaaheen.com") || url.query().is_some() {
             return Err(LinkError::NotAllowed);
         }
         Self::checked(url)

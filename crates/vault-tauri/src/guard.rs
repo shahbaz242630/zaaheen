@@ -298,6 +298,8 @@ pub const GATED_COMMANDS: &[&str] = &[
     "show_claude_extension",
     // The copy-paste steps' command (ADR-111): part of the same setup step.
     "server_command",
+    // Settings › Documents (ADR-SEC-036): Settings is past the lock, so gated.
+    "open_document",
 ];
 
 /// Commands that run whatever the entitlement answer is.
@@ -726,6 +728,7 @@ mod tests {
             include_str!("commands/maintenance.rs"),
             include_str!("commands/location.rs"),
             include_str!("commands/connect.rs"),
+            include_str!("commands/documents.rs"),
         ];
 
         for name in GATED_COMMANDS {
@@ -768,6 +771,7 @@ mod tests {
             ("maintenance.rs", include_str!("commands/maintenance.rs")),
             ("location.rs", include_str!("commands/location.rs")),
             ("connect.rs", include_str!("commands/connect.rs")),
+            ("documents.rs", include_str!("commands/documents.rs")),
             // The open commands too: `account_access` reads the guard, and
             // must read the application's one, not a guard of its own.
             ("account.rs", include_str!("commands/account.rs")),

@@ -518,6 +518,7 @@
             <button data-section="account">Account</button>
             <button data-section="memories">Your memories</button>
             <button data-section="about">About Zaaheen</button>
+            <button data-section="documents">Documents</button>
             <button data-section="help">Help</button>
           </nav>
           <div class="settings-pane">
@@ -667,6 +668,37 @@
             </div>
           </section>
 
+          <!-- Documents (founder, session 69): the guides and policies on
+               zaaheen.com, in the same two dropdowns as the website's
+               Documents menu. Each button names a document, never an
+               address: the app looks the page up in its own fixed list and
+               opens the browser itself (ADR-SEC-036). -->
+          <section class="settings-section" data-section="documents">
+            <h2 class="settings-title">Documents</h2>
+            <p class="settings-intro">Our guides and policies on zaaheen.com. Each one opens in your browser.</p>
+            <div id="documents-list">
+              <details class="doc-group" open>
+                <summary>Using Zaaheen</summary>
+                <button class="doc-link" data-doc="getting-started">Getting started</button>
+                <button class="doc-link" data-doc="connecting">Connecting your AI apps</button>
+                <button class="doc-link" data-doc="memories">Your memories</button>
+                <button class="doc-link" data-doc="account">Account and subscription</button>
+                <button class="doc-link" data-doc="support">Help</button>
+              </details>
+              <details class="doc-group">
+                <summary>Policies</summary>
+                <button class="doc-link" data-doc="terms">Terms of Service</button>
+                <button class="doc-link" data-doc="privacy">Privacy Policy</button>
+                <button class="doc-link" data-doc="refunds">Refund Policy</button>
+                <button class="doc-link" data-doc="ai-and-your-data">AI and Your Data</button>
+                <button class="doc-link" data-doc="security">Security</button>
+                <button class="doc-link" data-doc="company">Company Information</button>
+                <button class="doc-link" data-doc="licences">Open-source licences</button>
+              </details>
+            </div>
+            <p id="documents-status" class="data-note"></p>
+          </section>
+
           <!-- Diagnostic log export (ADR-SEC-017). The log already exists but
                lands in a hidden system folder no ordinary user will find, so
                "it broke" still tells us nothing. This is the last few feet:
@@ -730,7 +762,7 @@
            aria-labelledby="delete-account-title" aria-describedby="delete-account-body">
         <div id="delete-account-ask">
           <div id="delete-account-title" class="confirm-title">Delete my account</div>
-          <p id="delete-account-body" class="confirm-body">Delete my account deletes the memories on this computer, then opens a page where you confirm deleting your Zaaheen account. Deleting the account also removes it from coaching bookings and cancels any subscription straight away, with no refund of the time left.</p>
+          <p id="delete-account-body" class="confirm-body">Delete my account deletes the memories on this computer, then opens a page where you confirm deleting your Zaaheen account. Deleting the account cancels any subscription straight away, with no refund of the time left. Coaching bookings are kept separately.</p>
           <p class="confirm-body">Want a copy first? <button id="delete-account-export" class="link-underline">Download my memories</button></p>
           <p id="delete-account-export-status" class="data-note"></p>
           <label class="erase-label" for="delete-account-phrase">

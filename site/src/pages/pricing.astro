@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import { PRICES, RELEASE, TRIAL, pageFor } from '../data/site';
+import { CHECKED_ON, COMPARISON, COMPARISON_SOURCES, PRICING_FAQ } from '../data/pricing';
 
 // Pricing (founder, session 67: Paddle's domain review asks for "pricing
 // details or a pricing page"). One product, two ways to pay; the facts match
@@ -31,6 +32,7 @@ const INCLUDED = [
       <section class="plan" aria-labelledby="plan-monthly">
         <h2 id="plan-monthly">Monthly</h2>
         <p class="plan-price"><span class="plan-amount">${PRICES.monthly}</span> a month</p>
+        <p class="plan-tax">Plus VAT or sales tax where it applies.</p>
         <p class="plan-note">Renews every month until you cancel.</p>
         {RELEASE.available
           ? <a class="cta" href="/docs/#install">Start your free trial</a>
@@ -40,6 +42,7 @@ const INCLUDED = [
         <p class="plan-tag">Save ${saving} a year</p>
         <h2 id="plan-yearly">Yearly</h2>
         <p class="plan-price"><span class="plan-amount">${PRICES.yearly}</span> a year</p>
+        <p class="plan-tax">Plus VAT or sales tax where it applies.</p>
         <p class="plan-note">Renews every year until you cancel.</p>
         {RELEASE.available
           ? <a class="cta" href="/docs/#install">Start your free trial</a>
@@ -54,20 +57,71 @@ const INCLUDED = [
       </ul>
     </section>
 
+    <section class="pricing-compare" aria-labelledby="compare">
+      <h2 id="compare">How Zaaheen compares</h2>
+      <p class="pricing-compare-lede">Other AI memory products, and the memory built into the AI apps
+         themselves, compared on the things that matter when you choose one.</p>
+      <div class="vs-wrap">
+        <table class="vs">
+          <thead>
+            <tr>
+              <th scope="col">Product</th>
+              <th scope="col">Price for one person</th>
+              <th scope="col">Where your memories are kept</th>
+              <th scope="col">Encrypted</th>
+              <th scope="col">Used to train AI</th>
+              <th scope="col">Works across your AI apps</th>
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARISON.map((c, i) => (
+              <tr class={i === 0 ? 'vs-us' : undefined}>
+                <th scope="row">{c.name} <span class="vs-plan">{c.kind}</span></th>
+                <td>{c.price}</td>
+                <td class="vs-where">{c.where}</td>
+                <td>{c.encrypted}</td>
+                <td>{c.training}</td>
+                <td>{c.apps}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="vs-note">Other companies' prices and features are taken from their own websites
+         and privacy pages on {CHECKED_ON}, in US dollars before tax, with their own words in
+         quotes. "Not stated" means the company's own pages don't say. Their prices and policies
+         can change, so check them before you buy:
+         {COMPARISON_SOURCES.map((src, i) => (
+           <>{i > 0 && ', '}<a href={src.url} target="_blank" rel="noopener noreferrer">{src.name}</a></>
+         ))}.</p>
+    </section>
+
     <section class="pricing-small" aria-labelledby="small-print">
       <h2 id="small-print">The small print, in plain words</h2>
       <ul>
         <li>Your {TRIAL.days}-day trial takes no card, so nothing is charged when it ends. Zaaheen
             simply asks you to subscribe.</li>
-        <li>Prices are in US dollars. You see the full amount, including any tax where you live,
-            before you pay.</li>
+        <li>Prices are in US dollars, plus VAT or sales tax where it applies, collected by our
+            reseller Paddle. You see the exact total before you pay.</li>
         <li>Your plan renews automatically until you cancel. Cancel any time in the app under
             Settings, Account, Manage subscription, and keep access until the end of the time you've
             paid for.</li>
-        <li>Ask within 14 days of a payment and we refund it in full. See the <a
+        <li>Ask within 14 days of a payment and we refund it in full, once per person. See the <a
             href="/refunds/">Refund Policy</a> and the <a href="/terms/">Terms of Service</a>.</li>
         <li>Payments are handled by Paddle.com, our reseller and Merchant of Record.</li>
       </ul>
+    </section>
+
+    <section class="pricing-faq" aria-labelledby="pricing-faq">
+      <h2 id="pricing-faq">Questions about Zaaheen</h2>
+      <div class="faq-list">
+        {PRICING_FAQ.map((f) => (
+          <details class="faq-item">
+            <summary>{f.q}</summary>
+            <p>{f.a}</p>
+          </details>
+        ))}
+      </div>
     </section>
   </div>
 </Base>

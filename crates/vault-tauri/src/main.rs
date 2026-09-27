@@ -168,6 +168,8 @@ fn main() {
             // Where the link to the keeper is (ADR-108 D6). Open before the
             // lock, approved with ADR-108: see the module.
             vault_tauri::commands::keeper::link_state,
+            // Settings › Documents (ADR-SEC-036). Gated: see the module.
+            vault_tauri::commands::documents::open_document,
         ])
         .setup(|app| {
             // 0. File logging FIRST, so every later step in this closure --

@@ -57,13 +57,13 @@ const topic = (id: string) =>
   <ul slot="summary">
     <li>Your memories are stored on your own computer, encrypted. Zaaheen never receives
         them and cannot read them.</li>
-    <li>Your Zaaheen account holds only your name, your email address, how you sign in, and
-        your trial and subscription dates.</li>
+    <li>Your Zaaheen account holds your name, your email address, how you sign in, your trial
+        and subscription dates, and the choices you made at sign-up.</li>
     <li>Paddle takes your payment as our reseller. We never see your card details.</li>
     <li>We never sell your data, never use it for advertising, and never use your memories to
         train AI.</li>
-    <li>You can download or delete your memories at any time in the app, and ask us to delete
-        your account by email.</li>
+    <li>You can download or delete your memories, and delete your account, at any time in the
+        app or on our website.</li>
   </ul>
 
   <section id="memories" class="docs-section">
@@ -72,12 +72,15 @@ const topic = (id: string) =>
     <Row id="on-your-computer" title={topic('on-your-computer')} where="On your computer">
       <p>Everything your AI apps save to Zaaheen, and everything you add yourself, is stored
          in a folder on your own computer and encrypted there. The key that unlocks it is kept
-         in Windows' own secure store on the same computer. Your memories are never uploaded
-         to us or to anyone else, so we have no copy and no way to read them.</p>
+         in Windows' own secure store on the same computer. Zaaheen never uploads your memories
+         to us or to anyone else, so we have no copy and no way to read them. The AI apps you
+         connect can send memories to their makers, as explained below.</p>
       <p>That also means we can't recover them for you. If you lose your computer or delete
-         the folder, your memories go with it, so keep your own backup: <em>Download my
-         memories</em> in the app saves everything as one file, whether or not you
-         subscribe. <em>Delete everything</em> destroys the key and the files for good.</p>
+         the folder, your memories go with it, so keep your own copy: <em>Download my
+         memories</em> in the app saves everything as one readable file, whether or not you
+         subscribe. That file is not encrypted, so keep it safe. <em>Delete everything</em>
+         destroys the key and the memory files for good; it does not remove files you
+         downloaded.</p>
     </Row>
 
     <Row id="local-ai" title={topic('local-ai')} where="On your computer">
@@ -126,12 +129,36 @@ const topic = (id: string) =>
           <tr><td>Your choice about tips and product news</td>
               <td>To email you only if you said yes</td>
               <td>Your consent</td></tr>
-          <tr><td>Your agreement to our Terms and this policy</td>
+          <tr><td>Your agreement to our Terms and Refund Policy, and that you read this
+                  policy</td>
               <td>To show when you accepted them</td>
               <td>Our legitimate interest in keeping a record</td></tr>
+          <tr><td>A scrambled fingerprint of your email address and the date your free trial
+                  started</td>
+              <td>So each person gets one free trial</td>
+              <td>Our legitimate interest in preventing misuse</td></tr>
+          <tr><td>Your IP address, for one minute</td>
+              <td>To stop too many requests arriving from one place</td>
+              <td>Our legitimate interest in keeping Zaaheen secure</td></tr>
+          <tr><td>Emails you send us and our replies</td>
+              <td>To answer you and keep a record of what we agreed</td>
+              <td>Our contract with you, or our legitimate interest in helping people who
+                  contact us</td></tr>
+          <tr><td>Records we need for a complaint or legal claim</td>
+              <td>To answer complaints and legal claims</td>
+              <td>Our legitimate interest in defending our rights</td></tr>
         </tbody>
       </table>
-      <p>If you email us, we also keep that conversation so we can help you.</p>
+      <p>The fingerprint is made with a secret key, so it can't be turned back into your email
+         address.</p>
+      <p>You need to give your name and email address to create an account, because we cannot
+         give you a trial or a subscription without them. Everything else is optional. We make no
+         decisions about you by automated means that have legal or similarly significant effects.
+         Where we rely on your consent, such as for tips and product news, you can withdraw it at
+         any time, and that does not affect what we did before. For people in the United Arab
+         Emirates, where the law's starting point is consent, we rely on the exceptions for
+         performing our contract with you and meeting our legal obligations, and on your consent
+         for tips and product news.</p>
     </Row>
 
     <Row id="google" title={topic('google')} where="Optional">
@@ -225,10 +252,13 @@ const topic = (id: string) =>
     </Row>
 
     <Row id="transfers" title={topic('transfers')} where="International">
-      <p>Zaaheen is based in the United Arab Emirates, and several of the companies above
-         handle data in the United States, Europe and elsewhere. When your account data
-         leaves your country, we rely on the protections in each company's data processing
-         terms, such as the standard contractual clauses approved for these transfers.</p>
+      <p>Zaaheen is based in the United Arab Emirates, and the companies above handle data in
+         the United States, the European Union and elsewhere. When personal data from the
+         European Union or the United Kingdom goes to a country without an adequacy decision, we
+         rely on the European Commission's standard contractual clauses, the United Kingdom's
+         International Data Transfer Addendum, or the EU US Data Privacy Framework where the
+         company is certified under it, as set out in each company's data processing terms. You
+         can ask us for a copy of the relevant safeguards.</p>
     </Row>
 
     <Row id="never" title={topic('never')} where="Our promise">
@@ -248,17 +278,23 @@ const topic = (id: string) =>
       <ul>
         <li><strong>Your memories:</strong> only on your computer, for as long as you keep
             them. We hold none.</li>
-        <li><strong>Your account:</strong> for as long as you have one. If you ask us to
-            delete it, we delete it within 30 days, and deleting it also cancels your
-            subscription.</li>
+        <li><strong>Your account:</strong> for as long as you have one. You can delete it
+            yourself at any time with <em>Delete my account</em> in the app or on our website,
+            and it is deleted straight away. If you email us instead, we delete it within 30
+            days. Deleting your account cancels any subscription.</li>
+        <li><strong>The trial fingerprint:</strong> for two years after your trial started, even
+            if you delete your account, so the same person can't start a second free trial. It
+            can't be turned back into your email address.</li>
         <li><strong>Payment records:</strong> Paddle keeps these as long as tax law requires,
             under its own policy.</li>
         <li><strong>Emails with us:</strong> for as long as we need them to help you, and no
             more than two years after the conversation ends.</li>
       </ul>
-      <p>Deleting your memories in the app does not delete your account, and deleting your
-         account does not touch the memories on your computer. They are separate on
-         purpose.</p>
+      <p><em>Delete everything</em> in the app deletes your memories and leaves your account in
+         place. The <em>Delete my account</em> page on our website deletes your account and leaves
+         your memories in place. <em>Delete my account</em> in the app does both: it deletes the
+         memories on that computer, then opens the page where you confirm deleting your
+         account.</p>
     </Row>
 
     <Row id="your-rights" title={topic('your-rights')} where="Everyone">
@@ -281,13 +317,14 @@ const topic = (id: string) =>
 
     <Row id="emails" title={topic('emails')} where="Your choice">
       <p>We email you about your account and subscription only when we need to. We send tips and product news only if you ticked
-         the box for them. Every one of those emails has an unsubscribe link, and you can also
-         just reply and ask.</p>
+         the box for them. Every one of those emails says who we are and has an unsubscribe link,
+         and you can also just reply and ask. We act on an unsubscribe within 10 days.</p>
     </Row>
 
     <Row id="complaints" title={topic('complaints')} where="Regulators">
-      <p>If you're unhappy with how we handle your data, please tell us first at <a
-         href={mail}>{COMPANY.email}</a> and we will try to put it right. You can also
+      <p>If you're unhappy with how we handle your data, email <a href={mail}>{COMPANY.email}</a>
+         with "Privacy complaint" in the subject. We reply within 5 working days, look into it,
+         and tell you what we found and what we have done. You can also
          complain to a data protection regulator: in the UK the <a href="https://ico.org.uk/make-a-complaint/" {...ext}>Information
          Commissioner's Office</a>, in the European Union the regulator where you live, and in
          the UAE the UAE Data Office.</p>
@@ -304,7 +341,7 @@ const topic = (id: string) =>
          because they stay with you and we never receive them.</p>
       <p>This policy covers the Zaaheen app, your Zaaheen account, zaaheen.com and
          account.zaaheen.com. Coaching sessions booked through the Knowledge Centre are a
-         separate service with their own privacy notice on the booking site.</p>
+         separate service with their own privacy notice, which you see before you book.</p>
     </Row>
 
     <Row id="children" title={topic('children')} where="18 and over">
@@ -323,8 +360,10 @@ const topic = (id: string) =>
 
     <Row id="changes" title={topic('changes')} where="Updates">
       <p>When we change this policy, we update the date at the top of this page. If a change
-         affects what we collect or how we use it, we email account holders before it takes
-         effect.</p>
+         means we collect something new or use what we hold in a new way, we email account
+         holders at least 30 days before it takes effect, and we ask for your consent first
+         wherever the law requires it. We will never start receiving your memories, or using
+         anything we hold to train AI, through a change to this policy alone.</p>
     </Row>
 
     <Row id="contact" title={topic('contact')} where="Email">
