@@ -77,7 +77,9 @@ export function resend(lastSentAt, now) {
 const LINES = Object.freeze({
   form_code_incorrect: "That code isn't right. Check the email we sent and try again.",
   verification_expired: 'That code has expired. Send a new one.',
-  form_identifier_not_found: "We couldn't find an account with that email. Check it, or create an account.",
+  // Neutral on purpose (security audit, session 72): never say whether an account exists.
+  form_identifier_not_found:
+    "If there's an account for this email, we've sent you a code. If nothing arrives, check the address or create an account.",
   form_identifier_exists: 'There is already an account with that email. Sign in instead.',
   form_param_format_invalid: "That email address doesn't look right.",
   form_param_nil: 'Please fill in every field.',
