@@ -21,7 +21,7 @@ interface Props {
 const { path, lede, outline } = Astro.props;
 const page = pageFor(path);
 if (!page.heading) throw new Error(`Guide ${path} needs a heading in its PAGES entry`);
-const updated = lastModified(page.sources);
+const updated = lastModified(page.path);
 const updatedLabel = updated
   ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   : undefined;

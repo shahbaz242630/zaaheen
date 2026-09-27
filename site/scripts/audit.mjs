@@ -11,7 +11,8 @@
 // own generated HTML: no dependencies, and the markup is ours to keep simple.
 import fs from 'node:fs';
 import path from 'node:path';
-import { expectedOffers } from './site-facts.mjs';
+import { expectedOffers, readComparisonDate } from './site-facts.mjs';
+import { readDates, staleDates } from './page-dates.mjs';
 
 const ORIGIN = 'https://zaaheen.com';
 const ACCOUNT_ORIGIN = 'https://account.zaaheen.com';
@@ -282,6 +283,13 @@ for (const rel of htmlFiles) {
   const h1s = all(html, /<h1\b/gi).length;
   if (h1s !== 1) fail(rel, `expected exactly one <h1>, found ${h1s}`);
 
+  // SEO audit (session 72): headings never skip a level (an H3 straight under
+  // the H1), so the outline search and AI engines read is the one people see.
+  const levels = all(html, /<h([1-6])\b/gi).map((m) => Number(m[1]));
+  for (let i = 1; i < levels.length; i++) {
+    if (levels[i] > levels[i - 1] + 1) { fail(rel, `heading level skipped: an <h${levels[i]}> follows an <h${levels[i - 1]}>`); break; }
+  }
+
   const robotsMeta = metaContent(html, 'name', 'robots').join(',').toLowerCase();
   const canonicals = all(html, /<link\b[^>]*rel="canonical"[^>]*>/gi).map((m) => attr(m[0], 'href'));
 
@@ -393,6 +401,54 @@ if (files.includes('sitemap.xml')) {
   for (const m of all(read('sitemap.xml'), /<lastmod>([^<]+)<\/lastmod>/g)) {
     if (Number.isNaN(Date.parse(m[1]))) fail('sitemap.xml', `unparseable lastmod ${m[1]}`);
     else if (Date.parse(m[1]) > Date.now() + 60_000) fail('sitemap.xml', `lastmod in the future: ${m[1]}`);
+  }
+}
+
+// --- Listed pages' dates follow their words (scripts/page-dates.mjs) -------------
+// A page whose text changed since its recorded date, or a listed page with no
+// date, would tell search engines something false; so would a sitemap date that
+// is not the recorded one. The fix is always `npm run stamp`, never a hand edit.
+{
+  const dates = readDates();
+  const { changed, gone } = staleDates(DIST, indexable, dates);
+  for (const u of changed) fail(`${u.slice(1)}index.html`, dates[u] ? 'the page text changed since its date: run npm run stamp' : 'the page has no recorded date: run npm run stamp');
+  for (const u of gone) fail('src/data/page-dates.json', `records ${u}, which is not a built listed page: run npm run stamp`);
+  if (files.includes('sitemap.xml')) {
+    const lastmods = Object.fromEntries(all(read('sitemap.xml'), /<loc>https:\/\/zaaheen\.com([^<]*)<\/loc>\s*(?:<lastmod>([^<]*)<\/lastmod>)?/g).map((m) => [m[1], m[2]]));
+    for (const u of indexable) {
+      if (dates[u] && lastmods[u] !== dates[u].date) fail('sitemap.xml', `lastmod for ${u} is ${lastmods[u] ?? 'missing'}, not its recorded date ${dates[u].date}`);
+    }
+  }
+  // Freshness: a page whose words have not changed in a year is worth a genuine
+  // review. A note, not a failure: old can be right.
+  const year = 365 * 86400000;
+  for (const u of indexable) {
+    if (dates[u] && Date.now() - Date.parse(dates[u].date) > year) console.log(`audit: note: ${u} has not changed in over a year; review it`);
+  }
+}
+
+// --- The Pricing comparison is re-checked every three months (session 69) ---------
+// It names other companies' prices and practices, sourced on CHECKED_ON. A stale
+// claim about a competitor is the risk, so the build fails once it is 92 days old,
+// the way security.txt fails before it lapses.
+{
+  const checked = readComparisonDate();
+  if (Date.now() - checked.getTime() > 92 * 86400000) {
+    fail('src/data/pricing.ts', `the competitor comparison was last checked on ${checked.toDateString()}: re-check every row and its source, then update CHECKED_ON`);
+  }
+}
+
+// --- No absolute security claims (SEO-HANDOFF section 3a) ---------------------------
+// "Unhackable", "100% secure" and the like are claims no one can keep, and the
+// kind regulators and reviewers quote back. Negated uses ("no system is 100%
+// secure") are allowed: they are the honest version.
+const ABSOLUTE = /\b(?:uncrackable|unhackable|unbreakable|bullet-?proof|military-grade|100% (?:secure|safe|private)|(?:completely|fully|totally|perfectly) (?:secure|safe)|impossible to (?:hack|break|crack))\b/gi;
+for (const rel of files.filter((f) => /\.html$|^llms\.txt$/i.test(f))) {
+  const text = plainText(read(rel).replace(/<script\b[\s\S]*?<\/script\b[^>]*>/gi, ' '));
+  for (const m of text.matchAll(ABSOLUTE)) {
+    const at = m.index ?? 0;
+    if (/\b(?:no|not|never|nothing|nobody)\b[^.]{0,30}$/i.test(text.slice(Math.max(0, at - 40), at))) continue;
+    fail(rel, `absolute security claim "${m[0]}": "${text.slice(Math.max(0, at - 30), at + 40)}"`);
   }
 }
 

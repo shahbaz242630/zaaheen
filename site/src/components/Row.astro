@@ -1,17 +1,23 @@
 ---
 // One settings-style row on a Documents or policy page: a heading, a small tag
 // saying where it applies, and the text.
+//
+// level: the row heading's rank. 3 under a page's H2 sections (the policies);
+// 2 on a guide, whose rows sit straight under its H1. A skipped level breaks
+// the outline search and AI engines read (scripts/audit.mjs checks it).
 interface Props {
   id: string;
   title: string;
   where: string;
+  level?: 2 | 3;
 }
-const { id, title, where } = Astro.props;
+const { id, title, where, level = 3 } = Astro.props;
+const Heading = level === 2 ? 'h2' : 'h3';
 ---
 <div id={id} class="set-row">
   <div class="set-text">
     <div class="set-head">
-      <h3 class="set-name">{title}</h3>
+      <Heading class="set-name">{title}</Heading>
       <span class="set-where">{where}</span>
     </div>
     <slot />

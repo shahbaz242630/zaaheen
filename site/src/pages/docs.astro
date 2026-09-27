@@ -15,7 +15,7 @@ import { lastModified } from '../lib/lastmod';
 // scripts/docs-nav.js only highlights where the reader is.
 const page = pageFor('/docs/');
 const win = RELEASE.windows;
-const updated = lastModified(page.sources);
+const updated = lastModified(page.path);
 const updatedLabel = updated
   ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   : undefined;

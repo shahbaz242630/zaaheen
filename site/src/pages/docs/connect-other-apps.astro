@@ -27,14 +27,14 @@ const OUTLINE = [
   outline={OUTLINE}
 >
   <section class="docs-section">
-    <Row id="what" title="What your app needs" where="MCP">
+    <Row level={2} id="what" title="What your app needs" where="MCP">
       <p>Your AI app needs to support MCP servers that run on your computer. We have tested Zaaheen
          with {verifiedAppList()}, and each has its own guide. Other apps that support MCP should
          work the same way. The <em>Agents</em> tab in Zaaheen has step-by-step instructions for
          more apps.</p>
     </Row>
 
-    <Row id="setting" title="The setting" where="Agents › Another app">
+    <Row level={2} id="setting" title="The setting" where="Agents › Another app">
       <p>Most apps take the setting in this form. Add it where your app keeps its MCP servers, save
          it, then restart the app:</p>
       <pre><code>{snippet}</code></pre>
@@ -43,7 +43,7 @@ const OUTLINE = [
          exactly, ready to copy.</p>
     </Row>
 
-    <Row id="check" title="Check it worked" where="Your app">
+    <Row level={2} id="check" title="Check it worked" where="Your app">
       <p>Your app's list of tools or MCP servers shows Zaaheen. While the app is open and connected,
          it also shows in Zaaheen's <em>Agents</em> tab.</p>
     </Row>

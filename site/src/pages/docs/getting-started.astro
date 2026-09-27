@@ -20,14 +20,14 @@ const OUTLINE = [
   outline={OUTLINE}
 >
   <section class="docs-section">
-    <Row id="before" title="Before you start" where="Windows">
+    <Row level={2} id="before" title="Before you start" where="Windows">
       {!RELEASE.available && <p><strong>Zaaheen for Windows is coming soon.</strong> These steps are
          how it works once you can download it.</p>}
       <p>Zaaheen {RELEASE.version} is a {RELEASE.stage.toLowerCase()} for {win.arch} Windows and has
          been tested on {win.tested}. It is not available for macOS or Linux yet.</p>
     </Row>
 
-    <Row id="install" title="Install" where="Windows installer">
+    <Row level={2} id="install" title="Install" where="Windows installer">
       <p>Open the installer you downloaded. Two things happen while it installs:</p>
       <ul>
         <li><strong>Windows says the publisher is unknown.</strong> Zaaheen is in beta, and the
@@ -39,7 +39,7 @@ const OUTLINE = [
       </ul>
     </Row>
 
-    <Row id="set-up" title="Set up" where="Begin set up">
+    <Row level={2} id="set-up" title="Set up" where="Begin set up">
       <p>Open Zaaheen and choose <em>Begin set up</em>. It walks you through five steps:</p>
       <ol>
         <li><strong>Your account.</strong> Choose <em>Create an account</em> or <em>Sign in</em>. This
@@ -58,7 +58,7 @@ const OUTLINE = [
          in the background, and you can use Zaaheen while it finishes.</p>
     </Row>
 
-    <Row id="next" title="What to do next" where="Agents">
+    <Row level={2} id="next" title="What to do next" where="Agents">
       <p>Connect the AI apps you use, each once, from the <em>Agents</em> tab:</p>
       <ul>
         <li><a href="/docs/connect-claude/">Connect Claude</a></li>

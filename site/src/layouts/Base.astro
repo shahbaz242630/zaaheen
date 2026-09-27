@@ -21,7 +21,7 @@ interface Props {
 
 const { page, noindex = false, footer = 'app' } = Astro.props;
 const canonical = absolute(page.path);
-const jsonLd = noindex ? null : graphFor(page, lastModified(page.sources), page.heading ? firstPublished(page.sources) : undefined);
+const jsonLd = noindex ? null : graphFor(page, lastModified(page.path), page.heading ? firstPublished(page.sources) : undefined);
 ---
 <!doctype html>
 <html lang={SITE.lang}>
