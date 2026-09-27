@@ -14,7 +14,7 @@ import { CLERK_JS } from '../account/scripts/clerk-pin.js';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(HERE, '..', 'dist-account');
 const AUDIT = path.join(HERE, 'audit-account.mjs');
-const PAGES = ['sign-in/index.html', 'sign-up/index.html', 'sso-callback/index.html'];
+const PAGES = ['sign-in/index.html', 'sign-up/index.html', 'sso-callback/index.html', 'delete-account/index.html'];
 
 const edit = (rel, fn) => (dir) => {
   const p = path.join(dir, rel);
@@ -63,6 +63,11 @@ const cases = [
   ['key and client missing', signIn((s) => s.replace(/data-pk="[^"]*"/, 'data-pk=""')), /build settings are missing or invalid/],
   ['pages disagree on the key', edit('sign-up/index.html', (s) => s.replace(/data-client-id="[^"]*"/, 'data-client-id="other"')), /pages disagree on the build settings/],
   // The bundle (ADR-SEC-034 supply chain).
+  // The delete page (ACCOUNT-DELETION-DESIGN D3).
+  ['delete page missing', (d) => fs.rmSync(path.join(d, 'delete-account'), { recursive: true }), /delete-account\/index\.html: required file is missing/],
+  ['delete page without the bot check', edit('delete-account/index.html', (s) => s.replace(/<div id="clerk-captcha"><\/div>/, '')), /delete-account\/index\.html: the clerk-captcha element is missing/],
+  ['delete button enabled before DELETE is typed', edit('delete-account/index.html', (s) => s.replace(/(<button\b[^>]*\bid="delete-btn"[^>]*?)\sdisabled/, '$1')), /delete-account\/index\.html: the delete button must start disabled/],
+  ['delete page indexable', edit('delete-account/index.html', (s) => s.replace('content="noindex, nofollow"', 'content="index"')), /delete-account\/index\.html: robots meta noindex/],
   ['eval in our bundle', (d) => fs.appendFileSync(path.join(d, '_astro', firstJs(d)), '\neval("1")'), /forbidden pattern/],
   ['new Function in our bundle', (d) => fs.appendFileSync(path.join(d, '_astro', firstJs(d)), '\nnew Function("x")'), /forbidden pattern/],
   ['innerHTML in our bundle', (d) => fs.appendFileSync(path.join(d, '_astro', firstJs(d)), '\ndocument.body.innerHTML="x"'), /forbidden pattern/],

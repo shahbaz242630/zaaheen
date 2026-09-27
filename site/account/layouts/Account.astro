@@ -17,8 +17,9 @@ import { CLERK_JS } from '../scripts/clerk-pin.js';
 
 interface Props {
   title: string;
-  page: 'sign-in' | 'sign-up' | 'sso-callback' | 'not-found';
-  panel: 'unlock' | 'connect';
+  page: 'sign-in' | 'sign-up' | 'sso-callback' | 'delete-account' | 'not-found';
+  /** 'none': no app window (the delete page, ACCOUNT-DELETION-DESIGN D3). */
+  panel: 'unlock' | 'connect' | 'none';
 }
 const { title, page, panel } = Astro.props;
 const publishableKey = import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -40,7 +41,7 @@ const clientId = import.meta.env.PUBLIC_ZAAHEEN_CLIENT_ID;
 )}
 </head>
 <body data-page={page} data-pk={publishableKey} data-client-id={clientId}>
-<main class="acct">
+<main class={panel === 'none' ? 'acct is-solo' : 'acct'}>
   <section class="acct-side">
     <a class="brand" href={SITE.origin} aria-label={`${SITE.name} home`}>
       <Logo size={40} />
@@ -52,9 +53,11 @@ const clientId = import.meta.env.PUBLIC_ZAAHEEN_CLIENT_ID;
     </div>
     <p class="acct-fine">Your memories stay on your computer. Your account never holds them.</p>
   </section>
-  <aside class="acct-panel" aria-hidden="true">
-    <Panel kind={panel} />
-  </aside>
+  {panel !== 'none' && (
+    <aside class="acct-panel" aria-hidden="true">
+      <Panel kind={panel} />
+    </aside>
+  )}
 </main>
 {page !== 'not-found' && <script>import '../scripts/account.js';</script>}
 </body>

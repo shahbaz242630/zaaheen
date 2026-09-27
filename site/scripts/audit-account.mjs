@@ -24,7 +24,7 @@ const TT_SHA256 = 'ae1d1042194145e894e023f94d3eeb44ec4f20aa85c626f69da0a95f7b362
 // <IfModule> that silently drops every header is a change to this line
 // (independent review, session 65, finding 4).
 const SERVER_FILE_SHA256 = '8f5c1c70cd666bb721b2d529219d02a8e6a21ff86784cca53a9f7c5c587bc593';
-const PAGES = ['sign-in/index.html', 'sign-up/index.html', 'sso-callback/index.html'];
+const PAGES = ['sign-in/index.html', 'sign-up/index.html', 'sso-callback/index.html', 'delete-account/index.html'];
 // Patterns no script we serve may contain. innerHTML and friends only in our
 // own code: Clerk's file carries its UI library's (unused here, and refused at
 // run time by tt.js); eval and new Function in neither.
@@ -136,6 +136,13 @@ for (const rel of PAGES.filter((f) => files.includes(f))) {
   if (!/\sid="clerk-captcha"/.test(html)) fail(rel, 'the clerk-captcha element is missing (the bot check needs it)');
   const srcs = [...html.matchAll(/<script\b[^>]*\ssrc="([^"]*)"/gi)].map((m) => m[1]);
   if (srcs[1] !== `/clerk/${CLERK_JS.file}`) fail(rel, 'the pinned Clerk file must be the second script');
+}
+
+// The delete page (ACCOUNT-DELETION-DESIGN D3): its button starts disabled and
+// only DELETE typed enables it (account.js); a build that ships it enabled fails.
+if (files.includes('delete-account/index.html')) {
+  const btn = (read('delete-account/index.html').match(/<button\b[^>]*\bid="delete-btn"[^>]*>/) || [''])[0];
+  if (!/\sdisabled\b/.test(btn)) fail('delete-account/index.html', 'the delete button must start disabled');
 }
 
 if (errors.length) {

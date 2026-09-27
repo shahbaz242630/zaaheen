@@ -90,7 +90,7 @@ pub struct PendingSignIn {
     state: Zeroizing<String>,
     pkce: Pkce,
     issuer: String,
-    /// The hosted sign-up page, when the issuer's naming gives one (§8.41).
+    /// The sign-up page, when the issuer's naming gives one (§8.41, S1-3).
     sign_up_page: Option<String>,
 }
 

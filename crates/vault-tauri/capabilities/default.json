@@ -34,6 +34,8 @@
     "allow-account-sign-out",
     "allow-account-subscribe",
     "allow-account-refresh-now",
+    "allow-delete-account-start",
+    "allow-delete-account-open",
     "allow-export-memories",
     "allow-location-status",
     "allow-location-check",

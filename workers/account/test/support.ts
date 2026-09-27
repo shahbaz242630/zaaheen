@@ -45,3 +45,21 @@ export function rfcPkcs8(kid: string): string {
   const bytes = Uint8Array.from(hex.match(/../g) ?? [], (h) => parseInt(h, 16));
   return btoa(String.fromCharCode(...bytes));
 }
+
+/** An in-memory stand-in for the TRIALS KV namespace that records every put. */
+export function fakeKv(fail?: "get" | "put") {
+  const data = new Map<string, string>();
+  const puts: Array<{ key: string; value: string; options: unknown }> = [];
+  const store = {
+    async get(key: string): Promise<string | null> {
+      if (fail === "get") throw new Error("kv get failed");
+      return data.get(key) ?? null;
+    },
+    async put(key: string, value: string, options: { expirationTtl: number }): Promise<void> {
+      if (fail === "put") throw new Error("kv put failed");
+      puts.push({ key, value, options });
+      data.set(key, value);
+    },
+  };
+  return { store, data, puts };
+}

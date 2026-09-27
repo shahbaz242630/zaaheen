@@ -1,17 +1,19 @@
 // POST /v1/lease end to end, against fake Clerk and Paddle (SIGNIN-DESIGN.md
 // §5 "/v1/lease", the §8.27 contract, §8.30). The lease that comes back is
 // verified with the RFC 8032 public key, exactly as the app would.
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Config } from "../src/config";
 import { LEASE_DOMAIN } from "../src/lease";
 import { handleLease } from "../src/routes/lease";
 import { DAY } from "../src/time";
-import { type Seen, fakeFetch, json, rfcPkcs8 } from "./support";
+import { trialFingerprint } from "../src/trials";
+import { type Seen, fakeFetch, fakeKv, json, rfcPkcs8 } from "./support";
 import vectors from "./vectors/lease-v1.json";
 
 const T = 1_800_000_000;
-const USER = "user_2abcdefghijklmnopqrstuvwxyz0";
+const DEFAULT_USER = "user_2abcdefghijklmnopqrstuvwxyz0";
+const USER = DEFAULT_USER;
 const CUSTOMER = "ctm_01h8441jn5pcwrfhwh78jqt8hk";
 const PRODUCT = "pro_01aaaaaaaaaaaaaaaaaaaaaaaa";
 
@@ -19,6 +21,7 @@ const config: Config = {
   clerk: { secretKey: "sk_test_SECRET", clientId: "client_ours", webhookSecret: "whsec_placeholder" },
   paddle: { apiKey: "pdl_sdbx_apikey_SECRET", environment: "sandbox", productId: PRODUCT, prices: { monthly: "pri_01bbbbbbbbbbbbbbbbbbbbbbbb", annual: "pri_01cccccccccccccccccccccccc" }, webhookSecret: "pdl_ntfset_test" },
   lease: { kid: "primary", pkcs8: rfcPkcs8("primary") },
+  trials: { key: "k".repeat(32) },
   killSwitch: false,
 };
 
@@ -28,10 +31,19 @@ interface World {
   userGone?: boolean;
   subscriptions?: unknown[] | "down";
   writeFails?: boolean;
+  /** The user Clerk verifies the token for; default USER. */
+  user?: string;
+  /** The user's primary email; default a@example.com, `null` for none. */
+  email?: string | null;
+  /** The TRIALS namespace; default a fresh, empty one. */
+  kv?: ReturnType<typeof fakeKv>;
 }
 
 function world(w: World) {
   const writes: unknown[] = [];
+  const USER = w.user ?? DEFAULT_USER;
+  const email = w.email === undefined ? "a@example.com" : w.email;
+  const emails = email === null ? [] : [{ id: "idn_1", email_address: email }];
   const f = fakeFetch((req: Seen) => {
     const { pathname, origin } = req.url;
     if (origin === "https://api.clerk.com" && pathname === "/v1/oauth_applications/access_tokens/verify") {
@@ -53,7 +65,7 @@ function world(w: World) {
     }
     if (origin === "https://api.clerk.com" && pathname === `/v1/users/${USER}`) {
       if (w.userGone) return json(404, { errors: [] });
-      return json(200, { id: USER, primary_email_address_id: null, email_addresses: [], private_metadata: w.metadata ?? {} });
+      return json(200, { id: USER, primary_email_address_id: email === null ? null : "idn_1", email_addresses: emails, private_metadata: w.metadata ?? {} });
     }
     if (origin === "https://api.clerk.com" && pathname === `/v1/users/${USER}/metadata`) {
       if (w.writeFails) return json(500, {});
@@ -66,7 +78,7 @@ function world(w: World) {
     }
     return json(418, { unexpected: req.url.href });
   });
-  return { fetch: f.fetch, seen: f.seen, writes };
+  return { fetch: f.fetch, seen: f.seen, writes, kv: w.kv ?? fakeKv() };
 }
 
 function request(body: unknown, headers: Record<string, string> = {}): Request {
@@ -81,7 +93,7 @@ const goodBody = { client_now: T - 7, app_version: "0.3.0" };
 
 async function call(w: World, req: Request = request(goodBody), cfg: Config = config) {
   const wd = world(w);
-  const response = await handleLease(req, cfg, { fetch: wd.fetch, now: () => T });
+  const response = await handleLease(req, cfg, { fetch: wd.fetch, now: () => T, trials: wd.kv.store });
   return { response, ...wd };
 }
 
@@ -233,5 +245,126 @@ describe("the request itself", () => {
   it("the app's exact request shape is accepted, and unknown fields are ignored", async () => {
     expect((await call({}, request({ client_now: T, app_version: "1.2.3-beta+4" }))).response.status).toBe(200);
     expect((await call({}, request({ client_now: T, app_version: "0.3.0", extra: true }))).response.status).toBe(200);
+  });
+});
+
+describe("one free trial per email (ACCOUNT-DELETION-DESIGN D8)", () => {
+  const KEY = config.trials.key;
+  const OTHER = "user_2zyxwvutsrqponmlkjihgfedcba9";
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("the first lease starts the trial now and stores the fingerprint for two years", async () => {
+    const kv = fakeKv();
+    const { response, writes } = await call({ kv, email: "a@example.com" });
+    expect(await verified(response)).toMatchObject({ state: "trial", trial_ends_at: T + 30 * DAY });
+    expect(writes).toEqual([{ private_metadata: { zaaheen_memory: { trial_started_at: T } } }]);
+    expect(kv.puts).toEqual([
+      { key: await trialFingerprint(KEY, "a@example.com"), value: new Date(T * 1000).toISOString(), options: { expirationTtl: 730 * DAY } },
+    ]);
+  });
+
+  for (const again of ["a@example.com", "A@Example.com", "a+again@example.com", " a+x@EXAMPLE.COM "]) {
+    it(`a new account for ${JSON.stringify(again)} inherits the first start`, async () => {
+      const kv = fakeKv();
+      await call({ kv, email: "a@example.com" }, request(goodBody));
+      const later = T + 40 * DAY;
+      const wd = world({ kv, user: OTHER, email: again });
+      const response = await handleLease(request(goodBody), config, { fetch: wd.fetch, now: () => later, trials: kv.store });
+      expect(await verified(response)).toMatchObject({ sub: OTHER, state: "ended", trial_ends_at: T + 30 * DAY });
+      expect(wd.writes).toEqual([{ private_metadata: { zaaheen_memory: { trial_started_at: T } } }]);
+      expect(kv.puts).toHaveLength(1);
+    });
+  }
+
+  it("Gmail: dots and googlemail.com are the same address", async () => {
+    const kv = fakeKv();
+    await call({ kv, email: "first.last@gmail.com" });
+    for (const again of ["firstlast@gmail.com", "First.Last+z@googlemail.com", "f.i.r.s.t.l.a.s.t@GMAIL.com"]) {
+      const wd = world({ kv, user: OTHER, email: again });
+      const response = await handleLease(request(goodBody), config, { fetch: wd.fetch, now: () => T + DAY, trials: kv.store });
+      expect(await verified(response)).toMatchObject({ state: "trial", trial_ends_at: T + 30 * DAY });
+    }
+    expect(kv.puts).toHaveLength(1);
+  });
+
+  it("a different email starts fresh", async () => {
+    const kv = fakeKv();
+    await call({ kv, email: "a@example.com" });
+    const wd = world({ kv, user: OTHER, email: "b@example.com" });
+    const response = await handleLease(request(goodBody), config, { fetch: wd.fetch, now: () => T + 40 * DAY, trials: kv.store });
+    expect(await verified(response)).toMatchObject({ state: "trial", trial_ends_at: T + 70 * DAY });
+    expect(kv.puts).toHaveLength(2);
+  });
+
+  it("dots outside Gmail are different addresses", async () => {
+    const kv = fakeKv();
+    await call({ kv, email: "a.b@example.com" });
+    await call({ kv, user: OTHER, email: "ab@example.com" });
+    expect(kv.puts).toHaveLength(2);
+  });
+
+  for (const fail of ["get", "put"] as const) {
+    it(`a TRIALS ${fail} failure is a 503 with no record change`, async () => {
+      const { response, writes, seen } = await call({ kv: fakeKv(fail) });
+      expect(response.status).toBe(503);
+      expect(writes).toEqual([]);
+      expect(seen.some((r) => r.url.pathname.endsWith("/metadata"))).toBe(false);
+    });
+  }
+
+  it("no TRIALS binding, or no email to check, is a 503 with no record change", async () => {
+    const wd = world({});
+    const response = await handleLease(request(goodBody), config, { fetch: wd.fetch, now: () => T });
+    expect(response.status).toBe(503);
+    expect(wd.writes).toEqual([]);
+    const noEmail = await call({ email: null });
+    expect(noEmail.response.status).toBe(503);
+    expect(noEmail.writes).toEqual([]);
+  });
+
+  it("a user whose trial already started never touches TRIALS", async () => {
+    const metadata = { zaaheen_memory: { trial_started_at: T - DAY } };
+    const { response } = await call({ metadata, kv: fakeKv("get") });
+    expect(await verified(response)).toMatchObject({ state: "trial" });
+  });
+
+  it("comp_until still wins over an inherited trial", async () => {
+    const kv = fakeKv();
+    await call({ kv, email: "a@example.com" });
+    const metadata = { zaaheen_memory: { comp_until: "2027-12-31" } };
+    const wd = world({ kv, user: OTHER, email: "a@example.com", metadata });
+    const response = await handleLease(request(goodBody), config, { fetch: wd.fetch, now: () => T + 100 * DAY, trials: kv.store });
+    const lease = await verified(response);
+    expect(lease).toMatchObject({ state: "active", trial_ends_at: T + 30 * DAY });
+    expect(lease["active_until"]).toBeGreaterThan(T + 100 * DAY);
+  });
+
+  it("no log line contains the email or the fingerprint", async () => {
+    const lines: string[] = [];
+    for (const method of ["log", "info", "warn", "error", "debug"] as const) {
+      vi.spyOn(console, method).mockImplementation((...args: unknown[]) => {
+        lines.push(args.map(String).join(" "));
+      });
+    }
+    const email = "a+tag@example.com";
+    const fp = await trialFingerprint(KEY, email);
+    const kv = fakeKv();
+    await call({ kv, email });
+    await call({ kv, user: OTHER, email });
+    await call({ kv: fakeKv("get"), email });
+    await call({ kv: fakeKv("put"), email });
+    const corrupt = fakeKv();
+    corrupt.data.set(fp, "not a time");
+    await call({ kv: corrupt, email });
+    await call({ kv, email, writeFails: true, user: "user_2third0000000000000000000000" });
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      expect(line).not.toContain("example.com");
+      expect(line).not.toContain(fp);
+      expect(line).not.toContain(fp.slice(0, 16));
+    }
   });
 });

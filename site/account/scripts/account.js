@@ -7,12 +7,24 @@
 //   - Clerk's own error message is never shown (messageFor(code) instead).
 import { readAccountConfig, readRedirect, checkTarget, checkNavigation } from './redirect.js';
 import { FIXED_LINE, onLoad, afterSignIn, afterSignUp, resend, messageFor } from './account-state.js';
+import {
+  DELETE_PATH, NO_ACCOUNT_PATH, DELETE_FAILED_LINE, deleteMarker, noGoogleAccount, onDeleteLoad,
+  confirmed, afterDelete, reverifyPlan, afterReverify,
+} from './delete-state.js';
 
 const body = document.body;
 const PAGE = body.dataset.page;
 const CONFIG = readAccountConfig({ publishableKey: body.dataset.pk, clientId: body.dataset.clientId });
 const REDIRECT = readRedirect(location.search, CONFIG);
 const $ = (id) => document.getElementById(id);
+
+// The delete page (ACCOUNT-DELETION-DESIGN D3, D4): it signs in like the sign-in
+// page, then confirms and deletes. Google's return from it carries a fixed
+// marker, never a URL, and finishes only on these two constant addresses.
+const DELETING = PAGE === 'delete-account';
+const AFTER_DELETE = PAGE === 'sso-callback' && deleteMarker(location.search);
+const DELETE_URL = new URL(DELETE_PATH, location.origin).href;
+const NO_ACCOUNT_URL = new URL(NO_ACCOUNT_PATH, location.origin).href;
 
 const LOAD_TIMEOUT_MS = 20_000;
 
@@ -44,7 +56,7 @@ const codeOf = (e) => (e && Array.isArray(e.errors) && e.errors[0] && e.errors[0
 
 function failWith(e) {
   const code = codeOf(e);
-  if (code === 'session_exists') return showSignedIn();
+  if (code === 'session_exists') return DELETING ? showConfirm() : showSignedIn();
   const line = messageFor(code);
   if (line === FIXED_LINE) return fatal();
   formError(line);
@@ -81,6 +93,7 @@ async function finish(sessionId) {
   await clerk.setActive({ session: sessionId });
   // A pending session task (D1) is something these pages cannot complete.
   if (clerk.session && clerk.session.currentTask) return fatal();
+  if (DELETING) return showConfirm();
   goBack();
 }
 
@@ -235,8 +248,8 @@ function wireForms() {
     try {
       await attempt.authenticateWithRedirect({
         strategy: 'oauth_google',
-        redirectUrl: new URL(`/sso-callback/${keepQuery()}`, location.origin).href,
-        redirectUrlComplete: REDIRECT.state === 'ok' ? REDIRECT.url.href : new URL('/sign-in/', location.origin).href,
+        redirectUrl: new URL(`/sso-callback/${DELETING ? '?after=delete' : keepQuery()}`, location.origin).href,
+        redirectUrlComplete: DELETING ? DELETE_URL : REDIRECT.state === 'ok' ? REDIRECT.url.href : new URL('/sign-in/', location.origin).href,
         ...extra,
       });
     } catch (e) {
@@ -280,19 +293,115 @@ function wireForms() {
   });
 }
 
+// ---------- the delete page (ACCOUNT-DELETION-DESIGN D3) ----------------------------
+
+let reverified = false;
+
+const accountEmail = () => (clerk && clerk.user && clerk.user.primaryEmailAddress && clerk.user.primaryEmailAddress.emailAddress) || '';
+
+function showConfirm() {
+  $('delete-email').textContent = accountEmail() || 'your Zaaheen account';
+  $('delete-typed').value = '';
+  $('delete-btn').disabled = true;
+  show('confirm');
+}
+
+function applyDelete(next) {
+  switch (next.view) {
+    case 'confirm': return showConfirm();
+    case 'deleted': return show('deleted');
+    case 'reverify': return startReverify();
+    case 'error': return fatal(next.line);
+    case 'enter-code': return showCode();
+    case 'start': {
+      const note = $('start-note');
+      note.textContent = next.note || '';
+      note.hidden = !next.note;
+      return show('start');
+    }
+    default: return show(next.view);
+  }
+}
+
+// Clerk refused because the sign-in is too old: one code, sent now, asked for
+// in place (spike S3-S5). Never a sign-out, never a loop.
+async function startReverify() {
+  try {
+    const verification = await clerk.session.startVerification({ level: 'first_factor' });
+    const plan = reverifyPlan(verification);
+    if (plan.view === 'error') return fatal(plan.line);
+    await clerk.session.prepareFirstFactorVerification({ strategy: 'email_code', emailAddressId: plan.emailAddressId });
+    $('reverify-to').textContent = accountEmail() || 'your email';
+    $('reverify-code').value = '';
+    show('reverify');
+  } catch {
+    fatal(DELETE_FAILED_LINE);
+  }
+}
+
+async function deleteNow() {
+  let next;
+  try {
+    await clerk.user.delete();
+    next = afterDelete(null, reverified);
+  } catch (e) {
+    next = afterDelete(codeOf(e) || 'unknown', reverified);
+  }
+  applyDelete(next);
+}
+
+function wireDelete() {
+  $('delete-typed').addEventListener('input', () => {
+    $('delete-btn').disabled = !confirmed($('delete-typed').value);
+  });
+
+  $('delete-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    formError('');
+    if (!confirmed($('delete-typed').value)) return;
+    const form = ev.currentTarget;
+    busy(form, true);
+    await deleteNow();
+    busy(form, false);
+    $('delete-btn').disabled = !confirmed($('delete-typed').value);
+  });
+
+  $('reverify-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    formError('');
+    const form = ev.currentTarget;
+    const code = $('reverify-code').value.replace(/\s+/g, '');
+    if (!/^\d{6}$/.test(code)) return formError(messageFor('form_code_incorrect'));
+    busy(form, true);
+    try {
+      const verification = await clerk.session.attemptFirstFactorVerification({ strategy: 'email_code', code });
+      const next = afterReverify(verification && verification.status);
+      if (next.view !== 'retry') return applyDelete(next);
+      reverified = true;
+      await deleteNow();
+    } catch (e) {
+      const line = messageFor(codeOf(e));
+      if (line === FIXED_LINE) fatal(DELETE_FAILED_LINE);
+      else formError(line);
+    } finally {
+      busy(form, false);
+    }
+  });
+}
+
 // ---------- Google's return page ---------------------------------------------------
 
 async function callback() {
-  const signIn = new URL(`/sign-in/${keepQuery()}`, location.origin).href;
-  const signUp = new URL(`/sign-up/${keepQuery()}`, location.origin).href;
-  const cont = new URL(`/sign-up/?${new URLSearchParams({ continue: '1', ...(REDIRECT.state === 'ok' ? { redirect_url: REDIRECT.url.href } : {}) })}`, location.origin).href;
+  const signIn = AFTER_DELETE ? NO_ACCOUNT_URL : new URL(`/sign-in/${keepQuery()}`, location.origin).href;
+  const signUp = AFTER_DELETE ? NO_ACCOUNT_URL : new URL(`/sign-up/${keepQuery()}`, location.origin).href;
+  const cont = AFTER_DELETE ? NO_ACCOUNT_URL : new URL(`/sign-up/?${new URLSearchParams({ continue: '1', ...(REDIRECT.state === 'ok' ? { redirect_url: REDIRECT.url.href } : {}) })}`, location.origin).href;
   const handed = [signIn, signUp, cont];
   // Where a finished Google sign-in or sign-up goes. Clerk navigates there by
   // ITSELF, not through `navigate` below, and without checking
   // allowedRedirectOrigins (independent review, session 65). So all four
   // redirect props must be `done`, and `done` must be validator output or our
   // own sign-in page: scripts/account-source.test.mjs pins both.
-  const done = REDIRECT.state === 'ok' ? REDIRECT.url.href : signIn;
+  const done = AFTER_DELETE ? DELETE_URL : REDIRECT.state === 'ok' ? REDIRECT.url.href : signIn;
   // Clerk's other steps (the "one more step" page, a transfer between sign-in
   // and sign-up) go through this function.
   const navigate = (to) => {
@@ -309,6 +418,9 @@ async function callback() {
       signInUrl: signIn, signUpUrl: signUp, continueSignUpUrl: cont,
       signInFallbackRedirectUrl: done, signUpFallbackRedirectUrl: done,
       signInForceRedirectUrl: done, signUpForceRedirectUrl: done,
+      // From the delete page, a Google address with no account goes to
+      // NO_ACCOUNT_URL (Clerk's sign-in URL) instead of becoming a sign-up.
+      ...(AFTER_DELETE ? { transferable: false } : {}),
     }, navigate);
   } catch (e) {
     failWith(e);
@@ -336,6 +448,16 @@ async function start() {
     ]);
   } catch {
     return fatal();
+  }
+  if (DELETING) {
+    wireForms();
+    wireDelete();
+    return applyDelete(onDeleteLoad({
+      redirect: REDIRECT.state,
+      signedIn: Boolean(clerk.user),
+      signIn: clerk.client && clerk.client.signIn ? { status: clerk.client.signIn.status } : null,
+      noAccount: noGoogleAccount(location.search),
+    }));
   }
   const view = onLoad({
     page: PAGE,

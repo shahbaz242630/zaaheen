@@ -116,6 +116,24 @@ impl ExternalLink {
         Self::checked(url)
     }
 
+    /// The page where the person deletes their account
+    /// (ACCOUNT-DELETION-DESIGN D5): a fixed address derived from the
+    /// build's own account configuration, with no parameters, so nothing
+    /// from the app (no email, no user id, no token) travels in it.
+    ///
+    /// # Errors
+    ///
+    /// [`LinkError::NotAllowed`] when the issuer's naming gives no page, or
+    /// the page is not a plain `https` address.
+    pub fn delete_account(config: &vault_account::AccountConfig) -> Result<Self, LinkError> {
+        let page = config.delete_account_page().ok_or(LinkError::NotAllowed)?;
+        let url = Url::parse(&page).map_err(|_| LinkError::NotAllowed)?;
+        if url.query().is_some() || url.fragment().is_some() {
+            return Err(LinkError::NotAllowed);
+        }
+        Self::checked(url)
+    }
+
     /// Cursor's install request for Zaaheen (ADR-106, ADR-111). Not a web
     /// page, so it cannot pass [`Self::checked`] (`https` only); it has its
     /// own, narrower gate instead ([`Self::is_cursor_install`]). `command`

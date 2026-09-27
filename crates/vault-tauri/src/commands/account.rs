@@ -16,12 +16,14 @@
 //!
 //! (Founder decision, 2026-09-20: *"Never give them the vault"*.)
 //!
-//! # No URL crosses this boundary, in either direction
+//! # No URL comes in; one fixed address goes out, as text
 //!
-//! The frontend never sends a URL and never receives one. `Subscribe` asks
-//! for a plan; the app decides where that leads, validates it, and opens it.
-//! Nothing the webview says can reach the operating system (ADR-030's rule,
-//! held here by there being no parameter to abuse).
+//! The frontend never sends a URL. `Subscribe` asks for a plan; the app
+//! decides where that leads, validates it, and opens it. Nothing the webview
+//! says can reach the operating system (ADR-030's rule, held here by there
+//! being no parameter to abuse). The one address it receives is the fixed
+//! delete-account page (ACCOUNT-DELETION-DESIGN D2), shown as plain text in
+//! case the browser did not open; no command takes it back.
 //!
 //! # One account, shared with the lock (ADR-SEC-028)
 //!
@@ -45,6 +47,7 @@ use tauri::State;
 use vault_app::account_ops::{
     AccountOps, AccountView, OpsError, SignInEntry, SubscriptionPlan as Plan,
 };
+use vault_app::external_link::ExternalLink;
 
 use crate::guard::Entitlement;
 
@@ -121,6 +124,43 @@ impl AccountSlot {
             Err(e) => tracing::warn!(error = ?e, "could not sign out after erasure"),
         }
     }
+
+    /// The delete-account page (ACCOUNT-DELETION-DESIGN D5), built from this
+    /// build's own configuration; a stable code when there is no account or
+    /// no page. Asked **before** anything is erased, so a build that cannot
+    /// open the page never deletes memories on the way to it.
+    pub(crate) fn delete_account_link(&self) -> Result<ExternalLink, String> {
+        self.ops()?.delete_account_link().map_err(code_for)
+    }
+}
+
+/// What the delete-account commands tell the frontend: the page's address,
+/// to show as plain text, and whether the browser opened. By hand, for the
+/// same allowlist reason as [`wire`]. The address is display-only: no
+/// command takes a URL, so the webview cannot hand it back to be opened.
+pub(crate) fn delete_page_wire(link: &ExternalLink, opened: bool) -> serde_json::Value {
+    serde_json::json!({
+        "page": link.as_str(),
+        "opened": opened,
+    })
+}
+
+/// Open the fixed delete-account page again ("Open the page again",
+/// ACCOUNT-DELETION-DESIGN D2). Erases nothing and takes no argument; in the
+/// same **account** slot as the other account commands (ADR-SEC-035).
+///
+/// # Errors
+///
+/// [`ERR_ACCOUNT_UNAVAILABLE`] with no account, [`ERR_ACCOUNT_REFUSED`]
+/// when this build has no delete page. A browser that did not open is not an
+/// error: `opened` says so.
+#[tauri::command]
+pub async fn delete_account_open(
+    account: State<'_, AccountSlot>,
+) -> Result<serde_json::Value, String> {
+    let link = account.delete_account_link()?;
+    let opened = link.open().is_ok();
+    Ok(delete_page_wire(&link, opened))
 }
 
 /// Map an operation failure to its stable code. The reason never carries the
@@ -388,6 +428,12 @@ mod tests {
         assert!(slot.for_background_refresh().is_none());
         // Best effort, and nothing to do: must simply return.
         slot.sign_out_after_erasure().await;
+        // Delete my account asks for the page first: with no account there
+        // is none, so nothing is erased (ADR-112 D2, session 68).
+        assert_eq!(
+            slot.delete_account_link().err().as_deref(),
+            Some(ERR_ACCOUNT_UNAVAILABLE)
+        );
     }
 
     /// A code with no arm in the frontend falls through to showing the raw

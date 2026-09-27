@@ -161,6 +161,78 @@ pub async fn erase_everything(
     sign_out_if_erased(erased, || account.sign_out_after_erasure()).await
 }
 
+/// "Delete my account" (ADR-112, ACCOUNT-DELETION-DESIGN D2): erase the
+/// memories on this computer, sign out, then open the page where the person
+/// confirms deleting their account. The account itself is deleted on that
+/// page, by the account service; this app deletes no account.
+///
+/// In the **account** slot of the open list (ADR-SEC-035): callable while
+/// locked or signed out, because people whose trial ended are the likeliest
+/// to leave. It is given no vault handle; its one vault effect is the same
+/// erasure Delete everything runs, through the same keeper path.
+///
+/// Returns `{page, opened, erased}`: the page's address to show as text,
+/// whether the browser opened, and whether memories were erased (`false`
+/// when this computer never had a vault). Never closes the window.
+///
+/// # Errors
+///
+/// `account_unavailable` / `account_refused` when there is no page to open
+/// (checked first: then nothing is erased); `erasure_failed` /
+/// `erasure_busy` when the erasure failed (then nothing else happens and
+/// nothing opens).
+#[tauri::command]
+pub async fn delete_account_start(
+    link: State<'_, KeeperLink>,
+    account: State<'_, AccountSlot>,
+) -> Result<serde_json::Value, String> {
+    let page = account.delete_account_link()?;
+    let steps = delete_account_steps(
+        link.vault_recorded(),
+        || erase_everything_inner(link.inner()),
+        || account.sign_out_after_erasure(),
+        || page.open().is_ok(),
+    )
+    .await?;
+    let mut answer = crate::commands::account::delete_page_wire(&page, steps.opened);
+    answer["erased"] = serde_json::Value::Bool(steps.erased);
+    Ok(answer)
+}
+
+/// What [`delete_account_steps`] did.
+#[derive(Debug, PartialEq, Eq)]
+struct DeleteAccountSteps {
+    erased: bool,
+    opened: bool,
+}
+
+/// D2's order, in one place so it is testable: erase (only when a vault was
+/// ever recorded), then sign out, then open. A failed erasure stops
+/// everything: nobody is signed out and nothing opens.
+async fn delete_account_steps<E, EFut, T, S, SFut, O>(
+    vault_recorded: bool,
+    erase: E,
+    sign_out: S,
+    open: O,
+) -> Result<DeleteAccountSteps, String>
+where
+    E: FnOnce() -> EFut,
+    EFut: std::future::Future<Output = Result<T, String>>,
+    S: FnOnce() -> SFut,
+    SFut: std::future::Future<Output = ()>,
+    O: FnOnce() -> bool,
+{
+    if vault_recorded {
+        erase().await?;
+    }
+    sign_out().await;
+    let opened = open();
+    Ok(DeleteAccountSteps {
+        erased: vault_recorded,
+        opened,
+    })
+}
+
 /// §8.26 §7: *"Delete everything (erasure + local sign-out + revoke)"*.
 ///
 /// The erasure alone decides what the person is told: `sign_out` runs only
@@ -247,6 +319,107 @@ mod tests {
         let erase = body.find("erase_at(vault_root)").expect("then erased");
         assert!(poison < erase);
         assert!(body.contains("if erased.is_err() {\n        link.clear_poison();"));
+    }
+
+    /// ACCOUNT-DELETION-DESIGN D2: erase, then sign out, then open.
+    #[tokio::test]
+    async fn delete_my_account_erases_then_signs_out_then_opens() {
+        let order = std::sync::Mutex::new(Vec::new());
+        let steps = delete_account_steps(
+            true,
+            || async {
+                order.lock().unwrap().push("erase");
+                Ok::<_, String>(())
+            },
+            || async {
+                order.lock().unwrap().push("sign out");
+            },
+            || {
+                order.lock().unwrap().push("open");
+                true
+            },
+        )
+        .await;
+        assert_eq!(
+            steps,
+            Ok(DeleteAccountSteps {
+                erased: true,
+                opened: true
+            })
+        );
+        assert_eq!(*order.lock().unwrap(), ["erase", "sign out", "open"]);
+    }
+
+    /// A failed or busy erasure: nothing opens and nobody is signed out.
+    #[tokio::test]
+    async fn delete_my_account_opens_nothing_when_the_erasure_fails() {
+        for code in [ERR_ERASURE_FAILED, ERR_ERASURE_BUSY] {
+            let signed_out = AtomicBool::new(false);
+            let opened = AtomicBool::new(false);
+            let steps = delete_account_steps(
+                true,
+                || async { Err::<(), String>(code.to_string()) },
+                || async {
+                    signed_out.store(true, Ordering::SeqCst);
+                },
+                || {
+                    opened.store(true, Ordering::SeqCst);
+                    true
+                },
+            )
+            .await;
+            assert_eq!(steps, Err(code.to_string()));
+            assert!(!signed_out.load(Ordering::SeqCst), "{code}");
+            assert!(!opened.load(Ordering::SeqCst), "{code}");
+        }
+    }
+
+    /// No vault ever set up: nothing to erase, straight to sign out and open.
+    #[tokio::test]
+    async fn delete_my_account_with_no_vault_still_opens_the_page() {
+        let erased = AtomicBool::new(false);
+        let steps = delete_account_steps(
+            false,
+            || async {
+                erased.store(true, Ordering::SeqCst);
+                Ok::<_, String>(())
+            },
+            || async {},
+            || false,
+        )
+        .await;
+        assert!(!erased.load(Ordering::SeqCst));
+        assert_eq!(
+            steps,
+            Ok(DeleteAccountSteps {
+                erased: false,
+                opened: false
+            })
+        );
+    }
+
+    /// The command goes through the helper, and asks for the page before it
+    /// erases anything (a build with no page must never delete memories on
+    /// the way to it).
+    #[test]
+    fn delete_my_account_asks_for_the_page_before_erasing() {
+        let source = include_str!("erasure.rs").replace("\r\n", "\n");
+        let command = source
+            .split_once("pub async fn delete_account_start(")
+            .expect("the command is defined here")
+            .1
+            .split_once("\n}\n")
+            .expect("the command is closed")
+            .0;
+        let page = command
+            .find("account.delete_account_link()?")
+            .expect("the page first");
+        let steps = command
+            .find("delete_account_steps(")
+            .expect("then the steps");
+        assert!(page < steps);
+        assert_eq!(command.matches("erase_everything_inner(").count(), 1);
+        assert_eq!(command.matches("sign_out_after_erasure").count(), 1);
     }
 
     /// ADR-105 L5: "Delete everything" also removes an earlier move's old

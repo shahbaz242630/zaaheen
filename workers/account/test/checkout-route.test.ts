@@ -25,6 +25,7 @@ const config: Config = {
   clerk: { secretKey: "sk_test_SECRET", clientId: "client_ours", webhookSecret: "whsec_placeholder" },
   paddle: { apiKey: "pdl_sdbx_apikey_SECRET", environment: "sandbox", productId: PRODUCT, prices: { monthly: MONTHLY, annual: ANNUAL }, webhookSecret: "pdl_ntfset_test" },
   lease: { kid: "primary", pkcs8: rfcPkcs8("primary") },
+  trials: { key: "k".repeat(32) },
   killSwitch: false,
 };
 

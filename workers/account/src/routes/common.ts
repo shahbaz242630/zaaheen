@@ -3,12 +3,15 @@
 
 import { ClerkClient, type ClerkUser } from "../clerk";
 import { errorResponse, readCapped } from "../http";
+import type { TrialStore } from "../trials";
 import type { Fetch } from "../upstream";
 
 export interface RouteDeps {
   fetch: Fetch;
   /** Server time, whole epoch seconds. */
   now(): number;
+  /** The TRIALS namespace (ACCOUNT-DELETION-DESIGN D8); only /v1/lease reads it. */
+  trials?: TrialStore | undefined;
 }
 
 /** The request body as a JSON object, or `null` (too big, not JSON, not an object). */

@@ -124,6 +124,31 @@ pub(super) enum Page {
     TooLarge,
 }
 
+/// The pages' one style block (AUTH-PAGES-DESIGN D8): system fonts, no
+/// images, nothing loaded from anywhere. Allowed by its exact hash in
+/// [`content_security_policy`]; a change here changes the hash, which the
+/// policy test pins.
+pub(super) const STYLE: &str = "body{margin:0;min-height:100vh;display:flex;align-items:center;\
+justify-content:center;background:#f6f4ef;color:#1f1d1a;\
+font:16px/1.5 system-ui,-apple-system,\"Segoe UI\",sans-serif}\
+main{max-width:32rem;padding:2rem;text-align:center}\
+h1{font-size:1.5rem;font-weight:600;margin:0 0 .5rem}p{margin:0;color:#4a463f}\
+@media (prefers-color-scheme:dark){body{background:#1c1b19;color:#f3f1ec}p{color:#c9c4ba}}";
+
+/// `default-src 'none'` plus the one style block by its SHA-256, and the
+/// three directives that do not fall back to `default-src` (D8).
+pub(super) fn content_security_policy() -> String {
+    use base64::engine::general_purpose::STANDARD;
+    use base64::Engine as _;
+    use sha2::{Digest, Sha256};
+
+    let hash = STANDARD.encode(Sha256::digest(STYLE.as_bytes()));
+    format!(
+        "default-src 'none'; style-src 'sha256-{hash}'; \
+         frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    )
+}
+
 /// The full HTTP response for `page`: status line, security headers,
 /// `Connection: close`, and a static body.
 pub(super) fn response(page: Page) -> Vec<u8> {
@@ -157,14 +182,17 @@ pub(super) fn response(page: Page) -> Vec<u8> {
         ""
     };
     let body = format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><title>{title}</title></head>\
-         <body><p>{message}</p></body></html>"
+        "<!doctype html><html><head><meta charset=\"utf-8\">\
+         <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
+         <title>{title}</title><style>{STYLE}</style></head>\
+         <body><main><h1>{title}</h1><p>{message}</p></main></body></html>"
     );
+    let policy = content_security_policy();
     format!(
         "HTTP/1.1 {status}\r\n\
          Content-Type: text/html; charset=utf-8\r\n\
          Content-Length: {}\r\n\
-         Content-Security-Policy: default-src 'none'\r\n\
+         Content-Security-Policy: {policy}\r\n\
          Cache-Control: no-store\r\n\
          Referrer-Policy: no-referrer\r\n\
          X-Content-Type-Options: nosniff\r\n\
@@ -461,6 +489,36 @@ mod tests {
             assert!(headers.contains(&format!("\r\ncontent-length: {}", body.len())));
             assert!(!body.contains("<script"), "{page:?}");
             assert!(!body.contains("http"), "{page:?} must carry no links");
+        }
+    }
+
+    /// AUTH-PAGES-DESIGN D8: the policy is matched exactly, not by prefix.
+    /// One `<style>` block, allowed by its own hash (pinned here, so a change
+    /// to the style is a visible change to this test); no script, no images,
+    /// no fonts from anywhere; and the three directives that do not fall
+    /// back to `default-src`.
+    #[test]
+    fn the_policy_is_exactly_the_reviewed_one() {
+        let expected = "default-src 'none'; \
+             style-src 'sha256-u9aSS+xpYvtGHw59Yi4qoANQroiDzn4/+cngDJkyfII='; \
+             frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+        assert_eq!(content_security_policy(), expected);
+        for page in ALL_PAGES {
+            let text = String::from_utf8(response(page)).unwrap();
+            let (headers, body) = text.split_once("\r\n\r\n").unwrap();
+            let policies: Vec<&str> = headers
+                .split("\r\n")
+                .filter_map(|line| line.strip_prefix("Content-Security-Policy: "))
+                .collect();
+            assert_eq!(policies, [expected], "{page:?}");
+            assert_eq!(body.matches("<style>").count(), 1, "{page:?}");
+            assert!(
+                body.contains(&format!("<style>{STYLE}</style>")),
+                "{page:?}"
+            );
+            for banned in ["<img", "<link", "@import", "url(", "<script", " style="] {
+                assert!(!body.contains(banned), "{page:?} carries {banned}");
+            }
         }
     }
 

@@ -267,3 +267,32 @@ fn debug_names_where_the_cursor_link_points() {
         "the query, with the path, reached a debug line"
     );
 }
+
+// ---------------------------------------------- the delete-account page (D5)
+
+fn account(issuer: &str) -> vault_account::AccountConfig {
+    vault_account::AccountConfig::new(issuer, "client_test").expect("a valid issuer")
+}
+
+/// ACCOUNT-DELETION-DESIGN D5: exactly the fixed page, no parameters, nothing
+/// from the app in it.
+#[test]
+fn the_delete_account_link_is_exactly_the_fixed_page() {
+    let link = ExternalLink::delete_account(&account("https://clerk.zaaheen.com"))
+        .expect("production has a delete page");
+    assert_eq!(link.as_str(), "https://account.zaaheen.com/delete-account/");
+    let dev = ExternalLink::delete_account(&account("https://example-name-12.clerk.accounts.dev"))
+        .expect("a development instance has the hosted profile page");
+    assert_eq!(dev.as_str(), "https://example-name-12.accounts.dev/user");
+}
+
+#[test]
+fn without_a_known_delete_page_there_is_no_link() {
+    for issuer in ["https://issuer.example", "https://clerk.zaaheen.com:8443"] {
+        assert_eq!(
+            ExternalLink::delete_account(&account(issuer)).map(|l| l.as_str().to_owned()),
+            Err(LinkError::NotAllowed),
+            "{issuer}"
+        );
+    }
+}

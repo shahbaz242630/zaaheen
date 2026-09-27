@@ -1533,6 +1533,114 @@ async function eraseEverything() {
   }, 2500);
 }
 
+// -- Delete my account (ADR-112, ACCOUNT-DELETION-DESIGN D2) --
+// One command erases the memories on this computer (as Delete everything
+// does), signs out, then opens the page where the person confirms deleting
+// the account. Reached from Settings and from every lock screen. Unlike
+// Delete everything it never closes the window: the finish panel stays, with
+// the page's address as text and a way to open it again.
+
+const DELETE_ACCOUNT_PHRASE = "DELETE";
+
+// Set once the command has run: from then on the dialog only shows the
+// finish panel, and nothing dismisses it.
+let deleteAccountDone = false;
+
+function openDeleteAccount() {
+  if (!deleteAccountDone) {
+    $("delete-account-ask").classList.remove("hidden");
+    $("delete-account-done").classList.add("hidden");
+    $("delete-account-phrase").value = "";
+    $("delete-account-go").disabled = true;
+    $("delete-account-cancel").disabled = false;
+    $("delete-account-status").textContent = "";
+    $("delete-account-export-status").textContent = "";
+  }
+  $("delete-account-overlay").classList.remove("hidden");
+  (deleteAccountDone ? $("delete-account-reopen") : $("delete-account-cancel")).focus();
+}
+
+function closeDeleteAccount() {
+  if (deleteAccountDone) return;
+  $("delete-account-overlay").classList.add("hidden");
+}
+
+function onDeleteAccountKey(e) {
+  if (e.key === "Escape") {
+    e.preventDefault();
+    closeDeleteAccount();
+  }
+}
+
+function onDeleteAccountPhraseInput() {
+  $("delete-account-go").disabled = $("delete-account-phrase").value !== DELETE_ACCOUNT_PHRASE;
+}
+
+function onDeleteAccountExport() {
+  exportMemories($("delete-account-export-status"), $("delete-account-export"));
+}
+
+// The same honest lines as Delete everything: when the erasure failed,
+// nothing was deleted, the memories are still readable, and no page opened.
+function erasureFailureLine(raw) {
+  if (raw.includes("erasure_busy")) {
+    return "Zaaheen is tidying up your memories right now, so nothing was deleted and your memories are still readable. Please try again in a few minutes.";
+  }
+  // Also the answer when the memories' folder is on a drive that is not
+  // plugged in: the page never opens over memories that still exist.
+  if (raw.includes("erasure_failed")) {
+    return "Your memories were NOT deleted, and they are still readable. Nothing was changed. If they are on a drive that isn't plugged in, plug it in and try again. Otherwise restart Zaaheen and retry.";
+  }
+  // Account codes arrive already in plain English (the invoke wrapper).
+  return raw;
+}
+
+async function deleteAccountStart() {
+  if ($("delete-account-phrase").value !== DELETE_ACCOUNT_PHRASE) return;
+
+  $("delete-account-go").disabled = true;
+  $("delete-account-cancel").disabled = true;
+  $("delete-account-status").textContent = "Deleting your memories…";
+
+  let result;
+  try {
+    result = await invoke("delete_account_start");
+  } catch (err) {
+    $("delete-account-status").textContent = erasureFailureLine(String(err));
+    $("delete-account-cancel").disabled = false;
+    $("delete-account-go").disabled = false;
+    return;
+  }
+
+  deleteAccountDone = true;
+  const erased = !!(result && result.erased);
+  const opened = !!(result && result.opened);
+  // The apps it had seen connect go with the memories, as for Delete everything.
+  if (erased) store.set(KNOWN_APPS_KEY, {});
+  $("delete-account-done-line").textContent = (erased ? "Your memories are deleted. " : "")
+    + (opened
+      ? "Finish on the page that just opened."
+      : "Your browser did not open, so go to the address below to finish.");
+  $("delete-account-page").textContent = result && typeof result.page === "string" ? result.page : "";
+  $("delete-account-reopen-status").textContent = "";
+  $("delete-account-ask").classList.add("hidden");
+  $("delete-account-done").classList.remove("hidden");
+  $("delete-account-reopen").focus();
+}
+
+async function onDeleteAccountReopen() {
+  const status = $("delete-account-reopen-status");
+  status.textContent = "";
+  try {
+    const result = await invoke("delete_account_open");
+    if (!(result && result.opened)) {
+      status.textContent = "Your browser did not open. Go to the address above.";
+    }
+  } catch (err) {
+    status.textContent = String(err);
+  }
+}
+
 // -- diagnostic log export (ADR-SEC-017) --
 
 // The save dialog. Guarded like the other bridges so the UI still renders in a
@@ -3040,6 +3148,17 @@ function init() {
   $("erase-cancel").addEventListener("click", resetEraseConfirm);
   $("erase-phrase").addEventListener("input", onErasePhraseInput);
   $("erase-confirm-btn").addEventListener("click", eraseEverything);
+
+  // Delete my account (ADR-112): Settings and every lock screen
+  $("account-delete-btn").addEventListener("click", openDeleteAccount);
+  $("lock-delete").addEventListener("click", openDeleteAccount);
+  $("delete-account-cancel").addEventListener("click", closeDeleteAccount);
+  $("delete-account-overlay").addEventListener("keydown", onDeleteAccountKey);
+  $("delete-account-phrase").addEventListener("input", onDeleteAccountPhraseInput);
+  $("delete-account-export").addEventListener("click", onDeleteAccountExport);
+  $("delete-account-go").addEventListener("click", deleteAccountStart);
+  $("delete-account-reopen").addEventListener("click", onDeleteAccountReopen);
+  $("delete-account-close").addEventListener("click", onCloseApp);
 
   // Progress events for the two engine downloads. Only the listeners are
   // attached here: the downloads themselves are gated commands, started by

@@ -21,7 +21,8 @@
 // sets both to the same second); a failed fetch still stamps
 // `live_fetch_at`; and a trial whose start could not be saved is never
 // signed (Clerk refusing that write is an upstream error for a record that
-// was not active-flavoured: 503).
+// was not active-flavoured: 503). ACCOUNT-DELETION-DESIGN D8 gives the first
+// call's trial start from the TRIALS store (src/trials.ts).
 
 import { deriveBilling } from "./billing";
 import type { LeaseState } from "./lease";
@@ -46,6 +47,8 @@ export interface LeaseDeps {
   now: number;
   killSwitch: boolean;
   productId: string;
+  /** The start for a record with none: an earlier trial of the same email, or now (D8); throws on any failure. */
+  firstTrialStart(): Promise<number>;
   /** All of this customer's Paddle subscriptions; throws on any failure. */
   fetchSubscriptions(customerId: string): Promise<unknown[]>;
   /** Merge `patch` into the user's record in Clerk; throws on any failure. */
@@ -103,8 +106,17 @@ export function termsOnUpstreamError(record: BillingRecord): LeaseTerms | null {
 /** The whole `/v1/lease` decision for one user's stored record. */
 export async function decideLease(stored: BillingRecord, deps: LeaseDeps): Promise<LeaseDecision> {
   const { now } = deps;
-  // "first desktop call sets trial_started_at" (§5).
-  let record: BillingRecord = stored.trial_started_at === undefined ? { ...stored, trial_started_at: now } : stored;
+  // "first desktop call sets trial_started_at" (§5), to the start of an
+  // earlier trial of the same email if there was one (ACCOUNT-DELETION-DESIGN
+  // D8). A failed lookup signs nothing and writes nothing.
+  let record: BillingRecord = stored;
+  if (stored.trial_started_at === undefined) {
+    try {
+      record = { ...stored, trial_started_at: await deps.firstTrialStart() };
+    } catch {
+      return { kind: "unavailable" };
+    }
+  }
   let terms: LeaseTerms | null;
 
   if (deps.killSwitch && record.paddle_customer_id !== undefined) {

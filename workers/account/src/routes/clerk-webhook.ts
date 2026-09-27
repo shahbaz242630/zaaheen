@@ -10,9 +10,16 @@
 // subscriptions' custom_data is the only link left. A buyer can set that
 // field on their own checkout, so the worst a forged tag does is cancel
 // the forger's own subscription when someone else deletes their account.
+//
+// AUTH-PAGES-DESIGN D6 (quoted): "unsafeMetadata is user-writable, so it is
+// only the carrier: the account Worker's user.created handler copies it into
+// private_metadata.marketing with the server's time and a wording version,
+// and the dashboard reads only that copy." Only exactly true is copied; the
+// absence of the copy means no consent.
 
 import type { Config } from "../config";
 import { errorResponse, jsonResponse, readCapped } from "../http";
+import { ClerkClient } from "../clerk";
 import { PaddleClient } from "../paddle";
 import { verifySvixSignature } from "../signatures";
 import { UpstreamError, isObject } from "../upstream";
@@ -21,6 +28,12 @@ import { type RouteDeps, log } from "./common";
 const MAX_BODY_BYTES = 64 * 1024;
 const USER_ID = /^user_[A-Za-z0-9]{1,64}$/;
 const LIVE_STATUSES = ["active", "past_due", "paused"] as const;
+/**
+ * The version of the box's words, "Send me occasional tips and product
+ * news. You can unsubscribe at any time." (founder-approved, D6). A change
+ * to the words is a new version.
+ */
+export const MARKETING_WORDING_VERSION = "tips-2026-09";
 
 export async function handleClerkWebhook(request: Request, config: Config, deps: RouteDeps): Promise<Response> {
   if (request.method !== "POST") return errorResponse(405, "method_not_allowed", { allow: "POST" });
@@ -42,6 +55,7 @@ export async function handleClerkWebhook(request: Request, config: Config, deps:
   } catch {
     return errorResponse(400, "bad_request");
   }
+  if (isObject(event) && event["type"] === "user.created") return copyConsent(event["data"], config, deps);
   if (!isObject(event) || event["type"] !== "user.deleted") return done("ignored_event_type");
   const data = event["data"];
   const userId = isObject(data) ? data["id"] : undefined;
@@ -59,6 +73,24 @@ export async function handleClerkWebhook(request: Request, config: Config, deps:
     }
     log("clerk_webhook", "user_deleted", `cancelled ${theirs.length}`);
     return jsonResponse(200, { ok: true });
+  } catch (e) {
+    log("clerk_webhook", e instanceof UpstreamError ? "upstream_error" : "unexpected_error", e instanceof Error ? e.message : undefined);
+    return errorResponse(503, "unavailable");
+  }
+}
+
+/** D6: a ticked box becomes the server-side copy; a failure asks Svix to retry. */
+async function copyConsent(data: unknown, config: Config, deps: RouteDeps): Promise<Response> {
+  const userId = isObject(data) ? data["id"] : undefined;
+  if (typeof userId !== "string" || !USER_ID.test(userId)) return done("unmapped_user");
+  const unsafe = isObject(data) ? data["unsafe_metadata"] : undefined;
+  if (!isObject(unsafe) || unsafe["marketing_consent"] !== true) return done("no_marketing_consent");
+  const clerk = new ClerkClient(config.clerk, deps.fetch);
+  try {
+    const written = await clerk.mergePrivate(userId, {
+      marketing: { consent: true, at: deps.now(), wording: MARKETING_WORDING_VERSION },
+    });
+    return done(written ? "marketing_consent_copied" : "user_gone");
   } catch (e) {
     log("clerk_webhook", e instanceof UpstreamError ? "upstream_error" : "unexpected_error", e instanceof Error ? e.message : undefined);
     return errorResponse(503, "unavailable");

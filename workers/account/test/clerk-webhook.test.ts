@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Config } from "../src/config";
-import { handleClerkWebhook } from "../src/routes/clerk-webhook";
+import { MARKETING_WORDING_VERSION, handleClerkWebhook } from "../src/routes/clerk-webhook";
 import { type Seen, fakeFetch, json, rfcPkcs8 } from "./support";
 
 const T = 1_800_000_000;
@@ -30,6 +30,7 @@ const config: Config = {
     webhookSecret: "pdl_ntfset_test",
   },
   lease: { kid: "primary", pkcs8: rfcPkcs8("primary") },
+  trials: { key: "k".repeat(32) },
   killSwitch: false,
 };
 
@@ -52,6 +53,8 @@ interface World {
   pages?: unknown[][];
   listDown?: boolean;
   cancelFails?: boolean;
+  /** Status Clerk answers the metadata write with (default 200). */
+  metadataStatus?: number;
 }
 
 function world(w: World) {
@@ -67,6 +70,11 @@ function world(w: World) {
     }
     if (origin === "https://sandbox-api.paddle.com" && /^\/subscriptions\/sub_[a-z0-9]+\/cancel$/.test(pathname)) {
       return w.cancelFails ? json(500, {}) : json(200, { data: { status: "canceled" } });
+    }
+    const meta = /^\/v1\/users\/(user_[A-Za-z0-9]+)\/metadata$/.exec(pathname);
+    if (origin === "https://api.clerk.com" && meta && req.method === "PATCH") {
+      const status = w.metadataStatus ?? 200;
+      return json(status, status === 200 ? { id: meta[1] } : {});
     }
     return json(418, { unexpected: req.url.href });
   });
@@ -205,5 +213,63 @@ describe("the request itself", () => {
     const { response, seen } = await call({}, body, await signed(body));
     expect(response.status).toBe(413);
     expect(seen).toHaveLength(0);
+  });
+});
+
+// AUTH-PAGES-DESIGN D6: the sign-up's unticked box travels as
+// unsafe_metadata.marketing_consent, which the person can write, so it is only
+// the carrier. On user.created the Worker copies a true into
+// private_metadata.marketing with the server's time and the wording's version;
+// the dashboard reads only that copy. Anything but exactly true copies nothing.
+describe("user.created: the marketing consent copy (AUTH-PAGES-DESIGN D6)", () => {
+  const NEW = "user_2newsignupxxxxxxxxxxxxxxxxx";
+  const created = (unsafe: unknown, id: string = NEW) =>
+    JSON.stringify({ data: { id, object: "user", unsafe_metadata: unsafe }, object: "event", type: "user.created", timestamp: T * 1000 });
+
+  it("a ticked box is copied into private metadata with the server's time and the wording version", async () => {
+    const body = created({ marketing_consent: true });
+    const { response, seen } = await call({}, body, await signed(body));
+    expect(response.status).toBe(200);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.method).toBe("PATCH");
+    expect(seen[0]?.url.href).toBe(`https://api.clerk.com/v1/users/${NEW}/metadata`);
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
+      private_metadata: { marketing: { consent: true, at: T, wording: MARKETING_WORDING_VERSION } },
+    });
+  });
+
+  it("an unticked box, a missing one, or anything but exactly true writes nothing", async () => {
+    for (const unsafe of [{ marketing_consent: false }, {}, null, { marketing_consent: "true" }, { marketing_consent: 1 }, "x"]) {
+      const body = created(unsafe);
+      const { response, seen } = await call({}, body, await signed(body));
+      expect(response.status).toBe(200);
+      expect(seen).toHaveLength(0);
+    }
+  });
+
+  it("a user.created without a usable id writes nothing", async () => {
+    const body = created({ marketing_consent: true }, "not-a-user-id");
+    const { response, seen } = await call({}, body, await signed(body));
+    expect(response.status).toBe(200);
+    expect(seen).toHaveLength(0);
+  });
+
+  it("a user already gone (404) is done; any other failure asks Svix to retry", async () => {
+    const body = created({ marketing_consent: true });
+    expect((await call({ metadataStatus: 404 }, body, await signed(body))).response.status).toBe(200);
+    for (const status of [401, 429, 500]) {
+      expect((await call({ metadataStatus: status }, body, await signed(body))).response.status).toBe(503);
+    }
+  });
+
+  it("an unsigned user.created is refused before any write", async () => {
+    const body = created({ marketing_consent: true });
+    const { response, seen } = await call({}, body, null);
+    expect(response.status).toBe(401);
+    expect(seen).toHaveLength(0);
+  });
+
+  it("the wording version is pinned", () => {
+    expect(MARKETING_WORDING_VERSION).toBe("tips-2026-09");
   });
 });

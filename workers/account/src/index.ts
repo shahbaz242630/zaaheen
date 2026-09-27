@@ -3,7 +3,8 @@
 //   POST /v1/checkout   a checkout transaction, or the customer portal
 //   POST /paddle/webhook  subscription.* notifications from Paddle
 //   POST /clerk/webhook   user.deleted from Clerk (cancels billing)
-// and a daily cron, the renewal sweep (wrangler.jsonc `triggers.crons`).
+// and a daily cron, the renewal sweep (wrangler.jsonc `triggers.crons`), which
+// also cancels billing for a deleted account (ACCOUNT-DELETION-DESIGN D6).
 // Everything else is a 404. The two /v1 routes are flood-limited per client
 // address (src/flood.ts) before anything else runs. A missing or inconsistent
 // configuration is a 503 ("try later") for every route, and any unexpected
@@ -45,6 +46,8 @@ export default {
       return await handler(request, config, {
         fetch: (input, init) => fetch(input, init),
         now: () => Math.floor(Date.now() / 1000),
+        // Missing, it fails a first lease closed (ACCOUNT-DELETION-DESIGN D8).
+        trials: (env as Partial<Env>).TRIALS,
       });
     } catch {
       return errorResponse(503, "unavailable");
