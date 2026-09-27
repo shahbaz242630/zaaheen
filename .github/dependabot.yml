@@ -1,0 +1,43 @@
+# Weekly update pull requests for the website and the account Worker, and for
+# the pinned GitHub Actions (security audit, session 72: only security updates
+# ran, so nothing kept these current between advisories). Every pull request
+# passes the full CI before it can merge.
+#
+# Rust (cargo) is left out on purpose: BRD §4 pins every crate to an exact,
+# reviewed version, and each bump runs the hour-long Rust matrix. Crate
+# security advisories still arrive as Dependabot security updates, and
+# cargo-deny in CI refuses a known-vulnerable crate.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /site
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # Two days after a release: outside the window in which a compromised
+    # version is typically published and then pulled.
+    cooldown:
+      default-days: 2
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /workers/account
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 2
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5

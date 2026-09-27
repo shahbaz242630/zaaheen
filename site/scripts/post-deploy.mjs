@@ -8,6 +8,7 @@
 // Exit 1 if the live site is wrong. An IndexNow failure only warns: a search
 // ping must never fail an otherwise-good deploy.
 import fs from 'node:fs';
+import { expectedHeaders, headerProblems, mergeHeaders } from './live-headers.mjs';
 
 const ORIGIN = 'https://zaaheen.com';
 const HOST = 'zaaheen.com';
@@ -87,6 +88,27 @@ await expect('repository metadata is not served', `${ORIGIN}/.git/HEAD`, (r) =>
 for (const ua of ['Googlebot/2.1 (+http://www.google.com/bot.html)', 'OAI-SearchBot/1.0; +https://openai.com/searchbot', 'Claude-SearchBot/1.0']) {
   await expect(`reachable as ${ua.split('/')[0]}`, `${ORIGIN}/`, (r) => (r.status !== 200 ? `HTTP ${r.status}` : ''),
     { headers: { 'User-Agent': `Mozilla/5.0 (compatible; ${ua})`, 'Cache-Control': 'no-cache' } });
+}
+
+// 2b. The security headers arrive exactly as public/.htaccess sets them
+// (live-headers.mjs: Hostinger's CDN was measured replacing a CSP). /pay only
+// exists while the app is on sale; a 404 there is skipped, not a pass.
+const siteHeaders = expectedHeaders(fs.readFileSync(new URL('../public/.htaccess', import.meta.url), 'utf8'));
+const payHeaders = mergeHeaders(siteHeaders,
+  expectedHeaders(fs.readFileSync(new URL('../public/pay/.htaccess', import.meta.url), 'utf8')));
+for (const [label, url, expected] of [['home page headers', `${ORIGIN}/`, siteHeaders], ['pay page headers', `${ORIGIN}/pay/`, payHeaders]]) {
+  try {
+    const r = await get(url);
+    if (label === 'pay page headers' && r.status === 404) {
+      console.log(`  --  ${label}: /pay is not published (the app is not on sale), skipped`);
+      continue;
+    }
+    const found = headerProblems(expected, r.headers);
+    if (found.length) problems.push(...found.map((p) => `${label}: ${p}`));
+    else console.log(`  ok  ${label}`);
+  } catch (e) {
+    problems.push(`${label}: ${e.message}`);
+  }
 }
 
 if (problems.length) {

@@ -143,6 +143,19 @@ test('known Clerk error codes get our own words', () => {
   }
 });
 
+// Security audit, session 72 (founder: "yes sign in message is fine neutral"): the
+// answer for an unknown email must not say whether an account exists. The real
+// protection is Clerk's user enumeration protection (production, at launch),
+// which makes Clerk answer every email alike; this line is the fallback.
+test('an email with no account gets a line that does not say so', () => {
+  const line = messageFor('form_identifier_not_found');
+  assert.equal(
+    line,
+    "If there's an account for this email, we've sent you a code. If nothing arrives, check the address or create an account.",
+  );
+  assert.doesNotMatch(line, /couldn't find|no account|not found|doesn't exist/i);
+});
+
 test('anything unknown, empty or odd gets the fixed line', () => {
   for (const code of ['', undefined, null, 'surprise', 'constructor', '__proto__', 'toString', 42, {}]) {
     assert.equal(messageFor(code), FIXED_LINE, `code ${String(code)}`);
