@@ -18,15 +18,17 @@ interface Props {
   heading: string;
   lede: string;
   outline: Outline[];
+  /** A coaching document: the coaching nav and footer (founder, session 70). */
+  coaching?: boolean;
 }
-const { path, heading, lede, outline } = Astro.props;
+const { path, heading, lede, outline, coaching = false } = Astro.props;
 const page = pageFor(path);
 const updated = lastModified(page.sources);
 const updatedLabel = updated
   ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   : undefined;
 ---
-<Base page={page}>
+<Base page={page} footer={coaching ? 'coaching' : 'app'}>
   <div class="docs">
     <header class="docs-head">
       <h1>{heading}</h1>
@@ -35,7 +37,7 @@ const updatedLabel = updated
     </header>
 
     <div class="docs-layout">
-      <DocsNav current={path} />
+      <DocsNav current={path} coaching={coaching} />
 
       <div class="docs-body">
         <section class="policy-summary" aria-labelledby="short-version">

@@ -154,7 +154,7 @@ export const PAGES: PageEntry[] = [
     title: 'Knowledge Centre · Zaaheen',
     description:
       'Learn to work with AI properly: private 1-to-1 AI coaching sessions from Zaaheen, built around a real task and booked online.',
-    sources: ['src/pages/knowledge-centre.astro', 'src/data/site.ts'],
+    sources: ['src/pages/knowledge-centre/index.astro', 'src/data/site.ts'],
   },
   {
     path: '/privacy/',
@@ -206,6 +206,27 @@ export const PAGES: PageEntry[] = [
     sources: ['src/pages/licences.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
   },
   {
+    path: '/knowledge-centre/terms/',
+    title: 'Coaching Terms · Zaaheen Knowledge Centre',
+    description:
+      'The terms for booking private 1-to-1 AI coaching with Zaaheen: what a session is, paying, moving a session, refunds, your legal rights and how to complain.',
+    sources: ['src/pages/knowledge-centre/terms.astro', 'src/layouts/Policy.astro', 'src/data/site.ts', 'src/data/coaching.ts'],
+  },
+  {
+    path: '/knowledge-centre/booking-and-refunds/',
+    title: 'Booking and Refund Policy · Zaaheen Knowledge Centre',
+    description:
+      'How coaching bookings work: move your session free up to 24 hours before, no refund for a change of mind or a missed session, and when we always refund.',
+    sources: ['src/pages/knowledge-centre/booking-and-refunds.astro', 'src/layouts/Policy.astro', 'src/data/site.ts', 'src/data/coaching.ts'],
+  },
+  {
+    path: '/knowledge-centre/privacy/',
+    title: 'Coaching Privacy Notice · Zaaheen Knowledge Centre',
+    description:
+      'What Zaaheen collects when you book coaching, why, who helps us run it, how long we keep it, and your rights over your data.',
+    sources: ['src/pages/knowledge-centre/privacy.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
+  },
+  {
     path: '/pricing/',
     title: 'Pricing · Zaaheen',
     description:
@@ -227,6 +248,18 @@ export const POLICIES = [
   { path: '/company/', label: 'Company Information' },
   { path: '/licences/', label: 'Open-source licences' },
 ] as const;
+
+// The coaching documents (founder, session 70: the Knowledge Centre shows
+// coaching's own documents, never the app's). The Knowledge Centre's footer
+// (components/Footer.astro, variant "coaching") links each entry marked live;
+// the rest stay out of every page until their page is written and approved.
+// Going live = write the page, add its PAGES entry, set live: true, and add its
+// path to COACHING_POLICIES in scripts/audit.mjs, which then requires it.
+export const COACHING_POLICIES: readonly { path: string; label: string; live: boolean }[] = [
+  { path: '/knowledge-centre/terms/', label: 'Coaching Terms', live: true },
+  { path: '/knowledge-centre/booking-and-refunds/', label: 'Booking and Refund Policy', live: true },
+  { path: '/knowledge-centre/privacy/', label: 'Coaching Privacy Notice', live: true },
+];
 
 // The Documents menu: how-to sections (anchors on /docs/) and the policies.
 export const DOCS_SECTIONS = [

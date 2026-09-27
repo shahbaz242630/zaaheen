@@ -1,13 +1,24 @@
 ---
 import Logo from './Logo.astro';
-import { COMPANY, SITE } from '../data/site';
+import { COACHING, COACHING_POLICIES, COMPANY, SITE } from '../data/site';
 
 // The footer on every page (founder, session 67: "a little bit professional
 // footer", after the Best Answer Hub one): the brand, three columns of links,
-// then the company line. Every policy page must stay linked here
-// (scripts/audit.mjs POLICIES).
+// then the company line. Two variants (founder, session 70: the Knowledge
+// Centre is "a completely separate thing"):
+// - "app" on every page but the Knowledge Centre's: every app policy stays
+//   linked here (scripts/audit.mjs POLICIES).
+// - "coaching" on the Knowledge Centre's pages: coaching's own documents
+//   (COACHING_POLICIES, the live ones) and no app policy
+//   (scripts/audit.mjs COACHING_POLICIES and APP_ONLY).
+interface Props {
+  variant?: 'app' | 'coaching';
+}
+const { variant = 'app' } = Astro.props;
+const coaching = variant === 'coaching';
 const year = new Date().getFullYear();
-const COLUMNS = [
+
+const APP_COLUMNS = [
   { title: 'Product', links: [
     { label: 'The memory app', href: '/products/' },
     { label: 'Pricing', href: '/pricing/' },
@@ -27,19 +38,40 @@ const COLUMNS = [
     { label: 'Open-source licences', href: '/licences/' },
   ] },
 ];
+
+const COACHING_COLUMNS = [
+  { title: 'Coaching', links: [
+    { label: 'Book a session', href: COACHING.bookingUrl },
+    { label: 'Sessions', href: '/knowledge-centre/#sessions' },
+    { label: 'Contact the Knowledge Centre', href: `mailto:${COACHING.email}` },
+  ] },
+  { title: 'Zaaheen', links: [
+    { label: 'Home', href: '/' },
+    { label: 'Products', href: '/products/' },
+    { label: 'Company information', href: '/company/' },
+  ] },
+  { title: 'Coaching policies', links: COACHING_POLICIES
+    .filter((p) => p.live)
+    .map((p) => ({ label: p.label, href: p.path })) },
+].filter((c) => c.links.length > 0);
+
+const columns = coaching ? COACHING_COLUMNS : APP_COLUMNS;
+const blurb = coaching
+  ? 'Private 1-to-1 AI coaching, built around a real task you bring. Booked and paid online, delivered live.'
+  : 'A private memory for your AI apps. Your memories stay encrypted on your own computer and never reach us.';
+const email = coaching ? COACHING.email : COMPANY.email;
 ---
-<footer class="site-foot">
+<footer class:list={['site-foot', { 'is-coaching': coaching }]} data-footer={variant}>
   <div class="foot-inner">
     <div class="foot-grid">
       <div class="foot-brand">
         <a class="foot-logo" href="/" aria-label={`${SITE.name} home`}>
           <Logo size={32} />
-          <span>{SITE.name}</span>
+          <span>{coaching ? `${SITE.name} Knowledge Centre` : SITE.name}</span>
         </a>
-        <p>A private memory for your AI apps. Your memories stay encrypted on your own computer
-           and never reach us.</p>
+        <p>{blurb}</p>
       </div>
-      {COLUMNS.map((c) => (
+      {columns.map((c) => (
         <nav class="foot-col" aria-label={c.title}>
           <p class="foot-title">{c.title}</p>
           {c.links.map((l) => <a href={l.href}>{l.label}</a>)}
@@ -48,7 +80,7 @@ const COLUMNS = [
     </div>
     <div class="foot-bottom">
       <p>© {year} {COMPANY.legalName}. All rights reserved.</p>
-      <p>{COMPANY.licence} · <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></p>
+      <p>{COMPANY.licence} · <a href={`mailto:${email}`}>{email}</a></p>
     </div>
   </div>
 </footer>

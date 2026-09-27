@@ -1,7 +1,7 @@
 ---
-import Base from '../layouts/Base.astro';
-import { COACHING, pageFor } from '../data/site';
-import { DELIVERY, LOWEST_PRICE_AED, STAGES, STEPS, formatAed, sessionByNumber } from '../data/coaching';
+import Base from '../../layouts/Base.astro';
+import { COACHING, pageFor } from '../../data/site';
+import { DELIVERY, LOWEST_PRICE_AED, STAGES, STEPS, formatAed, sessionByNumber } from '../../data/coaching';
 
 // The hub the Knowledge Centre tab opens. Every booking link goes to the
 // separate coaching app (COACHING.bookingUrl); a session link adds its #slug,
@@ -11,7 +11,7 @@ const page = pageFor('/knowledge-centre/');
 const book = COACHING.bookingUrl;
 const from = formatAed(LOWEST_PRICE_AED);
 ---
-<Base page={page}>
+<Base page={page} footer="coaching">
   <section class="hero">
     <div class="hero-copy">
       <p class="eyebrow">Knowledge Centre</p>
@@ -120,5 +120,5 @@ const from = formatAed(LOWEST_PRICE_AED);
        <a href={`mailto:${COACHING.email}`}>{COACHING.email}</a>.</p>
   </section>
 
-  <script src="../scripts/booking-demo.js"></script>
+  <script src="../../scripts/booking-demo.js"></script>
 </Base>

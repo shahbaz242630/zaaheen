@@ -33,6 +33,18 @@ const footerLink = (href) => edit('docs/index.html', (s) => {
   if (out === s) throw new Error(`audit.test: no footer link to ${href}`);
   return out;
 });
+// Edits the Knowledge Centre's footer; throws if the edit changed nothing.
+const kcFooter = (fn) => edit('knowledge-centre/index.html', (s) => {
+  const out = s.replace(/<footer\b[\s\S]*?<\/footer>/, fn);
+  if (out === s) throw new Error('audit.test: the Knowledge Centre footer edit changed nothing');
+  return out;
+});
+// Sets the footer variant marker on `rel`; throws if the page has none.
+const footerVariant = (rel, from, to) => edit(rel, (s) => {
+  const out = s.replace(`data-footer="${from}"`, `data-footer="${to}"`);
+  if (out === s) throw new Error(`audit.test: ${rel} has no data-footer="${from}"`);
+  return out;
+});
 // The /pay page's build-time Paddle config, as pay.astro renders it. An unset
 // value renders as a bare attribute (no ="..."), so both forms are replaced,
 // and a build that matched neither would throw rather than test nothing.
@@ -102,6 +114,14 @@ const cases = [
   ['footer Privacy link removed', footerLink('/privacy/'), /docs\/index\.html: footer must link to the Privacy Policy \(\/privacy\/\)/],
   ['footer Terms link removed', footerLink('/terms/'), /docs\/index\.html: footer must link to the Terms of Service \(\/terms\/\)/],
   ['footer Refunds link removed', footerLink('/refunds/'), /docs\/index\.html: footer must link to the Refund Policy \(\/refunds\/\)/],
+  // The Knowledge Centre's own footer (founder, session 70): coaching's
+  // documents only, never the app's.
+  ['app refund policy in the coaching footer', kcFooter((f) => f.replace('</nav>', '<a href="/refunds/">Refunds</a></nav>')), /knowledge-centre\/index\.html: the coaching footer must not link to the app's Refund Policy \(\/refunds\/\)/],
+  ['coaching footer without company information', kcFooter((f) => f.replace(/<a\b[^>]*\shref="\/company\/"[^>]*>[\s\S]*?<\/a>/, '')), /knowledge-centre\/index\.html: the coaching footer must link to Company Information \(\/company\/\)/],
+  ['coaching footer without the Booking and Refund Policy', kcFooter((f) => f.replace(/<a\b[^>]*\shref="\/knowledge-centre\/booking-and-refunds\/"[^>]*>[\s\S]*?<\/a>/, '')), /knowledge-centre\/index\.html: the coaching footer must link to the Booking and Refund Policy/],
+  ['coaching terms page missing', (d) => fs.rmSync(path.join(d, 'knowledge-centre', 'terms'), { recursive: true }), /knowledge-centre\/terms\/index\.html: required file is missing/],
+  ['app footer on the Knowledge Centre', footerVariant('knowledge-centre/index.html', 'coaching', 'app'), /knowledge-centre\/index\.html: the Knowledge Centre must use the coaching footer/],
+  ['coaching footer on an app page', footerVariant('docs/index.html', 'app', 'coaching'), /docs\/index\.html: the coaching footer is only for the Knowledge Centre/],
   ['refunds page missing', (d) => fs.rmSync(path.join(d, 'refunds'), { recursive: true }), /refunds\/index\.html: required file is missing/],
   ['privacy page missing', (d) => fs.rmSync(path.join(d, 'privacy'), { recursive: true }), /privacy\/index\.html: required file is missing/],
   ['security.txt missing', (d) => fs.rmSync(path.join(d, '.well-known'), { recursive: true }), /\.well-known\/security\.txt: required file is missing/],
