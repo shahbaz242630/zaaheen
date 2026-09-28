@@ -12,16 +12,25 @@ use super::*;
 
 // ------------------------------------------------------------- days left
 
+/// SIGNIN-DESIGN §8.44 (session 73): the live test showed a brand-new 30-day
+/// trial as "29 days left", because a few seconds had already passed.
 #[test]
-fn a_part_day_always_rounds_down() {
+fn a_part_day_counts_as_a_day() {
     assert_eq!(days_left(86_400), 1, "exactly one day is one day");
+    assert_eq!(days_left(86_400 + 1), 2, "a day and a second is 2 days");
     assert_eq!(
         days_left(86_400 * 2 - 1),
-        1,
-        "47 hours 59 minutes must read as 1 day, never 2"
+        2,
+        "47 hours 59 minutes reads as 2 days"
     );
-    assert_eq!(days_left(86_399), 0, "a part day left is 0 whole days");
+    assert_eq!(days_left(1), 1, "the last second is still the last day");
+    assert_eq!(days_left(86_399), 1, "a part day left reads as 1 day");
     assert_eq!(days_left(86_400 * 30), 30);
+    assert_eq!(
+        days_left(86_400 * 30 - 5),
+        30,
+        "a trial started seconds ago reads as 30 days, not 29"
+    );
 }
 
 /// A denied lease has no countdown, and a negative one would read as a
@@ -38,6 +47,11 @@ fn a_spent_lease_never_counts_below_zero() {
 #[test]
 fn the_trial_banner_boundary_reads_as_expected() {
     assert_eq!(days_left(86_400 * 7), 7, "day 23 of a 30-day trial");
+    assert_eq!(
+        days_left(86_400 * 7 + 1),
+        8,
+        "one second more is still day 22: no banner yet"
+    );
     assert_eq!(days_left(86_400 * 5), 5, "health.warnings start here");
 }
 

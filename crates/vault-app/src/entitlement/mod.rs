@@ -322,9 +322,15 @@ fn notice_for(state: AccountState) -> Option<AccountNotice> {
     }
 }
 
-/// Seconds to whole days, rounded down (a part day is 0), never negative.
+/// Seconds to the days the agent relays: a part day counts as a day (§8.44,
+/// session 73), the same as the desktop's `account_ops::days_left`, so the
+/// app and the AI apps never disagree. Never negative; nothing left is 0.
 fn whole_days(seconds: i64) -> u32 {
-    u32::try_from(seconds.max(0) / DAY).unwrap_or(u32::MAX)
+    if seconds <= 0 {
+        return 0;
+    }
+    // Ceiling division: `seconds` is positive here, so this cannot overflow.
+    u32::try_from((seconds - 1) / DAY + 1).unwrap_or(u32::MAX)
 }
 
 /// §8.26 §4 at start (keeper start, desktop open): "refresh if the lease is
