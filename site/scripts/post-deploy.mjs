@@ -85,6 +85,11 @@ await expect('http redirects to https', 'http://zaaheen.com/', (r) =>
     : !String(r.headers.get('location')).startsWith(`${ORIGIN}/`) ? `Location ${r.headers.get('location')}` : '');
 await expect('repository metadata is not served', `${ORIGIN}/.git/HEAD`, (r) =>
   r.status === 200 ? 'HTTP 200: .git is publicly readable' : '');
+// Nuclei's htaccess-config check (session 72): the server config itself must never be downloadable.
+for (const path of ['/.htaccess', '/pay/.htaccess']) {
+  await expect(`${path} is not served`, `${ORIGIN}${path}`, (r) =>
+    r.status === 200 ? `HTTP 200: ${path} is publicly readable` : '');
+}
 for (const ua of ['Googlebot/2.1 (+http://www.google.com/bot.html)', 'OAI-SearchBot/1.0; +https://openai.com/searchbot', 'Claude-SearchBot/1.0']) {
   await expect(`reachable as ${ua.split('/')[0]}`, `${ORIGIN}/`, (r) => (r.status !== 200 ? `HTTP ${r.status}` : ''),
     { headers: { 'User-Agent': `Mozilla/5.0 (compatible; ${ua})`, 'Cache-Control': 'no-cache' } });

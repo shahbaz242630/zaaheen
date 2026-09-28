@@ -1102,8 +1102,19 @@ async fn a_call_in_flight_finishes_before_the_mode_changes() {
                 .await
         })
     };
-    // The call is in the vault; now the subscription lapses under it.
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    // Wait until the call has REACHED the vault (the adapter records a search
+    // on arrival), then let the subscription lapse under it. A fixed 200 ms
+    // sleep here failed on a slow CI runner (session 72, run 36336693976):
+    // the call had not arrived, so the keeper rightly saw nothing in flight
+    // and left, and the test blamed the keeper for its own timing.
+    let arrived_by = tokio::time::Instant::now() + Duration::from_secs(10);
+    while adapter.searches().is_empty() {
+        assert!(
+            tokio::time::Instant::now() < arrived_by,
+            "the search never reached the vault"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
     check.set(Verdict::Locked(LockReason::SubscriptionEnded));
 
     // THE assertion, and the only one that can pin this: `serve` must not
@@ -1116,8 +1127,9 @@ async fn a_call_in_flight_finishes_before_the_mode_changes() {
     // serving ends, killing those detached tasks mid-write; no in-process test
     // can survive to observe that. So the ordering IS the invariant.
     //
-    // Timeline: the search takes 700 ms, the mode change is decided around
-    // 300 ms, so at 450 ms the keeper must still be serving.
+    // Timeline, from the search's arrival: it takes 700 ms, the mode change
+    // is decided within about 100 ms of the flip, so 250 ms after the flip
+    // the keeper must still be serving.
     tokio::time::sleep(Duration::from_millis(250)).await;
     assert!(
         !keeper.is_finished(),
