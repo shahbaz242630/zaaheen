@@ -594,16 +594,18 @@ async fn a_failed_payment_is_served_with_its_notice() {
     );
 }
 
-/// "`health.warnings` in the last 5 days" (§8.26 §6): whole days left run 4
-/// to 0, rounded down like the desktop's banner.
+/// "`health.warnings` in the last 5 days" (§8.26 §6): the days left run 5 to
+/// 1, a part day counting as a day, the same as the desktop's banner (§8.44).
 #[tokio::test]
 async fn a_trial_in_its_last_five_days_is_served_with_the_days_left() {
     for (remaining, days_left) in [
-        (TRIAL_NOTICE_WITHIN - 1, 4),
-        (3 * DAY + HOUR, 3),
+        (TRIAL_NOTICE_WITHIN - 1, 5),
+        (3 * DAY + HOUR, 4),
+        (3 * DAY, 3),
+        (DAY + 1, 2),
         (DAY, 1),
-        (DAY - 1, 0),
-        (1, 0),
+        (DAY - 1, 1),
+        (1, 1),
     ] {
         let account = FakeAccount::steady(trial_with(remaining));
         assert_eq!(
@@ -685,7 +687,8 @@ async fn the_notice_comes_from_the_reading_after_the_refresh() {
         check_over(account, 1_000).check_with_notice().await,
         (
             Verdict::Entitled,
-            Some(AccountNotice::TrialEnding { days_left: 2 })
+            // 2 days and an hour: a part day counts as a day (§8.44).
+            Some(AccountNotice::TrialEnding { days_left: 3 })
         )
     );
 }

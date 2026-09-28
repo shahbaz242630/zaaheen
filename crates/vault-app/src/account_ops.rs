@@ -371,11 +371,14 @@ impl AccountOps {
     }
 }
 
-/// Seconds of entitlement to whole days.
+/// Seconds of entitlement to the days the person is shown.
 ///
-/// Rounded **down**, so "1 day left" never shows while there are still 47
-/// hours, and a part-day always reads as the smaller number. A negative
-/// remaining (a denied lease) reads as 0 rather than a negative countdown.
+/// A part day counts as a day (SIGNIN-DESIGN §8.44, founder-approved in
+/// session 73): a new 30-day trial reads "30 days left", not 29, and the last
+/// day reads "1 day left". Only the display rounds; the deadline itself stays
+/// exact to the second. `entitlement::whole_days` counts the same way, so the
+/// desktop and the AI apps never disagree. Nothing left (0 or a denied lease's
+/// negative remaining) reads as 0 rather than a negative countdown.
 ///
 /// Pulled out of `view_of` so it can be tested directly: building a
 /// `Status::Leased` needs a verified `Lease`, which only `vault-account` can
@@ -387,7 +390,9 @@ fn days_left(remaining_seconds: i64) -> i64 {
     if remaining_seconds <= 0 {
         return 0;
     }
-    remaining_seconds / DAY
+    // Ceiling division: `remaining_seconds` is positive here, so this cannot
+    // overflow and has no sign trap.
+    (remaining_seconds - 1) / DAY + 1
 }
 
 /// The lease's state as the stable string the desktop reads.
