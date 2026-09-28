@@ -37,8 +37,17 @@ paths = [
 # workflow scans EVERY branch's full history. The scan was green on
 # 2026-09-11 and has been red since 2026-09-14 for exactly these 3 findings.
 # Replacing the key is a site change, not a secret rotation.
+#
+# The production Clerk PUBLISHABLE key, allowlisted by value for the same
+# reason. Clerk designs it to be public: every visitor's browser receives it in
+# the account pages (data-clerk-publishable-key), and it only names the
+# Frontend API host (base64 of "clerk.zaaheen.com$"). It grants nothing; the
+# SECRET key (sk_live_...) is never in this repository. Found 2026-09-28 by the
+# full-history scan on the first account-deploy build (commit 496fcb2, four
+# pages). A different pk_ value, or any sk_ value, is still reported.
 regexes = [
   '''dc7e96914b463f8b38a2ca7309b9a25f''',
+  '''pk_live_Y2xlcmsuemFhaGVlbi5jb20k''',
 ]
 
 # NOTE ON TEST KEY MATERIAL: this codebase hardcodes 32-byte master keys in
