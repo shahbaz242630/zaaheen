@@ -197,7 +197,9 @@ const metaContent = (html, key, val) =>
 // billing period, the currency. While the app is on sale they must be there;
 // while it is not, there is nothing to buy and they may be absent.
 const OFFERS = expectedOffers();
-const plainText = (s) => s.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&#39;|&#x27;/g, "'").replace(/\s+/g, ' ').trim();
+// A tag becomes a space, not nothing, so no leftover pieces can join into a new tag;
+// &amp; is decoded last, so "&amp;#39;" stays the literal text "&#39;".
+const plainText = (s) => s.replace(/<[^>]*>/g, ' ').replace(/&#39;|&#x27;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 function checkOffers(rel, graph) {
   const app = graph.find((n) => n['@type'] === 'SoftwareApplication');
   if (!app) return;
