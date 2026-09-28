@@ -36,7 +36,7 @@ export function pageText(html) {
   const desc = (html.match(/<meta\b[^>]*\sname="description"[^>]*\scontent="([^"]*)"/i) || [])[1] || '';
   const main = ((html.match(/<main\b[^>]*>([\s\S]*)<\/main>/i) || [])[1] || '')
     .replace(/<p class="doc-updated">[\s\S]*?<\/p>/gi, '')
-    .replace(/<script\b[\s\S]*?<\/script\b[^>]*>/gi, '')
+    .replace(/<script\b[\s\S]*?<\/script\b[^>]*>/gi, ' ')
     .replace(/<[^>]+>/g, ' ');
   return decode(`${title}\n${desc}\n${main}`).replace(/\s+/g, ' ').trim();
 }
