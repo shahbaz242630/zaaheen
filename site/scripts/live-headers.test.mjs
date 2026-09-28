@@ -31,7 +31,7 @@ test('leaves HSTS out by default (it is set at the edge), but can include it', (
 
 test('the pay page keeps its own policy on top of the site-wide headers', () => {
   const pay = mergeHeaders(expectedHeaders(ROOT_HT), expectedHeaders(PAY_HT));
-  assert.ok(pay['content-security-policy'].split(/[\s;]+/).includes('https://cdn.paddle.com'));
+  assert.ok(pay['content-security-policy'].split(/[\s;]+/).some((source) => source === 'https://cdn.paddle.com'));
   assert.equal(pay['x-robots-tag'], 'noindex');
   assert.equal(pay['x-frame-options'], 'DENY');
   // Paddle's checkout may open a popup, which "same-origin" would cut off.
