@@ -72,7 +72,9 @@ ignore = [
     # none is reachable from a request path: proc-macro-error and paste run at
     # COMPILE time only, and the unic-* crates are static Unicode tables.
     # Resolved when the crates that depend on them move to maintained
-    # replacements; nothing we can force.
+    # replacements; nothing we can force. (The unic-* chain arrives through
+    # tauri-utils 2.9; the tauri 2.12 family drops it, so these five go with
+    # that upgrade.)
     "RUSTSEC-2024-0370", # proc-macro-error (build-time)
     "RUSTSEC-2024-0436", # paste (build-time)
     "RUSTSEC-2025-0075", # unic-char-range

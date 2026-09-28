@@ -219,8 +219,13 @@ rpassword = "=7.5.1"
 # tauri-build 2.6.0 is required by tauri 2.11.0 (^2.6.0 dep constraint). tauri-plugin-dialog 2.5.0
 # (verified 2026-05-05) wires ADR-020 fatal-error-dialog at vault-tauri main.rs setup
 # hook. Dialog API moved out of tauri core in v2 — must use plugin per Spike 1 finding.
-tauri = { version = "=2.11.0", features = [] }
-tauri-build = "=2.6.0"
+# 2.11.6 (session 72 security scan): past GHSA-7gmj-67g7-phm9 (fixed in 2.11.1: origin confusion let a
+# remote page call local-only IPC commands), the newest 2.11 patch. Its companions are pinned in
+# Cargo.lock to the same 2.11 family (tauri-runtime 2.11.3, tauri-runtime-wry 2.11.4, tauri-utils 2.9.3,
+# tauri-macros/codegen 2.6.3): tauri's ^ requirements also admit the 2.12 family of 2026-09-26, and
+# tauri 2.11 does not compile against tauri-runtime 2.12 (measured, run s72). Move the family together.
+tauri = { version = "=2.11.6", features = [] }
+tauri-build = "=2.6.3"
 tauri-plugin-dialog = "=2.5.0"
 
 # Security primitives (BRD §11.5.3)

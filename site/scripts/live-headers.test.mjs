@@ -16,8 +16,10 @@ const headers = (map) => ({ get: (name) => map[name.toLowerCase()] ?? null });
 test('reads every security header the real .htaccess sets, and nothing else', () => {
   const expected = expectedHeaders(ROOT_HT);
   assert.deepEqual(Object.keys(expected).sort(), [
-    'content-security-policy', 'permissions-policy', 'referrer-policy', 'x-content-type-options', 'x-frame-options',
+    'content-security-policy', 'cross-origin-opener-policy', 'permissions-policy', 'referrer-policy',
+    'x-content-type-options', 'x-frame-options', 'x-permitted-cross-domain-policies',
   ]);
+  assert.equal(expected['cross-origin-opener-policy'], 'same-origin');
   assert.equal(expected['x-frame-options'], 'DENY');
   assert.match(expected['content-security-policy'], /^default-src 'self'; script-src 'self';/);
 });
@@ -32,6 +34,8 @@ test('the pay page keeps its own policy on top of the site-wide headers', () => 
   assert.match(pay['content-security-policy'], /https:\/\/cdn\.paddle\.com/);
   assert.equal(pay['x-robots-tag'], 'noindex');
   assert.equal(pay['x-frame-options'], 'DENY');
+  // Paddle's checkout may open a popup, which "same-origin" would cut off.
+  assert.equal(pay['cross-origin-opener-policy'], 'same-origin-allow-popups');
 });
 
 test('passes when every header arrived exactly', () => {

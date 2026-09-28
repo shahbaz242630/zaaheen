@@ -37,6 +37,11 @@ ErrorDocument 404 /404.html
   Header always set X-Frame-Options "DENY"
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
   Header always set Strict-Transport-Security "max-age=31536000"
+  # A page that opens ours in a window cannot reach into it (session 72 scan;
+  # both security reviews recommend it). /pay relaxes it for Paddle's popups.
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  # No Flash or PDF cross-domain policy may apply to this site.
+  Header always set X-Permitted-Cross-Domain-Policies "none"
   # No third-party origins at all: fonts, scripts and images are self-hosted.
   # Nothing inline either: scripts/audit.mjs refuses any build with an inline
   # script, style block or style attribute, so this policy can never break a page.
