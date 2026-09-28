@@ -14,9 +14,9 @@
     "types:check": "wrangler types --check"
   },
   "devDependencies": {
-    "@cloudflare/vitest-plugin": "1.1.10",
+    "@cloudflare/vitest-plugin": "1.2.8",
     "typescript": "5.9.3",
     "vitest": "4.1.11",
-    "wrangler": "4.132.0"
+    "wrangler": "4.141.0"
   }
 }
