@@ -1,0 +1,8 @@
+# zaaheen.com
+# Every crawler is welcome: search engines, AI search and assistant fetchers,
+# and AI training crawlers alike.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://zaaheen.com/sitemap.xml
