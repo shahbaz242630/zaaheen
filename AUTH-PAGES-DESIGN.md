@@ -461,6 +461,32 @@ account deletion and the profile. It never controls a vault: sign-in never touch
   both pinned by `scripts/audit.mjs` with negative controls.
 - Still to do to switch on: the Hostinger site for `account.zaaheen.com` deploying `account-deploy`, its DNS
   record, branch protection on `account-deploy`, Cloudflare script-injecting features off for it, the
-  repository variables; the post-deploy check (D9 invariants incl. MFA off, CIMD/DCR off, the headers).
+  repository variables, then `ACCOUNT_LIVE=true`.
+- ✅ **The post-deploy check (session 74):** `site/scripts/post-deploy-account.mjs`, run by `account-deploy`
+  once `ACCOUNT_LIVE` is `true`: the served build (`build.txt`), the four pages (noindex), `/` → 302
+  `/sign-in/`, robots `Disallow: /`, a real 404, http → https, `.htaccess` and `.git` not served, every
+  `Header always set` of the built `.htaccess` arriving exactly; then the instance from its **public**
+  documents (`/v1/environment`, OAuth metadata), `scripts/clerk-invariants.mjs`: production, no second
+  factor (TOTP, backup codes, any attribute), MFA not required, no forced organisation (the only task),
+  `sign_in_url`/`sign_up_url` = our `/sign-in/`, `/sign-up/`, consent on `accounts.zaaheen.com`,
+  self-delete on, no `registration_endpoint` (DCR), no client-ID-metadata flag (CIMD), PKCE S256. **No
+  Clerk secret in CI** (it administers every account). Not public, so still a dashboard/CLI check:
+  exactly one OAuth application, loopback-only (OPS-HANDOFF §I). Also **allowed subdomains** from outside:
+  `/v1/client` must answer our origin 200 and a made-up `*.zaaheen.com` 403 ("Subdomain not allowed"; the
+  public `/v1/environment` answers every origin, so it proves nothing). **Production set in session 74
+  (founder saved each, Claude Code's safety check refuses Claude typing into production Clerk):** paths
+  sign-in/sign-up on `https://account.zaaheen.com/…/` (Dashboard › Paths: production takes full URLs only
+  there; `clerk config patch` accepts paths only), reverification window 10 → 5 minutes, allowed subdomains on
+  with `account.zaaheen.com` + `accounts.zaaheen.com` (verified: `www` and a made-up subdomain now 403).
+  The full check, rehearsed on a local copy against production Clerk: all pass.
+- **Deploy-branch lock, amended (session 74).** The design said `account-deploy` is "protected so only this
+  workflow can push". GitHub refuses that on a user-owned repository: a ruleset with the GitHub Actions app
+  (15368) as bypass actor returns 422 "Actor GitHub Actions integration must be part of the ruleset source
+  or owner organization", and without a bypass an `update` rule would block the workflow too. Created
+  instead: ruleset `24129191` "deploy branches: no delete, no history rewrite" (`deletion`,
+  `non_fast_forward`, no bypass) on `site-deploy` and `account-deploy`. Residual: a direct push by a
+  repository writer (the founder's account only, MFA on); `main` stays PR-and-checks only, so the build and
+  audit cannot be changed without review. The full lock is possible with a deploy key as bypass actor (the
+  workflow pushes over SSH with its own key): HANDOFF tech debt.
 - Still to build: the Worker's `user.created` consent copy (D6); the Rust side (S1-3 `sign_up_page()`,
   D8 loopback page) with the batch's full gates; the end-to-end installer test (build order step 4).

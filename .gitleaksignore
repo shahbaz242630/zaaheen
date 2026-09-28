@@ -24,3 +24,9 @@ cf153f1578e71e9367558a8930458cc2bf403d12:HANDOFF.md:generic-api-key:581
 # commit so later edits do not trip the rule. Found by the full-history scan on
 # commit 53cfa93 (2026-09-26); triaged the same day.
 53cfa9306ff6cb649089700c6da0a617c7dfa178:site/scripts/audit-account.mjs:generic-api-key:26
+#
+# The same line after PR #84 was merged by rebase (2026-09-28, session 74):
+# a rebase merge gives every commit a new id, and a pin names the commit, so
+# 53cfa93's copy on main is cd18b8f (identical line 26, identical checksum).
+# Any future rebase of already-pinned history needs its new ids pinned too.
+cd18b8f38fdbed2a627a6e6b4b77148794c3029f:site/scripts/audit-account.mjs:generic-api-key:26
