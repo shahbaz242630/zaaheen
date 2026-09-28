@@ -242,7 +242,7 @@ jobs:
       # See HANDOFF.md "CI Discipline Recovery — 2026-05-03 finding" for the
       # 22-commit silent-failure context that landed this in Step 2a.
       - if: runner.os == 'Linux'
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # main
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # main
         with:
           large-packages: true
           docker-images: true
@@ -490,7 +490,7 @@ jobs:
       # libclang are all installed fresh in later steps). Pairs with the
       # Linux debuginfo=line-tables-only shrink below.
       - if: runner.os == 'Linux'
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # main
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # main
         with:
           large-packages: true
           docker-images: true
