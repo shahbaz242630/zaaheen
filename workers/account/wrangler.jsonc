@@ -37,8 +37,8 @@
       // Its own namespace, so sandbox traffic never counts against production.
       "ratelimits": [{ "name": "FLOOD", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } }],
       // Its own TRIALS too (sandbox trials never block production ones).
-      // NOT CREATED YET: placeholder, replaced by the founder before a deploy.
-      "kv_namespaces": [{ "binding": "TRIALS", "id": "00000000000000000000000000000002" }]
+      // Created 2026-09-28 (session 73) as "sandbox-TRIALS".
+      "kv_namespaces": [{ "binding": "TRIALS", "id": "51e82fb035fc499ca44cb7afcbd26f8e" }]
     }
   }
 }
