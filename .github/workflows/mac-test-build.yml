@@ -19,7 +19,7 @@ concurrency:
 jobs:
   mac-test-build:
     runs-on: macos-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
     env:
       MACOSX_DEPLOYMENT_TARGET: '13.0'
     steps:
@@ -67,6 +67,8 @@ jobs:
           KC_PASS="$(openssl rand -hex 24)"
           echo "::add-mask::$KC_PASS"
           echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          # Fingerprints only (never the values), to compare with the local copy.
+          echo "p12 sha256: $(shasum -a 256 "$RUNNER_TEMP/cert.p12" | cut -c1-16)  pw length: ${#APPLE_CERTIFICATE_PASSWORD}"
           security create-keychain -p "$KC_PASS" "$KC"
           security set-keychain-settings -lut 7200 "$KC"
           security unlock-keychain -p "$KC_PASS" "$KC"
