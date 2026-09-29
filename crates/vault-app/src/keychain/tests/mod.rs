@@ -6,13 +6,14 @@
 //! - `crash` — the process dies after every single step;
 //! - `files_tests` — the real files: vault data, the marker, erasure's step;
 //! - `start_again` — ADR-105 L6's key half: the marker when starting again;
-//! - `live` — Windows Credential Manager with throwaway keys.
+//! - `live` — Windows Credential Manager or the Mac's login keychain, with
+//!   throwaway keys.
 
 mod crash;
 mod double;
 mod files_tests;
 mod lifecycle_tests;
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 mod live;
 mod start_again;
 

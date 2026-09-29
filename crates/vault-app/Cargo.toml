@@ -176,6 +176,10 @@ blake3 = { workspace = true }
 [target.'cfg(windows)'.dependencies]
 windows-native-keyring-store = { workspace = true }
 
+# The Mac's login keychain (ADR-SEC-038).
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { workspace = true }
+
 # Feature flag exposing `vault_app::keychain::test_helpers` to other crates'
 # dev-dependencies (notably vault-cli's tests for sub-task (a) sealed-open
 # coverage). Without the flag the module is `#[cfg(test)]`-gated for this

@@ -39,8 +39,17 @@ const FORMAT: u32 = 1;
 /// A discovery file larger than this is not ours.
 const MAX_BYTES: u64 = 4096;
 
-/// Endpoint names are `zaaheen-` plus this many lowercase hex characters.
+/// Endpoint names are `zaaheen-` (the Windows pipe) or `k` (the POSIX
+/// socket) plus this many lowercase hex characters.
 const ENDPOINT_HEX_LEN: usize = 16;
+
+/// The POSIX socket's name prefix. One letter: a socket path must fit
+/// `sun_path` (104 bytes on macOS, NUL included), and the default vault root
+/// `/Users/<name>/Library/Application Support/com.zaaheen.app` is already
+/// 51 bytes plus the account name. With `.keeper/k<16 hex>` a Mac account
+/// name of up to 26 characters fits.
+#[cfg(not(windows))]
+const SOCKET_PREFIX: &str = "k";
 
 #[cfg(windows)]
 const PIPE_PREFIX: &str = r"\\.\pipe\zaaheen-";
@@ -180,7 +189,7 @@ fn endpoint_with_suffix(_vault_root: &Path, suffix: &str) -> String {
 fn endpoint_with_suffix(vault_root: &Path, suffix: &str) -> String {
     vault_root
         .join(SOCKET_DIR)
-        .join(format!("zaaheen-{suffix}.sock"))
+        .join(format!("{SOCKET_PREFIX}{suffix}"))
         .to_string_lossy()
         .into_owned()
 }
@@ -207,8 +216,7 @@ fn endpoint_is_ours(endpoint: &str, vault_root: &Path) -> bool {
     };
     path.parent() == Some(expected_dir.as_path())
         && name
-            .strip_prefix("zaaheen-")
-            .and_then(|rest| rest.strip_suffix(".sock"))
+            .strip_prefix(SOCKET_PREFIX)
             .is_some_and(is_endpoint_suffix)
 }
 
@@ -498,6 +506,41 @@ mod tests {
         let b = new_endpoint(tmp.path()).unwrap();
         assert_ne!(a, b);
         assert!(endpoint_is_ours(&a, tmp.path()), "{a}");
+    }
+
+    /// The socket path fits macOS's 104-byte `sun_path` (NUL included) under
+    /// the default vault root for a 26-character account name.
+    #[cfg(not(windows))]
+    #[test]
+    fn the_default_mac_socket_path_fits_sun_path() {
+        let root = Path::new("/Users")
+            .join("a".repeat(26))
+            .join("Library/Application Support/com.zaaheen.app");
+        let endpoint = new_endpoint(&root).unwrap();
+        assert!(endpoint.len() < 104, "{} bytes: {endpoint}", endpoint.len());
+        assert!(endpoint_is_ours(&endpoint, &root));
+    }
+
+    /// Only `<root>/.keeper/k<16 lowercase hex>` is ours: not the old long
+    /// name, not another directory, not another shape.
+    #[cfg(not(windows))]
+    #[test]
+    fn foreign_socket_shapes_are_refused() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join(SOCKET_DIR);
+        for bad in [
+            dir.join("zaaheen-0123456789abcdef.sock"),
+            dir.join("k0123456789ABCDEF"),
+            dir.join("k0123456789abcde"),
+            dir.join("k0123456789abcdef.sock"),
+            tmp.path().join("k0123456789abcdef"),
+            Path::new("/tmp/.keeper/k0123456789abcdef").to_path_buf(),
+        ] {
+            let bad = bad.to_string_lossy();
+            assert!(!endpoint_is_ours(&bad, tmp.path()), "{bad} must be refused");
+        }
+        let good = dir.join("k0123456789abcdef");
+        assert!(endpoint_is_ours(&good.to_string_lossy(), tmp.path()));
     }
 
     /// A keeper shutting down removes its own record, never a successor's.

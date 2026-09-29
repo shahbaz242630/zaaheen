@@ -1,5 +1,6 @@
 //! Where the refresh token lives: the OS credential store (Windows Credential
-//! Manager), through **this crate's own** store instance (§8.26 §2, §3).
+//! Manager, or the Mac's login keychain per ADR-SEC-038), through **this
+//! crate's own** store instance (§8.26 §2, §3).
 //!
 //! # Why its own store
 //!
@@ -54,9 +55,9 @@ use zeroize::{Zeroize, Zeroizing};
 use crate::error::{AccountError, AccountResult};
 use crate::oauth::{RefreshToken, UserInfo};
 
-/// Credential service name. Only the Windows store and the tests name it;
-/// elsewhere nothing would use it (V0.2's store is Windows-only).
-#[cfg(any(windows, test))]
+/// Credential service name. Only the Windows and Mac stores and the tests
+/// name it; elsewhere nothing would use it.
+#[cfg(any(windows, target_os = "macos", test))]
 pub const SERVICE: &str = "com.zaaheen.account";
 
 /// Credential user name.
@@ -74,25 +75,43 @@ pub struct TokenStore {
 }
 
 impl TokenStore {
-    /// The production store: Windows Credential Manager, Local persistence.
+    /// The production store: Windows Credential Manager with Local
+    /// persistence, or the Mac's login keychain (ADR-SEC-038: a file iCloud
+    /// never syncs, so the token stays on this Mac with no modifier).
     ///
     /// # Errors
     ///
     /// [`AccountError::Keychain`] if the store cannot be opened;
     /// [`AccountError::InvalidConfig`] on platforms without a supported store
-    /// (V0.2 is Windows-only, as for the vault key).
+    /// (V0.2 is Windows and macOS only, as for the vault key).
     pub fn platform() -> AccountResult<Self> {
         #[cfg(windows)]
         {
             Self::windows_local_named(SERVICE.to_owned())
         }
-        #[cfg(not(windows))]
+        #[cfg(target_os = "macos")]
+        {
+            Self::mac_login_named(SERVICE.to_owned())
+        }
+        #[cfg(not(any(windows, target_os = "macos")))]
         {
             Err(AccountError::InvalidConfig(format!(
-                "the account token store is Windows-only in this version (current platform: {})",
+                "the account token store is Windows and macOS only in this version (current platform: {})",
                 std::env::consts::OS
             )))
         }
+    }
+
+    /// The Mac's login keychain under `service`. No modifiers: the login
+    /// keychain never roams (ADR-SEC-038).
+    #[cfg(target_os = "macos")]
+    fn mac_login_named(service: String) -> AccountResult<Self> {
+        let store = apple_native_keyring_store::keychain::Store::new().map_err(keychain)?;
+        Ok(Self {
+            store,
+            persistence: None,
+            service,
+        })
     }
 
     /// Windows Credential Manager under `service`, Local persistence.
@@ -691,5 +710,87 @@ mod windows_live {
         let store = TokenStore::platform().unwrap();
         assert_eq!(store.service, SERVICE);
         assert_eq!(store.persistence, Some("Local"));
+    }
+}
+
+/// The same contract against the Mac's real login keychain, with a
+/// throwaway service name (ADR-SEC-038). Runs on the macOS CI runner.
+#[cfg(all(test, target_os = "macos"))]
+mod mac_live {
+    use super::*;
+
+    /// Removes the throwaway token and address even if an assertion fails.
+    struct Cleanup(TokenStore);
+
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = self.0.delete();
+            let _ = self.0.delete_address();
+        }
+    }
+
+    fn throwaway() -> TokenStore {
+        let mut nonce = [0u8; 8];
+        getrandom::getrandom(&mut nonce).unwrap();
+        let suffix: String = nonce.iter().map(|b| format!("{b:02x}")).collect();
+        TokenStore::mac_login_named(format!("com.zaaheen.test.account.{suffix}")).unwrap()
+    }
+
+    /// The item is in the login keychain file (which iCloud never syncs),
+    /// found by the system's `security` tool without asking for the secret.
+    fn in_login_keychain(service: &str, user: &str) -> bool {
+        let out = std::process::Command::new("/usr/bin/security")
+            .args(["find-generic-password", "-s", service, "-a", user])
+            .output()
+            .unwrap();
+        out.status.success() && String::from_utf8_lossy(&out.stdout).contains("login.keychain")
+    }
+
+    #[test]
+    fn the_token_round_trips_in_the_login_keychain() {
+        let store = throwaway();
+        let _guard = Cleanup(store.clone());
+        let token = RefreshToken::from_stored(Zeroizing::new("rt_mac_check_1234".into())).unwrap();
+        store.save(&token).unwrap();
+        assert!(in_login_keychain(&store.service, USER));
+        assert_eq!(
+            store
+                .load()
+                .unwrap()
+                .map(|t| t.expose().to_owned())
+                .as_deref(),
+            Some("rt_mac_check_1234")
+        );
+        store.delete().unwrap();
+        assert!(store.load().unwrap().is_none());
+        assert!(!in_login_keychain(&store.service, USER));
+        store.delete().unwrap();
+    }
+
+    #[test]
+    fn the_address_round_trips_under_its_own_name() {
+        let store = throwaway();
+        let _guard = Cleanup(store.clone());
+        let who = UserInfo::checked("user_mac_1".into(), "mac.check@example.com".into())
+            .expect("a valid identity");
+        store.save_address(&who).unwrap();
+        assert!(in_login_keychain(&store.service, ADDRESS_USER));
+        assert!(
+            !in_login_keychain(&store.service, USER),
+            "not the token's item"
+        );
+        assert_eq!(
+            store.load_address("user_mac_1").unwrap().as_deref(),
+            Some("mac.check@example.com")
+        );
+        store.delete_address().unwrap();
+        assert_eq!(store.load_address("user_mac_1").unwrap(), None);
+    }
+
+    #[test]
+    fn the_production_store_opens() {
+        let store = TokenStore::platform().unwrap();
+        assert_eq!(store.service, SERVICE);
+        assert_eq!(store.persistence, None);
     }
 }

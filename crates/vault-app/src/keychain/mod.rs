@@ -35,9 +35,10 @@
 //! sqlcipher_passphrase   = hex(blake3::derive_key("vault sqlcipher passphrase v1", &master_key))
 //! ```
 //!
-//! V0.2's key store is Windows Credential Manager; elsewhere every call
-//! fails with [`VaultError::KeychainProvenance`] (erasure included — it must
-//! never report a success that did not happen).
+//! V0.2's key store is Windows Credential Manager, and on the Mac the user's
+//! login keychain (ADR-SEC-038); elsewhere every call fails with
+//! [`VaultError::KeychainProvenance`] (erasure included — it must never
+//! report a success that did not happen).
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -443,6 +444,28 @@ pub mod test_helpers {
         let modifiers = std::collections::HashMap::from([("persistence", "Local")]);
         let entry = store
             .build(namespace, vault_id, Some(&modifiers))
+            .expect("build the entry");
+        entry.set_secret(&[0u8; 31]).expect("plant a 31-byte value");
+    }
+
+    /// Best-effort removal of a test key and its spare, through this
+    /// module's own store (never the process-global default, D1).
+    #[cfg(target_os = "macos")]
+    pub fn cleanup_keychain_entry(namespace: &str, vault_id: &str) {
+        if let Ok(store) = super::store::MacKeyStore::open(namespace, vault_id) {
+            use super::store::{KeyStore, Slot};
+            let _ = store.delete(Slot::Spare);
+            let _ = store.delete(Slot::Main);
+        }
+    }
+
+    /// Plant a 31-byte value as the key, so an open fails as unusable.
+    #[cfg(target_os = "macos")]
+    pub fn plant_malformed_keychain_entry(namespace: &str, vault_id: &str) {
+        let store: std::sync::Arc<keyring_core::CredentialStore> =
+            apple_native_keyring_store::keychain::Store::new().expect("open the login keychain");
+        let entry = store
+            .build(namespace, vault_id, None)
             .expect("build the entry");
         entry.set_secret(&[0u8; 31]).expect("plant a 31-byte value");
     }

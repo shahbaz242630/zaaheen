@@ -245,6 +245,10 @@ keyring-core = "=1.0.0"
 # Cargo's lazy [workspace.dependencies] semantics mean it's only resolved
 # when a member crate consumes it via { workspace = true }.
 windows-native-keyring-store = "=1.0.0"
+# The Mac's store (ADR-SEC-038): the `keychain` feature only, the user's
+# login keychain. Never `protected` (the Data Protection keychain needs a
+# provisioning profile, which command-line binaries cannot carry).
+apple-native-keyring-store = { version = "=1.0.2", features = ["keychain"] }
 
 # Random + hex — used by the keychain helper (random master_key bytes on
 # first run; hex-encoding the BLAKE3-derived SqlCipher subkey to a String
