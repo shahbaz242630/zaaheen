@@ -4,7 +4,7 @@
 
 Zaaheen is a desktop app that gives AI assistants one private, persistent memory about the person using them. Memories are stored and encrypted on that person's own computer and are never uploaded. The account is only for signing in and the subscription; it never holds the memories.
 
-- Current version: 0.2.2 (beta), 64-bit Windows, tested on Windows 11.
+- Current version: 0.3.0 (beta), 64-bit Windows, tested on Windows 11.
 - Download: coming soon for Windows.
 - Free trial: 30 days, no card needed.
 - Tested with: Claude, Cursor and ChatGPT. Other apps that support MCP should work the same way.
