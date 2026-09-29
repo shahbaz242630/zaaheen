@@ -211,13 +211,18 @@ impl AccountOps {
             SignInOutcome::Cancelled => Err(OpsError::SignInDidNotFinish),
             SignInOutcome::Authorized(code) => {
                 let now = self.clock.now();
-                let signed_in = self.account.complete_sign_in(code, now).await?;
+                let signed_in =
+                    self.account.complete_sign_in(code, now).await.inspect_err(
+                        |e| tracing::warn!(error = %e, "a sign-in did not complete"),
+                    )?;
                 // The address straight from the sign-in, rather than read back
                 // from the store: a store that refused it must not leave the
                 // panel blank on the one occasion the address is certainly
                 // known (ADR-SEC-027's failure rule).
                 let email = Some(signed_in.user.email.clone());
-                let status = self.account.status(self.clock.now()).await?;
+                let status = self.account.status(self.clock.now()).await.inspect_err(
+                    |e| tracing::warn!(error = %e, "the status after a sign-in could not be read"),
+                )?;
                 Ok(Self::view_of(status, email))
             }
         }
