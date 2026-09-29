@@ -41,3 +41,9 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    groups:
+      # CodeQL's init and analyze steps must run the same release: an
+      # update to one alone fails every scan ("Loaded a configuration file
+      # for version X, but running version Y"; PR #92, session 75).
+      codeql-action:
+        patterns: ["github/codeql-action*"]

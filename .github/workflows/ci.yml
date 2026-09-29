@@ -242,7 +242,7 @@ jobs:
       # See HANDOFF.md "CI Discipline Recovery — 2026-05-03 finding" for the
       # 22-commit silent-failure context that landed this in Step 2a.
       - if: runner.os == 'Linux'
-        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # main
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
         with:
           large-packages: true
           docker-images: true
@@ -490,11 +490,11 @@ jobs:
       # libclang are all installed fresh in later steps). Pairs with the
       # Linux debuginfo=line-tables-only shrink below.
       - if: runner.os == 'Linux'
-        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # main
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
         with:
           large-packages: true
           docker-images: true
-          tool-cache: true
+          preinstalled-runtimes: true
       # Windows-only: T0.2.3 close commit 15 fix-forward (2026-05-25). The
       # windows-2025 runner hits "LLVM ERROR: IO failure on output stream:
       # no space on device" during lld-link of large workspace test binaries
