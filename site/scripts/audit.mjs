@@ -106,6 +106,9 @@ if (RELEASE && ON_SALE && files.includes('pay/index.html')) {
 // Sign-in and sign-up live on account.zaaheen.com (ACCOUNT in src/data/site.ts).
 // Every page's header links there, and /sign-in, /sign-up forward there with
 // any query string dropped: a temporary redirect, so it can be moved later.
+// "Get started" (sign-up) only while the app is on sale (ON_SALE above): before
+// that a new account has nothing to open, so the header must not link to
+// sign-up at all (founder, session 75).
 const ACCOUNT_LINKS = { 'bar-signin': ['Sign in', `${ACCOUNT_ORIGIN}/sign-in/`], 'bar-start': ['Get started', `${ACCOUNT_ORIGIN}/sign-up/`] };
 for (const rel of files.filter((f) => f.endsWith('.html'))) {
   const html = read(rel);
@@ -113,8 +116,14 @@ for (const rel of files.filter((f) => f.endsWith('.html'))) {
   for (const [cls, [label, want]] of Object.entries(ACCOUNT_LINKS)) {
     const tag = (html.match(new RegExp(`<a\\b[^>]*\\b${cls}\\b[^>]*>`)) || [])[0];
     const href = tag && (tag.match(/\shref="([^"]*)"/) || [])[1];
+    if (cls === 'bar-start' && !ON_SALE) {
+      if (tag) fail(rel, `header "${label}" must not be a link while the app is not on sale (found ${href ?? 'an anchor'})`);
+      continue;
+    }
     if (href !== want) fail(rel, `header "${label}" must link to ${want} (found ${href ?? 'no link'})`);
   }
+  const header = (html.match(/<header\b[\s\S]*?<\/header>/) || [''])[0];
+  if (!ON_SALE && header.includes(`${ACCOUNT_ORIGIN}/sign-up/`)) fail(rel, 'the header links to sign-up while the app is not on sale');
 }
 for (const rel of files.filter((f) => f.endsWith('.html'))) {
   const footer = (read(rel).match(/<footer\b[\s\S]*?<\/footer>/) || [''])[0];
