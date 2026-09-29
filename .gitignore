@@ -224,3 +224,10 @@ CLAUDE.md
 
 # Wrangler local state (Cloudflare CLI cache + auth scratch). Never committed.
 .wrangler/
+
+# ---------- Private working notes (session 76, founder: keep the repo public, notes private) ----------
+# HANDOFF, the design files, the spec and the engineering notes live in the
+# private zaaheen-notes repo, checked out here at notes/. Spike result files are
+# written next to their examples when run by hand; they belong in notes/ too.
+/notes/
+crates/vault-retrieval/examples/*_results.md
