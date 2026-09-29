@@ -34,7 +34,8 @@
       "../vault-embedding/test-fixtures/bge-small-en-v1.5/onnxruntime.dll": "libs/onnxruntime.dll",
       "../vault-embedding/test-fixtures/bge-small-en-v1.5/model.onnx": "models/model.onnx",
       "../vault-embedding/test-fixtures/bge-small-en-v1.5/tokenizer.json": "models/tokenizer.json",
-      "README-install.txt": "README.txt"
+      "README-install.txt": "README.txt",
+      "THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
     },
     "windows": {
       "wix": {
