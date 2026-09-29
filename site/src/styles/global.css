@@ -330,6 +330,7 @@ a.card:hover{border-color:var(--sage)}
 .session-link{display:flex;flex-direction:column;gap:3px;background:var(--card);border:1px solid var(--line);
   border-radius:10px;padding:12px 14px;text-decoration:none;transition:border-color .15s}
 .session-link:hover{border-color:var(--sage)}
+.session-link.is-soon:hover{border-color:var(--line)}
 .session-name{font-size:14.5px;font-weight:500}
 .stages-foot{margin-top:32px;padding-top:24px;border-top:1px solid var(--line);display:flex;
   justify-content:space-between;align-items:center;gap:16px 32px;flex-wrap:wrap}

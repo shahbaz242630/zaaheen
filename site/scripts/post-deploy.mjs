@@ -72,7 +72,7 @@ await expect('robots.txt', `${ORIGIN}/robots.txt`, (r, b) =>
   r.status !== 200 ? `HTTP ${r.status}`
     : /Cloudflare Managed/i.test(b) ? 'Cloudflare is injecting its managed robots.txt again (turn it off: SEO-HANDOFF section 7)'
     : /^\s*Disallow:\s*\S/im.test(b) ? 'contains a Disallow rule' : '');
-for (const path of ['/sitemap.xml', '/llms.txt', '/favicon.ico', '/favicon-192.png', '/og.png', `/${KEY}.txt`]) {
+for (const path of ['/sitemap.xml', '/llms.txt', '/favicon.ico', '/favicon-192.png', '/og-v2.png', `/${KEY}.txt`]) {
   await expect(path, `${ORIGIN}${path}`, (r) => (r.status !== 200 ? `HTTP ${r.status}` : ''));
 }
 await expect('missing page is a real 404', `${ORIGIN}/no-such-page-${Date.now()}/`, (r) =>
