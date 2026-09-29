@@ -120,7 +120,7 @@ export const FAQ: readonly { q: string; a: string }[] = [
   },
   {
     q: 'Do I need an account to use Zaaheen?',
-    a: `Yes. You create an account or sign in when you first open the app, and your ${TRIAL.days}-day free trial starts straight away. The account handles sign-in and your subscription. It never holds your memories.`,
+    a: `Yes. You create an account or sign in when you first open the app, and that first sign-in from the app starts your ${TRIAL.days}-day free trial. The account handles sign-in and your subscription. It never holds your memories.`,
   },
   {
     q: 'Do I need to know what MCP is?',
