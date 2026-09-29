@@ -48,11 +48,11 @@ export const RELEASE = {
   // scripts/audit.mjs treats a home page without the installer link as "not on
   // sale"). Set true in the same change that uploads the installer.
   available: false,
-  version: '0.2.2',
+  version: '0.3.0',
   stage: 'Beta',
   windows: {
-    file: 'Zaaheen_0.2.2_x64_en-US.msi',
-    url: 'https://dl.zaaheen.com/Zaaheen_0.2.2_x64_en-US.msi',
+    file: 'Zaaheen_0.3.0_x64_en-US.msi',
+    url: 'https://dl.zaaheen.com/Zaaheen_0.3.0_x64_en-US.msi',
     // As Windows Explorer reports it (216,092,672 bytes).
     size: '206 MB',
     arch: '64-bit',
