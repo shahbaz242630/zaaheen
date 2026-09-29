@@ -7,7 +7,7 @@ import '@fontsource/ibm-plex-mono/600.css';
 import '../styles/global.css';
 import Logo from '../components/Logo.astro';
 import Footer from '../components/Footer.astro';
-import { SITE, NAV, ACCOUNT, absolute, type PageEntry } from '../data/site';
+import { SITE, NAV, ACCOUNT, RELEASE, absolute, type PageEntry } from '../data/site';
 import { firstPublished, lastModified } from '../lib/lastmod';
 import { graphFor } from '../lib/seo';
 
@@ -65,10 +65,14 @@ const jsonLd = noindex ? null : graphFor(page, lastModified(page.path), page.hea
         <a href={item.href} aria-current={page.path === item.href ? 'page' : undefined}>{item.label}</a>
       ))}
     </nav>
-    <!-- Our own account pages on account.zaaheen.com (AUTH-PAGES-DESIGN D1). -->
+    <!-- Our own account pages on account.zaaheen.com (AUTH-PAGES-DESIGN D1).
+         "Get started" only while the app can be downloaded: before that, a new
+         account has nothing to open (founder, session 75). -->
     <div class="bar-actions">
       <a class="bar-signin" href={ACCOUNT.signIn}>Sign in</a>
-      <a class="bar-start" href={ACCOUNT.signUp}>Get started</a>
+      {RELEASE.available
+        ? <a class="bar-start" href={ACCOUNT.signUp}>Get started</a>
+        : <span class="bar-start bar-soon"><span class="bar-soon-long">Coming soon for Windows</span><span class="bar-soon-short">Coming soon</span></span>}
     </div>
   </div>
 </header>

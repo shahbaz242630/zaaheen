@@ -27,6 +27,15 @@ const headerHref = (cls, href) => edit('index.html', (s) => {
   if (out === s) throw new Error(`audit.test: no header anchor with class ${cls}`);
   return out;
 });
+// Turns the header's "Coming soon" label (download off) back into a "Get
+// started" link to `href`; throws if the build has no such label.
+// The label, with its long and short wordings inside (one shown per width).
+const SOON_LABEL = /<span class="bar-start\b[^"]*">(?:<span[^>]*>[^<]*<\/span>)*<\/span>/;
+const startLink = (href) => edit('index.html', (s) => {
+  const out = s.replace(SOON_LABEL, `<a class="bar-start" href="${href}">Get started</a>`);
+  if (out === s) throw new Error('audit.test: no header "Coming soon" label');
+  return out;
+});
 // Removes the footer link to `href` from the Documents page; throws if the
 // footer has no such link, so the case can never pass by testing nothing.
 const footerLink = (href) => edit('docs/index.html', (s) => {
@@ -90,7 +99,15 @@ const crumbList = (graph) => {
 // The app on sale: an installer link on the home page (RELEASE.available in
 // src/data/site.ts). Only then must a release build take live payments. The
 // link carries no words, so the page's text, and so its date, stay the same.
-const onSale = inject('<a href="https://dl.zaaheen.com/Zaaheen_x.msi" aria-label="x"></a>');
+const installerLink = inject('<a href="https://dl.zaaheen.com/Zaaheen_x.msi" aria-label="x"></a>');
+// An on-sale build also shows "Get started" in every page's header.
+const onSale = (d) => {
+  installerLink(d);
+  const pages = fs.readdirSync(d, { recursive: true }).filter((f) => String(f).endsWith('.html'));
+  for (const rel of pages) {
+    edit(String(rel), (s) => s.replace(SOON_LABEL, '<a class="bar-start" href="https://account.zaaheen.com/sign-up/">Get started</a>'))(d);
+  }
+};
 const onSaleWith = (env, token) => (d) => {
   onSale(d);
   payConfig(env, token)(d);
@@ -135,7 +152,11 @@ const cases = [
   ['sandbox environment with a live token', onSaleWith('sandbox', `live_${'b'.repeat(27)}`), /pay\/index\.html: checkout is not set up for live payments/, ['--release']],
   // The header's account buttons and the /sign-in, /sign-up forwards (AUTH-PAGES-DESIGN D1).
   ['header Sign in not on the account origin', headerHref('bar-signin', '/#how'), /index\.html: header "Sign in" must link to https:\/\/account\.zaaheen\.com\/sign-in\//],
-  ['header Get started elsewhere', headerHref('bar-start', 'https://evil.example/sign-up/'), /index\.html: header "Get started" must link to https:\/\/account\.zaaheen\.com\/sign-up\//],
+  // "Get started" only while the app is on sale (founder, session 75).
+  ['header Get started while not on sale', startLink('https://account.zaaheen.com/sign-up/'), /index\.html: header "Get started" must not be a link while the app is not on sale/],
+  ['header sign-up link while not on sale', edit('index.html', (s) => s.replace('</header>', '<a href="https://account.zaaheen.com/sign-up/">Join</a></header>')), /index\.html: the header links to sign-up while the app is not on sale/],
+  ['header Get started missing when on sale', installerLink, /index\.html: header "Get started" must link to https:\/\/account\.zaaheen\.com\/sign-up\/ \(found no link\)/],
+  ['header Get started elsewhere when on sale', (d) => { onSale(d); headerHref('bar-start', 'https://evil.example/sign-up/')(d); }, /index\.html: header "Get started" must link to https:\/\/account\.zaaheen\.com\/sign-up\/ \(found https:\/\/evil\.example/],
   ['header Sign in removed', edit('index.html', (s) => s.replace(/<a\b[^>]*\bbar-signin\b[^>]*>[\s\S]*?<\/a>/, '')), /index\.html: header "Sign in" must link to/],
   ['sign-in forward missing', edit('.htaccess', (s) => s.replace(/^.*account\.zaaheen\.com.*$/gm, '')), /\.htaccess: \/sign-in and \/sign-up must forward to the account origin/],
   ['sign-in forward keeps the query', edit('.htaccess', (s) => s.replace('account.zaaheen.com/sign-$1/?', 'account.zaaheen.com/sign-$1/')), /\.htaccess: \/sign-in and \/sign-up must forward to the account origin/],

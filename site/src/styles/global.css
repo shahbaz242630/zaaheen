@@ -45,6 +45,8 @@ a{color:inherit}
 .bar-signin:hover{background:var(--chip)}
 .bar-start{background:var(--ink);color:var(--paper);padding:8px 18px}
 .bar-start:hover{background:var(--ink-soft)}
+.bar-soon,.bar-soon:hover{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--border);cursor:default}
+.bar-soon-short{display:none}
 
 /* ---------- shared pieces ---------- */
 .eyebrow{font:400 13px var(--mono);color:var(--sage-text);margin:0}
@@ -454,6 +456,8 @@ p.placeholder{border:1px dashed var(--border);border-radius:10px;padding:14px 18
   .bar-actions{gap:4px}
   .bar-signin{padding:8px 10px}
   .bar-start{padding:8px 14px}
+  .bar-soon-long{display:none}
+  .bar-soon-short{display:inline}
   .hero{padding:48px 22px 40px;gap:40px}
   .problem{padding-top:44px}
   .demo-chips{justify-content:center}
