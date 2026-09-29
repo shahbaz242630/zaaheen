@@ -1,0 +1,20 @@
+{{! cargo-about template for the Rust part of THIRD-PARTY-NOTICES.txt (decision L7).
+    Plain text, so every value uses triple braces: no HTML escaping. }}
+PART 1. RUST LIBRARIES COMPILED INTO THE ZAAHEEN PROGRAMS
+
+Licences in use:
+{{#each overview}}
+  {{{name}}} ({{{id}}}): {{count}} libraries
+{{/each}}
+
+{{#each licenses}}
+------------------------------------------------------------------------------
+{{{name}}} ({{{id}}})
+Used by:
+{{#each used_by}}
+  {{{crate.name}}} {{{crate.version}}}{{#if crate.repository}} <{{{crate.repository}}}>{{/if}}
+{{/each}}
+
+{{{text}}}
+
+{{/each}}
