@@ -53,7 +53,7 @@ This is the source code of the Zaaheen app. It is public so that anyone can chec
 
 ## Licence
 
-Copyright © 2026 Zaaheen Artificial Intelligence Developing Services. All rights reserved.
+Copyright © 2026 Zaaheen Artificial Intelligence Developing Services. All rights reserved. You may read and review this code; you may not copy or use it. See [LICENSE](LICENSE).
 
 Zaaheen includes open-source software and models used under their own licences; the notices ship with the app and are listed at [zaaheen.com/licences](https://zaaheen.com/licences/).
 

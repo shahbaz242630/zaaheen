@@ -1,6 +1,6 @@
 [package]
 name = "vault-tauri"
-description = "Tauri shell. Bridges UI to the application core via Tauri commands; handles installer concerns. See BRD §5.11."
+description = "The desktop app: its window, screens and installer."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

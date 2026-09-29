@@ -1,6 +1,6 @@
 [package]
 name = "vault-core"
-description = "Domain types and error types shared across all Memory Vault crates. See BRD §5.1."
+description = "Shared types and errors used across the Zaaheen crates."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

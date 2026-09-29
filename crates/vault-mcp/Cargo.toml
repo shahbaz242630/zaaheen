@@ -1,6 +1,6 @@
 [package]
 name = "vault-mcp"
-description = "MCP adapter layer + stdio server. Exposes the vault to AI agents via Model Context Protocol. See BRD §5.7 / T0.1.9_PLAN.md."
+description = "Lets AI apps read and add memories over the Model Context Protocol (MCP)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

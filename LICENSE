@@ -1,0 +1,19 @@
+Zaaheen, source code licence
+
+Copyright (c) 2026 Zaaheen Artificial Intelligence Developing Services
+(Dubai trade licence 1651252). All rights reserved.
+
+This code is published so that anyone can see how Zaaheen handles their
+memories. You may read it and review it, including for security research
+under SECURITY.md.
+
+You may not copy, change, build, run, share, sell or otherwise use this code
+or any part of it, or make anything based on it, without our written
+permission.
+
+The open-source software and models that Zaaheen includes are not covered by
+this licence. Each keeps its own licence, listed in
+crates/vault-tauri/THIRD-PARTY-NOTICES.txt and at https://zaaheen.com/licences/.
+
+The code is provided as it is, with no promises. The Zaaheen app itself is
+covered by the Terms of Service at https://zaaheen.com/terms/.

@@ -1,6 +1,6 @@
 [package]
 name = "vault-embedding"
-description = "Embedding generation via bge-small-en-v1.5 on ONNX Runtime. See BRD §5.3."
+description = "Turns memories into search vectors, on the user's own computer."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

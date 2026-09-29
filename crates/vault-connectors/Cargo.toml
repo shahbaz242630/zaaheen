@@ -1,6 +1,6 @@
 [package]
 name = "vault-connectors"
-description = "Auto-population from third-party services (Gmail, Calendar, etc.) via read-only OAuth, user-reviewed before commit. See BRD §5.9."
+description = "Importing memories from other services, reviewed by the user first (not yet in use)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

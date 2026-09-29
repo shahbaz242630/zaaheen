@@ -50,7 +50,7 @@ ignore = [
     # All three arrive via the SAME chain:
     #   reqsign -> opendal -> lance-io -> lance -> lancedb -> vault-storage
     # `reqsign` signs cloud storage requests (AWS SigV4 / Azure / GCS) and
-    # `opendal` abstracts cloud object stores. Memory Vault runs LanceDB
+    # `opendal` abstracts cloud object stores. Zaaheen runs LanceDB
     # against the LOCAL FILESYSTEM: we sign no cloud requests and parse no
     # cloud XML responses, so this code is linked but never executed.
     #
