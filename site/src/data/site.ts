@@ -12,7 +12,9 @@ export const SITE = {
     'Zaaheen keeps what your AI assistants know about you on your own computer, ' +
     'encrypted, and entirely under your control.',
   themeColor: '#faf8f3',
-  ogImage: '/og.png',
+  ogImage: '/og-v2.png',
+  // What the link-preview picture says (scripts/og-card.html).
+  ogImageAlt: 'Zaaheen: One memory for all your AI apps',
   logo: { path: '/icon-512.png', width: 512, height: 512 },
 } as const;
 
@@ -142,9 +144,12 @@ export const INDEXNOW_KEY = 'dc7e96914b463f8b38a2ca7309b9a25f';
 
 // The 1-to-1 coaching booking app. It is a separate app (Next.js, with payments)
 // on its own sub-address: two site engines cannot share one host without a
-// router in front of the whole site (founder decision, 2026-09-12). Not
-// connected yet; until it is, these links lead nowhere.
+// router in front of the whole site (founder decision, 2026-09-12).
 export const COACHING = {
+  // false until coaching.zaaheen.com answers: every booking link is left out
+  // and the buttons read "Booking opens soon" (founder, session 75; the live
+  // site's links led to a host that does not resolve).
+  bookingOpen: false,
   bookingUrl: 'https://coaching.zaaheen.com/training',
   // The Knowledge Centre mailbox: coaching bookings (founder, 2026-09-25).
   email: 'knowledgecentre@zaaheen.com',

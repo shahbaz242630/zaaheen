@@ -41,7 +41,7 @@ const APP_COLUMNS = [
 
 const COACHING_COLUMNS = [
   { title: 'Coaching', links: [
-    { label: 'Book a session', href: COACHING.bookingUrl },
+    ...(COACHING.bookingOpen ? [{ label: 'Book a session', href: COACHING.bookingUrl }] : []),
     { label: 'Sessions', href: '/knowledge-centre/#sessions' },
     { label: 'Contact the Knowledge Centre', href: `mailto:${COACHING.email}` },
   ] },

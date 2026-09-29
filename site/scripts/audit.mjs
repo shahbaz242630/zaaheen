@@ -69,7 +69,7 @@ const read = (rel) => fs.readFileSync(path.join(DIST, rel), 'utf8');
 for (const rel of [
   'index.html', '404.html', 'robots.txt', 'sitemap.xml', 'llms.txt', '.htaccess',
   'favicon.ico', 'favicon.svg', 'favicon-192.png', 'apple-touch-icon.png',
-  'icon-192.png', 'icon-512.png', 'manifest.webmanifest', 'og.png', `${INDEXNOW_KEY}.txt`,
+  'icon-192.png', 'icon-512.png', 'manifest.webmanifest', 'og-v2.png', `${INDEXNOW_KEY}.txt`,
   'pay/index.html', 'pay/.htaccess', '.well-known/security.txt',
   ...Object.keys(POLICIES).map((u) => `${u.slice(1)}index.html`),
   ...Object.keys(COACHING_POLICIES).map((u) => `${u.slice(1)}index.html`),

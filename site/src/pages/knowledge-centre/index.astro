@@ -7,8 +7,12 @@ import { DELIVERY, LOWEST_PRICE_AED, STAGES, STEPS, formatAed, sessionByNumber }
 // separate coaching app (COACHING.bookingUrl); a session link adds its #slug,
 // which the coaching app opens (OpenSessionFromHash). Prices and session names
 // come from data/coaching.ts, the coaching app's own catalogue mirrored.
+// Until COACHING.bookingOpen, no booking link is rendered: the buttons read
+// "Booking opens soon" and the session cards are plain text.
 const page = pageFor('/knowledge-centre/');
+const open = COACHING.bookingOpen;
 const book = COACHING.bookingUrl;
+const SessionTag = open ? 'a' : 'div';
 const from = formatAed(LOWEST_PRICE_AED);
 ---
 <Base page={page} footer="coaching">
@@ -18,13 +22,15 @@ const from = formatAed(LOWEST_PRICE_AED);
       <h1>Learn how to work with AI, not just talk to it.</h1>
       <p class="lede">Private 1-to-1 coaching built around a real task you bring, from Zaaheen.</p>
       <div class="cta-row">
-        <a class="cta" href={book}>Book your session</a>
+        {open
+          ? <a class="cta" href={book}>Book your session</a>
+          : <span class="cta cta-soon">Booking opens soon</span>}
         <span class="cta-meta">From {from} · no package</span>
       </div>
       <ul class="promise-dots">
         <li>{DELIVERY.durationMinutes} minutes, 1-to-1</li>
         <li>{DELIVERY.platform}</li>
-        <li>Evenings, Mon–Thu</li>
+        <li>Evenings and weekends</li>
       </ul>
     </div>
 
@@ -68,10 +74,10 @@ const from = formatAed(LOWEST_PRICE_AED);
               {stage.sessions.map((n) => {
                 const s = sessionByNumber(n);
                 return (
-                  <a class="session-link" href={`${book}#${s.slug}`}>
+                  <SessionTag class:list={['session-link', { 'is-soon': !open }]} href={open ? `${book}#${s.slug}` : undefined}>
                     <span class="session-name">{s.shortTitle}</span>
                     <span class="mono-note">Session {s.number} · {formatAed(s.priceAed)}{s.hasPrerequisites ? ' · prerequisites apply' : ''}</span>
-                  </a>
+                  </SessionTag>
                 );
               })}
             </div>
@@ -81,7 +87,7 @@ const from = formatAed(LOWEST_PRICE_AED);
       <div class="stages-foot">
         <p>{DELIVERY.availability}. Times are shown in your own timezone alongside
            {' '}{DELIVERY.timezoneLabel}.</p>
-        <a class="pill-outline" href={`${book}#sessions`}>See what each session covers</a>
+        {open && <a class="pill-outline" href={`${book}#sessions`}>See what each session covers</a>}
       </div>
     </div>
   </section>
@@ -115,8 +121,10 @@ const from = formatAed(LOWEST_PRICE_AED);
     <h2>Pick the session that matches your next problem.</h2>
     <p>From {from}. One session at a time, no package to commit to, and no sales call before you
        can book.</p>
-    <a class="cta" href={book}>Book your session</a>
-    <p class="kc-contact">Questions about a session or a booking? Email
+    {open
+      ? <a class="cta" href={book}>Book your session</a>
+      : <span class="cta cta-soon">Booking opens soon</span>}
+    <p class="kc-contact">{open ? 'Questions about a session or a booking? Email' : 'Online booking opens soon. To ask about a session before then, email'}
        <a href={`mailto:${COACHING.email}`}>{COACHING.email}</a>.</p>
   </section>
 
