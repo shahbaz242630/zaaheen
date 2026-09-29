@@ -143,7 +143,7 @@ export const PRICING_FAQ: readonly { q: string; a: string }[] = [
   },
   {
     q: 'How is Zaaheen different from MemoryPlugin, Pieces, Mem or Supermemory?',
-    a: `Zaaheen keeps your memories on your own computer, encrypted, and our servers never receive them. MemoryPlugin and Mem keep yours on their servers. Pieces also keeps memories on your computer; its Pro plan is $18.99 a month and its trial needs a card. Zaaheen costs less than MemoryPlugin Core or Pieces Pro, and its trial needs no card. Supermemory's paid plan is aimed at developers building with AI memory. The table above has the details, checked on each company's own website on ${CHECKED_ON}.`,
+    a: `Zaaheen keeps your memories on your own computer, encrypted, and our servers never receive them. MemoryPlugin and Mem keep yours on their servers. Pieces also keeps memories on your computer; its Pro plan is $18.99 a month and its trial needs a card. Zaaheen costs less than MemoryPlugin Core or Pieces Pro, and its trial needs no card. Supermemory's paid plan is aimed at developers building with AI memory, so it is not in the table. The table above has the details for the others, checked on each company's own website on ${CHECKED_ON}.`,
   },
   {
     q: 'Is Zaaheen like Obsidian?',
