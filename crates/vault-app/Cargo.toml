@@ -1,6 +1,6 @@
 [package]
 name = "vault-app"
-description = "Application core. Wires concrete implementations of all module traits. See BRD §5.10."
+description = "The application core: wires every part of the app together."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

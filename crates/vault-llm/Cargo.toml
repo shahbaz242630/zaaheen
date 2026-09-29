@@ -1,6 +1,6 @@
 [package]
 name = "vault-llm"
-description = "Local LLM inference for Memory Vault — Phi-4-mini via llama.cpp. See BRD §5.5 / T0.2.1."
+description = "Runs a small language model on the user's own computer for the nightly tidy-up."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

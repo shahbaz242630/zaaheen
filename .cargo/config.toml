@@ -1,4 +1,4 @@
-# Cargo configuration for Memory Vault.
+# Cargo configuration for Zaaheen.
 #
 # Scope: applies to every `cargo {build,test,run,clippy,...}` invocation
 # from anywhere inside the workspace. The `[env]` block below sets

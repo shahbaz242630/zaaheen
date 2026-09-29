@@ -1,6 +1,6 @@
 [package]
 name = "vault-retrieval"
-description = "Multi-strategy parallel retrieval (semantic, graph, temporal, keyword, frequency) with reranking. See BRD §5.5."
+description = "Finds the memories that answer a question, and ranks them."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

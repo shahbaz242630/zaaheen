@@ -1,0 +1,14 @@
+# What visitors see under "New issue". Public free-form issues are off: help,
+# security reports and everything else go through private routes. Workflows
+# that open issues through the API (monthly-tech-debt.yml) are not affected.
+blank_issues_enabled: false
+contact_links:
+  - name: Help with the app
+    url: https://zaaheen.com/docs/troubleshooting/
+    about: Fixes for common problems, and how to email our support team.
+  - name: Report a security problem
+    url: https://github.com/shahbaz242630/zaaheen/security/advisories/new
+    about: Report it privately, never in a public issue. See SECURITY.md.
+  - name: Anything else
+    url: https://zaaheen.com/company/
+    about: Contact us at customerservice@zaaheen.com.

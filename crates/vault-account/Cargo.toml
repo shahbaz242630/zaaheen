@@ -1,6 +1,6 @@
 [package]
 name = "vault-account"
-description = "The desktop app's Zaaheen account: browser sign-in (OAuth PKCE on a loopback redirect), the refresh-token store, the signed entitlement lease and its offline time model. See ADR-104 + ADR-SEC-022 (SIGNIN-DESIGN.md)."
+description = "The desktop app's Zaaheen account: sign-in in the browser, the stored session and the subscription check."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

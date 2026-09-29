@@ -1,6 +1,6 @@
 [package]
 name = "vault-consolidator"
-description = "Sleep cycle: nightly merge of duplicates, decay, contradiction resolution, and summarization. See BRD §5.6."
+description = "Nightly tidy-up of memories: merging duplicates, spotting contradictions, summarising."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "vault-cli"
-description = "Operator CLI for the Memory Vault. Dead-letter recovery + divergence triage. See BRD §5.2 / ADR-009 / T0.1.6."
+description = "The command-line tools shipped with the app: the AI-app connection and nightly maintenance."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

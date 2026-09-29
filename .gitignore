@@ -1,5 +1,5 @@
 # =====================================================================
-# Memory Vault — .gitignore
+# Zaaheen — .gitignore
 # Goal: NEVER commit secrets, keys, encrypted vaults, ML model files,
 # or build artifacts. Cargo.lock IS committed (BRD §2.9 / §4).
 # =====================================================================
@@ -88,7 +88,7 @@ private-key*
 api-key*
 *api_key*
 
-# ---------- Memory Vault — user data (NEVER commit) ----------
+# ---------- Zaaheen — user data (NEVER commit) ----------
 # Local dev databases
 *.db
 *.db-journal

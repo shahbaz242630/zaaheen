@@ -1,6 +1,6 @@
 [package]
 name = "vault-scheduler"
-description = "Cross-platform OS-level task scheduler: registers a per-user scheduled task (Windows Task Scheduler / macOS launchd / Linux systemd) that runs the bundled vault-cli for nightly maintenance. See BRD §5.6 scheduling + ADR-092."
+description = "Registers the nightly maintenance task with the operating system."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

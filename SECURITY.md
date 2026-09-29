@@ -1,92 +1,64 @@
 # Security Policy
 
-Memory Vault is a personal memory vault for AI agents. It holds what people
-choose to tell their assistants about themselves — their job, their health,
-their family. We take reports about it seriously.
+Zaaheen holds what people choose to tell their AI assistants about themselves: their work, their health, their family. We take every report about it seriously.
 
 ## Reporting a vulnerability
 
-**Please do not open a public issue for a security problem.**
+**Please do not open a public issue for a security problem.** Report it privately, in either of these ways:
 
-Report it privately through GitHub:
+- **[Open a private security advisory](https://github.com/shahbaz242630/zaaheen/security/advisories/new)** on GitHub. Only we can see it until an advisory is published, and we can work through the fix with you there.
+- **Email [customerservice@zaaheen.com](mailto:customerservice@zaaheen.com)** with "Security" in the subject.
 
-> **[Open a private security advisory](https://github.com/shahbaz242630/zaaheen/security/advisories/new)**
-
-That channel is private to the maintainers until an advisory is published, and
-it lets us work through the fix with you before anything becomes public.
-
-If you can, include: what you found, how to reproduce it, which version or
-commit you were on, and what you think the impact is. A proof of concept helps
-enormously but is not required — a clear description of the flaw is welcome on
-its own.
+Please include what you found, how to reproduce it, the version of Zaaheen you were using, and what you think the impact is. A proof of concept helps, but a clear description is welcome on its own.
 
 ## What to expect
 
-This is a **two-person project**, not a company with a security team. We will
-not promise a response time we cannot keep. What we will do:
+- We reply within **5 working days**, and keep you updated until the problem is fixed.
+- We tell you honestly whether we agree it is a vulnerability, and why.
+- We thank you publicly when the fix ships, unless you would rather stay anonymous.
+- We do not run a paid bug bounty at the moment.
 
-- Acknowledge your report as soon as we have actually read and understood it.
-- Tell you honestly whether we agree it is a vulnerability, and why.
-- Keep you updated while we work on it, rather than going quiet.
-- Credit you when the fix ships, unless you would rather stay anonymous.
+## Rules for good-faith research
 
-If you do not hear back within two weeks, please assume it was missed rather
-than ignored, and nudge the advisory thread.
+Please give us **90 days** to fix a problem before telling anyone else, do not access or change other people's data, and do not disrupt our services. Test only with accounts and data that are your own.
 
-## What we consider a vulnerability
+If you follow these rules, we will not take legal action against you for your research.
 
-The guarantee this project is built around is:
+## What is in scope
 
-> **The server cryptographically cannot read user vault contents.**
+The promise Zaaheen is built on:
 
-Anything that breaks that, or that exposes a user's memories to someone who
-should not have them, is in scope. Concretely, we especially want to hear about:
+> **Your memories stay encrypted on your own computer. Our servers cannot read them.**
 
-- **Data readable at rest.** Any vault artifact written to disk unencrypted, or
-  any path that bypasses the sealing envelope. We have shipped this bug before
-  (see `ADR-SEC-007` in `HANDOFF.md`) and take repeats of the class seriously.
-- **Boundary escapes.** A read or search returning memories from a boundary the
-  caller was not authorized for.
-- **Key handling.** Key material leaking into logs, crash dumps, temp files,
-  swap, or process memory longer than necessary.
-- **Memory or context poisoning.** Content stored in a vault that manipulates
-  the behaviour of an AI agent reading it — for example, text that an agent
-  follows as an instruction rather than treating as data. See `ADR-SEC-009`.
-- **Erasure that does not erase.** "Delete everything" leaving recoverable user
-  data behind.
-- **Supply chain.** A dependency, build step, or release artifact that is not
-  what it claims to be.
+Anything that breaks that promise, or exposes someone's memories to anyone who should not have them, is in scope. We especially want to hear about:
+
+- **Memories readable on disk.** Any memory data written to disk unencrypted, or any way around the encryption.
+- **Key handling.** The encryption key leaking into logs, crash reports, temporary files, or staying in memory longer than it needs to.
+- **Instructions hidden in memories.** Stored text that makes an AI app act on it as an instruction instead of treating it as information.
+- **Deleting that does not delete.** "Delete everything" leaving readable data behind.
+- **Our account service and websites.** zaaheen.com, account.zaaheen.com and the service behind sign-in and subscriptions, for example seeing or changing another person's account or subscription.
+- **Supply chain.** A dependency, build step, or download that is not what it claims to be.
 
 ## Out of scope
 
-To save your time:
-
-- **Findings from automated scanners with no demonstrated impact.** Tell us what
-  an attacker could actually do.
-- **Vulnerabilities requiring an already-compromised machine.** The local vault
-  is encrypted at rest, but an attacker with your OS user session and keychain
-  is inside the trust boundary by design.
-- **The installer being unsigned on Windows.** Known and deliberate — we are not
-  yet a registered company and cannot obtain a code-signing certificate. A
-  documented trade-off rather than a finding. Build provenance attestation is
-  planned for public release and is NOT in place yet.
-- **Denial of service against a user's own local vault.**
+- **Scanner results with no demonstrated impact.** Tell us what an attacker could actually do.
+- **Attacks that need an already-compromised computer.** Someone who is already signed in to your Windows account, with access to its saved passwords and keys, is inside the protection by design.
+- **The Windows installer is not code-signed yet.** This is a known, deliberate choice for now. Windows may show an "unknown publisher" warning; always download Zaaheen from zaaheen.com.
+- **Slowing down or crashing your own copy of the app** with your own data.
+- **Problems in services run by our sign-in or payment providers.** Please report those to the provider directly.
 
 ## Supported versions
 
-The project is pre-1.0 and under active development. Only the latest release on
-`main` is supported. There are no backported security fixes to older builds —
-fixes land in the next release.
+Only the latest version of Zaaheen from [zaaheen.com](https://zaaheen.com) is supported. Security fixes go into the next release; older versions do not get separate fixes.
 
-## Our side of the deal
+## How we look after the code
 
-We run the following on every change, so that a report is met with a codebase
-that is actually maintained rather than one nobody has looked at:
+Every change to this repository runs through:
 
-- Secret scanning and push protection, plus full-history scanning
-- Dependency advisory, licence, and source-origin checks on every pull request
-- Static analysis (CodeQL)
-- Encryption-at-rest and prompt-injection tests as blocking CI gates
-- All CI actions pinned to commit hashes
+- Secret scanning with push protection, and regular scans of the full history
+- Checks on every dependency for known vulnerabilities, licences and where it comes from
+- Static analysis with CodeQL
+- Encryption and hidden-instruction tests that must pass before anything is merged
+- Build tools pinned to exact, verified versions
 
 Thank you for helping keep people's memories private.
