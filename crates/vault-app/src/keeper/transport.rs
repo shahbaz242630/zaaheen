@@ -208,6 +208,12 @@ mod unix_impl {
     pub type ServerStream = UnixStream;
     pub type ClientStream = UnixStream;
 
+    /// `sun_path`'s size, NUL included: 104 bytes on macOS, 108 on Linux.
+    #[cfg(target_os = "macos")]
+    const SUN_PATH_MAX: usize = 104;
+    #[cfg(not(target_os = "macos"))]
+    const SUN_PATH_MAX: usize = 108;
+
     /// A keeper's listening socket, inside the vault's own 0700 directory.
     /// The socket file is removed when the listener is dropped.
     pub struct Listener {
@@ -221,6 +227,17 @@ mod unix_impl {
         /// The directory could not be created or the path is taken.
         pub fn bind(endpoint: &str) -> io::Result<Self> {
             use std::os::unix::fs::PermissionsExt;
+            if endpoint.len() >= SUN_PATH_MAX {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!(
+                        "the vault folder's path is too long for the keeper's socket \
+                         ({} bytes; this system allows {}): choose a folder with a shorter path",
+                        endpoint.len(),
+                        SUN_PATH_MAX - 1
+                    ),
+                ));
+            }
             let path = PathBuf::from(endpoint);
             if let Some(dir) = path.parent() {
                 std::fs::create_dir_all(dir)?;
@@ -288,6 +305,22 @@ mod tests {
         c.read_exact(&mut reply).await.unwrap();
         assert_eq!(&reply, b"pong");
         assert_eq!(&server.await.unwrap(), b"ping");
+    }
+
+    /// A vault folder too deep for `sun_path` fails with a message that says
+    /// so, before anything is created.
+    #[cfg(not(windows))]
+    #[test]
+    fn a_socket_path_too_long_is_refused_clearly() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path().join("d".repeat(120));
+        let endpoint = new_endpoint(&root).unwrap();
+        let Err(err) = Listener::bind(&endpoint) else {
+            panic!("a {}-byte socket path must be refused", endpoint.len());
+        };
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(err.to_string().contains("too long"), "{err}");
+        assert!(!root.exists(), "nothing is created for a refused path");
     }
 
     /// Two relays at once — Claude Desktop alone starts several.

@@ -1,0 +1,17 @@
+{
+  "bundle": {
+    "targets": ["app"],
+    "icon": ["icons/icon.png"],
+    "resources": {
+      "../vault-embedding/test-fixtures/bge-small-en-v1.5/onnxruntime.dll": null,
+      "../vault-embedding/test-fixtures/bge-small-en-v1.5/libonnxruntime.dylib": "libs/libonnxruntime.dylib"
+    },
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "files": {
+        "MacOS/zaaheen": "../../target/release/zaaheen",
+        "MacOS/zaaheen-maintenance": "../../target/release/zaaheen-maintenance"
+      }
+    }
+  }
+}

@@ -182,7 +182,7 @@ pub fn claude_extension(icon_png: &[u8], command: &ServerCommand) -> io::Result<
             "entry_point": CLAUDE_ENTRY_POINT,
             "mcp_config": command.server_json()
         },
-        "compatibility": { "platforms": ["win32"] }
+        "compatibility": { "platforms": [MCPB_PLATFORM] }
     });
     let manifest = serde_json::to_vec_pretty(&manifest).map_err(io::Error::other)?;
     let options = zip::write::SimpleFileOptions::default()
@@ -255,13 +255,52 @@ fn registry_has(key: &str, value: Option<&str>) -> bool {
         .unwrap_or(false)
 }
 
-/// V0.2's desktop is Windows-only: elsewhere no app is found.
-#[cfg(not(windows))]
+/// The extension's platform, in the `.mcpb` manifest's words: it runs this
+/// computer's own `zaaheen`, so only this platform.
+#[cfg(windows)]
+const MCPB_PLATFORM: &str = "win32";
+#[cfg(not(any(windows, target_os = "macos")))]
+const MCPB_PLATFORM: &str = std::env::consts::OS;
+#[cfg(target_os = "macos")]
+const MCPB_PLATFORM: &str = "darwin";
+
+// ── what the Mac knows ────────────────────────────────────────────────────
+
+/// On the Mac an app is found by its bundle, in `/Applications` or the
+/// person's own `~/Applications`: `cursor` is Cursor, `claude` is Claude.
+/// Opening its link or file then goes to that app through Launch Services.
+#[cfg(target_os = "macos")]
+fn scheme_is_registered(scheme: &str) -> bool {
+    let app = match scheme {
+        "cursor" => "Cursor.app",
+        "claude" => "Claude.app",
+        _ => return false,
+    };
+    mac_app_installed(app)
+}
+
+/// `.mcpb` opens in Claude when Claude is installed; if it does not, the
+/// open fails and the extension stays saved (the page says where it is).
+#[cfg(target_os = "macos")]
+fn file_type_is_registered(extension: &str) -> bool {
+    extension == ".mcpb" && mac_app_installed("Claude.app")
+}
+
+#[cfg(target_os = "macos")]
+fn mac_app_installed(app: &str) -> bool {
+    let home_apps = std::env::var_os("HOME").map(|h| Path::new(&h).join("Applications"));
+    std::iter::once(Path::new("/Applications").to_path_buf())
+        .chain(home_apps)
+        .any(|dir| dir.join(app).is_dir())
+}
+
+/// Elsewhere the desktop is not supported: no app is found.
+#[cfg(not(any(windows, target_os = "macos")))]
 fn scheme_is_registered(_scheme: &str) -> bool {
     false
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 fn file_type_is_registered(_extension: &str) -> bool {
     false
 }

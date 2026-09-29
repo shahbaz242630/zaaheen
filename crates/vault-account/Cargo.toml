@@ -60,3 +60,7 @@ tempfile = { workspace = true }
 # vault key). Entries are written with `persistence=Local`, not the roaming
 # Enterprise default.
 windows-native-keyring-store = { workspace = true }
+
+# The Mac's login keychain, as for the vault key (ADR-SEC-038).
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { workspace = true }

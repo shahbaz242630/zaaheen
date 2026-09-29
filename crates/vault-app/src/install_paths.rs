@@ -43,6 +43,8 @@
 //! `current_exe().parent()` is the same directory the app resolves against —
 //! the identical reasoning `vault-maintenance`'s `sibling_vault_cli` already
 //! relies on, and it is resistant to `PATH` shadowing for the same reason.
+//! A Mac app is the exception: binaries in `Contents/MacOS`, resources in
+//! `Contents/Resources` ([`bundled_resource_dir`]).
 //!
 //! ## These are DEFAULTS, never overrides
 //!
@@ -182,6 +184,33 @@ pub fn resource_dir() -> Option<PathBuf> {
         .and_then(|exe| exe.parent().map(Path::to_path_buf))
 }
 
+/// Where the bundled models and libraries are — Tauri's
+/// `BaseDirectory::Resource` for this executable.
+///
+/// On Windows that is the executable's own directory ([`resource_dir`]).
+/// In a Mac app the binaries sit in `Zaaheen.app/Contents/MacOS` and Tauri
+/// puts resources in `Contents/Resources`, so the two differ there; outside
+/// an app bundle (a developer's `target/`), the executable's directory.
+pub fn bundled_resource_dir() -> Option<PathBuf> {
+    resource_dir().map(|exe_dir| bundle_resources_for(&exe_dir))
+}
+
+/// [`bundled_resource_dir`] for a given executable directory.
+fn bundle_resources_for(exe_dir: &Path) -> PathBuf {
+    if cfg!(target_os = "macos")
+        && exe_dir.file_name().is_some_and(|n| n == "MacOS")
+        && exe_dir
+            .parent()
+            .and_then(Path::file_name)
+            .is_some_and(|n| n == "Contents")
+    {
+        if let Some(contents) = exe_dir.parent() {
+            return contents.join("Resources");
+        }
+    }
+    exe_dir.to_path_buf()
+}
+
 /// `<data_dir>/vault.db` — the SQLCipher metadata database.
 pub fn vault_db_in(data_dir: &Path) -> PathBuf {
     data_dir.join("vault.db")
@@ -220,6 +249,26 @@ pub fn ort_lib_in(resource_dir: &Path) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// In a Mac app the models are in `Contents/Resources`, beside the
+    /// binaries' `Contents/MacOS`; everywhere else, beside the binary.
+    #[test]
+    fn bundled_resources_are_in_contents_resources_only_inside_a_mac_app() {
+        let in_app = Path::new("/Applications/Zaaheen.app/Contents/MacOS");
+        let expected = if cfg!(target_os = "macos") {
+            PathBuf::from("/Applications/Zaaheen.app/Contents/Resources")
+        } else {
+            in_app.to_path_buf()
+        };
+        assert_eq!(bundle_resources_for(in_app), expected);
+        for plain in [
+            Path::new("/work/target/release"),
+            Path::new("/Contents/MacOS-not"),
+            Path::new("/somewhere/MacOS"),
+        ] {
+            assert_eq!(bundle_resources_for(plain), plain, "{plain:?}");
+        }
+    }
 
     #[test]
     fn identifier_is_reverse_dns_and_names_zaaheen() {

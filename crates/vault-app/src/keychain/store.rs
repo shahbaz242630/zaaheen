@@ -11,13 +11,15 @@
 //!
 //! The lifecycle logic (`super::lifecycle`) sees the store only through
 //! [`KeyStore`], so every failure and every crash point can be scripted in
-//! the tests; [`WindowsKeyStore`] is the one real implementation.
+//! the tests. The real implementations are [`WindowsKeyStore`] and, for the
+//! Mac, `MacKeyStore` (ADR-SEC-038): the user's login keychain, a file on
+//! this Mac that iCloud never syncs, so every key it holds is Local.
 
 use vault_core::VaultError;
 use zeroize::Zeroizing;
 
 /// Suffix appended to the namespace for the spare credential's service.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 pub(crate) const SPARE_SERVICE_SUFFIX: &str = ".migrating";
 
 /// Which of the two credentials.
@@ -30,9 +32,9 @@ pub(crate) enum Slot {
 }
 
 /// What a read found. The bytes are wiped when dropped (Z1).
-// Only the Windows store builds `Present` outside the tests; elsewhere V0.2
-// has no key store (see `platform_store`).
-#[cfg_attr(not(any(windows, test)), allow(dead_code))]
+// Only the Windows and Mac stores build `Present` outside the tests;
+// elsewhere V0.2 has no key store (see `platform_store`).
+#[cfg_attr(not(any(windows, target_os = "macos", test)), allow(dead_code))]
 pub(crate) enum Stored {
     /// The store answered "no such credential" (`Error::NoEntry`, D3).
     Absent,
@@ -69,7 +71,7 @@ pub(crate) trait KeyStore {
 }
 
 /// The spare credential's service name for `namespace`.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 pub(crate) fn spare_service(namespace: &str) -> String {
     format!("{namespace}{SPARE_SERVICE_SUFFIX}")
 }
@@ -142,10 +144,93 @@ impl KeyStore for WindowsKeyStore {
     }
 }
 
-/// The store for this platform: Windows Credential Manager, or — elsewhere,
-/// where V0.2 has no key store yet — an error, so every caller (erasure
-/// included) fails loudly rather than reporting a success that did not
-/// happen.
+/// The user's login keychain, through this module's own store instance —
+/// never keyring-core's process-global default (D1). ADR-SEC-038:
+///
+/// - the legacy file keychain (`keychain` module), not the Data Protection
+///   keychain: that one needs a provisioning profile, which the keeper and
+///   maintenance command-line binaries cannot carry;
+/// - the login keychain is a file in `~/Library/Keychains` that iCloud
+///   Keychain never syncs, so every key here already stays on this Mac:
+///   `is_local` is `Some(true)` whenever a key exists, and the D5 move never
+///   runs. No creation modifiers exist to get wrong;
+/// - the item's service is the namespace (or `<namespace>.migrating`) and
+///   its account the `vault_id`: the pair identifies it, so the spare can
+///   never be mistaken for a main.
+#[cfg(target_os = "macos")]
+pub(crate) struct MacKeyStore {
+    store: std::sync::Arc<keyring_core::CredentialStore>,
+    namespace: String,
+    vault_id: String,
+}
+
+#[cfg(target_os = "macos")]
+impl MacKeyStore {
+    /// Open the store for the key `(namespace, vault_id)`.
+    pub(crate) fn open(namespace: &str, vault_id: &str) -> Result<Self, StoreError> {
+        let store = apple_native_keyring_store::keychain::Store::new().map_err(store_error)?;
+        Ok(Self {
+            store,
+            namespace: namespace.to_owned(),
+            vault_id: vault_id.to_owned(),
+        })
+    }
+
+    fn entry(&self, slot: Slot) -> Result<keyring_core::Entry, StoreError> {
+        let service = match slot {
+            Slot::Main => self.namespace.clone(),
+            Slot::Spare => spare_service(&self.namespace),
+        };
+        self.store
+            .build(&service, &self.vault_id, None)
+            .map_err(store_error)
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl KeyStore for MacKeyStore {
+    fn read(&self, slot: Slot) -> Result<Stored, StoreError> {
+        match self.entry(slot)?.get_secret() {
+            Ok(bytes) => Ok(Stored::Present(Zeroizing::new(bytes))),
+            Err(keyring_core::Error::NoEntry) => Ok(Stored::Absent),
+            Err(e) => Err(store_error(e)),
+        }
+    }
+
+    /// Existence only: a key in the login keychain is always Local. Found by
+    /// an attribute search (exact service and account), never by reading the
+    /// secret again — each secret read is an access check macOS may ask the
+    /// person about.
+    fn is_local(&self, slot: Slot) -> Result<Option<bool>, StoreError> {
+        let service = match slot {
+            Slot::Main => self.namespace.clone(),
+            Slot::Spare => spare_service(&self.namespace),
+        };
+        let spec = std::collections::HashMap::from([
+            ("service", service.as_str()),
+            ("user", self.vault_id.as_str()),
+        ]);
+        let found = self.store.search(&spec).map_err(store_error)?;
+        Ok((!found.is_empty()).then_some(true))
+    }
+
+    fn write_local(&self, slot: Slot, key: &[u8; 32]) -> Result<(), StoreError> {
+        self.entry(slot)?.set_secret(key).map_err(store_error)
+    }
+
+    fn delete(&self, slot: Slot) -> Result<bool, StoreError> {
+        match self.entry(slot)?.delete_credential() {
+            Ok(()) => Ok(true),
+            Err(keyring_core::Error::NoEntry) => Ok(false),
+            Err(e) => Err(store_error(e)),
+        }
+    }
+}
+
+/// The store for this platform: Windows Credential Manager, the Mac's login
+/// keychain, or — elsewhere, where V0.2 has no key store yet — an error, so
+/// every caller (erasure included) fails loudly rather than reporting a
+/// success that did not happen.
 pub(crate) fn platform_store(
     namespace: &str,
     vault_id: &str,
@@ -154,11 +239,15 @@ pub(crate) fn platform_store(
     {
         Ok(Box::new(WindowsKeyStore::open(namespace, vault_id)?))
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        Ok(Box::new(MacKeyStore::open(namespace, vault_id)?))
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = (namespace, vault_id);
         Err(StoreError(format!(
-            "the vault key store is Windows-only in this version (current platform: {})",
+            "the vault key store is Windows and macOS only in this version (current platform: {})",
             std::env::consts::OS
         )))
     }
@@ -166,7 +255,7 @@ pub(crate) fn platform_store(
 
 /// A keyring error as text, never with the stored bytes two of its variants
 /// carry (Z1; keyring-core `error.rs:44, 50`).
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 pub(crate) fn store_error(e: keyring_core::Error) -> StoreError {
     use zeroize::Zeroize;
     StoreError(match e {

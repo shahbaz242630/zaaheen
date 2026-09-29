@@ -103,7 +103,13 @@ fn the_claude_extension_runs_the_installed_zaaheen() {
     assert_eq!(short["server"]["mcp_config"]["command"], "zaaheen");
     assert_eq!(
         manifest["compatibility"]["platforms"],
-        serde_json::json!(["win32"])
+        serde_json::json!([if cfg!(target_os = "macos") {
+            "darwin"
+        } else if cfg!(windows) {
+            "win32"
+        } else {
+            std::env::consts::OS
+        }])
     );
     assert_eq!(manifest["icon"], "icon.png");
     assert_eq!(entry(&bundle, "icon.png"), ICON);
@@ -339,8 +345,9 @@ fn every_outcome_has_its_own_code() {
     );
 }
 
-/// Reads the registry, changes nothing: nothing registered is not found.
-#[cfg(windows)]
+/// Reads the registry (Windows) or the Applications folders (Mac), changes
+/// nothing: nothing registered is not found.
+#[cfg(any(windows, target_os = "macos"))]
 #[test]
 fn an_unregistered_scheme_or_file_type_is_not_found() {
     assert!(!scheme_is_registered("zaaheen-test-no-such-scheme"));

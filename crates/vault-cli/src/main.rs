@@ -551,7 +551,7 @@ fn resolve_embedder_paths(
     match (bge_model, bge_tokenizer, ort_lib) {
         (Some(model), Some(tokenizer), Some(lib)) => Ok((model, tokenizer, lib)),
         (model, tokenizer, lib) => {
-            let resource_dir = install_paths::resource_dir().ok_or_else(|| {
+            let resource_dir = install_paths::bundled_resource_dir().ok_or_else(|| {
                 anyhow!(
                     "could not locate the directory holding this executable, \
                      and not every embedder path was supplied. Pass \

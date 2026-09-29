@@ -1,11 +1,16 @@
-//! ADR-SEC-029 against the real Windows Credential Manager, with throwaway
-//! namespaces and temporary folders (never the production key).
+//! ADR-SEC-029 against the real OS store — Windows Credential Manager, or
+//! the Mac's login keychain (ADR-SEC-038) — with throwaway namespaces and
+//! temporary folders (never the production key).
 
 use std::time::{Duration, Instant};
 
 use vault_core::{VaultError, VaultKeyFailure};
 
-use crate::keychain::store::{KeyStore, Slot, Stored, WindowsKeyStore};
+#[cfg(target_os = "macos")]
+use crate::keychain::store::MacKeyStore as OsKeyStore;
+#[cfg(windows)]
+use crate::keychain::store::WindowsKeyStore as OsKeyStore;
+use crate::keychain::store::{KeyStore, Slot, Stored};
 use crate::keychain::test_helpers::{cleanup_keychain_entry, keychain_test_guard, test_location};
 use crate::keychain::{open_master_key, read_existing_master_key, KeyLocation, KeyedPaths};
 
@@ -18,11 +23,11 @@ impl Drop for Cleanup {
     }
 }
 
-fn store_for(loc: &KeyLocation) -> WindowsKeyStore {
-    WindowsKeyStore::open(loc.namespace(), loc.vault_id()).unwrap()
+fn store_for(loc: &KeyLocation) -> OsKeyStore {
+    OsKeyStore::open(loc.namespace(), loc.vault_id()).unwrap()
 }
 
-fn stored(store: &WindowsKeyStore, slot: Slot) -> Option<Vec<u8>> {
+fn stored(store: &OsKeyStore, slot: Slot) -> Option<Vec<u8>> {
     match store.read(slot).unwrap() {
         Stored::Absent => None,
         Stored::Present(b) => Some(b.to_vec()),
@@ -31,6 +36,7 @@ fn stored(store: &WindowsKeyStore, slot: Slot) -> Option<Vec<u8>> {
 
 /// Write `bytes` with the library's default (Enterprise) persistence, as
 /// every key written before ADR-SEC-029 was.
+#[cfg(windows)]
 fn plant_enterprise(loc: &KeyLocation, bytes: &[u8]) {
     let store: std::sync::Arc<keyring_core::CredentialStore> =
         windows_native_keyring_store::Store::new().unwrap();
@@ -55,6 +61,7 @@ fn a_new_key_is_stored_local_and_reads_back() {
     assert!(stored(&store, Slot::Spare).is_none());
 }
 
+#[cfg(windows)]
 #[test]
 fn a_real_enterprise_key_moves_to_local_with_identical_bytes() {
     let _g = keychain_test_guard();
@@ -103,6 +110,7 @@ fn erasure_destroys_a_moved_key_and_its_spare() {
 /// H6 (ADR-SEC-029 Context): an open SQLite database cannot be deleted on
 /// Windows, so "Delete everything" from the desktop leaves `vault.db`; the
 /// next open must finish the wipe and start clean, never fail for good.
+#[cfg(windows)]
 #[test]
 fn an_erasure_that_leaves_an_open_database_is_finished_by_the_next_open() {
     let _g = keychain_test_guard();
@@ -135,7 +143,7 @@ fn an_erasure_that_leaves_an_open_database_is_finished_by_the_next_open() {
 }
 
 #[test]
-fn one_lock_covers_every_vault_folder_of_a_windows_user() {
+fn one_lock_covers_every_vault_folder_of_a_user() {
     let _g = keychain_test_guard();
     let tmp = tempfile::tempdir().unwrap();
     let loc = test_location("live_one_lock", tmp.path());
@@ -305,4 +313,55 @@ fn keyring_errors_never_carry_the_stored_bytes() {
             assert!(!msg.contains(leak), "{msg}");
         }
     }
+}
+
+/// ADR-SEC-038: the key is an item in the user's login keychain file — the
+/// store iCloud never syncs — found by the system's own `security` tool
+/// (asked for the item's attributes only, never its secret).
+#[cfg(target_os = "macos")]
+#[test]
+fn the_mac_key_lives_in_the_login_keychain_file() {
+    let _g = keychain_test_guard();
+    let tmp = tempfile::tempdir().unwrap();
+    let loc = test_location("live_login_keychain", tmp.path());
+    let _c = Cleanup(loc.clone());
+    open_master_key(&loc, &KeyedPaths::in_folder(&tmp.path().join("vault"))).unwrap();
+
+    let out = std::process::Command::new("/usr/bin/security")
+        .args([
+            "find-generic-password",
+            "-s",
+            loc.namespace(),
+            "-a",
+            loc.vault_id(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "the item is in the keychain search list"
+    );
+    let listing = String::from_utf8_lossy(&out.stdout);
+    assert!(listing.contains("login.keychain"), "{listing}");
+}
+
+/// C2 on the Mac: a spare left by an interrupted move (only possible if a
+/// Windows-era store had one; the Mac never starts a move) is removed at the
+/// next open when it holds the same key, and the key is unchanged.
+#[cfg(target_os = "macos")]
+#[test]
+fn a_leftover_spare_matching_the_key_is_removed_at_the_next_open() {
+    let _g = keychain_test_guard();
+    let tmp = tempfile::tempdir().unwrap();
+    let loc = test_location("live_mac_spare", tmp.path());
+    let _c = Cleanup(loc.clone());
+    let paths = KeyedPaths::in_folder(&tmp.path().join("vault"));
+    let first = open_master_key(&loc, &paths).unwrap();
+    let store = store_for(&loc);
+    store.write_local(Slot::Spare, &first).unwrap();
+
+    let second = open_master_key(&loc, &paths).unwrap();
+    assert_eq!(*second, *first, "the same key");
+    assert!(stored(&store, Slot::Spare).is_none(), "the spare is gone");
+    assert_eq!(store.is_local(Slot::Main).unwrap(), Some(true));
 }
