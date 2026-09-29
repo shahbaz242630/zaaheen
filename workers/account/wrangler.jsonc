@@ -7,9 +7,10 @@
 //
 // Two deployments, never sharing a secret or a signing key:
 //   --env sandbox   api-sandbox.zaaheen.com: Paddle sandbox + Clerk development.
-//   (top level)     production, api.zaaheen.com. Not deployed until S6; its
-//                   route is added then. workers_dev is off, so a deploy
-//                   without --env can never publish anything reachable.
+//   (top level)     production, api.zaaheen.com (route and TRIALS added in
+//                   S6, session 76). Deployed only once every live secret is
+//                   set: without them every route answers 503 (src/config.ts).
+// workers_dev is off everywhere. test/deploy-config.test.ts checks all of this.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "zaaheen-account",
@@ -17,16 +18,16 @@
   "compatibility_date": "2026-09-01",
   "workers_dev": false,
   "preview_urls": false,
+  "routes": [{ "pattern": "api.zaaheen.com", "custom_domain": true }],
   // The renewal sweep (src/sweep.ts), daily at 03:17 UTC.
   "triggers": { "crons": ["17 3 * * *"] },
   // Flood protection for /v1/lease and /v1/checkout (src/flood.ts): per
   // client address, per Cloudflare location. Far above real use.
   "ratelimits": [{ "name": "FLOOD", "namespace_id": "1001", "simple": { "limit": 60, "period": 60 } }],
   // One free trial per email (src/trials.ts, ACCOUNT-DELETION-DESIGN D8):
-  // HMAC fingerprint -> first trial start, kept two years. NOT CREATED YET:
-  // a placeholder id. The founder creates the namespace and puts its id here
-  // before any deploy. Tests use a local, simulated namespace.
-  "kv_namespaces": [{ "binding": "TRIALS", "id": "00000000000000000000000000000001" }],
+  // HMAC fingerprint -> first trial start, kept two years. Created 2026-09-29
+  // (session 76) as "production-TRIALS". Tests use a local, simulated namespace.
+  "kv_namespaces": [{ "binding": "TRIALS", "id": "9226fc5dd07a41fbbae4936d7c33fa21" }],
   "env": {
     "sandbox": {
       "name": "zaaheen-account-sandbox",
