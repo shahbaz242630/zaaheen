@@ -72,7 +72,8 @@ const topic = (id: string) =>
     <Row id="on-your-computer" title={topic('on-your-computer')} where="On your computer">
       <p>Everything your AI apps save to Zaaheen, and everything you add yourself, is stored
          in a folder on your own computer and encrypted there. The key that unlocks it is kept
-         in Windows' own secure store on the same computer. Zaaheen never uploads your memories
+         in your computer's own secure store (Windows Credential Manager, or the keychain on a
+         Mac) on the same computer. Zaaheen never uploads your memories
          to us or to anyone else, so we have no copy and no way to read them. The AI apps you
          connect can send memories to their makers, as explained below.</p>
       <p>That also means we can't recover them for you. If you lose your computer or delete
@@ -351,7 +352,7 @@ const topic = (id: string) =>
 
     <Row id="security" title={topic('security')} where="Security">
       <p>Your memories are encrypted on your computer, and the key never leaves it. Your
-         sign-in is kept in Windows' own secure store. Everything the app and our websites
+         sign-in is kept in your computer's own secure store. Everything the app and our websites
          send travels encrypted, and our account service holds no memories at all, so even a
          break-in at our end could not expose them. If something ever went wrong with the
          account information we do hold, we would tell you and the regulators as the law

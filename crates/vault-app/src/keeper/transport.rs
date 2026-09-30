@@ -208,11 +208,8 @@ mod unix_impl {
     pub type ServerStream = UnixStream;
     pub type ClientStream = UnixStream;
 
-    /// `sun_path`'s size, NUL included: 104 bytes on macOS, 108 on Linux.
-    #[cfg(target_os = "macos")]
-    const SUN_PATH_MAX: usize = 104;
-    #[cfg(not(target_os = "macos"))]
-    const SUN_PATH_MAX: usize = 108;
+    // One limit for the bind and for the folder check (A5).
+    use crate::keeper::discovery::SUN_PATH_MAX;
 
     /// A keeper's listening socket, inside the vault's own 0700 directory.
     /// The socket file is removed when the listener is dropped.

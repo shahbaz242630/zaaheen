@@ -1,7 +1,7 @@
 ---
 import Guide from '../../layouts/Guide.astro';
 import Row from '../../components/Row.astro';
-import { INSTALL_PATH, TIP_LINE } from '../../data/site';
+import { INSTALL_PATH, MAC_INSTALL_PATH, TIP_LINE } from '../../data/site';
 
 // ChatGPT desktop, in the app's own words: AGENTS (ChatGPT's form),
 // AGENT_CHECKS and AGENT_TIPS in crates/vault-tauri/dist/app.js. ChatGPT has
@@ -30,8 +30,9 @@ const OUTLINE = [
         <li>Choose Add, then Add MCP Server, and fill it in:
           <ul>
             <li>Name: <code>Zaaheen</code></li>
-            <li>Command: <code>{INSTALL_PATH}</code>, where Zaaheen usually installs. The
-                <em>Agents</em> tab in Zaaheen shows yours exactly, ready to copy.</li>
+            <li>Command: <code>{INSTALL_PATH}</code>, where Zaaheen usually installs on Windows,
+                or <code>{MAC_INSTALL_PATH}</code> on a Mac. The <em>Agents</em> tab in Zaaheen
+                shows yours exactly, ready to copy.</li>
             <li>Arguments: <code>mcp</code> and <code>serve</code>, as two separate items. Typed
                 together on one line, they don't work.</li>
           </ul>

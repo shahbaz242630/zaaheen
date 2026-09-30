@@ -395,6 +395,16 @@ fn is_recent(at: &str, window: Duration) -> bool {
     age >= chrono::Duration::zero() && age.to_std().is_ok_and(|a| a < window)
 }
 
+/// Wait for `work` on the app's runtime from a thread outside it (the exit
+/// handler), at most `limit`. True when the work finished in time.
+///
+/// The timer is built inside the runtime: `tokio::time::timeout` called
+/// outside one panics ("no reactor running"), and on macOS that panic lands
+/// in the system's quit callback, where it aborts the app (s78).
+pub fn run_bounded_on_exit<F: std::future::Future>(limit: Duration, work: F) -> bool {
+    tauri::async_runtime::block_on(async move { tokio::time::timeout(limit, work).await.is_ok() })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -424,6 +434,36 @@ mod tests {
         let failed = LinkState::Failed("words".into()).to_json();
         assert_eq!(failed["state"], "failed");
         assert_eq!(failed["message"], "words");
+    }
+
+    // Quitting on a Mac aborted the app (s78): the exit handler built its
+    // timeout outside the runtime, which panics, and a panic inside the
+    // system's quit callback cannot unwind. These run on a plain thread, as
+    // the exit handler does.
+    #[test]
+    fn the_exit_wait_runs_outside_a_runtime_and_ends_at_its_limit() {
+        let started = std::time::Instant::now();
+        let finished = run_bounded_on_exit(Duration::from_millis(50), std::future::pending::<()>());
+        assert!(!finished);
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    #[test]
+    fn the_exit_wait_reports_work_that_finished_in_time() {
+        assert!(run_bounded_on_exit(
+            Duration::from_secs(2),
+            std::future::ready(())
+        ));
+    }
+
+    #[test]
+    fn the_exit_handler_uses_the_bounded_wait() {
+        let main = include_str!("main.rs");
+        assert!(main.contains("run_bounded_on_exit("));
+        assert!(
+            !main.contains("block_on(tokio::time::"),
+            "a timer built outside block_on panics outside the runtime"
+        );
     }
 
     #[test]

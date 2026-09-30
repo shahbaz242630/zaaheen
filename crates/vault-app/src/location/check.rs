@@ -42,6 +42,9 @@ pub enum Refusal {
     NotWritable,
     /// Not enough free space for the memories.
     NotEnoughSpace,
+    /// The path is too long for the keeper's connection point inside it
+    /// (a Mac's socket-path limit, A5).
+    PathTooLong,
 }
 
 /// Something the person should be told about an accepted folder.
@@ -163,6 +166,13 @@ pub fn check_folder(
                 .map(|n| profile.join(n)),
         );
     }
+    // The Mac (A6): iCloud Drive, and where Dropbox, OneDrive, Google Drive
+    // and Box keep their folders there (Apple's File Provider).
+    if let Some(home) = env.folder_var("HOME") {
+        let library = home.join("Library");
+        cloud.push(library.join("Mobile Documents"));
+        cloud.push(library.join("CloudStorage"));
+    }
     if let Some(root) = drive_root(&canonical) {
         // Google Drive for desktop's virtual drive holds "My Drive" at its
         // top (name from Google's documentation, not verified here).
@@ -171,8 +181,12 @@ pub fn check_folder(
     if cloud.iter().any(|c| inside(c)) {
         return Err(Refusal::CloudSynced);
     }
-    // 7. A new subfolder, not one already there.
+    // 7. A new subfolder, not one already there, whose keeper can listen
+    //    inside it (A5: a Mac's socket path has a length limit).
     let target = canonical.join(VAULT_SUBFOLDER);
+    if !crate::keeper::discovery::endpoint_fits(&target) {
+        return Err(Refusal::PathTooLong);
+    }
     if env.exists(&target).map_err(|_| Refusal::Unreachable)? {
         return Err(Refusal::AlreadyExists);
     }

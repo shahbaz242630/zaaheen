@@ -2,7 +2,7 @@
 //
 //   Authorization: Bearer <opaque access token>
 //   {"client_now": <i64 > 0>, "app_version": "<1-32 of 0-9A-Za-z.+->"}
-//   200 {"lease": "<wire>"}   401 token refused   429/5xx try later
+//   200 {"lease": "<wire>", "latest_version"?: "<x.y.z>"}   401 token refused   429/5xx try later
 //
 // Order: request checks (no upstream call for a bad request), the signing
 // key (so a broken deploy fails before any write), Clerk verify, the user,
@@ -78,7 +78,14 @@ export async function handleLease(request: Request, config: Config, deps: RouteD
       client_time: body.client_now,
       offline_days: OFFLINE_DAYS,
     };
-    return jsonResponse(200, { lease: await signLease(payload, signer) });
+    const lease = await signLease(payload, signer);
+    // Launch checklist B6: beside the signed lease, never inside it. The app
+    // opens only its own fixed download page, so nothing here can point it
+    // anywhere else.
+    return jsonResponse(
+      200,
+      config.latestAppVersion === undefined ? { lease } : { lease, latest_version: config.latestAppVersion },
+    );
   } catch (e) {
     log("lease", e instanceof UpstreamError ? "upstream_error" : "unexpected_error", e instanceof Error ? e.message : undefined);
     return errorResponse(503, "unavailable");

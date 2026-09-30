@@ -22,7 +22,9 @@ accepted = [
     "0BSD",
     "CDLA-Permissive-2.0",
 ]
-# The installer is Windows-only; crates built only for other platforms are not in it.
+# The Windows installer's target; crates built only for other platforms are not
+# in it. The Mac app's file uses `--target aarch64-apple-darwin` instead
+# (gen-licence-notices.ps1 -Mac).
 targets = ["x86_64-pc-windows-msvc"]
 # Build-time and test-time crates are not in the shipped programs.
 ignore-build-dependencies = true

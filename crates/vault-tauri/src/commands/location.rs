@@ -71,6 +71,7 @@ pub fn folder_refusal_code(refusal: Refusal) -> &'static str {
         Refusal::AlreadyExists => "location_already_exists",
         Refusal::NotWritable => "location_not_writable",
         Refusal::NotEnoughSpace => "location_not_enough_space",
+        Refusal::PathTooLong => "location_path_too_long",
     }
 }
 
@@ -269,6 +270,7 @@ mod tests {
         Refusal::AlreadyExists,
         Refusal::NotWritable,
         Refusal::NotEnoughSpace,
+        Refusal::PathTooLong,
     ];
 
     const ALL_FAILURES: &[MoveFailure] = &[

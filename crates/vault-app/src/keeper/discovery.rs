@@ -194,6 +194,38 @@ fn endpoint_with_suffix(vault_root: &Path, suffix: &str) -> String {
         .into_owned()
 }
 
+/// `sun_path`'s size, NUL included: 104 bytes on macOS, 108 on Linux.
+#[cfg(target_os = "macos")]
+pub(crate) const SUN_PATH_MAX: usize = 104;
+#[cfg(all(not(windows), not(target_os = "macos")))]
+pub(crate) const SUN_PATH_MAX: usize = 108;
+
+/// Whether a keeper for a vault at `vault_root` can listen there: its socket
+/// path must fit `sun_path`. Always true on Windows (named pipes). Checked
+/// when a folder is picked (A5), so a too-deep folder is refused up front
+/// instead of failing at the keeper's bind.
+pub fn endpoint_fits(vault_root: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        let _ = vault_root;
+        true
+    }
+    #[cfg(not(windows))]
+    {
+        socket_path_fits_within(vault_root, SUN_PATH_MAX)
+    }
+}
+
+/// The socket path's length for `vault_root` against `limit` (NUL included),
+/// on any system: the rule [`endpoint_fits`] applies on POSIX.
+#[cfg_attr(windows, allow(dead_code))]
+fn socket_path_fits_within(vault_root: &Path, limit: usize) -> bool {
+    let socket = vault_root
+        .join(SOCKET_DIR)
+        .join(format!("k{}", "0".repeat(ENDPOINT_HEX_LEN)));
+    socket.as_os_str().len() < limit
+}
+
 fn is_endpoint_suffix(s: &str) -> bool {
     s.len() == ENDPOINT_HEX_LEN && s.bytes().all(|c| matches!(c, b'0'..=b'9' | b'a'..=b'f'))
 }
@@ -506,6 +538,30 @@ mod tests {
         let b = new_endpoint(tmp.path()).unwrap();
         assert_ne!(a, b);
         assert!(endpoint_is_ours(&a, tmp.path()), "{a}");
+    }
+
+    /// A5: the folder check's measure, on every system.
+    #[test]
+    fn the_folder_check_measures_the_socket_path_as_the_keeper_builds_it() {
+        let root = Path::new("/Users/pat/Notes/Zaaheen Memories");
+        // `<root>/.keeper/k<16 hex>`.
+        let len = root.as_os_str().len() + "/.keeper/k".len() + ENDPOINT_HEX_LEN;
+        assert!(socket_path_fits_within(root, len + 1));
+        assert!(!socket_path_fits_within(root, len));
+        let deep = Path::new("/Users/pat").join("a".repeat(90));
+        assert!(!socket_path_fits_within(&deep, 104));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn the_folder_check_and_the_keeper_agree_on_the_socket_path() {
+        let root = Path::new("/Users/pat/Notes/Zaaheen Memories");
+        let endpoint = new_endpoint(root).unwrap();
+        assert_eq!(
+            endpoint_fits(root),
+            endpoint.len() < SUN_PATH_MAX,
+            "{endpoint}"
+        );
     }
 
     /// The socket path fits macOS's 104-byte `sun_path` (NUL included) under

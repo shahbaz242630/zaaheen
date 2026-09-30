@@ -226,6 +226,34 @@ fn a_registered_sync_root_dropbox_icloud_and_google_drive_are_refused() {
     );
 }
 
+/// The Mac's cloud folders (A6): iCloud Drive, and the File Provider home of
+/// Dropbox, OneDrive, Google Drive and Box.
+#[test]
+fn the_macs_icloud_drive_and_cloud_storage_folders_are_refused() {
+    let mut m = machine();
+    m.vars.insert("HOME".into(), sys("Users/me"));
+    for f in [
+        "Users/me/Library/Mobile Documents/com~apple~CloudDocs/Notes",
+        "Users/me/Library/CloudStorage/Dropbox/x",
+        "Users/me/Library/CloudStorage/OneDrive-Personal/x",
+    ] {
+        assert_eq!(check(&m, &sys(f), 0), Err(Refusal::CloudSynced), "{f}");
+    }
+    assert!(check(&m, &sys("Users/me/Private"), 0).is_ok());
+}
+
+/// A5: on a Mac the keeper's socket lives inside the vault folder, and its
+/// path must fit the system's limit, so a folder too deep is refused when it
+/// is picked rather than failing later.
+#[cfg(not(windows))]
+#[test]
+fn a_folder_too_deep_for_the_keepers_socket_is_refused() {
+    let m = machine();
+    let deep = sys(&format!("Users/me/{}", "a".repeat(90)));
+    assert_eq!(check(&m, &deep, 0), Err(Refusal::PathTooLong));
+    assert!(check(&m, &sys("Users/me/Private"), 0).is_ok());
+}
+
 #[test]
 fn when_the_sync_list_cannot_be_read_the_person_is_told_and_decides() {
     let mut m = machine();

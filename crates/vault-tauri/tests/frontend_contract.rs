@@ -2656,6 +2656,69 @@ fn only_the_catch_up_asks_for_the_waiting_run() {
     assert!(code.contains("await invoke(\"run_maintenance_now\");"));
 }
 
+/// B6 (s78): a newer version shows one notice, and its button opens our own
+/// getting-started page from the app's closed list, never an address the
+/// account service sent.
+#[test]
+fn a_newer_version_shows_one_notice_that_opens_our_own_page() {
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let lines = js_function(&functions, "bannerLines");
+    assert!(lines.body.contains("if (view.update_available)"));
+    assert!(lines
+        .body
+        .contains("\"A new version of Zaaheen is available.\", action: \"download_update\""));
+    let click = js_function(&functions, "onBannerClick");
+    assert!(click
+        .body
+        .contains("invoke(\"open_document\", { doc: \"getting-started\" })"));
+    assert!(
+        !code.contains("latest_version"),
+        "the page never sees a version or address from the service"
+    );
+}
+
+/// B1-B4 (s78): the Mac says its own names, chosen once from the webview's
+/// user agent; the Windows words above stay pinned as they were.
+#[test]
+fn the_mac_gets_its_own_names() {
+    let code = js_code();
+    assert!(code.contains("const IS_MAC = /Macintosh/.test(navigator.userAgent);"));
+    for words in [
+        "IS_MAC ? \"your Mac's keychain\" : \"Windows Credential Manager\"",
+        "`AES-256 · key in ${KEY_STORE}`",
+        "\"That folder belongs to macOS or to an app. Choose one of your own folders.\"",
+        "\"This drive can't lock the folder to your Mac user account. Your memories stay encrypted.\"",
+        "open -e ~/.gemini/config/mcp_config.json",
+        "open -e ~/.gemini/antigravity/mcp_config.json",
+        "const unit = IS_MAC ? 1000 : 1024;",
+    ] {
+        assert!(code.contains(words), "{words}");
+    }
+}
+
+/// A consolidation engine download that broke off starts again at the next
+/// launch when consolidation is on (s78: on the test Mac it never came back).
+#[test]
+fn a_broken_off_engine_download_starts_again_at_launch() {
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let catch_up = js_function(&functions, "catchUpMaintenanceIfDue");
+    assert!(calls(&catch_up.body, "startMaintenanceFetch"));
+    let enabled_check = catch_up
+        .body
+        .find("if (!view.enabled)")
+        .expect("the catch-up checks consolidation is on");
+    let fetch = catch_up
+        .body
+        .find("startMaintenanceFetch")
+        .expect("the catch-up starts the download");
+    assert!(
+        enabled_check < fetch,
+        "only a person who turned consolidation on gets the download"
+    );
+}
+
 /// The link's state is watched from the home screen only: the welcome, lock
 /// and sign-in screens never wait for the background part (ADR-108 D6).
 #[test]

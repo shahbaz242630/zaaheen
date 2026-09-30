@@ -45,6 +45,12 @@ pub const KEEPER_TASK_ID_PREFIX: &str = "com.zaaheen.keeper.";
 /// never register different tasks and replace each other's.
 pub const KEEPER_TASK_LABEL: &str = "zaaheen-keeper-task-v1";
 
+/// The search index's memory ceiling (ADR-038), set on every keeper and
+/// maintenance run the app starts. The Windows installer also sets it for the
+/// user (ADR-091); a Mac has no installer to do that, so without this the
+/// keeper ran uncapped there (launch checklist A7, s78). Same value both ways.
+pub const LANCE_MEM_POOL_ENV: (&str, &str) = ("LANCE_MEM_POOL_SIZE", "268435456");
+
 /// The Windows-subsystem launcher the task runs (ADR-SEC-015), so no console
 /// window ever appears.
 pub const LAUNCHER_EXE: &str = if cfg!(windows) {

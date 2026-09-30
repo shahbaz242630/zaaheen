@@ -18,8 +18,10 @@
 //!   off the expected byte count (`< expected_bytes / 2` or `> expected_bytes * 2`),
 //!   abort with `DownloadFailed` (likely wrong file or redirect HTML).
 //! - **`.partial` strategy: restart-not-resume** (concern #3): any pre-existing
-//!   `.partial` from a prior crashed run is clobbered by `File::create`. No HTTP
-//!   Range header use.
+//!   `.partial` from a prior crashed run is clobbered by `File::create`.
+//!   **Amendment 1 (session 78):** WITHIN one download, a broken connection is
+//!   retried and resumes with a `Range` request from the bytes that already
+//!   arrived (same hash state); see [`download`]. Across runs it still restarts.
 //! - **Atomic finalize**: write to `.partial`, verify SHA-256 post-stream, only
 //!   `rename` to final path on hash pass. Failed hash → delete `.partial`,
 //!   return `IntegrityCheckFailed`.
@@ -27,12 +29,13 @@
 //!   `VaultLlmError::Io`. Tauri can surface the error via a fatal dialog
 //!   ("Insufficient disk space — need ~3 GB free at <path>").
 
-use futures::StreamExt;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
-use tokio::io::AsyncWriteExt;
 
 use crate::error::{VaultLlmError, VaultLlmResult};
+
+mod download;
+use download::{download_with_verify, RetryPolicy};
 
 /// 8 MB chunks for streaming hash compute — large enough that syscall overhead
 /// is negligible vs hash compute, small enough to keep RAM bounded.
@@ -163,6 +166,30 @@ pub async fn ensure_model_at_path_with_progress<F>(
 where
     F: FnMut(DownloadProgress),
 {
+    ensure_with_policy(
+        path,
+        url,
+        expected_sha256_hex,
+        expected_bytes,
+        on_progress,
+        RetryPolicy::SHIPPED,
+    )
+    .await
+}
+
+/// [`ensure_model_at_path_with_progress`] with the retry policy named (tests
+/// use a quick one).
+async fn ensure_with_policy<F>(
+    path: &Path,
+    url: &str,
+    expected_sha256_hex: &str,
+    expected_bytes: u64,
+    on_progress: F,
+    policy: RetryPolicy,
+) -> VaultLlmResult<()>
+where
+    F: FnMut(DownloadProgress),
+{
     if cached_and_verified(path, expected_sha256_hex).await? {
         return Ok(());
     }
@@ -178,7 +205,15 @@ where
         return Ok(());
     }
 
-    download_with_verify(path, url, expected_sha256_hex, expected_bytes, on_progress).await
+    download_with_verify(
+        path,
+        url,
+        expected_sha256_hex,
+        expected_bytes,
+        on_progress,
+        policy,
+    )
+    .await
 }
 
 /// `true` when `path` holds exactly the expected file. A file with the wrong
@@ -267,102 +302,6 @@ fn try_lock_exclusive(file: &std::fs::File) -> std::io::Result<bool> {
 #[allow(clippy::incompatible_msrv)]
 fn unlock(file: &std::fs::File) -> std::io::Result<()> {
     file.unlock()
-}
-
-async fn download_with_verify<F>(
-    path: &Path,
-    url: &str,
-    expected_sha256_hex: &str,
-    expected_bytes: u64,
-    mut on_progress: F,
-) -> VaultLlmResult<()>
-where
-    F: FnMut(DownloadProgress),
-{
-    let file_label = display_label(path);
-    tracing::info!(
-        file = %file_label,
-        url = %url,
-        expected_bytes = expected_bytes,
-        "starting model download"
-    );
-
-    let resp = reqwest::get(url)
-        .await
-        .map_err(|e| VaultLlmError::DownloadFailed(format!("HTTP GET {url}: {e}")))?
-        .error_for_status()
-        .map_err(|e| VaultLlmError::DownloadFailed(format!("HTTP non-2xx: {e}")))?;
-
-    // Streaming-abort heuristic per ADR-043 / iteration 2 concern #2 —
-    // reject obvious-mismatch early to save bandwidth on a clearly-wrong
-    // payload (e.g., HF served a redirect HTML page, or pinned URL points
-    // at a different quantization variant).
-    if let Some(cl) = resp.content_length() {
-        let cl_low = expected_bytes / 2;
-        let cl_high = expected_bytes.saturating_mul(2);
-        if cl < cl_low || cl > cl_high {
-            return Err(VaultLlmError::DownloadFailed(format!(
-                "Content-Length {cl} bytes wildly off expected ~{expected_bytes} bytes \
-                 (acceptable range [{cl_low}, {cl_high}]) — aborting (likely wrong file or redirect HTML)"
-            )));
-        }
-    }
-
-    // Restart-not-resume: create truncates any pre-existing .partial.
-    let partial_path = partial_path_for(path);
-    let mut file = tokio::fs::File::create(&partial_path).await?;
-    let mut hasher = Sha256::new();
-    let mut stream = resp.bytes_stream();
-
-    let mut downloaded: u64 = 0;
-    let mut last_reported: u64 = 0;
-
-    while let Some(chunk_result) = stream.next().await {
-        let chunk = chunk_result
-            .map_err(|e| VaultLlmError::DownloadFailed(format!("stream chunk: {e}")))?;
-        hasher.update(&chunk);
-        file.write_all(&chunk).await?;
-
-        downloaded = downloaded.saturating_add(chunk.len() as u64);
-        if downloaded - last_reported >= PROGRESS_EMIT_INTERVAL_BYTES {
-            last_reported = downloaded;
-            on_progress(DownloadProgress {
-                downloaded_bytes: downloaded,
-                total_bytes: expected_bytes,
-            });
-        }
-    }
-    file.flush().await?;
-    drop(file);
-
-    // Always land on a final report. Without this the last partial interval
-    // would leave a progress bar short of 100% while the (potentially long)
-    // hash verification runs, which reads as a stall.
-    if downloaded != last_reported {
-        on_progress(DownloadProgress {
-            downloaded_bytes: downloaded,
-            total_bytes: expected_bytes,
-        });
-    }
-
-    let actual = hex::encode(hasher.finalize());
-    if actual != expected_sha256_hex {
-        // Fail-closed: remove the (now-tainted) .partial file.
-        let _ = std::fs::remove_file(&partial_path);
-        return Err(VaultLlmError::IntegrityCheckFailed {
-            file: file_label,
-            expected: expected_sha256_hex.to_string(),
-            actual,
-        });
-    }
-
-    tokio::fs::rename(&partial_path, path).await?;
-    tracing::info!(
-        file = %file_label,
-        sha256 = %actual,
-        "model downloaded + integrity verified"
-    );
-    Ok(())
 }
 
 /// Build the in-flight download path by APPENDING `.partial` to the full file
@@ -495,11 +434,21 @@ mod tests {
         // unreachable URL. The post-condition we assert is the file is
         // GONE (proving step 3) AND the result is Err (proving step 5).
         let wrong_expected = "0000000000000000000000000000000000000000000000000000000000000000";
-        let result = ensure_model_at_path(
+        // An unreachable server is retried (amendment 1): a quick policy keeps
+        // this test inside its time budget.
+        const QUICK: RetryPolicy = RetryPolicy {
+            attempts: 2,
+            backoff: &[std::time::Duration::from_millis(10)],
+            idle_limit: std::time::Duration::from_secs(1),
+            connect_limit: std::time::Duration::from_secs(1),
+        };
+        let result = ensure_with_policy(
             &path,
             "http://127.0.0.1:1/never-reached.bin",
             wrong_expected,
             13, // "wrong content" is 13 bytes
+            |_| {},
+            QUICK,
         )
         .await;
         assert!(result.is_err(), "download to unreachable URL must fail");

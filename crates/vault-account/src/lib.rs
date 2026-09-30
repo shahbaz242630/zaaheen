@@ -43,6 +43,7 @@
 //! supplied.
 
 mod account;
+pub mod app_version;
 mod checkout_client;
 mod config;
 mod entitlement;
@@ -67,7 +68,9 @@ pub use entitlement::{
     Denial, Entitlement, LocalState,
 };
 pub use error::{AccountError, AccountResult};
-pub use files::{AccountDir, RefreshLock, LEASE_FILE, LOCK_FILE, MARKER_FILE, STATE_FILE};
+pub use files::{
+    AccountDir, RefreshLock, LATEST_VERSION_FILE, LEASE_FILE, LOCK_FILE, MARKER_FILE, STATE_FILE,
+};
 pub use lease::{
     Lease, LeaseKey, LeaseState, LeaseVerifier, LEASE_DOMAIN, LEASE_VERSION, MAX_LEASE_BYTES,
     MAX_OFFLINE_DAYS,

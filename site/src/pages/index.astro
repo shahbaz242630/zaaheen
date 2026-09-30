@@ -1,10 +1,10 @@
 ---
 import Base from '../layouts/Base.astro';
 import Placeholder from '../components/Placeholder.astro';
+import Download from '../components/Download.astro';
 import { DEMO_APPS, FAQ, RELEASE, TRIAL, VERIFIED_APPS, pageFor, verifiedAppList } from '../data/site';
 
 const page = pageFor('/');
-const win = RELEASE.windows;
 const apps = verifiedAppList();
 
 // Example memories for the demo window and the before-and-after. They show the
@@ -33,10 +33,8 @@ const START = [
          Your memories are kept safe on your own computer, encrypted, and you decide which
          apps can read them.</p>
       <div class="cta-row">
-        {RELEASE.available
-          ? <a class="cta" href={win.url} download>Download for Windows</a>
-          : <span class="cta cta-soon">Coming soon for Windows</span>}
-        <span class="cta-meta">{RELEASE.stage} · {RELEASE.version}{RELEASE.available ? ` · ${win.size}` : ""}</span>
+        <Download />
+        <span class="cta-meta">{RELEASE.stage} · {RELEASE.version}</span>
       </div>
     </div>
 
@@ -146,16 +144,15 @@ const START = [
           <p class="eyebrow">How it works</p>
           <h2>Set it up once. Every app remembers after that.</h2>
         </div>
-        {RELEASE.available
-          ? <a class="cta cta-sm" href={win.url} download>Download for Windows</a>
-          : <span class="cta cta-sm cta-soon">Coming soon for Windows</span>}
+        <Download small />
+
       </div>
       <ol class="steps">
         <li class="step">
           <div class="step-text">
             <span class="step-no">01</span>
             <h3>Install and sign in</h3>
-            <p>Download the app for Windows, then create an account or sign in from it. Your
+            <p>Download the app for Windows or Mac, then create an account or sign in from it. Your
                {TRIAL.days}-day free trial starts the first time you sign in from the Zaaheen app,
                and no card is needed. Your account never holds your memories.</p>
           </div>

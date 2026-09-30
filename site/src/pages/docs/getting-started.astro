@@ -7,6 +7,7 @@ import { RELEASE, TRIAL } from '../../data/site';
 // crates/vault-tauri/dist/app.js; the /docs/ hub's Getting started keeps a
 // short version that links here).
 const win = RELEASE.windows;
+const mac = RELEASE.mac;
 const OUTLINE = [
   { id: 'before', title: 'Before you start' },
   { id: 'install', title: 'Install' },
@@ -16,19 +17,21 @@ const OUTLINE = [
 ---
 <Guide
   path="/docs/getting-started/"
-  lede={`Download the Zaaheen installer for Windows, open it, then choose Begin set up. Setting up takes about three minutes: you sign in from the app, which starts your ${TRIAL.days}-day free trial (no card needed), choose where your memories live, and connect your first AI app.`}
+  lede={`Download Zaaheen for Windows or Mac and install it, then choose Begin set up. Setting up takes about three minutes: you sign in from the app, which starts your ${TRIAL.days}-day free trial (no card needed), choose where your memories live, and connect your first AI app.`}
   outline={OUTLINE}
 >
   <section class="docs-section">
-    <Row level={2} id="before" title="Before you start" where="Windows">
-      {!RELEASE.available && <p><strong>Zaaheen for Windows is coming soon.</strong> These steps are
-         how it works once you can download it.</p>}
-      <p>Zaaheen {RELEASE.version} is a {RELEASE.stage.toLowerCase()} for {win.arch} Windows and has
-         been tested on {win.tested}. It is not available for macOS or Linux yet.</p>
+    <Row level={2} id="before" title="Before you start" where="Windows or Mac">
+      {!RELEASE.available && <p><strong>Zaaheen for Windows and Mac is coming soon.</strong> These
+         steps are how it works once you can download it.</p>}
+      <p>Zaaheen {RELEASE.version} is a {RELEASE.stage.toLowerCase()} for {win.arch} Windows, tested
+         on {win.tested}, and for Macs with an Apple chip, M1 or newer, tested on {mac.tested}. It is
+         not available for Linux or phones yet.</p>
     </Row>
 
-    <Row level={2} id="install" title="Install" where="Windows installer">
-      <p>Open the installer you downloaded. Two things happen while it installs:</p>
+    <Row level={2} id="install" title="Install" where="Windows or Mac">
+      <p><strong>On Windows,</strong> open the installer you downloaded. Two things happen while it
+         installs:</p>
       <ul>
         <li><strong>Windows says the publisher is unknown.</strong> Zaaheen is in beta, and the
             installer is not code-signed yet; signing comes before the full launch. Choose
@@ -36,6 +39,15 @@ const OUTLINE = [
         <li><strong>Windows asks for administrator permission.</strong> Zaaheen installs for everyone
             on the computer, so Windows asks once. It does not need administrator rights to run
             afterwards.</li>
+      </ul>
+      <p><strong>On a Mac,</strong> open the disk image you downloaded, drag Zaaheen into the
+         Applications folder, then open Zaaheen from Applications. Zaaheen only runs from there.</p>
+      <ul>
+        <li><strong>Your Mac asks whether to open an app downloaded from the internet.</strong> It
+            names the developer. The Mac app is signed and checked by Apple. Choose
+            <em>Open</em>.</li>
+        <li><strong>Your Mac may ask whether Zaaheen can use your keychain.</strong> That is where
+            the key to your memories is kept. Choose <em>Always Allow</em>.</li>
       </ul>
     </Row>
 

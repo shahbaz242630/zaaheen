@@ -5,7 +5,8 @@ import { COMPANY, SITE } from '../data/site';
 
 // How Zaaheen protects your memories (founder, session 67; both research
 // reports: "Security page, recommended"). Facts checked in session 67: the
-// vault is encrypted at rest with its key in Windows Credential Manager;
+// vault is encrypted at rest with its key in Windows Credential Manager (on a
+// Mac, the login keychain: ADR-SEC-038, session 78);
 // Delete everything is cryptographic erasure (vault-app erasure.rs); sign-in
 // is OAuth with PKCE in the browser (vault-account); the keeper's named pipe
 // rejects remote clients (vault-app keeper/transport.rs); the account Worker
@@ -51,10 +52,11 @@ const lede = `${SITE.name} is built so that your memories are safe even if somet
          see only scrambled data.</p>
     </Row>
 
-    <Row id="key" title={topic('key')} where="Windows">
-      <p>The key that unlocks your memories is created on your computer and kept in Windows' own
-         secure store for your user account. It is never uploaded, never sent to us, and never
-         written into the memory folder itself.</p>
+    <Row id="key" title={topic('key')} where="Your computer">
+      <p>The key that unlocks your memories is created on your computer and kept in its own
+         secure store for your user account: Windows Credential Manager on Windows, and your
+         login keychain on a Mac. It is never uploaded, never sent to us, and never written
+         into the memory folder itself.</p>
     </Row>
 
     <Row id="local-only" title={topic('local-only')} where="Local only">
@@ -62,8 +64,8 @@ const lede = `${SITE.name} is built so that your memories are safe even if somet
          refuses connections from other computers and opens nothing to the internet, and each
          app has to introduce itself before Zaaheen answers.</p>
       <p>This also means Zaaheen cannot protect your memories from harmful software already
-         running on your computer, or from someone who can sign in to your Windows account. Keep
-         Windows up to date and your account protected with a password or PIN.</p>
+         running on your computer, or from someone who can sign in to your user account on it.
+         Keep Windows or macOS up to date and your account protected with a password or PIN.</p>
     </Row>
 
     <Row id="erase" title={topic('erase')} where="Settings › Your memories">
@@ -79,7 +81,7 @@ const lede = `${SITE.name} is built so that your memories are safe even if somet
 
     <Row id="sign-in" title={topic('sign-in')} where="Your browser">
       <p>You sign in through your own web browser, so the app never sees your password. It
-         receives a sign-in token, kept in Windows' secure store, which it uses only to check your
+         receives a sign-in token, kept in your computer's secure store, which it uses only to check your
          subscription. Signing in has nothing to do with the key to your memories.</p>
     </Row>
 
@@ -95,9 +97,10 @@ const lede = `${SITE.name} is built so that your memories are safe even if somet
     <h2 class="docs-title">Reporting a problem</h2>
 
     <Row id="beta" title={topic('beta')} where="Beta">
-      <p>While Zaaheen is in beta, its Windows installer is not yet code-signed, which is why
-         Windows says the publisher is unknown when you install it. Signing comes before the full
-         launch.</p>
+      <p>The Mac app is signed by us and checked by Apple, so your Mac can confirm it came from
+         us and has not been changed. While Zaaheen is in beta, its Windows installer is not yet
+         code-signed, which is why Windows says the publisher is unknown when you install it.
+         Signing the Windows installer comes before the full launch.</p>
     </Row>
 
     <Row id="vulnerability" title={topic('vulnerability')} where="Email">

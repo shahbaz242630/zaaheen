@@ -66,6 +66,9 @@ pub const ERR_ACCOUNT_BAD_PLAN: &str = "account_bad_plan";
 /// not be prepared when it started (ADR-SEC-023/028). Reopening the app is
 /// the remedy, so it has its own line rather than "try again".
 pub const ERR_ACCOUNT_UNAVAILABLE: &str = "account_unavailable";
+/// Opaque error code: this computer's secure storage (Credential Manager, the
+/// Mac's keychain) could not be used — on a Mac, usually a locked keychain.
+pub const ERR_ACCOUNT_CREDENTIAL_STORE: &str = "account_credential_store";
 
 /// Every code this module can return, for the test that pins each one to a
 /// plain-English line in the desktop bundle.
@@ -76,6 +79,7 @@ pub const ALL_CODES: &[&str] = &[
     ERR_ACCOUNT_REFUSED,
     ERR_ACCOUNT_BAD_PLAN,
     ERR_ACCOUNT_UNAVAILABLE,
+    ERR_ACCOUNT_CREDENTIAL_STORE,
 ];
 
 /// The account the commands act on: the one the lock asks, or nothing
@@ -170,6 +174,7 @@ fn code_for(error: OpsError) -> String {
         OpsError::SignInDidNotFinish => ERR_SIGN_IN_DID_NOT_FINISH,
         OpsError::Busy => ERR_ACCOUNT_BUSY,
         OpsError::Unreachable => ERR_ACCOUNT_UNREACHABLE,
+        OpsError::CredentialStore => ERR_ACCOUNT_CREDENTIAL_STORE,
         // A link this app refused to open is not something the person can act
         // on differently, so it reads as the same generic refusal.
         OpsError::Refused | OpsError::Link(_) => ERR_ACCOUNT_REFUSED,
@@ -187,6 +192,7 @@ fn wire(view: &AccountView) -> serde_json::Value {
         "state": view.state,
         "days_left": view.days_left,
         "clock_wrong": view.clock_wrong,
+        "update_available": view.update_available,
     })
 }
 
@@ -372,20 +378,26 @@ mod tests {
             ERR_SIGN_IN_DID_NOT_FINISH
         );
         assert_eq!(code_for(OpsError::Refused), ERR_ACCOUNT_REFUSED);
+        assert_eq!(
+            code_for(OpsError::CredentialStore),
+            ERR_ACCOUNT_CREDENTIAL_STORE
+        );
     }
 
-    /// The wire shape is an allowlist: five named fields and nothing else, so
+    /// The wire shape is an allowlist: six named fields and nothing else, so
     /// a field added to `AccountView` tomorrow does not reach the webview
     /// until somebody adds it here on purpose. (Four until §8.38 added the
-    /// clock notice, deliberately.)
+    /// clock notice, five until B6 added the new-version notice, both
+    /// deliberately.)
     #[test]
-    fn the_wire_shape_carries_exactly_five_fields() {
+    fn the_wire_shape_carries_exactly_six_fields() {
         let view = AccountView {
             signed_in: true,
             email: Some("someone@example.test".into()),
             state: "trial",
             days_left: Some(7),
             clock_wrong: true,
+            update_available: true,
         };
         let json = wire(&view);
         let object = json.as_object().expect("the view serialises to an object");
@@ -393,9 +405,17 @@ mod tests {
         keys.sort_unstable();
         assert_eq!(
             keys,
-            ["clock_wrong", "days_left", "email", "signed_in", "state"]
+            [
+                "clock_wrong",
+                "days_left",
+                "email",
+                "signed_in",
+                "state",
+                "update_available"
+            ]
         );
         assert_eq!(object["clock_wrong"], serde_json::Value::Bool(true));
+        assert_eq!(object["update_available"], serde_json::Value::Bool(true));
     }
 
     /// The lock-state answer is two fields, and `locked` is either `null` or

@@ -99,7 +99,9 @@ const crumbList = (graph) => {
 // The app on sale: an installer link on the home page (RELEASE.available in
 // src/data/site.ts). Only then must a release build take live payments. The
 // link carries no words, so the page's text, and so its date, stay the same.
-const installerLink = inject('<a href="https://dl.zaaheen.com/Zaaheen_x.msi" aria-label="x"></a>');
+const installerLink = inject('<a href="https://dl.zaaheen.com/Zaaheen_x.msi" aria-label="x"></a><a href="https://dl.zaaheen.com/Zaaheen_x.dmg" aria-label="x"></a>');
+// On sale with the Windows installer only, no Mac disk image.
+const windowsOnlyLink = inject('<a href="https://dl.zaaheen.com/Zaaheen_x.msi" aria-label="x"></a>');
 // An on-sale build also shows "Get started" in every page's header.
 const onSale = (d) => {
   installerLink(d);
@@ -157,6 +159,9 @@ const cases = [
   ['header sign-up link while not on sale', edit('index.html', (s) => s.replace('</header>', '<a href="https://account.zaaheen.com/sign-up/">Join</a></header>')), /index\.html: the header links to sign-up while the app is not on sale/],
   ['header Get started missing when on sale', installerLink, /index\.html: header "Get started" must link to https:\/\/account\.zaaheen\.com\/sign-up\/ \(found no link\)/],
   ['header Get started elsewhere when on sale', (d) => { onSale(d); headerHref('bar-start', 'https://evil.example/sign-up/')(d); }, /index\.html: header "Get started" must link to https:\/\/account\.zaaheen\.com\/sign-up\/ \(found https:\/\/evil\.example/],
+  // Windows and Mac together (founder, session 78).
+  ['header says Windows only while not on sale', edit('index.html', (s) => { const out = s.replace('Coming soon for Windows and Mac', 'Coming soon for Windows'); if (out === s) throw new Error('audit.test: no two-platform label'); return out; }), /index\.html: the header must say "Coming soon for Windows and Mac" while the app is not on sale/],
+  ['on sale without the Mac download', (d) => { windowsOnlyLink(d); }, /index\.html: the app is on sale but the home page does not link the Mac disk image \(\.dmg\)/],
   ['header Sign in removed', edit('index.html', (s) => s.replace(/<a\b[^>]*\bbar-signin\b[^>]*>[\s\S]*?<\/a>/, '')), /index\.html: header "Sign in" must link to/],
   ['sign-in forward missing', edit('.htaccess', (s) => s.replace(/^.*account\.zaaheen\.com.*$/gm, '')), /\.htaccess: \/sign-in and \/sign-up must forward to the account origin/],
   ['sign-in forward keeps the query', edit('.htaccess', (s) => s.replace('account.zaaheen.com/sign-$1/?', 'account.zaaheen.com/sign-$1/')), /\.htaccess: \/sign-in and \/sign-up must forward to the account origin/],

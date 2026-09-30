@@ -81,6 +81,18 @@ fn every_lease_state_maps_to_its_own_string() {
     }
 }
 
+/// B6: the "new version" bar compares against this app's own version, so it
+/// must be a plain release number, or the bar could never appear.
+#[test]
+fn this_apps_version_is_a_plain_release_number() {
+    assert!(
+        vault_account::app_version::parse_release(env!("CARGO_PKG_VERSION")).is_some(),
+        "{}",
+        env!("CARGO_PKG_VERSION")
+    );
+    assert!(!AccountOps::cannot_confirm().update_available);
+}
+
 #[test]
 fn a_signed_out_computer_reads_as_signed_out_and_keeps_no_address() {
     let view = AccountOps::view_of(Status::SignedOut, Some("someone@example.test".into()));
@@ -174,6 +186,14 @@ fn account_errors_map_by_kind_and_never_carry_a_message() {
     assert_eq!(
         OpsError::from(AccountError::Protocol("server said something odd".into())),
         OpsError::Refused
+    );
+    // A locked or broken keychain has its own line (s78, A3), not the generic
+    // "That didn't go through".
+    assert_eq!(
+        OpsError::from(AccountError::Keychain(
+            "Platform failure: User interaction is not allowed.".into()
+        )),
+        OpsError::CredentialStore
     );
 
     let shown = format!(

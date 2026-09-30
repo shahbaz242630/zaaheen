@@ -9,6 +9,12 @@ const rawInvoke = window.__TAURI__ && window.__TAURI__.core
   ? window.__TAURI__.core.invoke
   : async () => { throw new Error("vault engine not connected (running outside Tauri)"); };
 
+// The Mac says its own names (launch checklist B1-B4, s78). The Windows words
+// are unchanged and stay pinned by tests/frontend_contract.rs. WebKit on a
+// Mac reports "Macintosh" in its user agent; Windows' WebView2 never does.
+const IS_MAC = /Macintosh/.test(navigator.userAgent);
+const KEY_STORE = IS_MAC ? "your Mac's keychain" : "Windows Credential Manager";
+
 // Every gated command can reject with one of the `locked_*` codes, and there
 // are ~15 places that render a caught error straight into the page. Rather
 // than teach each of them about entitlement, handle it once here:
@@ -158,8 +164,8 @@ function confirmAction({ title, body, confirmLabel }) {
 // welcome animation replays them, it does not fake them.
 const CHECK_DEFS = [
   {
-    phases: ["locating vault store", "deriving key from Credential Manager", "unsealing store with AES-256"],
-    done: "vault unsealed with AES-256, key in Windows Credential Manager",
+    phases: ["locating vault store", IS_MAC ? "deriving key from the keychain" : "deriving key from Credential Manager", "unsealing store with AES-256"],
+    done: `vault unsealed with AES-256, key in ${KEY_STORE}`,
   },
   // White-label rule (founder, 2026-07-11): never name the underlying
   // models or stack in the UI — the user-facing promise is "on-device".
@@ -348,7 +354,7 @@ function renderMaintEngineStatus() {
       } else {
         note.classList.remove("hidden");
         if (maintFetch.failed) {
-          note.textContent = "The consolidation engine didn't finish downloading. It will retry when you turn consolidation on, or on the next scheduled run.";
+          note.textContent = "The consolidation engine didn't finish downloading. With consolidation on, it tries again the next time you open Zaaheen.";
         } else if (maintFetch.active) {
           note.textContent = `Preparing the consolidation engine (${maintFetch.percent}%). Step 3 becomes available once it is ready.`;
         } else {
@@ -408,7 +414,13 @@ const AGENTS = [
   { name: "ChatGPT", desc: "The ChatGPT app for your computer, in Work and Codex", hint: "In ChatGPT, open Settings, then Integrations, then Plugins. Choose Add, then Add MCP Server, and fill it in as below. Put mcp and serve in Arguments as two separate items. Save it, then use Zaaheen in ChatGPT's Work or Codex mode (its Chat mode can't connect to apps on your computer):", snippet: SNIPPET_FORM },
   // Broken into steps, each line to type in its own copy box (founder,
   // session 64: "break it down .. and make type notepad commands copy able").
-  { name: "Antigravity", desc: "Google's AI app and code editor", hint: "First open its settings file in Notepad: press Windows and R together, paste the line for your Antigravity, and press Enter.", openers: [
+  { name: "Antigravity", desc: "Google's AI app and code editor", hint: IS_MAC
+    ? "First open its settings file in TextEdit: open Terminal, paste the line for your Antigravity, and press Return."
+    : "First open its settings file in Notepad: press Windows and R together, paste the line for your Antigravity, and press Enter.", openers: IS_MAC ? [
+    // The file may not exist yet: made empty first, as Notepad offers to.
+    { label: "Antigravity app", command: "mkdir -p ~/.gemini/config && touch ~/.gemini/config/mcp_config.json && open -e ~/.gemini/config/mcp_config.json" },
+    { label: "Antigravity IDE", command: "mkdir -p ~/.gemini/antigravity && touch ~/.gemini/antigravity/mcp_config.json && open -e ~/.gemini/antigravity/mcp_config.json" },
+  ] : [
     { label: "Antigravity app", command: "notepad %USERPROFILE%\\.gemini\\config\\mcp_config.json" },
     { label: "Antigravity IDE", command: "notepad %USERPROFILE%\\.gemini\\antigravity\\mcp_config.json" },
   ], pasteHint: "Then paste this in. If the file already lists other apps, add the zaaheen part next to them. Save it, then close Antigravity fully and open it again:", snippet: SNIPPET_JSON },
@@ -1425,7 +1437,7 @@ async function renderSettings() {
   const n = Number(info.memory_count) || 0;
   const b = Number(info.boundary_count) || 0;
   const rows = [
-    { label: "Encryption", value: "AES-256 · key in Windows Credential Manager", good: true },
+    { label: "Encryption", value: `AES-256 · key in ${KEY_STORE}`, good: true },
     { label: "Vault location", value: info.data_dir },
     {
       label: "Stored",
@@ -1820,10 +1832,12 @@ function renderMoving(answer) {
   document.querySelector("#screen-moving .moving-bar").setAttribute("aria-valuenow", String(rounded));
 }
 
-// Sizes as Windows shows them (1 MB = 1,048,576 bytes).
+// Sizes as the system shows them: Windows counts 1 MB = 1,048,576 bytes, the
+// Mac's Finder 1 MB = 1,000,000 (B3).
 function formatBytes(bytes) {
-  const mb = bytes / 1048576;
-  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
+  const unit = IS_MAC ? 1000 : 1024;
+  const mb = bytes / (unit * unit);
+  if (mb >= unit) return `${(mb / unit).toFixed(1)} GB`;
   if (mb >= 10) return `${Math.round(mb)} MB`;
   return `${mb.toFixed(1)} MB`;
 }
@@ -2220,6 +2234,12 @@ function bannerLines(view) {
   if (view.clock_wrong) {
     lines.push({ text: "Your computer's clock is wrong. Set it to update automatically." });
   }
+  // Launch checklist B6: the button opens our own getting-started page, which
+  // holds the download; the address comes from the app's closed list, never
+  // from the account service.
+  if (view.update_available) {
+    lines.push({ text: "A new version of Zaaheen is available.", action: "download_update", label: "Download" });
+  }
   return lines;
 }
 
@@ -2255,6 +2275,10 @@ function onBannerClick(e) {
   if (!button) return;
   if (button.dataset.action === "update_card") {
     onManage();
+    return;
+  }
+  if (button.dataset.action === "download_update") {
+    invoke("open_document", { doc: "getting-started" }).catch(() => {});
     return;
   }
   // Subscribing from the trial banner happens in Settings, beside the plans.
@@ -2366,7 +2390,9 @@ function friendlyLocationError(code) {
     case "location_drive_root":
       return "Choose a folder on that drive, not the drive itself.";
     case "location_system_folder":
-      return "That folder belongs to Windows or to a program. Choose one of your own folders.";
+      return IS_MAC
+        ? "That folder belongs to macOS or to an app. Choose one of your own folders."
+        : "That folder belongs to Windows or to a program. Choose one of your own folders.";
     case "location_app_folder":
       return "That folder is one of Zaaheen's own. Choose one of your own folders.";
     case "location_cloud_synced":
@@ -2377,6 +2403,8 @@ function friendlyLocationError(code) {
       return "Zaaheen can't save files in that folder. Choose another one.";
     case "location_not_enough_space":
       return "There isn't enough free space there for your memories. Free up some space, or choose another drive.";
+    case "location_path_too_long":
+      return "That folder is too many folders deep for Zaaheen. Choose a folder nearer the top, such as one in your home folder.";
     case "location_old_copy_waiting":
       return "Zaaheen is still removing the old copy from your last move. You can move your memories again once it's gone.";
     case "location_move_waiting":
@@ -2447,7 +2475,9 @@ function outcomeLines(atStart) {
     case "moved": {
       const lines = [`Your memories are now kept in ${atStart.to}.`];
       if (atStart.not_restricted) {
-        lines.push("This drive can't lock the folder to your Windows account. Your memories stay encrypted.");
+        lines.push(IS_MAC
+          ? "This drive can't lock the folder to your Mac user account. Your memories stay encrypted."
+          : "This drive can't lock the folder to your Windows account. Your memories stay encrypted.");
       }
       if (atStart.old_copy_waiting) {
         lines.push("Zaaheen couldn't remove the old copy yet. It will try again the next time it opens.");
@@ -2776,6 +2806,8 @@ function friendlyAccountError(code) {
       return "That plan isn't one we offer.";
     case "account_unavailable":
       return "Zaaheen couldn't reach your account on this computer. Close Zaaheen and open it again.";
+    case "account_credential_store":
+      return "Zaaheen couldn't use this computer's secure storage. On a Mac, open Keychain Access, unlock your login keychain, then try again.";
     case "export_bad_destination":
       return "That isn't somewhere Zaaheen can save the file. Try a different folder.";
     case "export_read_failed":
@@ -2955,8 +2987,13 @@ async function catchUpMaintenanceIfDue() {
   } catch { return; }
   if (!view.enabled) { catchUpDone = true; return; }
   // Engine not ready yet — leave the flag unset so a later call (once the
-  // download finishes) can still catch up this session.
-  if (!view.engine_ready && !maintFetch.done) return;
+  // download finishes) can still catch up this session. Consolidation is on,
+  // so the person already chose the download: an earlier one that broke off
+  // (s77, the test Mac) starts again here instead of waiting for the night.
+  if (!view.engine_ready && !maintFetch.done) {
+    startMaintenanceFetch();
+    return;
+  }
 
   const intervalMs = view.frequency === "weekly" ? 7 * 864e5 : 864e5;
   const last = view.last_run && view.last_run.ok ? Date.parse(view.last_run.finished_at) : 0;

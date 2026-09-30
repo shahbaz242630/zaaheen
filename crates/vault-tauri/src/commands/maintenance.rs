@@ -70,10 +70,11 @@ pub const MAINTENANCE_TASK_ID: &str = "com.zaaheen.maintenance";
 /// White-label description the OS scheduler may show (ADR-086).
 pub const MAINTENANCE_LABEL: &str = "Zaaheen automatic maintenance";
 
-/// The LANCE memory-pool env var the run needs (ADR-038). The Windows installer
-/// sets it per-user (ADR-091) and Task Scheduler inherits it; we still put it in
-/// the spec so macOS/Linux, whose backends inject env directly, are covered.
-const LANCE_MEM_POOL_ENV: (&str, &str) = ("LANCE_MEM_POOL_SIZE", "268435456");
+// The LANCE memory-pool env var the run needs (ADR-038). The Windows installer
+// sets it per-user (ADR-091) and Task Scheduler inherits it; we still put it in
+// the spec so macOS/Linux, whose backends inject env directly, are covered.
+// One definition with the keeper's starters (A7).
+use vault_app::keeper::LANCE_MEM_POOL_ENV;
 
 /// Progress event channel for the Phi-4 (maintenance-engine) download.
 pub const MAINTENANCE_PROGRESS_EVENT: &str = "maintenance-engine://progress";
@@ -370,6 +371,18 @@ pub fn heal_registered_task(ctx: &MaintenanceContext) {
             "maintenance task refreshed to the current runner"
         ),
         Err(e) => tracing::warn!(error = %e, "could not refresh the maintenance task"),
+    }
+}
+
+/// Remove the system's nightly maintenance job, if there is one ("Delete
+/// everything", A8). Never fatal: logs what happened.
+pub fn remove_scheduled_task() {
+    let Ok(task_id) = TaskId::new(MAINTENANCE_TASK_ID) else {
+        return;
+    };
+    match platform_scheduler().and_then(|s| s.unregister(&task_id)) {
+        Ok(()) => tracing::info!("the nightly maintenance task was removed with the memories"),
+        Err(e) => tracing::warn!(error = %e, "could not remove the nightly maintenance task"),
     }
 }
 

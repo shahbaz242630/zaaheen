@@ -56,6 +56,14 @@ jobs:
       - name: Install the Tauri CLI (the version the Windows build uses)
         run: cargo install tauri-cli --version 2.11.0 --locked
 
+      # The Mac app ships its own open-source notices (launch checklist A11):
+      # never a copy that differs from the committed, reviewed file.
+      - name: The Mac open-source notices are up to date
+        shell: pwsh
+        run: |
+          cargo install cargo-about --version 0.9.2 --locked --features cli
+          ./scripts/gen-licence-notices.ps1 -Mac -Check
+
       # The Developer ID certificate goes into a throwaway keychain that is
       # deleted at the end of the job (last step, always).
       - name: Import the Developer ID certificate
@@ -81,15 +89,24 @@ jobs:
       # Tauri signs the app's own binary; the two command-line programs and
       # the ONNX Runtime library are signed here first, hardened and
       # timestamped, so notarisation accepts every executable in the bundle.
+      #
+      # The two programs carry the APP's identifier (ADR-SEC-038 amendment 1,
+      # s78): the login keychain trusts an item's creator by its designated
+      # requirement (identifier + team), so with one identifier the window,
+      # the keeper and the nightly run are one app to macOS and never ask the
+      # person "allow access?" about each other's items.
       - name: Sign the command-line programs and ONNX Runtime
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
-          for f in target/release/zaaheen target/release/zaaheen-maintenance \
-                   crates/vault-embedding/test-fixtures/bge-small-en-v1.5/libonnxruntime.dylib; do
-            codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$f"
+          for f in target/release/zaaheen target/release/zaaheen-maintenance; do
+            codesign --force --options runtime --timestamp --identifier com.zaaheen.app \
+              --sign "$APPLE_SIGNING_IDENTITY" "$f"
             codesign --verify --strict --verbose=2 "$f"
           done
+          f=crates/vault-embedding/test-fixtures/bge-small-en-v1.5/libonnxruntime.dylib
+          codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$f"
+          codesign --verify --strict --verbose=2 "$f"
 
       - name: Build, sign and notarise Zaaheen.app
         working-directory: crates/vault-tauri
@@ -121,6 +138,13 @@ jobs:
           done
           xcrun stapler validate "$APP"
           spctl --assess --type execute --verbose=4 "$APP"
+          # One app to the keychain: all three programs, one designated requirement.
+          reqs=$(for f in zaaheen-desktop zaaheen zaaheen-maintenance; do
+            codesign -d -r- "$APP/Contents/MacOS/$f" 2>&1 | grep '^designated'
+          done | sort -u)
+          echo "$reqs"
+          test "$(printf '%s\n' "$reqs" | wc -l | tr -d ' ')" = 1 || { echo "the programs differ in identity"; exit 1; }
+          printf '%s\n' "$reqs" | grep -q 'identifier "com.zaaheen.app"' || { echo "not the app identifier"; exit 1; }
 
       - name: The bundle holds what the app needs, and links nothing outside macOS
         run: |
@@ -132,6 +156,10 @@ jobs:
           test -s "$APP/Contents/Resources/libs/libonnxruntime.dylib"
           test -s "$APP/Contents/Resources/models/model.onnx"
           test -s "$APP/Contents/Resources/models/tokenizer.json"
+          # The Mac's own README and notices, not the Windows installer's.
+          grep -q "/Applications/Zaaheen.app/Contents/MacOS/zaaheen" "$APP/Contents/Resources/README.txt"
+          grep -q "apple-native-keyring-store" "$APP/Contents/Resources/THIRD-PARTY-NOTICES.txt"
+          grep -q "libonnxruntime.dylib" "$APP/Contents/Resources/THIRD-PARTY-NOTICES.txt"
           bad=0
           for f in "$APP"/Contents/MacOS/*; do
             echo "== $f"; otool -L "$f"
@@ -147,10 +175,39 @@ jobs:
       - name: Pack
         run: ditto -c -k --keepParent target/release/bundle/macos/Zaaheen.app Zaaheen-mac-test.zip
 
+      # The customer's download (launch checklist A10): a disk image holding
+      # Zaaheen.app and an Applications shortcut to drag it onto. Made with
+      # hdiutil (no Finder scripting on a headless runner), then signed,
+      # notarised and stapled like the app, so it opens with no warning even
+      # offline.
+      - name: Make the Mac download (.dmg), signed, notarised and stapled
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          STAGE="$RUNNER_TEMP/dmg"
+          rm -rf "$STAGE" && mkdir -p "$STAGE"
+          ditto target/release/bundle/macos/Zaaheen.app "$STAGE/Zaaheen.app"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname Zaaheen -srcfolder "$STAGE" -ov -format UDZO Zaaheen-mac-test.dmg
+          codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" Zaaheen-mac-test.dmg
+          KEY="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s\n' "$APPLE_API_KEY_P8" > "$KEY"
+          xcrun notarytool submit Zaaheen-mac-test.dmg --key "$KEY" --key-id "$APPLE_API_KEY" \
+            --issuer "$APPLE_API_ISSUER" --wait --timeout 60m
+          rm -f "$KEY"
+          xcrun stapler staple Zaaheen-mac-test.dmg
+          xcrun stapler validate Zaaheen-mac-test.dmg
+          spctl --assess --type open --context context:primary-signature --verbose=4 Zaaheen-mac-test.dmg
+
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Zaaheen-mac-test
-          path: Zaaheen-mac-test.zip
+          path: |
+            Zaaheen-mac-test.zip
+            Zaaheen-mac-test.dmg
           retention-days: 1
           if-no-files-found: error
 

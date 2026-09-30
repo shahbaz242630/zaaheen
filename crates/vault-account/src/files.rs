@@ -59,6 +59,9 @@ pub const STATE_FILE: &str = "state.json";
 pub const MARKER_FILE: &str = "signed-in";
 /// `refresh.lock` file name.
 pub const LOCK_FILE: &str = "refresh.lock";
+/// `latest-version` file name: the newest app version the Worker last named
+/// (launch checklist B6). Not entitlement: only a notice reads it.
+pub const LATEST_VERSION_FILE: &str = "latest-version";
 
 /// Largest `state.json` or marker read back; anything larger is damage.
 const MAX_SMALL_FILE: u64 = 4096;
@@ -200,6 +203,34 @@ impl AccountDir {
     /// I/O failures.
     pub fn write_marker(&self, _lock: &RefreshLock, sub: &str) -> std::io::Result<()> {
         self.write_atomic(MARKER_FILE, sub.as_bytes())
+    }
+
+    /// The newest app version the Worker last named, if it is a plain
+    /// release number (anything else reads as none).
+    ///
+    /// # Errors
+    ///
+    /// I/O failures other than "not found".
+    pub fn read_latest_version(&self) -> std::io::Result<Option<String>> {
+        let Some(bytes) = read_capped(&self.dir.join(LATEST_VERSION_FILE), 32)? else {
+            return Ok(None);
+        };
+        Ok(String::from_utf8(bytes)
+            .ok()
+            .filter(|v| crate::app_version::parse_release(v).is_some()))
+    }
+
+    /// Record the newest app version the Worker named. Only a plain release
+    /// number is written; anything else is ignored. Call with the lock held.
+    ///
+    /// # Errors
+    ///
+    /// I/O failures.
+    pub fn write_latest_version(&self, _lock: &RefreshLock, version: &str) -> std::io::Result<()> {
+        if crate::app_version::parse_release(version).is_none() {
+            return Ok(());
+        }
+        self.write_atomic(LATEST_VERSION_FILE, version.as_bytes())
     }
 
     /// Remove the marker, the lease and the record (sign-out). Missing files
@@ -361,6 +392,21 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let account = AccountDir::open(tmp.path()).unwrap();
         (tmp, account)
+    }
+
+    /// B6: only a plain release number is ever written or read back.
+    #[test]
+    fn the_latest_version_is_a_plain_release_number_or_nothing() {
+        let (tmp, d) = dir();
+        assert_eq!(d.read_latest_version().unwrap(), None);
+        let lock = d.lock(FAST).unwrap().unwrap();
+        d.write_latest_version(&lock, "<script>").unwrap();
+        assert_eq!(d.read_latest_version().unwrap(), None);
+        d.write_latest_version(&lock, "0.3.1").unwrap();
+        assert_eq!(d.read_latest_version().unwrap().as_deref(), Some("0.3.1"));
+        // Damage on disk reads as none.
+        std::fs::write(tmp.path().join(LATEST_VERSION_FILE), b"0.3.1; rm -rf").unwrap();
+        assert_eq!(d.read_latest_version().unwrap(), None);
     }
 
     fn files_in(tmp: &TempDir) -> Vec<String> {

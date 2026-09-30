@@ -590,6 +590,11 @@ impl KeeperStarter for DirectSpawnStarter {
         use std::process::{Command, Stdio};
         let mut child = Command::new(&self.program)
             .arg("keeper")
+            // The search index's memory ceiling (A7: no installer sets it here).
+            .env(
+                vault_app::keeper::LANCE_MEM_POOL_ENV.0,
+                vault_app::keeper::LANCE_MEM_POOL_ENV.1,
+            )
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())

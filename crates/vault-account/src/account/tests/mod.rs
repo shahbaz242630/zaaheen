@@ -131,7 +131,13 @@ fn worker_responder(
                 "issued_at": now, "client_time": client_now, "offline_days": 30
             })
         };
-        let lease_body = |wire: String| json_response(200, &json!({ "lease": wire }).to_string());
+        // B6: the newest app version rides beside every lease.
+        let lease_body = |wire: String| {
+            json_response(
+                200,
+                &json!({ "lease": wire, "latest_version": "0.9.0" }).to_string(),
+            )
+        };
         Some(match *mode.lock().unwrap() {
             WorkerMode::Sign(state) => {
                 let name = match state {
@@ -479,6 +485,11 @@ async fn signing_in_stores_the_token_marks_the_user_and_starts_the_trial() {
     assert_eq!(
         calls[0].headers.get("authorization").map(String::as_str),
         Some("Bearer at_1")
+    );
+    // B6: the newest version the Worker named is kept for the notice.
+    assert_eq!(
+        world.account.latest_version().await.as_deref(),
+        Some("0.9.0")
     );
 }
 

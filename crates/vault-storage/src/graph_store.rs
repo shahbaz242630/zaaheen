@@ -446,7 +446,7 @@ impl DuckDbGraphStore {
     /// ([`flush`](Self::flush) is a no-op). Tests + throwaway use only.
     pub async fn open_ephemeral() -> VaultResult<Self> {
         tokio::task::spawn_blocking(|| {
-            let mut conn = Connection::open_in_memory()
+            let mut conn = open_in_memory_single_thread()
                 .map_err(|e| VaultError::Storage(format!("open in-memory duckdb: {e}")))?;
             migrations_graph::run(&mut conn)?;
             Ok(Self {
@@ -461,7 +461,7 @@ impl DuckDbGraphStore {
     }
 
     fn open_sealed_blocking(graph_path: PathBuf, key: Zeroizing<[u8; 32]>) -> VaultResult<Self> {
-        let mut conn = Connection::open_in_memory()
+        let mut conn = open_in_memory_single_thread()
             .map_err(|e| VaultError::Storage(format!("open in-memory duckdb: {e}")))?;
         migrations_graph::run(&mut conn)?;
 
@@ -518,6 +518,17 @@ impl DuckDbGraphStore {
             .map_err(|e| VaultError::Storage(format!("remove legacy plaintext graph: {e}")))?;
         Ok(())
     }
+}
+
+/// An in-memory DuckDB that runs every query on the caller's thread.
+///
+/// DuckDB otherwise starts one worker per core and never stops them. The
+/// graph is small, and those idle workers were still alive when the keeper
+/// exited on macOS, where the exit then aborted the process (s78, the test
+/// Mac's crash reports: nine DuckDB workers alive at `exit`). With one
+/// thread there are no workers to outlive the keeper.
+fn open_in_memory_single_thread() -> duckdb::Result<Connection> {
+    Connection::open_in_memory_with_flags(duckdb::Config::default().threads(1)?)
 }
 
 // =============================================================================
@@ -1423,6 +1434,23 @@ mod tests {
         })
         .await
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn the_graph_runs_on_one_thread() {
+        let (_dir, store) = open_tmp().await;
+        let threads: i64 = store
+            .inner
+            .conn
+            .lock()
+            .expect("conn")
+            .query_row(
+                "SELECT CAST(current_setting('threads') AS BIGINT)",
+                [],
+                |r| r.get(0),
+            )
+            .expect("threads setting");
+        assert_eq!(threads, 1, "no DuckDB workers may outlive the keeper");
     }
 
     #[tokio::test]

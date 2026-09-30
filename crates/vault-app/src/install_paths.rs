@@ -211,6 +211,37 @@ fn bundle_resources_for(exe_dir: &Path) -> PathBuf {
     exe_dir.to_path_buf()
 }
 
+/// Whether a Mac app at `exe` runs from somewhere it can stay (s78, A13).
+///
+/// The app hands its own path to the AI apps it connects and to the nightly
+/// job. Run from a disk image (`/Volumes/…`) or from the random, read-only
+/// copy macOS makes of a downloaded app that was not moved with Finder
+/// (`…/AppTranslocation/…`), that path is gone by the next start. So a Mac
+/// app bundle must sit in `/Applications` or `~/Applications`.
+///
+/// `true` for anything that is not an app bundle (a developer's `target/`),
+/// and on every other system. Pure, so it is tested everywhere.
+pub fn mac_bundle_is_in_applications(exe: &Path, home: Option<&Path>) -> bool {
+    let Some(bundle) = exe
+        .ancestors()
+        .find(|p| p.extension().is_some_and(|e| e == "app"))
+    else {
+        return true;
+    };
+    let Some(parent) = bundle.parent() else {
+        return false;
+    };
+    if bundle
+        .components()
+        .any(|c| c.as_os_str() == "AppTranslocation")
+    {
+        return false;
+    }
+    let system = Path::new("/Applications");
+    let user = home.map(|h| h.join("Applications"));
+    parent.starts_with(system) || user.is_some_and(|u| parent.starts_with(u))
+}
+
 /// `<data_dir>/vault.db` — the SQLCipher metadata database.
 pub fn vault_db_in(data_dir: &Path) -> PathBuf {
     data_dir.join("vault.db")
@@ -249,6 +280,56 @@ pub fn ort_lib_in(resource_dir: &Path) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const HOME: &str = "/Users/pat";
+
+    fn at(exe: &str) -> bool {
+        mac_bundle_is_in_applications(Path::new(exe), Some(Path::new(HOME)))
+    }
+
+    #[test]
+    fn a_mac_app_in_either_applications_folder_can_stay() {
+        assert!(at(
+            "/Applications/Zaaheen.app/Contents/MacOS/zaaheen-desktop"
+        ));
+        assert!(at(
+            "/Applications/Utilities/Zaaheen.app/Contents/MacOS/zaaheen"
+        ));
+        assert!(at(
+            "/Users/pat/Applications/Zaaheen.app/Contents/MacOS/zaaheen"
+        ));
+    }
+
+    #[test]
+    fn a_mac_app_that_will_vanish_is_caught() {
+        // Run straight from the disk image.
+        assert!(!at(
+            "/Volumes/Zaaheen/Zaaheen.app/Contents/MacOS/zaaheen-desktop"
+        ));
+        // macOS's random copy of a downloaded app not moved with Finder (seen
+        // on the test Mac, s78).
+        assert!(!at(
+            "/private/var/folders/vk/pmvd/T/AppTranslocation/8FD5/d/Zaaheen.app/Contents/MacOS/zaaheen-desktop"
+        ));
+        assert!(!at(
+            "/Users/pat/Downloads/Zaaheen.app/Contents/MacOS/zaaheen-desktop"
+        ));
+        // Look-alike folder names do not count.
+        assert!(!at("/ApplicationsOld/Zaaheen.app/Contents/MacOS/zaaheen"));
+        assert!(!at(
+            "/Users/other/Applications/Zaaheen.app/Contents/MacOS/zaaheen"
+        ));
+    }
+
+    #[test]
+    fn a_program_outside_an_app_bundle_is_never_stopped() {
+        // A developer's build, and the Windows install.
+        assert!(at("/Users/pat/zaaheen/target/release/zaaheen-desktop"));
+        assert!(mac_bundle_is_in_applications(
+            Path::new(r"C:\Program Files\Zaaheen\zaaheen-desktop.exe"),
+            None
+        ));
+    }
 
     /// In a Mac app the models are in `Contents/Resources`, beside the
     /// binaries' `Contents/MacOS`; everywhere else, beside the binary.
