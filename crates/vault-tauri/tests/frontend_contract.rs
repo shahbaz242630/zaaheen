@@ -2656,6 +2656,45 @@ fn only_the_catch_up_asks_for_the_waiting_run() {
     assert!(code.contains("await invoke(\"run_maintenance_now\");"));
 }
 
+/// Founder, s78: ticking "Keep my vault tidy automatically" saves at once,
+/// with its own note; "Save schedule" stays for the time. A failed save
+/// puts the box back.
+#[test]
+fn ticking_the_consolidation_box_saves_it_at_once() {
+    let code = js_code();
+    assert!(code.contains("$(\"maint-enabled\").addEventListener(\"change\", onMaintToggle);"));
+    assert!(
+        code.contains("$(\"maint-save\").addEventListener(\"click\", () => saveMaintenance());")
+    );
+    let functions = top_level_functions(&code);
+    assert!(js_function(&functions, "onMaintToggle")
+        .body
+        .contains("saveMaintenance(\"maint-toggle-note\")"));
+    assert!(js_function(&functions, "saveMaintenance")
+        .body
+        .contains("$(\"maint-enabled\").checked = !enabled;"));
+    assert!(INDEX_HTML.contains("<span id=\"maint-toggle-note\" class=\"maint-save-note\"></span>"));
+}
+
+/// A14 (s78): a long "Opening" on a Mac says to look for the keychain box,
+/// which can hide behind the window; Windows keeps its plain line.
+#[test]
+fn a_long_wait_on_a_mac_points_at_the_keychain_box() {
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let line = js_function(&functions, "linkLine");
+    assert!(line
+        .body
+        .contains("if (IS_MAC && waitedMs >= KEYCHAIN_HINT_AFTER_MS)"));
+    assert!(line.body.contains(
+        "If your Mac asks whether Zaaheen may use its keychain, choose Always Allow. The box may be behind this window."
+    ));
+    assert!(line.body.contains("return \"Opening your memories…\";"));
+    assert!(js_function(&functions, "watchLink")
+        .body
+        .contains("linkLine(s, Date.now() - started)"));
+}
+
 /// B6 (s78): a newer version shows one notice, and its button opens our own
 /// getting-started page from the app's closed list, never an address the
 /// account service sent.

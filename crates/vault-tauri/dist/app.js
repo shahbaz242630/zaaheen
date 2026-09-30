@@ -2690,9 +2690,17 @@ function onLocationNoticeOk() {
 const LINK_POLL_MS = 1000;
 let linkWatching = false;
 
-function linkLine(s) {
+// A14 (s78): on a Mac the first start can wait on a macOS keychain question,
+// and that box can sit behind this window, so a long "Opening" looked stuck
+// (40 minutes on the test Mac). After a few seconds, say what to look for.
+const KEYCHAIN_HINT_AFTER_MS = 6000;
+
+function linkLine(s, waitedMs = 0) {
   switch (s.state) {
     case "connecting":
+      if (IS_MAC && waitedMs >= KEYCHAIN_HINT_AFTER_MS) {
+        return "Opening your memories… If your Mac asks whether Zaaheen may use its keychain, choose Always Allow. The box may be behind this window.";
+      }
       return "Opening your memories…";
     case "tidying":
       return friendlyAccountError("vault_maintenance_in_progress");
@@ -2706,6 +2714,7 @@ function linkLine(s) {
 async function watchLink() {
   if (linkWatching) return;
   linkWatching = true;
+  const started = Date.now();
   try {
     for (;;) {
       let s;
@@ -2714,7 +2723,7 @@ async function watchLink() {
       } catch {
         break;
       }
-      const line = linkLine(s);
+      const line = linkLine(s, Date.now() - started);
       $("link-notice-text").textContent = line || "";
       $("link-notice").classList.toggle("hidden", !line);
       if (s.state === "serving" || s.state === "failed") break;
@@ -2926,8 +2935,15 @@ async function renderMaintenance() {
   renderMaintEngineStatus();
 }
 
-async function saveMaintenance() {
-  const note = $("maint-save-note");
+// Ticking or unticking "Keep my vault tidy automatically" saves at once (founder,
+// s78: with a separate Save lower down, a person who only ticked the box got
+// nothing, and the founder missed it too). "Save schedule" is for the time.
+function onMaintToggle() {
+  saveMaintenance("maint-toggle-note");
+}
+
+async function saveMaintenance(noteId = "maint-save-note") {
+  const note = $(noteId);
   const enabled = $("maint-enabled").checked;
   const frequency = $("maint-frequency").value === "weekly" ? "weekly" : "daily";
   const weekday = Number($("maint-weekday").value) || 0;
@@ -2943,6 +2959,8 @@ async function saveMaintenance() {
     renderMaintenance();
   } catch {
     if (note) note.textContent = "Couldn't save. Please try again.";
+    // The box must not claim a state the computer does not hold.
+    if (noteId === "maint-toggle-note") $("maint-enabled").checked = !enabled;
   }
 }
 
@@ -3193,7 +3211,9 @@ function init() {
   // home — maintenance
   $("maint-frequency").addEventListener("change", () =>
     $("maint-weekday-wrap").classList.toggle("hidden", $("maint-frequency").value !== "weekly"));
-  $("maint-save").addEventListener("click", saveMaintenance);
+  // Wrapped: a click handler receives the event, which is not a note id.
+  $("maint-save").addEventListener("click", () => saveMaintenance());
+  $("maint-enabled").addEventListener("change", onMaintToggle);
   $("maint-run").addEventListener("click", runMaintenanceNow);
 
   // home — settings
