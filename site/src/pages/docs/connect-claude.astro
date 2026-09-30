@@ -1,7 +1,7 @@
 ---
 import Guide from '../../layouts/Guide.astro';
 import Row from '../../components/Row.astro';
-import { INSTALL_PATH, TIP_LINE } from '../../data/site';
+import { INSTALL_PATH, MAC_INSTALL_PATH, TIP_LINE } from '../../data/site';
 
 // Claude Desktop, in the app's own words: CONNECT_WORDS.claude_desktop,
 // AGENTS (the setting by hand), AGENT_CHECKS and AGENT_TIPS in
@@ -49,7 +49,8 @@ const OUTLINE = [
          open Settings, then Developer, then Edit Config. Add this to the file it shows you, save it,
          then quit Claude and open it again:</p>
       <pre><code>{snippet}</code></pre>
-      <p>That is where Zaaheen usually installs. The <em>Agents</em> tab shows the setting for your
+      <p>That is where Zaaheen usually installs on Windows. On a Mac, the command is
+         <code>{MAC_INSTALL_PATH}</code> instead. The <em>Agents</em> tab shows the setting for your
          computer exactly, ready to copy.</p>
     </Row>
 

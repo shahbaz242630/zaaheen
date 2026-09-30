@@ -263,7 +263,13 @@ fn run_keeper(vault_cli: &Path, log_dir: &Path) -> std::io::Result<bool> {
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .env(logging::LOG_DIR_ENV, log_dir);
+        .env(logging::LOG_DIR_ENV, log_dir)
+        // The search index's memory ceiling, whatever this process was given
+        // (A7: a Mac has no installer to set it).
+        .env(
+            vault_app::keeper::LANCE_MEM_POOL_ENV.0,
+            vault_app::keeper::LANCE_MEM_POOL_ENV.1,
+        );
     no_window(&mut command);
 
     let mut child = command.spawn()?;
@@ -358,6 +364,25 @@ mod tests {
 
     fn parse(argv: &[&str]) -> Args {
         Args::try_parse_from(argv).expect("args should parse")
+    }
+
+    /// A7 (s78): the keeper gets the search index's memory ceiling from the
+    /// launcher itself, on every system, at ADR-038's value.
+    #[test]
+    fn the_keeper_is_started_with_the_memory_ceiling() {
+        assert_eq!(
+            vault_app::keeper::LANCE_MEM_POOL_ENV,
+            ("LANCE_MEM_POOL_SIZE", "268435456")
+        );
+        let source = include_str!("vault-maintenance.rs").replace("\r\n", "\n");
+        let body = source
+            .split_once("fn run_keeper(")
+            .expect("run_keeper")
+            .1
+            .split_once("\n}\n")
+            .expect("its end")
+            .0;
+        assert!(body.contains("vault_app::keeper::LANCE_MEM_POOL_ENV.0"));
     }
 
     #[test]

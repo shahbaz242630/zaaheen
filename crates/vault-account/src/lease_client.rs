@@ -80,14 +80,16 @@ impl LeaseClient {
     }
 
     /// Ask for a lease, sending this computer's clock reading `client_now`.
-    /// Returns the wire bytes, unverified.
+    /// Returns the wire bytes, unverified, and the newest app version when
+    /// the Worker named a plain release number (B6; anything else is `None`
+    /// and never fails the lease).
     ///
     /// # Errors
     ///
     /// [`AccountError::Network`] for transport failures, 429 and 5xx;
     /// [`AccountError::Protocol`] for a refused token or a malformed answer.
     #[tracing::instrument(skip_all)]
-    pub async fn fetch(&self, access: &AccessToken, client_now: i64) -> AccountResult<Vec<u8>> {
+    pub async fn fetch(&self, access: &AccessToken, client_now: i64) -> AccountResult<Fetched> {
         let response = self
             .http
             .post(&self.endpoint)
@@ -116,8 +118,27 @@ impl LeaseClient {
         if parsed.lease.is_empty() || parsed.lease.len() > MAX_LEASE_BYTES {
             return Err(malformed());
         }
-        Ok(parsed.lease.into_bytes())
+        let latest_version = parsed
+            .latest_version
+            .as_ref()
+            .and_then(serde_json::Value::as_str)
+            .filter(|v| crate::app_version::parse_release(v).is_some())
+            .map(str::to_owned);
+        Ok(Fetched {
+            wire: parsed.lease.into_bytes(),
+            latest_version,
+        })
     }
+}
+
+/// A lease answer: the wire, unverified, and the newest app version.
+#[derive(Debug)]
+pub struct Fetched {
+    /// The lease wire bytes, for [`crate::LeaseVerifier`].
+    pub wire: Vec<u8>,
+    /// The newest app version, a plain release number, when the Worker named
+    /// one (B6).
+    pub latest_version: Option<String>,
 }
 
 /// How long one lease request may take end to end.
@@ -132,6 +153,9 @@ struct LeaseRequest<'a> {
 #[derive(Deserialize)]
 struct LeaseResponse {
     lease: String,
+    /// Any JSON: a wrong type is ignored, never a failed lease.
+    #[serde(default)]
+    latest_version: Option<serde_json::Value>,
 }
 
 #[cfg(test)]
@@ -143,7 +167,7 @@ mod tests {
         AccessToken::for_test("at_ACCESS_1234")
     }
 
-    async fn fetch_with(status: u16, body: &str) -> AccountResult<Vec<u8>> {
+    async fn fetch_with(status: u16, body: &str) -> AccountResult<Fetched> {
         let fake = FakeService::fixed(Some(json_response(status, body))).await;
         LeaseClient::for_loopback_test(fake.port)
             .fetch(&access(), 1_760_000_000)
@@ -157,7 +181,8 @@ mod tests {
             .fetch(&access(), 1_760_000_123)
             .await
             .unwrap();
-        assert_eq!(wire, b"abc.def");
+        assert_eq!(wire.wire, b"abc.def");
+        assert_eq!(wire.latest_version, None);
         let seen = fake.seen();
         assert_eq!(seen.len(), 1);
         assert_eq!(seen[0].method, "POST");
@@ -175,6 +200,28 @@ mod tests {
             body,
             serde_json::json!({"client_now": 1_760_000_123_i64, "app_version": "0.3.0"})
         );
+    }
+
+    /// B6: the newest version beside the lease is read only when it is a
+    /// plain release number; anything else is ignored and the lease stands.
+    #[tokio::test]
+    async fn the_latest_version_is_read_only_when_plain_and_never_fails_the_lease() {
+        let got = fetch_with(200, r#"{"lease":"abc.def","latest_version":"0.3.1"}"#)
+            .await
+            .unwrap();
+        assert_eq!(got.latest_version.as_deref(), Some("0.3.1"));
+        for extra in [
+            r#""latest_version":5"#,
+            r#""latest_version":"v0.3.1""#,
+            r#""latest_version":"https://evil.test/""#,
+            r#""latest_version":null"#,
+            r#""latest_version":{"v":"0.3.1"}"#,
+        ] {
+            let body = format!(r#"{{"lease":"abc.def",{extra}}}"#);
+            let got = fetch_with(200, &body).await.unwrap();
+            assert_eq!(got.wire, b"abc.def", "{extra}");
+            assert_eq!(got.latest_version, None, "{extra}");
+        }
     }
 
     #[tokio::test]

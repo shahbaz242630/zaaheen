@@ -1,7 +1,7 @@
 ---
 import Guide from '../../layouts/Guide.astro';
 import Row from '../../components/Row.astro';
-import { INSTALL_PATH, verifiedAppList } from '../../data/site';
+import { INSTALL_PATH, MAC_INSTALL_PATH, verifiedAppList } from '../../data/site';
 
 // Any other MCP app, in the app's own words: AGENTS "Another app" and
 // AGENT_CHECKS in crates/vault-tauri/dist/app.js. Only apps in VERIFIED_APPS
@@ -38,7 +38,8 @@ const OUTLINE = [
       <p>Most apps take the setting in this form. Add it where your app keeps its MCP servers, save
          it, then restart the app:</p>
       <pre><code>{snippet}</code></pre>
-      <p>That is where Zaaheen usually installs. In Zaaheen, the <em>Agents</em> tab, then
+      <p>That is where Zaaheen usually installs on Windows. On a Mac, the command is
+         <code>{MAC_INSTALL_PATH}</code> instead. In Zaaheen, the <em>Agents</em> tab, then
          <em>+ Connect an AI app</em>, then <em>Another app</em> shows the setting for your computer
          exactly, ready to copy.</p>
     </Row>

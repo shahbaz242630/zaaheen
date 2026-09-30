@@ -12,6 +12,10 @@
 #
 #   .\scripts\gen-licence-notices.ps1          # regenerate the file
 #   .\scripts\gen-licence-notices.ps1 -Check   # exit 1 if it is out of date
+#   add -Mac for the Mac app's file, THIRD-PARTY-NOTICES-mac.txt: the Rust
+#   libraries built for Apple silicon (the Mac pulls a few the Windows
+#   installer does not, such as its keychain store) and the ONNX Runtime
+#   dylib (launch checklist A11, session 78).
 #
 # The release build runs -Check first, so an installer never ships notices
 # that differ from the committed, reviewed file.
@@ -19,12 +23,23 @@
 # Needs cargo-about 0.9.2: cargo install cargo-about --version 0.9.2 --locked --features cli
 # (pure ASCII on purpose: Windows PowerShell 5.1 misreads UTF-8 without a BOM)
 
-param([switch]$Check)
+param([switch]$Check, [switch]$Mac)
 
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot
-$Out = Join-Path $Root 'crates\vault-tauri\THIRD-PARTY-NOTICES.txt'
-$Texts = Join-Path $Root 'crates\vault-tauri\licences'
+if ($Mac) {
+    $FileName = 'THIRD-PARTY-NOTICES-mac.txt'
+    $Targets = @('--target', 'aarch64-apple-darwin')
+    $OrtLib = 'libonnxruntime.dylib'
+} else {
+    $FileName = 'THIRD-PARTY-NOTICES.txt'
+    $Targets = @()
+    $OrtLib = 'onnxruntime.dll'
+}
+# Forward slashes: PowerShell reads them on Windows, and the Mac build runs
+# this too (pwsh on the macOS runner).
+$Out = Join-Path $Root "crates/vault-tauri/$FileName"
+$Texts = Join-Path $Root 'crates/vault-tauri/licences'
 $AboutVersion = '0.9.2'
 
 $have = (& cargo about --version 2>$null) -join ''
@@ -36,7 +51,7 @@ if ($have -notmatch [regex]::Escape($AboutVersion)) {
 # source are what the installer carries (tauri.conf.json resources) or
 # downloads on first use; update them together.
 $Components = @(
-    @{ Name = 'ONNX Runtime 1.22.0 (onnxruntime.dll)'; Source = 'https://github.com/microsoft/onnxruntime'; Licence = 'MIT';
+    @{ Name = "ONNX Runtime 1.22.0 ($OrtLib)"; Source = 'https://github.com/microsoft/onnxruntime'; Licence = 'MIT';
        Files = @('onnxruntime-LICENSE.txt', 'onnxruntime-ThirdPartyNotices.txt') },
     @{ Name = 'BAAI bge-small-en-v1.5 (search model, shipped)'; Source = 'https://huggingface.co/BAAI/bge-small-en-v1.5'; Licence = 'MIT';
        Files = @('bge-small-en-v1.5-LICENSE.txt') },
@@ -54,7 +69,7 @@ $tmp = [System.IO.Path]::GetTempFileName()
 try {
     Push-Location $Root
     try {
-        & cargo about generate --workspace --locked --fail -c about.toml -o $tmp scripts/licence-notices.hbs
+        & cargo about generate --workspace --locked --fail -c about.toml @Targets -o $tmp scripts/licence-notices.hbs
         if ($LASTEXITCODE -ne 0) { Write-Error "cargo about generate failed (exit $LASTEXITCODE)" }
     } finally { Pop-Location }
     $part1 = [System.IO.File]::ReadAllText($tmp)
@@ -89,10 +104,10 @@ foreach ($c in $Components) {
 $new = ($sb.ToString() -replace "`r`n", "`n").TrimEnd() + "`n"
 
 if ($Check) {
-    if (-not (Test-Path $Out)) { Write-Host "THIRD-PARTY-NOTICES.txt is missing: run scripts\gen-licence-notices.ps1 and commit it"; exit 1 }
+    if (-not (Test-Path $Out)) { Write-Host "$FileName is missing: run scripts\gen-licence-notices.ps1 and commit it"; exit 1 }
     $old = ([System.IO.File]::ReadAllText($Out) -replace "`r`n", "`n")
-    if ($old -ne $new) { Write-Host 'THIRD-PARTY-NOTICES.txt is out of date: run scripts\gen-licence-notices.ps1, review and commit it'; exit 1 }
-    Write-Host 'THIRD-PARTY-NOTICES.txt is up to date.'
+    if ($old -ne $new) { Write-Host "$FileName is out of date: run scripts\gen-licence-notices.ps1, review and commit it"; exit 1 }
+    Write-Host "$FileName is up to date."
     exit 0
 }
 

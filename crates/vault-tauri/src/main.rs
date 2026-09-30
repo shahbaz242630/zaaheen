@@ -99,6 +99,13 @@ use vault_tauri::{
 /// Exit code for startup failures.
 const EXIT_STARTUP_FAILURE: i32 = 1;
 
+/// The Mac app is not in an Applications folder (A13).
+#[cfg(target_os = "macos")]
+const MOVE_TO_APPLICATIONS_TITLE: &str = "Move Zaaheen to Applications";
+#[cfg(target_os = "macos")]
+const MOVE_TO_APPLICATIONS_BODY: &str = "Zaaheen needs to run from your Applications folder.\n\n\
+     In Finder, drag Zaaheen into Applications, then open it from there.";
+
 /// How long closing the window waits to close the keeper link cleanly.
 const EXIT_DISCONNECT: std::time::Duration = std::time::Duration::from_secs(2);
 
@@ -207,6 +214,25 @@ fn main() {
                     PathBuf::new()
                 }
             };
+
+            // 0b. A Mac app must run from an Applications folder (s78, A13):
+            //     its own path goes into the AI apps it connects and into the
+            //     nightly job, and a disk image or macOS's random copy of a
+            //     downloaded app is gone by the next start.
+            #[cfg(target_os = "macos")]
+            if let Ok(exe) = std::env::current_exe() {
+                let home = std::env::var_os("HOME").map(PathBuf::from);
+                if !vault_app::install_paths::mac_bundle_is_in_applications(&exe, home.as_deref())
+                {
+                    tracing::warn!(exe = %exe.display(), "not running from Applications; asking the person to move the app");
+                    show_fatal_dialog_and_exit(
+                        app.handle(),
+                        MOVE_TO_APPLICATIONS_TITLE,
+                        MOVE_TO_APPLICATIONS_BODY,
+                        EXIT_STARTUP_FAILURE,
+                    );
+                }
+            }
 
             // 1. Resolve libonnxruntime dylib path per ADR-019.
             let ort_lib_path = match resolve_ort_lib_path(app.handle()) {
@@ -356,10 +382,7 @@ fn main() {
     app.run(|handle, event| {
         if let tauri::RunEvent::Exit = event {
             if let Some(link) = handle.try_state::<KeeperLink>() {
-                let _ = tauri::async_runtime::block_on(tokio::time::timeout(
-                    EXIT_DISCONNECT,
-                    link.disconnect(),
-                ));
+                let _ = vault_tauri::link::run_bounded_on_exit(EXIT_DISCONNECT, link.disconnect());
             }
         }
     });

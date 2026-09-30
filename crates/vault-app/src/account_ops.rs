@@ -70,6 +70,10 @@ pub struct AccountView {
     /// is wrong. Set it to update automatically." Information only; it
     /// changes nothing about entitlement.
     pub clock_wrong: bool,
+    /// The account service named a newer app version than this one (launch
+    /// checklist B6): show "A new version of Zaaheen is available".
+    /// Information only.
+    pub update_available: bool,
 }
 
 /// The stable state strings. One place, so the desktop bundle and the tests
@@ -109,6 +113,9 @@ pub enum OpsError {
     Unreachable,
     /// The account service answered something this app will not act on.
     Refused,
+    /// This computer's secure storage could not be used (a locked Mac
+    /// keychain, most often). Transient: never "signed out".
+    CredentialStore,
     /// A link could not be opened.
     Link(LinkError),
 }
@@ -126,6 +133,7 @@ impl From<AccountError> for OpsError {
         match e {
             AccountError::Busy => OpsError::Busy,
             AccountError::Network(_) => OpsError::Unreachable,
+            AccountError::Keychain(_) => OpsError::CredentialStore,
             _ => OpsError::Refused,
         }
     }
@@ -165,7 +173,9 @@ impl AccountOps {
         match self.account.status(now).await {
             Ok(status) => {
                 let email = self.account.signed_in_email().await;
-                Self::view_of(status, email)
+                let mut view = Self::view_of(status, email);
+                view.update_available = self.update_available().await;
+                view
             }
             Err(e) => {
                 tracing::warn!(error = %e, "could not read the account folder");
@@ -186,7 +196,15 @@ impl AccountOps {
             state: state::CANNOT_CONFIRM,
             days_left: None,
             clock_wrong: false,
+            update_available: false,
         }
+    }
+
+    /// B6: the account service last named a newer version than this app.
+    async fn update_available(&self) -> bool {
+        self.account.latest_version().await.is_some_and(|latest| {
+            vault_account::app_version::is_newer(&latest, env!("CARGO_PKG_VERSION"))
+        })
     }
 
     /// Open the browser, wait for the callback, and finish signing in.
@@ -223,7 +241,9 @@ impl AccountOps {
                 let status = self.account.status(self.clock.now()).await.inspect_err(
                     |e| tracing::warn!(error = %e, "the status after a sign-in could not be read"),
                 )?;
-                Ok(Self::view_of(status, email))
+                let mut view = Self::view_of(status, email);
+                view.update_available = self.update_available().await;
+                Ok(view)
             }
         }
     }
@@ -357,6 +377,7 @@ impl AccountOps {
                 state: state::SIGNED_OUT,
                 days_left: None,
                 clock_wrong: false,
+                update_available: false,
             },
             Status::NoLease { .. } => AccountView {
                 signed_in: true,
@@ -364,6 +385,7 @@ impl AccountOps {
                 state: state::NO_LEASE,
                 days_left: None,
                 clock_wrong: false,
+                update_available: false,
             },
             Status::Leased { lease, assessment } => AccountView {
                 signed_in: true,
@@ -371,6 +393,7 @@ impl AccountOps {
                 state: state_for(lease.state()),
                 days_left: Some(days_left(assessment.remaining)),
                 clock_wrong: clock_looks_wrong(&lease),
+                update_available: false,
             },
         }
     }

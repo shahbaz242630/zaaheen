@@ -123,7 +123,7 @@ export const COMPARISON_SOURCES = [
 export const PRICING_FAQ: readonly { q: string; a: string }[] = [
   {
     q: 'What is Zaaheen?',
-    a: `Zaaheen is a private memory for your AI apps. It runs on your Windows computer and gives ${appsThen} and other AI apps one shared memory about you, so you stop repeating yourself. Your memories stay on your own computer, encrypted.`,
+    a: `Zaaheen is a private memory for your AI apps. It runs on your Windows PC or Mac and gives ${appsThen} and other AI apps one shared memory about you, so you stop repeating yourself. Your memories stay on your own computer, encrypted.`,
   },
   {
     q: 'How much does Zaaheen cost?',
@@ -171,7 +171,7 @@ export const PRICING_FAQ: readonly { q: string; a: string }[] = [
   },
   {
     q: 'Does Zaaheen work on Mac or on my phone?',
-    a: 'Not yet. Zaaheen is a Windows app, tested on Windows 11.',
+    a: 'On a Mac, yes: Zaaheen works on Macs with an Apple chip (M1 or newer), tested on macOS 26. It also runs on Windows, tested on Windows 11. There is no phone app yet.',
   },
   {
     q: 'Can I cancel Zaaheen at any time?',

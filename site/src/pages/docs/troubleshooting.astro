@@ -11,6 +11,8 @@ const OUTLINE = [
   { id: 'chatgpt', title: "ChatGPT can't see Zaaheen" },
   { id: 'claude', title: "Claude didn't ask to install" },
   { id: 'unknown-publisher', title: 'Windows says the publisher is unknown' },
+  { id: 'mac-applications', title: 'The Mac says to move Zaaheen to Applications' },
+  { id: 'mac-keychain', title: 'The Mac asks about the keychain' },
   { id: 'stopped', title: 'My apps stopped using Zaaheen' },
   { id: 'else', title: 'Something else went wrong' },
 ];
@@ -53,6 +55,18 @@ const OUTLINE = [
     <Row level={2} id="unknown-publisher" title="Windows says the publisher is unknown" where="Installer">
       <p>Choose <em>More info</em>, then <em>Run anyway</em>. Zaaheen is in beta and its installer is
          not code-signed yet; signing comes before the full launch.</p>
+    </Row>
+
+    <Row level={2} id="mac-applications" title="My Mac says to move Zaaheen to Applications" where="Mac">
+      <p>Zaaheen runs only from the Applications folder. If you opened it from the disk image or
+         from Downloads, quit it, drag Zaaheen into Applications in Finder, then open it from
+         there.</p>
+    </Row>
+
+    <Row level={2} id="mac-keychain" title="My Mac asks whether Zaaheen can use the keychain" where="Mac">
+      <p>The key to your memories is kept in your Mac's keychain, so macOS asks before Zaaheen
+         reads it. Choose <em>Always Allow</em>. If Zaaheen says it couldn't use this computer's
+         secure storage, open Keychain Access, unlock your login keychain, then try again.</p>
     </Row>
 
     <Row level={2} id="stopped" title="My apps stopped using Zaaheen" where="Settings › Account">

@@ -28,6 +28,10 @@
   // HMAC fingerprint -> first trial start, kept two years. Created 2026-09-29
   // (session 76) as "production-TRIALS". Tests use a local, simulated namespace.
   "kv_namespaces": [{ "binding": "TRIALS", "id": "9226fc5dd07a41fbbae4936d7c33fa21" }],
+  // The newest app version, sent beside the lease for the app's "a new version
+  // is available" bar (launch checklist B6). Not a secret. Raise it in the
+  // same change that publishes a new download.
+  "vars": { "LATEST_APP_VERSION": "0.3.0" },
   "env": {
     "sandbox": {
       "name": "zaaheen-account-sandbox",
@@ -39,7 +43,8 @@
       "ratelimits": [{ "name": "FLOOD", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } }],
       // Its own TRIALS too (sandbox trials never block production ones).
       // Created 2026-09-28 (session 73) as "sandbox-TRIALS".
-      "kv_namespaces": [{ "binding": "TRIALS", "id": "51e82fb035fc499ca44cb7afcbd26f8e" }]
+      "kv_namespaces": [{ "binding": "TRIALS", "id": "51e82fb035fc499ca44cb7afcbd26f8e" }],
+      "vars": { "LATEST_APP_VERSION": "0.3.0" }
     }
   }
 }

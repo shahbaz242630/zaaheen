@@ -124,6 +124,21 @@ for (const rel of files.filter((f) => f.endsWith('.html'))) {
   }
   const header = (html.match(/<header\b[\s\S]*?<\/header>/) || [''])[0];
   if (!ON_SALE && header.includes(`${ACCOUNT_ORIGIN}/sign-up/`)) fail(rel, 'the header links to sign-up while the app is not on sale');
+  // The Mac launches with Windows (founder, session 78): while the download is
+  // off, the header says both are coming.
+  if (!ON_SALE && !/<span class="bar-soon-long">Coming soon for Windows and Mac<\/span>/.test(header)) {
+    fail(rel, 'the header must say "Coming soon for Windows and Mac" while the app is not on sale');
+  }
+}
+// On sale, the home page offers both downloads: the Windows installer and the
+// Mac disk image (founder, session 78).
+if (ON_SALE) {
+  const home = read('index.html');
+  for (const [name, ext] of [['Windows installer', 'msi'], ['Mac disk image', 'dmg']]) {
+    if (!new RegExp(`\\shref="https://dl\\.zaaheen\\.com/[^"]+\\.${ext}"`).test(home)) {
+      fail('index.html', `the app is on sale but the home page does not link the ${name} (.${ext})`);
+    }
+  }
 }
 for (const rel of files.filter((f) => f.endsWith('.html'))) {
   const footer = (read(rel).match(/<footer\b[\s\S]*?<\/footer>/) || [''])[0];

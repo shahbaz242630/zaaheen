@@ -22,7 +22,15 @@ export interface Config {
   /** `key` is TRIAL_KEY, the HMAC key for trial fingerprints (ACCOUNT-DELETION-DESIGN D8). */
   trials: { key: string };
   killSwitch: boolean;
+  /**
+   * The newest app version (launch checklist B6), sent beside the lease so
+   * the app can show "a new version is available". A plain var, not a
+   * secret; absent or malformed only leaves the bar off.
+   */
+  latestAppVersion?: string;
 }
+
+const APP_VERSION_RELEASED = /^(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})$/;
 
 const KID = /^[a-z0-9-]{1,32}$/;
 const PRODUCT_ID = /^pro_[a-z0-9]{26}$/;
@@ -73,5 +81,10 @@ export function readConfig(env: Record<string, unknown>): Config | null {
     lease: { kid, pkcs8 },
     trials: { key: trialKey },
     killSwitch: env["NEVER_END_PAYERS"] === "1",
+    ...latestAppVersion(env["LATEST_APP_VERSION"]),
   };
+}
+
+function latestAppVersion(value: unknown): { latestAppVersion?: string } {
+  return typeof value === "string" && APP_VERSION_RELEASED.test(value) ? { latestAppVersion: value } : {};
 }

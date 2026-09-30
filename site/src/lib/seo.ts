@@ -73,13 +73,15 @@ export function graphFor(page: PageEntry, modified?: string, published?: string)
       name: SITE.name,
       description: SITE.summary,
       applicationCategory: 'UtilitiesApplication',
-      operatingSystem: 'Windows',
+      // Both systems, as the pages say (the Mac: Apple chip only).
+      operatingSystem: 'Windows 11, macOS',
       softwareVersion: RELEASE.version,
       // Nothing to download or buy until the app is on sale (RELEASE.available).
+      // schema.org's downloadUrl takes several URLs: one per system. No
+      // fileSize: the two downloads differ, and one value would be wrong for one.
       ...(RELEASE.available
         ? {
-            downloadUrl: RELEASE.windows.url,
-            fileSize: RELEASE.windows.size,
+            downloadUrl: [RELEASE.windows.url, RELEASE.mac.url],
             // One Offer per plan, from PRICES; the free trial is stated in the
             // page text. scripts/audit.mjs requires exactly these.
             offers: [plan('Monthly', PRICES.monthly, 'P1M'), plan('Yearly', PRICES.yearly, 'P1Y')],

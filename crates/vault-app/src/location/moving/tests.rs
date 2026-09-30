@@ -50,8 +50,20 @@ fn put(path: &Path, content: &[u8]) {
     std::fs::write(path, content).unwrap();
 }
 
+/// A temporary folder near the top of the disk. macOS's own temp folder
+/// (`/var/folders/…/T/`) is so deep that a vault inside it really is too
+/// deep for the keeper's socket, and the folder check rightly refuses it
+/// (launch checklist A5); `/tmp` keeps these tests about the move itself.
+pub(super) fn short_tempdir() -> tempfile::TempDir {
+    if cfg!(unix) {
+        tempfile::Builder::new().tempdir_in("/tmp").unwrap()
+    } else {
+        tempfile::tempdir().unwrap()
+    }
+}
+
 pub(super) fn world() -> World {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = short_tempdir();
     let homes = Homes {
         local: tmp.path().join("Local").join("com.zaaheen.app"),
         roaming: tmp.path().join("Roaming").join("com.zaaheen.app"),
@@ -439,7 +451,7 @@ fn a_refused_folder_is_never_recorded() {
 
 #[test]
 fn with_nothing_recorded_there_is_nothing_to_move() {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = short_tempdir();
     let homes = Homes {
         local: tmp.path().join("Local"),
         roaming: tmp.path().join("Roaming"),

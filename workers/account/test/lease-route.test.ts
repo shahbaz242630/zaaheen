@@ -131,6 +131,22 @@ describe("a good request", () => {
     expect(writes).toEqual([{ private_metadata: { zaaheen_memory: { trial_started_at: T } } }]);
   });
 
+  // Launch checklist B6: the newest version rides beside the signed lease,
+  // never inside it, and only when configured.
+  it("names the latest app version beside the lease when one is configured", async () => {
+    const { response } = await call({}, request(goodBody), { ...config, latestAppVersion: "0.3.1" });
+    const body = (await response.clone().json()) as Record<string, unknown>;
+    expect(Object.keys(body).sort()).toEqual(["latest_version", "lease"]);
+    expect(body["latest_version"]).toBe("0.3.1");
+    expect(await verified(response)).not.toHaveProperty("latest_version");
+  });
+
+  it("sends the lease alone when no latest version is configured", async () => {
+    const { response } = await call({});
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(Object.keys(body)).toEqual(["lease"]);
+  });
+
   it("signs the client's clock as received, however far off (§4)", async () => {
     const { response } = await call({}, request({ client_now: 1_000, app_version: "0.3.0" }));
     expect((await verified(response))["client_time"]).toBe(1_000);

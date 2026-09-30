@@ -213,18 +213,27 @@ pub fn format_start_again_refusal(
 ///
 /// Other variants fall through to [`format_startup_failure_dialog`].
 pub fn format_keychain_error_dialog(err: &VaultError) -> String {
+    // The Mac says its own names (s78, B1); the Windows words are unchanged.
+    let (account, store) = if cfg!(target_os = "macos") {
+        (
+            "Mac user account",
+            "your Mac's secure password store, the keychain,",
+        )
+    } else {
+        ("Windows account", "Windows' secure password store")
+    };
     match err {
         VaultError::VaultKey(VaultKeyFailure::Missing) => format!(
             "Zaaheen can't open your memories. The key that unlocks them is missing \
-             from this computer's Windows account.\n\n\
+             from this computer's {account}.\n\n\
              Your memories are still on this computer. Please don't delete them.\n\n\
-             If you haven't changed computer or Windows account, restart your computer \
-             and open Zaaheen again. If you have, go back to the computer and Windows \
-             account you used before.\n\n\
+             If you haven't changed computer or {account}, restart your computer \
+             and open Zaaheen again. If you have, go back to the computer and {account} \
+             you used before.\n\n\
              For help, write to {SUPPORT_EMAIL}."
         ),
         VaultError::KeychainProvenance(_) => format!(
-            "Zaaheen can't reach Windows' secure password store right now, so it can't \
+            "Zaaheen can't reach {store} right now, so it can't \
              unlock your memories.\n\n\
              Restart your computer and open Zaaheen again. Your memories are still on \
              this computer. Please don't delete them.\n\n\
@@ -418,6 +427,26 @@ mod tests {
         }
     }
 
+    /// B1 (s78): each system names its own account and key store; the
+    /// Windows words stay exactly as they were.
+    #[test]
+    fn the_key_messages_name_this_systems_account_and_store() {
+        let missing = format_keychain_error_dialog(&VaultError::VaultKey(VaultKeyFailure::Missing));
+        let store = format_keychain_error_dialog(&VaultError::KeychainProvenance("x".into()));
+        if cfg!(target_os = "macos") {
+            assert!(missing.contains("from this computer's Mac user account."));
+            assert!(store
+                .contains("can't reach your Mac's secure password store, the keychain, right now"));
+            assert!(!missing.contains("Windows") && !store.contains("Windows"));
+        } else {
+            assert!(missing.contains("from this computer's Windows account."));
+            assert!(
+                missing.contains("go back to the computer and Windows account you used before.")
+            );
+            assert!(store.contains("can't reach Windows' secure password store right now"));
+        }
+    }
+
     /// ADR-SEC-029 U1: the old text told people to delete the key, which
     /// would have destroyed every memory. No message may ever again.
     #[test]
@@ -446,11 +475,18 @@ mod tests {
     fn key_failure_messages_show_no_internals() {
         for (err, _) in key_failures() {
             let dialog = format_keychain_error_dialog(&err);
+            // On a Mac "the keychain" is the name people see (Keychain
+            // Access); on Windows it would be an internal word (B1, s78).
+            let keychain = if cfg!(target_os = "macos") {
+                "Store::new"
+            } else {
+                "keychain"
+            };
             for internal in [
                 "ADR-",
                 "com.zaaheen",
                 "master_key",
-                "keychain",
+                keychain,
                 "Store::new",
                 "simulated keychain unavailable",
                 "VAULT_KEY",

@@ -43,8 +43,8 @@ export const ACCOUNT = {
 export const RELEASE = {
   // false until the public installer is uploaded and live payments are set up
   // (founder, session 63: the website and coaching go live first). While false,
-  // every download button reads "Coming soon for Windows", no page links to the
-  // installer, and the deploy leaves /pay out of the published site (site.yml;
+  // every download button reads "Coming soon for Windows and Mac", no page links to
+  // either download, and the deploy leaves /pay out of the published site (site.yml;
   // scripts/audit.mjs treats a home page without the installer link as "not on
   // sale"). Set true in the same change that uploads the installer.
   available: false,
@@ -59,7 +59,23 @@ export const RELEASE = {
     // Only Windows 11 has been tested. Do not claim Windows 10 until it has been.
     tested: 'Windows 11',
   },
+  // The Mac launches with Windows (founder, session 78). Apple chip only
+  // (founder, session 77). Signed and notarised by Apple, a disk image to drag
+  // into Applications.
+  mac: {
+    file: 'Zaaheen_0.3.0_aarch64.dmg',
+    url: 'https://dl.zaaheen.com/Zaaheen_0.3.0_aarch64.dmg',
+    // A placeholder: the session 77 test copy (141,059,416 bytes, as Finder
+    // counts). Set from the production Mac build before the download goes on.
+    size: '141 MB',
+    arch: 'Apple chip (M1 or newer)',
+    // Only macOS 26 has been tested. Do not claim older versions until they have been.
+    tested: 'macOS 26',
+  },
 } as const;
+
+/** "Windows and Mac": the platforms the app runs on, for running text. */
+export const PLATFORMS = 'Windows and Mac';
 
 // Apps we have verified end to end against a real install. Add one only after a
 // live test; the site must never promise an app we have not seen work.
@@ -101,7 +117,7 @@ export const PLANS = {
 export const FAQ: readonly { q: string; a: string }[] = [
   {
     q: 'What does Zaaheen do?',
-    a: `Zaaheen gives your AI apps one shared memory about you. Tell ${verifiedAppList()} something once, and every app you connect can recall it later. It runs on your Windows computer and keeps your memories there, encrypted.`,
+    a: `Zaaheen gives your AI apps one shared memory about you. Tell ${verifiedAppList()} something once, and every app you connect can recall it later. It runs on your Windows PC or Mac and keeps your memories there, encrypted.`,
   },
   // Brand questions (founder, session 71: "how is zaaheen better than other
   // memory providers .. why choose zaaheen"). Stated as what Zaaheen does, never
@@ -200,7 +216,7 @@ export const PAGES: PageEntry[] = [
     path: '/',
     title: 'Zaaheen: a private memory for your AI assistants',
     description:
-      'Zaaheen gives Claude, Cursor, ChatGPT and other AI apps one shared memory about you, encrypted on your own computer. For Windows, 30 days free.',
+      'Zaaheen gives Claude, Cursor, ChatGPT and other AI apps one shared memory about you, encrypted on your own computer. For Windows and Mac, 30 days free.',
     sources: ['src/pages/index.astro', 'src/data/site.ts'],
   },
   {
@@ -319,9 +335,9 @@ export const PAGES: PageEntry[] = [
     path: '/docs/getting-started/',
     crumb: 'Getting started',
     heading: 'How to install and set up Zaaheen',
-    title: 'Install and set up Zaaheen on Windows · Zaaheen',
+    title: 'Install and set up Zaaheen on Windows or Mac · Zaaheen',
     description:
-      'Install Zaaheen on Windows, create your account, choose where your memories live and connect your first AI app. Setting up takes about three minutes.',
+      'Install Zaaheen on Windows or Mac, create your account, choose where your memories live and connect your first AI app. Setting up takes about three minutes.',
     sources: ['src/pages/docs/getting-started.astro', 'src/layouts/Guide.astro'],
   },
   {
@@ -419,6 +435,9 @@ export const GUIDES = [
 // tab shows the path on each computer exactly (ADR-111), so the guides say
 // "usually" and point there.
 export const INSTALL_PATH = 'C:\\Program Files\\Zaaheen\\zaaheen.exe';
+// The same on a Mac, with Zaaheen in the Applications folder (the app refuses
+// to run from anywhere else).
+export const MAC_INSTALL_PATH = '/Applications/Zaaheen.app/Contents/MacOS/zaaheen';
 
 // The line that makes Claude and ChatGPT check Zaaheen as well as their own
 // memory, word for word as the app gives it (TIP_LINE in the desktop app).

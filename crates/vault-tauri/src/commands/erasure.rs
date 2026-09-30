@@ -125,6 +125,12 @@ async fn erase_at(vault_root: std::path::PathBuf) -> Result<serde_json::Value, S
     })?;
     drop(held);
 
+    // The schedule's settings went with the memories (`maintenance.json`), so
+    // the system's nightly job goes too (s78, A8): left behind, it ran a tidy
+    // of nothing each night, and on a Mac it outlived the app in the Bin.
+    // Best effort: the memories are gone either way.
+    let _ = tokio::task::spawn_blocking(crate::commands::maintenance::remove_scheduled_task).await;
+
     // NOTE: no audit row. The audit log lives inside the vault we just
     // destroyed — see the `vault_app::erasure` module docs. The operation
     // is recorded in the application log, which survives.
@@ -441,5 +447,32 @@ mod tests {
             .find("clean_old_copy_now(")
             .expect("the old copy is removed too");
         assert!(erased < cleaned, "never before the key is destroyed");
+    }
+
+    /// A8: the nightly job goes with the memories, and only once they are
+    /// gone (a failed erasure returns before it).
+    #[test]
+    fn erasure_removes_the_nightly_job_after_the_memories() {
+        let source = include_str!("erasure.rs").replace("\r\n", "\n");
+        let body = source
+            .split_once("async fn erase_at(")
+            .expect("the erasure itself is defined here")
+            .1
+            .split_once("\n}\n")
+            .expect("the inner command is closed")
+            .0;
+        let erased = body
+            .find("vault_app::erase_vault(&vault_root, &key)?")
+            .expect("the erasure");
+        let failed = body
+            .find("ERR_ERASURE_FAILED.to_string()\n    })?;")
+            .expect("a failed erasure returns");
+        let job = body
+            .find("remove_scheduled_task")
+            .expect("the nightly job is removed");
+        assert!(
+            erased < job && failed < job,
+            "only after the memories are gone"
+        );
     }
 }

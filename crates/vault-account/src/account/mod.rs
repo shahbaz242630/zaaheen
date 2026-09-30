@@ -259,6 +259,19 @@ impl Account {
         })
     }
 
+    /// The newest app version the Worker last named (B6), a plain release
+    /// number, or `None`. No network, no writes; a notice is never worth an
+    /// error.
+    pub async fn latest_version(&self) -> Option<String> {
+        let dir = self.dir.clone();
+        blocking(move || Ok(dir.read_latest_version()?))
+            .await
+            .unwrap_or_else(|e| {
+                tracing::debug!(error = %e, "could not read the latest version");
+                None
+            })
+    }
+
     /// Refresh the lease (and rotate the refresh token) under the rules in
     /// the module docs.
     ///
@@ -325,8 +338,8 @@ impl Account {
             Rotated::Tokens { access, refresh } => (access, refresh),
         };
 
-        let wire = self.api.fetch(&access, now).await?;
-        let lease = self.verifier.verify(&wire, &sub)?;
+        let fetched = self.api.fetch(&access, now).await?;
+        let lease = self.verifier.verify(&fetched.wire, &sub)?;
         if unused_too_long(&state, &lease) {
             tracing::info!("unused for more than 30 days; signing out");
             self.sign_out_locally(&lock).await;
@@ -337,9 +350,11 @@ impl Account {
         }
 
         let (dir, written, lock_for_write) = (self.dir.clone(), lease.clone(), Arc::clone(&lock));
+        let latest = fetched.latest_version;
         blocking(move || {
             dir.write_lease(&lock_for_write, written.wire())?;
             dir.write_state(&lock_for_write, &state.on_new_lease(&written))?;
+            note_latest_version(&dir, &lock_for_write, latest.as_deref());
             Ok(())
         })
         .await?;
@@ -390,15 +405,19 @@ impl Account {
         }
 
         let first = match self.api.fetch(&access, now).await {
-            Ok(wire) => self.verifier.verify(&wire, &user.sub),
+            Ok(fetched) => self
+                .verifier
+                .verify(&fetched.wire, &user.sub)
+                .map(|lease| (lease, fetched.latest_version)),
             Err(e) => Err(e),
         };
         let lease = match first {
-            Ok(lease) => {
+            Ok((lease, latest)) => {
                 let (dir, written, l) = (self.dir.clone(), lease.clone(), Arc::clone(&lock));
                 blocking(move || {
                     dir.write_lease(&l, written.wire())?;
                     dir.reset_state(&l, &LocalState::default().on_new_lease(&written))?;
+                    note_latest_version(&dir, &l, latest.as_deref());
                     Ok(())
                 })
                 .await?;
@@ -749,6 +768,16 @@ fn read_verified(
 fn forget_address(store: &TokenStore) {
     if let Err(e) = store.delete_address() {
         tracing::warn!(error = %e, "the signed-in address was not forgotten");
+    }
+}
+
+/// Keep the newest app version the Worker named beside the lease (B6).
+/// Logged, never fatal: a notice must never cost a lease.
+fn note_latest_version(dir: &AccountDir, lock: &RefreshLock, latest: Option<&str>) {
+    if let Some(version) = latest {
+        if let Err(e) = dir.write_latest_version(lock, version) {
+            tracing::warn!(error = %e, "the latest app version was not recorded");
+        }
     }
 }
 
