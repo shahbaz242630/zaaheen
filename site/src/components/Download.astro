@@ -2,9 +2,9 @@
 // The download buttons, Windows and Mac (founder, session 78: the Mac launches
 // with Windows; HANDOFF §3 item 13 for the layout). While the app is not on
 // sale (RELEASE.available) a label says so and nothing links to a download.
-// On sale: the visitor's own system first and largest, the other beneath.
-// Without scripts the order is Windows, then Mac, both real links;
-// scripts/platform.js puts the Mac first on a Mac.
+// On sale: two buttons side by side, the same style (founder, session 79:
+// "download for mac next to download for windows same style"). Without scripts
+// the order is Windows, then Mac; scripts/platform.js puts the Mac first on a Mac.
 import { RELEASE } from '../data/site';
 
 interface Props {
@@ -16,7 +16,7 @@ const size = small ? 'cta cta-sm' : 'cta';
 {RELEASE.available
   ? <div class="dl" data-dl>
       <a class={size} data-os="windows" href={RELEASE.windows.url} download>Download for Windows</a>
-      <a class="dl-also" data-os="mac" href={RELEASE.mac.url} download>Also available for Mac</a>
+      <a class={size} data-os="mac" href={RELEASE.mac.url} download>Download for Mac</a>
     </div>
   : <span class={`${size} cta-soon`}>Coming soon for Windows and Mac</span>}
 {RELEASE.available && <script src="../scripts/platform.js"></script>}

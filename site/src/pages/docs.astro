@@ -30,7 +30,8 @@ const OUTLINE = [
     { id: 'first-launch', title: 'What happens the first time you open it' },
   ] },
   { id: 'connecting', title: 'Connecting your AI apps', topics: [
-    { id: 'connect-claude', title: 'Claude' },
+    { id: 'connect-claude', title: 'Claude Desktop' },
+    { id: 'connect-claude-code', title: 'Claude Code' },
     { id: 'connect-cursor', title: 'Cursor' },
     { id: 'connect-chatgpt', title: 'ChatGPT' },
     { id: 'connect-other', title: 'Other AI apps' },
@@ -139,12 +140,24 @@ const topic = (id: string) =>
           <div id="connect-claude" class="set-row">
             <div class="set-text">
               <div class="set-head">
-                <h3 class="set-name">Claude (the app for your computer)</h3>
+                <h3 class="set-name">Claude Desktop (the Claude app for your computer)</h3>
                 <span class="set-where">Agents › Connect</span>
               </div>
               <p>Choose <em>Connect it for me</em>. Claude asks you to install Zaaheen: click
                  <em>Install</em>, and it's connected. It works in Claude's Chat and Cowork.
-                 <a href="/docs/connect-claude/">Full guide: connect Claude</a>.</p>
+                 <a href="/docs/connect-claude/">Full guide: connect Claude Desktop</a>.</p>
+            </div>
+          </div>
+
+          <div id="connect-claude-code" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">Claude Code (Claude in your terminal)</h3>
+                <span class="set-where">Terminal</span>
+              </div>
+              <p>In a terminal, run the command shown in the <em>Agents</em> tab once. Zaaheen is then
+                 available in every Claude Code project.
+                 <a href="/docs/connect-claude-code/">Full guide: connect Claude Code</a>.</p>
             </div>
           </div>
 

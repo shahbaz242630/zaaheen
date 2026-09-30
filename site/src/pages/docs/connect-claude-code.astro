@@ -1,0 +1,45 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import Row from '../../components/Row.astro';
+import CopyBox from '../../components/CopyBox.astro';
+import { INSTALL_PATH, MAC_INSTALL_PATH } from '../../data/site';
+
+// Claude Code, in the app's own words: AGENTS "Claude Code" (SNIPPET_CLAUDE_CODE)
+// and AGENT_CHECKS in crates/vault-tauri/dist/app.js. Its own page since session
+// 79 (founder: "connect claude desktop... connect claude code"). The command is
+// Claude Code's documented one: user scope, so every project has it; the path
+// is quoted for the terminal, as the app quotes it.
+const command = (path: string) =>
+  `claude mcp add --transport stdio --scope user zaaheen -- "${path}" mcp serve`;
+const OUTLINE = [
+  { id: 'connect', title: 'Connect it' },
+  { id: 'check', title: 'Check it worked' },
+  { id: 'using', title: 'Using it' },
+];
+---
+<Guide
+  path="/docs/connect-claude-code/"
+  lede="In a terminal, run one command from Zaaheen's Agents tab. Zaaheen is then available in every Claude Code project."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="connect" title="Connect it" where="Terminal">
+      <p>In Zaaheen, open the <em>Agents</em> tab, choose <em>+ Connect an AI app</em>, then
+         <em>Claude Code</em>. It shows the command for your computer exactly, ready to copy. In a
+         terminal, run it once. Zaaheen is then available in every Claude Code project.</p>
+      <p>Where Zaaheen usually installs, the command on Windows is:</p>
+      <CopyBox text={command(INSTALL_PATH)} />
+      <p>On a Mac:</p>
+      <CopyBox text={command(MAC_INSTALL_PATH)} />
+    </Row>
+
+    <Row level={2} id="check" title="Check it worked" where="Terminal">
+      <p>In a terminal, run <code>claude mcp list</code>. Zaaheen shows as connected.</p>
+    </Row>
+
+    <Row level={2} id="using" title="Using it" where="Claude Code">
+      <p>Ask Claude Code about yourself, your preferences or your work, or ask it to check your
+         Zaaheen memory. What it saves there, your other connected AI apps can use too.</p>
+    </Row>
+  </section>
+</Guide>

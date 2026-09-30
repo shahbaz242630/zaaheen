@@ -1,6 +1,7 @@
 ---
 import Guide from '../../layouts/Guide.astro';
 import Row from '../../components/Row.astro';
+import CopyBox from '../../components/CopyBox.astro';
 import { INSTALL_PATH, MAC_INSTALL_PATH, TIP_LINE } from '../../data/site';
 
 // ChatGPT desktop, in the app's own words: AGENTS (ChatGPT's form),
@@ -30,9 +31,11 @@ const OUTLINE = [
         <li>Choose Add, then Add MCP Server, and fill it in:
           <ul>
             <li>Name: <code>Zaaheen</code></li>
-            <li>Command: <code>{INSTALL_PATH}</code>, where Zaaheen usually installs on Windows,
-                or <code>{MAC_INSTALL_PATH}</code> on a Mac. The <em>Agents</em> tab in Zaaheen
-                shows yours exactly, ready to copy.</li>
+            <li>Command: where Zaaheen usually installs. On Windows:
+                <CopyBox text={INSTALL_PATH} />
+                On a Mac:
+                <CopyBox text={MAC_INSTALL_PATH} />
+                The <em>Agents</em> tab in Zaaheen shows yours exactly, ready to copy.</li>
             <li>Arguments: <code>mcp</code> and <code>serve</code>, as two separate items. Typed
                 together on one line, they don't work.</li>
           </ul>
@@ -48,7 +51,7 @@ const OUTLINE = [
     <Row level={2} id="tip" title="Make ChatGPT check Zaaheen" where="ChatGPT › Personalization">
       <p>ChatGPT looks in its own memory first and may stop there. So it checks Zaaheen as well, open
          Settings, then Personalization, then Custom instructions, and add this line:</p>
-      <pre><code>{TIP_LINE}</code></pre>
+      <CopyBox text={TIP_LINE} />
     </Row>
   </section>
 </Guide>

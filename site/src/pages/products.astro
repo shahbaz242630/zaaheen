@@ -1,28 +1,24 @@
 ---
 import Base from '../layouts/Base.astro';
+import Logo from '../components/Logo.astro';
 import { COMPANY, pageFor } from '../data/site';
-import { DELIVERY } from '../data/coaching';
 
+// Only the memory app is listed (founder, session 79: coaching "is not a
+// product", so its card is gone for now; the Knowledge Centre keeps it).
 const page = pageFor('/products/');
 ---
 <Base page={page}>
   <section class="page">
     <h1>Products</h1>
     <p>Zaaheen is a {COMPANY.city} company that builds software for people who use AI every day.
-       Our first product gives your AI apps a private memory that stays on your own computer. We
-       also teach people to work with AI, one to one, through the Knowledge Centre.</p>
+       Our first product gives your AI apps a private memory that stays on your own computer.</p>
 
     <div class="cards">
       <a class="card" href="/">
-        <h2>A private memory for your AI assistants</h2>
-        <p>Your AI apps share one memory about you, stored and encrypted on your own computer.</p>
+        <div class="card-brand"><Logo size={40} /><h2>Zaaheen</h2></div>
+        <p>A private memory for your AI assistants. Your AI apps share one memory about you,
+           stored and encrypted on your own computer.</p>
         <span class="card-link">See the memory app</span>
-      </a>
-      <a class="card" href="/knowledge-centre/">
-        <h2>Private 1-to-1 AI coaching</h2>
-        <p>{DELIVERY.durationMinutes}-minute sessions built around a real task you bring, online over
-           {DELIVERY.platform}.</p>
-        <span class="card-link">See the coaching sessions</span>
       </a>
     </div>
   </section>

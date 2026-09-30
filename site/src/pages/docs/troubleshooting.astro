@@ -1,6 +1,7 @@
 ---
 import Guide from '../../layouts/Guide.astro';
 import Row from '../../components/Row.astro';
+import CopyBox from '../../components/CopyBox.astro';
 import { COMPANY, TIP_LINE } from '../../data/site';
 
 // The problems people actually met in our live tests (sessions 59 and 64,
@@ -27,7 +28,7 @@ const OUTLINE = [
       <p>Claude and ChatGPT look in their own memory first and may stop there. Add this line to
          Claude's personal preferences, or to ChatGPT's Custom instructions, and they check Zaaheen as
          well:</p>
-      <pre><code>{TIP_LINE}</code></pre>
+      <CopyBox text={TIP_LINE} />
       <p>You can also ask directly, for example "check my Zaaheen memory for how I like meetings
          booked". Cursor checks Zaaheen by itself when you ask about yourself.</p>
     </Row>
@@ -35,7 +36,8 @@ const OUTLINE = [
     <Row level={2} id="not-listed" title="My app isn't in the Agents tab" where="Agents">
       <p>An app shows in the <em>Agents</em> tab only while it is open and connected. Open the app,
          then check its own settings: each connection guide has a "Check it worked" step
-         (<a href="/docs/connect-claude/">Claude</a>, <a href="/docs/connect-cursor/">Cursor</a>,
+         (<a href="/docs/connect-claude/">Claude Desktop</a>,
+         <a href="/docs/connect-claude-code/">Claude Code</a>, <a href="/docs/connect-cursor/">Cursor</a>,
          <a href="/docs/connect-chatgpt/">ChatGPT</a>). If Zaaheen isn't listed there, connect it
          again.</p>
     </Row>

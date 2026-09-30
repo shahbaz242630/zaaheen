@@ -68,10 +68,8 @@ a{color:inherit}
 .cta-sm{padding:13px 26px;font-size:15px;white-space:nowrap}
 /* Not a link while the app is not on sale (RELEASE.available): reads as a label, not a button. */
 .cta-soon,.cta-soon:hover{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--border);cursor:default}
-/* Two downloads (components/Download.astro): the visitor's system as the button, the other beneath. */
-.dl{display:flex;flex-direction:column;align-items:flex-start;gap:10px}
-.dl-also{font:400 14px var(--sans);color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px;padding:4px 2px}
-.dl-also:hover{color:var(--ink)}
+/* Two downloads (components/Download.astro): side by side, the same style; they wrap on a narrow screen. */
+.dl{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
 
 /* ---------- hero ---------- */
 .hero{max-width:1180px;margin:0 auto;padding:88px 32px 56px;display:grid;
@@ -224,6 +222,14 @@ a{color:inherit}
 /* Settings and lines to copy in the guides (layouts/Guide.astro). */
 .set-text pre{background:var(--chip);border-radius:10px;padding:14px 16px;overflow-x:auto;margin:10px 0 14px}
 .set-text pre code{background:none;padding:0;font:13.5px/1.55 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+/* A box to paste from (components/CopyBox.astro): the Copy button sits in its top corner. */
+.copybox{position:relative}
+.copybox pre{padding-top:40px}
+.copy-btn{position:absolute;top:8px;right:8px;background:var(--paper);color:var(--ink);
+  border:1px solid var(--border);border-radius:999px;padding:4px 12px;
+  font:500 12.5px var(--sans);cursor:pointer}
+.copy-btn:hover{border-color:var(--ink)}
+.copy-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 /* The breadcrumb trail on nested pages (components/Breadcrumbs.astro). */
 .crumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:4px 0;margin:0 0 18px;padding:0;font-size:14px;color:var(--muted)}
 .crumbs li+li::before{content:"›";margin:0 10px;color:var(--faint)}
@@ -310,6 +316,9 @@ a.card:hover{border-color:var(--sage)}
 .card-link{font-size:15px;font-weight:500;color:var(--ink);text-decoration:underline;
   text-decoration-color:var(--sage);text-underline-offset:4px}
 .card-soon{background:transparent}
+/* A product's logo and name on one line (products.astro). */
+.card-brand{display:flex;align-items:center;gap:14px;margin:0 0 14px}
+.card-brand h2{margin:0}
 
 
 /* ---------- knowledge centre ---------- */
@@ -412,7 +421,8 @@ p.placeholder{border:1px dashed var(--border);border-radius:10px;padding:14px 18
 .vs-us th{color:var(--sage-text)}
 .vs-where{font-weight:500;color:var(--ink)}
 .vs-us td{color:var(--ink)}
-.vs-note{font-size:13px;color:var(--muted);margin:14px 0 0;max-width:760px}
+/* As wide as the table above it (founder, session 79), not a narrower column. */
+.vs-note{font-size:13px;color:var(--muted);margin:14px 0 0}
 .pricing-faq{max-width:760px;margin:0 auto 64px}
 .pricing-faq .faq-list{margin-top:20px}
 .pricing-included,.pricing-small{max-width:760px;margin:0 auto 44px}
@@ -428,8 +438,8 @@ p.placeholder{border:1px dashed var(--border);border-radius:10px;padding:14px 18
 .site-foot{background:var(--ink);color:#d9d3c7;padding:56px 32px 28px;margin-top:40px}
 .foot-inner{max-width:1180px;margin:0 auto}
 .foot-grid{display:grid;grid-template-columns:1.6fr repeat(3,1fr);gap:40px;margin:0 0 40px}
-.foot-logo{display:inline-flex;align-items:center;gap:10px;color:#fff;text-decoration:none;
-  font:500 20px var(--serif);margin:0 0 12px}
+.foot-logo{display:inline-flex;align-items:center;gap:12px;color:#fff;text-decoration:none;
+  font:500 24px var(--serif);margin:0 0 14px}
 .foot-brand p{margin:0;max-width:300px;font-size:14px;line-height:1.65;color:#b3ac9f}
 .foot-title{font:600 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:#9d9689;margin:0 0 16px}
 .foot-col a{display:block;font-size:14.5px;color:#d9d3c7;text-decoration:none;padding:4px 0;margin:0 0 2px}

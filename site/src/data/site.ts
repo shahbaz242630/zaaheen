@@ -51,8 +51,9 @@ export const RELEASE = {
   version: '0.3.0',
   stage: 'Beta',
   windows: {
-    file: 'Zaaheen_0.3.0_x64_en-US.msi',
-    url: 'https://dl.zaaheen.com/Zaaheen_0.3.0_x64_en-US.msi',
+    // The name .github/workflows/release-build.yml gives the production installer.
+    file: 'Zaaheen_0.3.0_x64.msi',
+    url: 'https://dl.zaaheen.com/Zaaheen_0.3.0_x64.msi',
     // As Windows Explorer reports it (216,092,672 bytes).
     size: '206 MB',
     arch: '64-bit',
@@ -340,14 +341,25 @@ export const PAGES: PageEntry[] = [
       'Install Zaaheen on Windows or Mac, create your account, choose where your memories live and connect your first AI app. Setting up takes about three minutes.',
     sources: ['src/pages/docs/getting-started.astro', 'src/layouts/Guide.astro'],
   },
+  // Claude Desktop keeps the original address, so links already out there still
+  // work; Claude Code has its own page (founder, session 79).
   {
     path: '/docs/connect-claude/',
-    crumb: 'Connect Claude',
-    heading: 'How to connect Claude to Zaaheen',
-    title: 'Connect Claude to Zaaheen · Zaaheen',
+    crumb: 'Connect Claude Desktop',
+    heading: 'How to connect Claude Desktop to Zaaheen',
+    title: 'Connect Claude Desktop to Zaaheen · Zaaheen',
     description:
       "Give the Claude app on your computer a private memory it shares with your other AI apps: one click in Zaaheen, then Install in Claude.",
     sources: ['src/pages/docs/connect-claude.astro', 'src/layouts/Guide.astro'],
+  },
+  {
+    path: '/docs/connect-claude-code/',
+    crumb: 'Connect Claude Code',
+    heading: 'How to connect Claude Code to Zaaheen',
+    title: 'Connect Claude Code to Zaaheen · Zaaheen',
+    description:
+      'Give Claude Code a memory your other AI apps share: run one command in a terminal, and Zaaheen is there in every Claude Code project.',
+    sources: ['src/pages/docs/connect-claude-code.astro', 'src/layouts/Guide.astro'],
   },
   {
     path: '/docs/connect-cursor/',
@@ -424,7 +436,8 @@ export const COACHING_POLICIES: readonly { path: string; label: string; live: bo
 // Documents menu lists them. Each has a PAGES entry with a heading.
 export const GUIDES = [
   { path: '/docs/getting-started/', label: 'Getting started' },
-  { path: '/docs/connect-claude/', label: 'Connect Claude' },
+  { path: '/docs/connect-claude/', label: 'Connect Claude Desktop' },
+  { path: '/docs/connect-claude-code/', label: 'Connect Claude Code' },
   { path: '/docs/connect-cursor/', label: 'Connect Cursor' },
   { path: '/docs/connect-chatgpt/', label: 'Connect ChatGPT' },
   { path: '/docs/connect-other-apps/', label: 'Connect other AI apps' },

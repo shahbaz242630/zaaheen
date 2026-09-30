@@ -1,6 +1,7 @@
 ---
 import Guide from '../../layouts/Guide.astro';
 import Row from '../../components/Row.astro';
+import CopyBox from '../../components/CopyBox.astro';
 import { INSTALL_PATH, MAC_INSTALL_PATH } from '../../data/site';
 
 // Cursor, in the app's own words: CONNECT_WORDS.cursor, AGENTS (the setting
@@ -41,7 +42,7 @@ const OUTLINE = [
       <p>If Zaaheen says it couldn't find or open Cursor, add the setting yourself. Add this to
          Cursor's settings file, mcp.json, in the .cursor folder in your home folder. Save it, then
          restart Cursor:</p>
-      <pre><code>{snippet}</code></pre>
+      <CopyBox text={snippet} />
       <p>That is where Zaaheen usually installs on Windows. On a Mac, the command is
          <code>{MAC_INSTALL_PATH}</code> instead. The <em>Agents</em> tab shows the setting for your
          computer exactly, ready to copy.</p>
