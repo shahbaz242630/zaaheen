@@ -1,6 +1,7 @@
 ---
 import Guide from '../../layouts/Guide.astro';
 import Row from '../../components/Row.astro';
+import CopyBox from '../../components/CopyBox.astro';
 import { INSTALL_PATH, MAC_INSTALL_PATH, TIP_LINE } from '../../data/site';
 
 // Claude Desktop, in the app's own words: CONNECT_WORDS.claude_desktop,
@@ -48,7 +49,7 @@ const OUTLINE = [
       <p>If Zaaheen says it couldn't find, save or open Claude, add the setting yourself. In Claude,
          open Settings, then Developer, then Edit Config. Add this to the file it shows you, save it,
          then quit Claude and open it again:</p>
-      <pre><code>{snippet}</code></pre>
+      <CopyBox text={snippet} />
       <p>That is where Zaaheen usually installs on Windows. On a Mac, the command is
          <code>{MAC_INSTALL_PATH}</code> instead. The <em>Agents</em> tab shows the setting for your
          computer exactly, ready to copy.</p>
@@ -61,7 +62,7 @@ const OUTLINE = [
     <Row level={2} id="tip" title="Make Claude check Zaaheen" where="Claude › Settings">
       <p>Claude looks in its own memory first and may stop there. So it checks Zaaheen as well, add
          this line to your personal preferences in Claude's Settings:</p>
-      <pre><code>{TIP_LINE}</code></pre>
+      <CopyBox text={TIP_LINE} />
     </Row>
   </section>
 </Guide>

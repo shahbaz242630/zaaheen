@@ -1,6 +1,7 @@
 ---
 import Guide from '../../layouts/Guide.astro';
 import Row from '../../components/Row.astro';
+import CopyBox from '../../components/CopyBox.astro';
 import { INSTALL_PATH, MAC_INSTALL_PATH, verifiedAppList } from '../../data/site';
 
 // Any other MCP app, in the app's own words: AGENTS "Another app" and
@@ -37,7 +38,7 @@ const OUTLINE = [
     <Row level={2} id="setting" title="The setting" where="Agents › Another app">
       <p>Most apps take the setting in this form. Add it where your app keeps its MCP servers, save
          it, then restart the app:</p>
-      <pre><code>{snippet}</code></pre>
+      <CopyBox text={snippet} />
       <p>That is where Zaaheen usually installs on Windows. On a Mac, the command is
          <code>{MAC_INSTALL_PATH}</code> instead. In Zaaheen, the <em>Agents</em> tab, then
          <em>+ Connect an AI app</em>, then <em>Another app</em> shows the setting for your computer

@@ -1,0 +1,17 @@
+---
+// A setting or command to paste, with a Copy button in its top corner (founder,
+// session 79: "copy option like a small tab on top in the box"). The button is
+// hidden until scripts/copy.js runs, so without scripts the box is plain text
+// that can still be selected. Scripts are external files: the CSP allows no
+// inline script or style.
+interface Props {
+  text: string;
+  label?: string;
+}
+const { text, label = 'Copy' } = Astro.props;
+---
+<div class="copybox">
+  <button class="copy-btn" type="button" data-copy hidden>{label}</button>
+  <pre><code>{text}</code></pre>
+</div>
+<script src="../scripts/copy.js"></script>
