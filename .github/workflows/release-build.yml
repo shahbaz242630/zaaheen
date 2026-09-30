@@ -1,6 +1,6 @@
 name: Release build
 
-# The customer downloads (launch checklist E3, session 78): the Windows
+# The customer downloads (launch checklist E3 + E4, session 78): the Windows
 # installer built on GitHub's Windows machine instead of the founder's laptop
 # (founder: "yes partner go ahead with github windows build"). Started by hand
 # only, with the account to build for:
@@ -171,3 +171,180 @@ jobs:
             ${{ steps.msi.outputs.name }}.sha256.txt
           retention-days: 7
           if-no-files-found: error
+
+  mac:
+    name: Mac download (${{ inputs.account || 'sandbox' }})
+    runs-on: macos-latest
+    timeout-minutes: 240
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+      # The same seven settings and sandbox copies as the Windows job.
+      ZAAHEEN_ACCOUNT_ISSUER: ${{ inputs.account == 'production' && secrets.PROD_ACCOUNT_ISSUER || secrets.MAC_TEST_ACCOUNT_ISSUER }}
+      ZAAHEEN_ACCOUNT_CLIENT_ID: ${{ inputs.account == 'production' && secrets.PROD_ACCOUNT_CLIENT_ID || secrets.MAC_TEST_ACCOUNT_CLIENT_ID }}
+      ZAAHEEN_ACCOUNT_API: ${{ inputs.account == 'production' && secrets.PROD_ACCOUNT_API || secrets.MAC_TEST_ACCOUNT_API }}
+      ZAAHEEN_LEASE_PRIMARY_KID: ${{ inputs.account == 'production' && secrets.PROD_LEASE_PRIMARY_KID || secrets.MAC_TEST_LEASE_PRIMARY_KID }}
+      ZAAHEEN_LEASE_PRIMARY_KEY: ${{ inputs.account == 'production' && secrets.PROD_LEASE_PRIMARY_KEY || secrets.MAC_TEST_LEASE_PRIMARY_KEY }}
+      ZAAHEEN_LEASE_BACKUP_KID: ${{ inputs.account == 'production' && secrets.PROD_LEASE_BACKUP_KID || secrets.MAC_TEST_LEASE_BACKUP_KID }}
+      ZAAHEEN_LEASE_BACKUP_KEY: ${{ inputs.account == 'production' && secrets.PROD_LEASE_BACKUP_KEY || secrets.MAC_TEST_LEASE_BACKUP_KEY }}
+      SANDBOX_ZAAHEEN_ACCOUNT_CLIENT_ID: ${{ secrets.MAC_TEST_ACCOUNT_CLIENT_ID }}
+      SANDBOX_ZAAHEEN_LEASE_PRIMARY_KID: ${{ secrets.MAC_TEST_LEASE_PRIMARY_KID }}
+      SANDBOX_ZAAHEEN_LEASE_PRIMARY_KEY: ${{ secrets.MAC_TEST_LEASE_PRIMARY_KEY }}
+      SANDBOX_ZAAHEEN_LEASE_BACKUP_KID: ${{ secrets.MAC_TEST_LEASE_BACKUP_KID }}
+      SANDBOX_ZAAHEEN_LEASE_BACKUP_KEY: ${{ secrets.MAC_TEST_LEASE_BACKUP_KEY }}
+      DMG: ${{ inputs.account == 'production' && 'Zaaheen_0.3.0_aarch64.dmg' || 'Zaaheen_0.3.0_aarch64_sandbox.dmg' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: The account settings pass every rule for this account
+        shell: pwsh
+        run: ./scripts/check-release-account.ps1 -Account '${{ inputs.account || 'sandbox' }}'
+
+      - name: The version is the release version
+        run: |
+          grep -Eq "\"version\":[[:space:]]*\"$RELEASE_VERSION\"" crates/vault-tauri/tauri.conf.json \
+            || { echo "ABORTED: tauri.conf.json is not at version $RELEASE_VERSION"; exit 1; }
+          case "$DMG" in
+            "Zaaheen_${RELEASE_VERSION}_aarch64.dmg"|"Zaaheen_${RELEASE_VERSION}_aarch64_sandbox.dmg") ;;
+            *) echo "ABORTED: the download name does not carry $RELEASE_VERSION"; exit 1 ;;
+          esac
+
+      # From here the steps are mac-test-build.yml's, proven on 2026-09-30.
+      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: stable
+      - name: Provision the embedder model and ONNX Runtime (arm64 dylib)
+        run: bash scripts/setup-dev-env.sh
+      - name: Placeholder onnxruntime.dll for the base config's resource check
+        run: touch crates/vault-embedding/test-fixtures/bge-small-en-v1.5/onnxruntime.dll
+
+      - name: The Mac open-source notices are up to date
+        shell: pwsh
+        run: |
+          cargo install cargo-about --version 0.9.2 --locked --features cli
+          ./scripts/gen-licence-notices.ps1 -Mac -Check
+
+      - name: Build the command-line programs (release)
+        run: cargo build --release -p vault-cli --bins
+
+      - name: Install the Tauri CLI (the version the Windows build uses)
+        run: cargo install tauri-cli --version 2.11.0 --locked
+
+      - name: Import the Developer ID certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KC="$RUNNER_TEMP/zaaheen-signing.keychain-db"
+          KC_PASS="$(openssl rand -hex 24)"
+          echo "::add-mask::$KC_PASS"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KC_PASS" "$KC"
+          security set-keychain-settings -lut 7200 "$KC"
+          security unlock-keychain -p "$KC_PASS" "$KC"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KC_PASS" "$KC" > /dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security find-identity -v -p codesigning "$KC"
+
+      # One signing identifier for all three programs (ADR-SEC-038 amendment 1).
+      - name: Sign the command-line programs and ONNX Runtime
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          for f in target/release/zaaheen target/release/zaaheen-maintenance; do
+            codesign --force --options runtime --timestamp --identifier com.zaaheen.app \
+              --sign "$APPLE_SIGNING_IDENTITY" "$f"
+            codesign --verify --strict --verbose=2 "$f"
+          done
+          f=crates/vault-embedding/test-fixtures/bge-small-en-v1.5/libonnxruntime.dylib
+          codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$f"
+          codesign --verify --strict --verbose=2 "$f"
+
+      - name: Build, sign and notarise Zaaheen.app
+        working-directory: crates/vault-tauri
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s\n' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY_PATH"
+          unset APPLE_API_KEY_P8
+          cargo tauri build --config tauri.mac-test.conf.json
+          rm -f "$APPLE_API_KEY_PATH"
+
+      - name: Apple accepts the bundle, and the three programs are one app
+        run: |
+          APP=target/release/bundle/macos/Zaaheen.app
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          xcrun stapler validate "$APP"
+          spctl --assess --type execute --verbose=4 "$APP"
+          reqs=$(for f in zaaheen-desktop zaaheen zaaheen-maintenance; do
+            codesign -d -r- "$APP/Contents/MacOS/$f" 2>&1 | grep '^designated'
+          done | sort -u)
+          test "$(printf '%s\n' "$reqs" | wc -l | tr -d ' ')" = 1 || { echo "the programs differ in identity"; exit 1; }
+          printf '%s\n' "$reqs" | grep -q 'identifier "com.zaaheen.app"' || { echo "not the app identifier"; exit 1; }
+
+      - name: The bundle holds what the app needs, and links nothing outside macOS
+        run: |
+          APP=target/release/bundle/macos/Zaaheen.app
+          for f in zaaheen-desktop zaaheen zaaheen-maintenance; do
+            test -x "$APP/Contents/MacOS/$f" || { echo "missing $f"; exit 1; }
+          done
+          test -s "$APP/Contents/Resources/libs/libonnxruntime.dylib"
+          test -s "$APP/Contents/Resources/models/model.onnx"
+          test -s "$APP/Contents/Resources/models/tokenizer.json"
+          grep -q "/Applications/Zaaheen.app/Contents/MacOS/zaaheen" "$APP/Contents/Resources/README.txt"
+          grep -q "apple-native-keyring-store" "$APP/Contents/Resources/THIRD-PARTY-NOTICES.txt"
+          bad=0
+          for f in "$APP"/Contents/MacOS/*; do
+            if otool -L "$f" | grep -E '/opt/homebrew|/usr/local'; then bad=1; fi
+          done
+          "$APP/Contents/MacOS/zaaheen" --version
+          exit $bad
+
+      - name: Make the download (.dmg), signed, notarised and stapled
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          ACCOUNT: ${{ inputs.account || 'sandbox' }}
+        run: |
+          STAGE="$RUNNER_TEMP/dmg"
+          rm -rf "$STAGE" && mkdir -p "$STAGE"
+          ditto target/release/bundle/macos/Zaaheen.app "$STAGE/Zaaheen.app"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname Zaaheen -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+          codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$DMG"
+          KEY="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s\n' "$APPLE_API_KEY_P8" > "$KEY"
+          xcrun notarytool submit "$DMG" --key "$KEY" --key-id "$APPLE_API_KEY" \
+            --issuer "$APPLE_API_ISSUER" --wait --timeout 60m
+          rm -f "$KEY"
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
+          HASH=$(shasum -a 256 "$DMG" | cut -d' ' -f1)
+          echo "$DMG  $(du -m "$DMG" | cut -f1) MB  SHA256 $HASH  commit $GITHUB_SHA"
+          echo "$HASH  $DMG  commit $GITHUB_SHA  account $ACCOUNT" > "$DMG.sha256.txt"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Zaaheen-mac-${{ inputs.account || 'sandbox' }}
+          path: |
+            ${{ env.DMG }}
+            ${{ env.DMG }}.sha256.txt
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Remove the signing keychain
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/zaaheen-signing.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/cert.p12"
