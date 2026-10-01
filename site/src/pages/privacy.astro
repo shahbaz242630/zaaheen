@@ -194,8 +194,9 @@ const topic = (id: string) =>
          stays on your computer, never contains your memories, and only leaves your computer
          if you save it with <em>Save activity record…</em> and send it to us yourself.</p>
       <p>Like any server, ours sees your IP address when the app connects. We use it only to
-         stop too many requests arriving from one place, count it for one minute, and never
-         write it to our logs.</p>
+         stop too many requests arriving from one place. Our own service counts it for one
+         minute and never writes it to our logs; Cloudflare, which runs the service, keeps a
+         short security record of requests it blocks for arriving too fast.</p>
     </Row>
   </section>
 
