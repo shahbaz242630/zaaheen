@@ -1,0 +1,1 @@
+if(/Macintosh|Mac OS X/.test(navigator.userAgent))for(let e of document.querySelectorAll(`[data-dl]`)){let t=e.querySelector(`[data-os="windows"]`),n=e.querySelector(`[data-os="mac"]`);t&&n&&e.insertBefore(n,t)}
