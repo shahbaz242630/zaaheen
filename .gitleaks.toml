@@ -45,9 +45,22 @@ paths = [
 # SECRET key (sk_live_...) is never in this repository. Found 2026-09-28 by the
 # full-history scan on the first account-deploy build (commit 496fcb2, four
 # pages). A different pk_ value, or any sk_ value, is still reported.
+#
+# The Paddle CLIENT-SIDE token on the published /pay page, allowlisted by
+# SHAPE and context (session 81). Paddle designs it to be public: Paddle.js
+# needs it in the page, and it can only open checkouts, never read or change
+# anything (that is the API key, pdl_live_apikey_..., which is still reported
+# anywhere). Found 2026-10-01 by the full-history scan on the first on-sale
+# site-deploy build (commit 062b802, pay/index.html). Allowlisted by its exact
+# attribute rather than by value so the token itself stays out of this public
+# repository (an account identifier; it lives in the PADDLE_CLIENT_TOKEN repo
+# variable) and a rotated token needs no edit here. Hence regexTarget "line":
+# the two values above match inside their lines just the same.
+regexTarget = "line"
 regexes = [
   '''dc7e96914b463f8b38a2ca7309b9a25f''',
   '''pk_live_Y2xlcmsuemFhaGVlbi5jb20k''',
+  '''data-paddle-token="live_[a-zA-Z0-9]{27}"''',
 ]
 
 # NOTE ON TEST KEY MATERIAL: this codebase hardcodes 32-byte master keys in
