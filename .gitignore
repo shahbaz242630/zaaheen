@@ -29,6 +29,7 @@ node_modules/
 site/dist/
 site/dist-account/
 site/.astro/
+site/.offsale/
 .pnp.*
 yarn-debug.log*
 yarn-error.log*
