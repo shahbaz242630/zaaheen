@@ -11,6 +11,9 @@ import { readAccountConfig, readRedirect, checkTarget, checkNavigation } from '.
 const PROD_HOST = 'clerk.zaaheen.com';
 const DEV_HOST = 'example-name-12.clerk.accounts.dev';
 const DEV_PORTAL = 'example-name-12.accounts.dev';
+// Production: Clerk's hosted Account Portal, where the consent page lives
+// (clerk-invariants.mjs oauth_consent_url, D9).
+const PROD_PORTAL = 'accounts.zaaheen.com';
 const pk = (kind, host) => `pk_${kind}_${Buffer.from(`${host}$`).toString('base64')}`;
 const CLIENT = 'appclientid0000';
 const PROD = readAccountConfig({ publishableKey: pk('live', PROD_HOST), clientId: CLIENT });
@@ -46,7 +49,7 @@ const invalid = (search, cfg = PROD) => assert.equal(readRedirect(search, cfg).s
 // --- The build settings (D3) --------------------------------------------------
 
 test('config: a live key names its host; a test key is a development build', () => {
-  assert.deepEqual(PROD, { fapiHost: PROD_HOST, portalHost: null, clientId: CLIENT, dev: false });
+  assert.deepEqual(PROD, { fapiHost: PROD_HOST, portalHost: PROD_PORTAL, clientId: CLIENT, dev: false });
   assert.deepEqual(DEV, { fapiHost: DEV_HOST, portalHost: DEV_PORTAL, clientId: CLIENT, dev: true });
 });
 
@@ -64,8 +67,12 @@ test('config: empty, undecodable or malformed settings match nothing', () => {
   assert.equal(checkTarget(target(), null), null);
 });
 
-test('config: only a development host of the expected shape has a Portal', () => {
+test('config: only a host of the expected shape has a Portal', () => {
   assert.equal(readAccountConfig({ publishableKey: pk('test', 'some.other.host'), clientId: CLIENT }).portalHost, null);
+  // Production: the Frontend API is clerk.<domain>, its Portal accounts.<domain>.
+  assert.equal(readAccountConfig({ publishableKey: pk('live', 'api.zaaheen.com'), clientId: CLIENT }).portalHost, null);
+  assert.equal(readAccountConfig({ publishableKey: pk('live', 'clerkzaaheen.com'), clientId: CLIENT }).portalHost, null);
+  assert.equal(readAccountConfig({ publishableKey: pk('live', 'clerk.example.org'), clientId: CLIENT }).portalHost, 'accounts.example.org');
 });
 
 // --- Accepted shapes (D4) ----------------------------------------------------
@@ -93,12 +100,35 @@ test('no redirect_url is its own state (someone signing in on the website)', () 
   invalid('?redirect_url=');
 });
 
-test('development builds only: the Portal consent shape and __clerk_db_jwt', () => {
+test('production: the Portal consent page with exactly the app parameters (live test, session 81)', () => {
+  // What Clerk's production instance sent on 2026-10-01: /oauth/authorize →
+  // /oauth/authorize/continue → our /sign-in/ with this redirect_url.
+  const consent = target(PROD_PORTAL, '/oauth-consent');
+  assert.equal(ok(page(consent)).host, PROD_PORTAL);
+  // Google's return navigates there too (checkNavigation goes through checkTarget).
+  assert.equal(checkNavigation(consent, [], PROD, 'https://account.zaaheen.com').host, PROD_PORTAL);
+  // Exactly the app parameters, as for the Frontend API.
+  invalid(page(target(PROD_PORTAL, '/oauth-consent', `${query()}&__clerk_db_jwt=dvb_abc123`)));
+  invalid(page(target(PROD_PORTAL, '/oauth-consent', `${query()}&extra=1`)));
+  invalid(page(target(PROD_PORTAL, '/oauth-consent', query({ client_id: 'someoneelse' }))));
+  invalid(page(target(PROD_PORTAL, '/oauth-consent', query({ redirect_uri: 'https://evil.com/callback' }))));
+  invalid(page(target(PROD_PORTAL, '/oauth-consent', query({ state: undefined }))));
+  // Only the consent page on the Portal, and only on that exact host.
+  for (const path of ['/sign-in', '/oauth/authorize', '/oauth-consent/', '/oauth-consent/x', '/OAUTH-CONSENT']) {
+    invalid(page(target(PROD_PORTAL, path)));
+  }
+  for (const host of ['accounts.zaaheen.com.evil.com', 'xaccounts.zaaheen.com', 'account.zaaheen.com', 'accounts.evil.com',
+    'accounts.zaaheen.com.', 'accounts.zaaheen.com:443', 'user@accounts.zaaheen.com']) {
+    invalid(page(target(host, '/oauth-consent')));
+  }
+});
+
+test('development builds only: __clerk_db_jwt', () => {
   const consent = target(DEV_PORTAL, '/oauth-consent', `${query()}&__clerk_db_jwt=dvb_abc123`);
   assert.equal(ok(page(consent), DEV).host, DEV_PORTAL);
   ok(page(target(DEV_HOST, '/oauth/authorize-with-immediate-redirect', `${query()}&__clerk_db_jwt=dvb_abc123`)), DEV);
   ok(page(target(DEV_HOST)), DEV);
-  // Production: neither.
+  // Production: consent only on the Portal, never on the Frontend API, and no handshake parameter.
   invalid(page(target(PROD_HOST, '/oauth-consent')));
   invalid(page(target(PROD_HOST, '/oauth/authorize', `${query()}&__clerk_db_jwt=dvb_abc123`)));
   // The Portal's other pages are not a way back.

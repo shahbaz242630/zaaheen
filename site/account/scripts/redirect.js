@@ -5,8 +5,10 @@
 // The one way back is the Zaaheen app's own sign-in request: Clerk's
 // authorize endpoint (after Clerk wraps it) carrying exactly the parameters
 // vault-account sends (signin/mod.rs), for our client and a loopback listener.
-// A development build (a pk_test_ key) also accepts the Portal's consent page
-// and Clerk's development handshake parameter, measured in build step 1 (M8).
+// Both builds also accept the Portal's consent page, with the same exact
+// parameters: measured for development in build step 1 (M8) and for
+// production in the live test of session 81. Only a development build (a
+// pk_test_ key) accepts Clerk's development handshake parameter.
 
 const APP_SCOPE = 'openid profile email offline_access';
 // vault-account: 32 random bytes / a SHA-256, base64url without padding.
@@ -18,6 +20,7 @@ const DEV_HANDSHAKE = /^[A-Za-z0-9_.-]{1,512}$/;
 const FAPI_PATHS = ['/oauth/authorize-with-immediate-redirect', '/oauth/authorize'];
 const CONSENT_PATH = '/oauth-consent';
 const DEV_FAPI_SUFFIX = '.clerk.accounts.dev';
+const PROD_FAPI_PREFIX = 'clerk.';
 
 /**
  * The build settings (D3): the publishable key names the Frontend API host
@@ -39,10 +42,19 @@ export function readAccountConfig({ publishableKey, clientId } = {}) {
   const fapiHost = decoded.slice(0, -1);
   if (!HOST.test(fapiHost)) return null;
   const dev = m[1] === 'test';
-  const portalHost = dev && fapiHost.endsWith(DEV_FAPI_SUFFIX)
-    ? `${fapiHost.slice(0, -DEV_FAPI_SUFFIX.length)}.accounts.dev`
-    : null;
-  return { fapiHost, portalHost, clientId, dev };
+  return { fapiHost, portalHost: portalFor(fapiHost, dev), clientId, dev };
+}
+
+// Clerk's hosted Account Portal, where the OAuth consent page lives. A
+// development instance: <name>.clerk.accounts.dev → <name>.accounts.dev. A
+// production instance: clerk.<domain> → accounts.<domain> (D9; the live test of
+// session 81 measured production sending the app's sign-in through
+// accounts.zaaheen.com/oauth-consent). Any other shape has no Portal.
+function portalFor(fapiHost, dev) {
+  if (dev) {
+    return fapiHost.endsWith(DEV_FAPI_SUFFIX) ? `${fapiHost.slice(0, -DEV_FAPI_SUFFIX.length)}.accounts.dev` : null;
+  }
+  return fapiHost.startsWith(PROD_FAPI_PREFIX) ? `accounts.${fapiHost.slice(PROD_FAPI_PREFIX.length)}` : null;
 }
 
 /**
@@ -87,7 +99,7 @@ export function checkTarget(raw, config) {
   if (rawPath !== url.pathname) return null;
 
   const fapi = url.hostname === config.fapiHost && FAPI_PATHS.includes(url.pathname);
-  const consent = config.dev && config.portalHost !== null
+  const consent = config.portalHost !== null
     && url.hostname === config.portalHost && url.pathname === CONSENT_PATH;
   if (!fapi && !consent) return null;
   return appParamsOk(url.searchParams, config) ? url : null;
