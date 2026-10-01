@@ -8,6 +8,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { Config } from "../src/config";
+import { decideLease } from "../src/decide";
+import { parseRecord } from "../src/record";
 import { handlePaddleWebhook } from "../src/routes/paddle-webhook";
 import { DAY } from "../src/time";
 import { type Seen, fakeFetch, json, rfcPkcs8 } from "./support";
@@ -127,6 +129,37 @@ describe("a genuine subscription event", () => {
     const { response, writes } = await call({ metadata }, body, await signature(body));
     expect(response.status).toBe(200);
     expect(writes).toEqual([]);
+  });
+
+  // Launch checklist D7(b): a Paddle refund does not cancel the subscription,
+  // so the refund routine cancels it immediately as well. This is the rule
+  // that must hold once it has: the paid period is cut to now, and the next
+  // lease is a signed "ended" (subscription ended), not "active" until the
+  // old period end.
+  it("a refund followed by an immediate cancel ends access now, and the next lease says ended", async () => {
+    const paid = { trial_started_at: T - 40 * DAY, paddle_customer_id: CUSTOMER, active_until: T + 33 * DAY, payment_failed: false, synced_at: T - DAY };
+    const body = event("subscription.canceled", { ...activeSub(), status: "canceled" });
+    const { response, writes } = await call({ metadata: { zaaheen_memory: paid }, subscriptions: [{ ...activeSub(), status: "canceled" }] }, body, await signature(body));
+    expect(response.status).toBe(200);
+    expect(writes).toEqual([{ private_metadata: { zaaheen_memory: { active_until: T, synced_at: T } } }]);
+
+    const stored = parseRecord({ zaaheen_memory: { ...paid, active_until: T, synced_at: T } }).record;
+    const asked: string[] = [];
+    const next = await decideLease(stored, {
+      now: T + 60,
+      killSwitch: false,
+      productId: PRODUCT,
+      firstTrialStart: async () => {
+        throw new Error("the record already has a trial start");
+      },
+      fetchSubscriptions: async (customerId) => {
+        asked.push(customerId);
+        return [{ ...activeSub(), status: "canceled" }];
+      },
+      writeRecord: async () => {},
+    });
+    expect(next).toEqual({ kind: "lease", terms: { state: "ended", active_until: T, trial_ends_at: T - 10 * DAY } });
+    expect(asked).toEqual([]);
   });
 
   it("accepts any matching h1 while a secret is being rotated", async () => {

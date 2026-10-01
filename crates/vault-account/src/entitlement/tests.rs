@@ -218,6 +218,39 @@ fn deleting_the_record_only_lowers_the_floor_to_now() {
     );
 }
 
+#[test]
+fn an_older_lease_put_back_never_gives_more_time_than_it_had() {
+    // Launch checklist D7(e): a year's paid lease arrives, then (after a
+    // refund) a signed `ended`. Copying the old `lease` file back over the
+    // new one, with the clock left alone, must run out exactly when the old
+    // lease would have: its own 30 days offline from its own arrival.
+    let old = paid_lease(LeaseState::Active, T0, 365);
+    let ended = Lease::for_test(
+        LeaseState::Ended,
+        T0 + 5 * DAY,
+        T0 + 5 * DAY,
+        None,
+        Some(T0),
+    );
+    let after_ended = received(&old).with_floor(&old, T0 + 5 * DAY);
+    let after_ended = after_ended.on_new_lease(&ended);
+    assert_eq!(
+        verdict(&ended, &after_ended, T0 + 5 * DAY),
+        Entitlement::Denied(Denial::Ended { was_paid: true })
+    );
+
+    for state in [after_ended, LocalState::default()] {
+        let restored = assess(&old, &state, T0 + 5 * DAY);
+        assert_eq!(restored.entitlement, ENTITLED);
+        assert_eq!(restored.remaining, 25 * DAY);
+        assert_eq!(verdict(&old, &state, T0 + 30 * DAY - 1), ENTITLED);
+        assert_eq!(
+            verdict(&old, &state, T0 + 30 * DAY),
+            Entitlement::Denied(Denial::OfflineTooLong)
+        );
+    }
+}
+
 // ---- the floor belongs to one lease ------------------------------------------------
 
 #[test]
