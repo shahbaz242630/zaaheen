@@ -47,15 +47,15 @@ export const RELEASE = {
   // either download, and the deploy leaves /pay out of the published site (site.yml;
   // scripts/audit.mjs treats a home page without the installer link as "not on
   // sale"). Set true in the same change that uploads the installer.
-  available: false,
+  available: true,
   version: '0.3.0',
   stage: 'Beta',
   windows: {
     // The name .github/workflows/release-build.yml gives the production installer.
     file: 'Zaaheen_0.3.0_x64.msi',
     url: 'https://dl.zaaheen.com/Zaaheen_0.3.0_x64.msi',
-    // As Windows Explorer reports it (216,092,672 bytes).
-    size: '206 MB',
+    // As Windows Explorer reports it (155,611,136 bytes, the production build, session 81).
+    size: '148 MB',
     arch: '64-bit',
     // Only Windows 11 has been tested. Do not claim Windows 10 until it has been.
     tested: 'Windows 11',
@@ -66,9 +66,8 @@ export const RELEASE = {
   mac: {
     file: 'Zaaheen_0.3.0_aarch64.dmg',
     url: 'https://dl.zaaheen.com/Zaaheen_0.3.0_aarch64.dmg',
-    // A placeholder: the session 77 test copy (141,059,416 bytes, as Finder
-    // counts). Set from the production Mac build before the download goes on.
-    size: '141 MB',
+    // As Finder counts it (154,038,049 bytes, the production build, session 81).
+    size: '154 MB',
     arch: 'Apple chip (M1 or newer)',
     // Only macOS 26 has been tested. Do not claim older versions until they have been.
     tested: 'macOS 26',
