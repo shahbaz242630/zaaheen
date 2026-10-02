@@ -66,6 +66,13 @@ function busy(form, on) {
   for (const b of form.querySelectorAll('button')) b.disabled = on;
 }
 
+// Clerk runs its bot check before sending a sign-up to Google, which can take a
+// few seconds: say so, and take no second click that would start it again.
+function googleWorking(on) {
+  $('google').disabled = on;
+  $('google-label').textContent = on ? 'Opening Google…' : 'Continue with Google';
+}
+
 // ---------- the way back -----------------------------------------------------------
 
 const keepQuery = () => (REDIRECT.state === 'ok' ? `?${new URLSearchParams({ redirect_url: REDIRECT.url.href })}` : '');
@@ -240,11 +247,13 @@ function wireForms() {
 
   $('google').addEventListener('click', async (ev) => {
     ev.preventDefault();
+    if ($('google').disabled) return;
     formError('');
     const attempt = PAGE === 'sign-up' ? clerk.client.signUp : clerk.client.signIn;
     const extra = PAGE === 'sign-up'
       ? { legalAccepted: $('terms').checked || undefined, unsafeMetadata: { marketing_consent: $('tips').checked } }
       : {};
+    googleWorking(true);
     try {
       await attempt.authenticateWithRedirect({
         strategy: 'oauth_google',
@@ -253,9 +262,12 @@ function wireForms() {
         ...extra,
       });
     } catch (e) {
+      googleWorking(false);
       failWith(e);
     }
   });
+  // Back from Google brings this page out of the browser's cache as it was left.
+  window.addEventListener('pageshow', () => googleWorking(false));
 
   const details = $('details-form');
   if (details) {
