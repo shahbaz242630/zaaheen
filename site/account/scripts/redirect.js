@@ -17,7 +17,9 @@ const LOOPBACK = /^http:\/\/127\.0\.0\.1:([1-9][0-9]{0,4})\/callback$/;
 const HOST = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
 const CLIENT_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const DEV_HANDSHAKE = /^[A-Za-z0-9_.-]{1,512}$/;
-const FAPI_PATHS = ['/oauth/authorize-with-immediate-redirect', '/oauth/authorize'];
+// /oauth/authorize/continue: where Clerk sends the app's sign-in when the
+// production consent screen is switched off (measured live, session 82).
+const FAPI_PATHS = ['/oauth/authorize-with-immediate-redirect', '/oauth/authorize', '/oauth/authorize/continue'];
 const CONSENT_PATH = '/oauth-consent';
 const DEV_FAPI_SUFFIX = '.clerk.accounts.dev';
 const PROD_FAPI_PREFIX = 'clerk.';
