@@ -183,6 +183,32 @@ test('refuses other schemes, relative and protocol-relative links', () => {
   ]) invalid(page(raw));
 });
 
+test('consent screen off: authorize/continue on the Frontend API with exactly the app parameters (session 82)', () => {
+  // What Clerk's production instance sent on 2026-10-02 with the consent
+  // screen switched off: /oauth/authorize → /oauth/authorize/continue → our
+  // /sign-in/ with redirect_url = that same /oauth/authorize/continue link.
+  const cont = target(PROD_HOST, '/oauth/authorize/continue');
+  assert.equal(ok(page(cont)).pathname, '/oauth/authorize/continue');
+  assert.equal(checkNavigation(cont, [], PROD, 'https://account.zaaheen.com').host, PROD_HOST);
+  // A development instance takes the same route.
+  assert.equal(ok(page(target(DEV_HOST, '/oauth/authorize/continue')), DEV).host, DEV_HOST);
+  // Exactly the app parameters, as for the other Frontend API paths.
+  invalid(page(target(PROD_HOST, '/oauth/authorize/continue', `${query()}&__clerk_db_jwt=dvb_abc123`)));
+  invalid(page(target(PROD_HOST, '/oauth/authorize/continue', `${query()}&extra=1`)));
+  invalid(page(target(PROD_HOST, '/oauth/authorize/continue', query({ client_id: 'someoneelse' }))));
+  invalid(page(target(PROD_HOST, '/oauth/authorize/continue', query({ redirect_uri: 'https://evil.com/callback' }))));
+  invalid(page(target(PROD_HOST, '/oauth/authorize/continue', query({ scope: 'openid profile email offline_access admin' }))));
+  // Only on the Frontend API host: never on the Portal or a lookalike.
+  for (const host of [PROD_PORTAL, 'account.zaaheen.com', 'clerk.zaaheen.com.evil.com', 'xclerk.zaaheen.com', 'clerk.evil.com']) {
+    invalid(page(target(host, '/oauth/authorize/continue')));
+  }
+  // Only that exact path.
+  for (const path of ['/oauth/authorize/continue/', '/oauth/authorize/continue/x', '/oauth/authorize/CONTINUE',
+    '/oauth/authorize/continue/..', '/oauth/authorize/%63ontinue', '/oauth/authorize//continue', '/oauth/continue']) {
+    invalid(page(target(PROD_HOST, path)));
+  }
+});
+
 // --- Refused: path tricks (D4) -------------------------------------------------
 
 test('refuses any other path, and encoded or dot-segment tricks toward the allowed ones', () => {
