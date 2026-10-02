@@ -118,6 +118,26 @@ test('the delete page: its error lines go only where they belong', () => {
   assert.doesNotMatch(ACCOUNT, /reverifyFactor\(/);
 });
 
+// Session 82: Clerk runs its bot check before sending a sign-up to Google, which
+// can take seconds; without feedback people click again and restart it.
+test('the Google button says it is working, once, and comes back on an error or Back', () => {
+  const GOOGLE = fs.readFileSync(path.resolve(DIR, '..', 'components', 'GoogleButton.astro'), 'utf8');
+  assert.match(GOOGLE, /<span id="google-label">Continue with Google<\/span>/);
+  const h = /\$\('google'\)\.addEventListener\('click', async \(ev\) => \{([\s\S]*?)\n {2}\}\);/.exec(ACCOUNT);
+  assert.ok(h, 'the Google handler');
+  const body = h[1];
+  // A second click while it is working does nothing.
+  assert.match(body, /^\s*ev\.preventDefault\(\);\s*if \(\$\('google'\)\.disabled\) return;/);
+  // Greyed out and relabelled before Clerk is asked anything.
+  const working = body.indexOf('googleWorking(true)');
+  assert.ok(working !== -1 && working < body.indexOf('authenticateWithRedirect'), 'working before the redirect');
+  // An error puts it back.
+  assert.match(body, /catch \(e\) \{\s*googleWorking\(false\);\s*failWith\(e\);/);
+  assert.match(ACCOUNT, /function googleWorking\(on\) \{\s*\$\('google'\)\.disabled = on;\s*\$\('google-label'\)\.textContent = on \? 'Opening Google…' : 'Continue with Google';\s*\}/);
+  // The browser's Back button restores the page from its cache: put it back.
+  assert.match(ACCOUNT, /addEventListener\('pageshow', \(\) => googleWorking\(false\)\)/);
+});
+
 // Independent review, finding 3: the policy text itself, word for word. The
 // audit compares .htaccess with csp.js; this pins csp.js, so loosening it is a
 // visible change to this test (a reviewed ADR-SEC-034 amendment).
