@@ -690,21 +690,22 @@ async fn erasure_waits_out_and_reports_a_maintenance_run() {
 /// this hash, and the fix is to bump `WIRE` deliberately.
 #[test]
 fn the_tool_contract_is_pinned_to_the_wire_version() {
-    // Recorded 2026-09-24 from the wire-v4 tool contract (session 59:
-    // "one question at a time" in memory_read / memory_search, ADR-107),
-    // computed on Windows under rmcp 3.4.1. Wire 3 was
+    // Recorded 2026-10-03 from the wire-v5 tool contract (session 83: the
+    // instructions end with where setup help and fixes live), computed on
+    // CI (Linux and macOS agree) under rmcp 3.4.1. Wire 4 was
+    // 198591bd3b035767929eef3e50d802a83596e1231b0c129b40a281df5973998c
+    // (session 59, "one question at a time", ADR-107). Wire 3 was
     // 7a941150d4fe95809f1a0847607b607d3ecc79caabfad2e2f645719e1af4584d
     // (session 52, rmcp 2.2.0); wire 2 was
     // 64bafc664287b3e09449bb4c093e38bfa87b287bbb769ce86e14967363a7d836 (CI,
     // Linux and macOS, ADR-SEC-021 D4c); wire 1 was
     // 2e062fb5bc6adb1a62b37ca9c33adb51dbfd2f59249e501d7fa6dfb9871309be.
-    const PINNED: &str = "198591bd3b035767929eef3e50d802a83596e1231b0c129b40a281df5973998c";
+    const PINNED: &str = "5ca1913b1cd3750439e3e4862fb4551140b03bca0cb1432ac02abfd53a564bd3";
 
     let server = StdioServer::new(Arc::new(NoVaultAdapter), Vec::new());
     let instructions = server.get_info().instructions.unwrap_or_default();
     // Wire 5 (s83): an app that hits an error can find its fix.
-    assert!(instructions
-        .ends_with("Setup help and fixes for error messages: https://zaaheen.com/llms.txt"));
+    assert!(instructions.ends_with("Setup help and fixes for error messages: https://zaaheen.com/llms.txt"));
     let mut hasher = blake3::Hasher::new();
     hasher.update(instructions.as_bytes());
     for name in [
