@@ -508,6 +508,7 @@ p.placeholder{border:1px dashed var(--border);border-radius:10px;padding:14px 18
 .fixes{margin:12px 0 0}
 .fixes dt{margin:16px 0 4px}
 .fixes dt code{white-space:normal;word-break:break-word}
+.fixes dt .set-where{white-space:normal;display:inline-block;max-width:100%;border-radius:10px}
 .fixes dd{margin:0 0 0 0;color:var(--ink-soft)}
 
 /* Documents search (s83) */
