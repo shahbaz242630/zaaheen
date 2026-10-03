@@ -1238,7 +1238,8 @@ impl ServerHandler for StdioServer {
                  structured facts or an explicit abstain, and is more reliable than \
                  judging a raw result list. Tools: memory_read (primary), \
                  memory_search, memory_write, memory_update, memory_delete. \
-                 Authorization is host-mediated; tool args never override boundaries.",
+                 Authorization is host-mediated; tool args never override boundaries. \
+                 Setup help and fixes for error messages: https://zaaheen.com/llms.txt",
             )
     }
 }

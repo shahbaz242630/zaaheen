@@ -220,3 +220,69 @@ async fn the_old_handshake_still_works() {
         .await;
     assert_eq!(call["result"]["content"][0]["text"], json!("ok"), "{call}");
 }
+
+/// What the keeper sends the relay: the relay's own link to it negotiates an
+/// older version, so the keeper's answer has no `resultType` (rmcp strips it
+/// for older peers), and the relay reads it back with the field absent.
+struct AnswersInTheOlderShape;
+
+#[async_trait]
+impl Upstream for AnswersInTheOlderShape {
+    async fn call_tool(
+        &self,
+        _params: CallToolRequestParams,
+        _deadline: Instant,
+        _cancel: tokio_util::sync::CancellationToken,
+    ) -> Result<CallToolResult, UpstreamError> {
+        let mut result = CallToolResult::success(vec![ContentBlock::text("ok")]);
+        result.result_type = None;
+        Ok(result)
+    }
+}
+
+/// A tool call through the relay, as an app on `version` makes it. An app on
+/// 2026-07-28 states the version on the request itself (`_meta`, the spec's
+/// inline lifecycle): rmcp agrees to 2025-11-25 at `initialize`, so that is
+/// how such an app gets the newer result shape. `hello` false: no
+/// `initialize` at all, the session started by the request itself.
+async fn call_through_the_relay(version: &str, hello: bool) -> Value {
+    let mut wire = Wire::open(RelayServer::new(Arc::new(AnswersInTheOlderShape))).await;
+    if hello {
+        let answer = wire.request(0, "initialize", initialize(version)).await;
+        assert!(answer.get("result").is_some(), "{answer}");
+        wire.send(json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }))
+            .await;
+    }
+    let mut params = json!({ "name": "memory_read", "arguments": { "query": "q" } });
+    if version >= "2026-07-28" {
+        params["_meta"] = json!({
+            "io.modelcontextprotocol/protocolVersion": version,
+            "io.modelcontextprotocol/clientCapabilities": {}
+        });
+    }
+    wire.request(1, "tools/call", params).await
+}
+
+/// Session 82, the founder's live test: Claude Code (2026-07-28) refused every
+/// answer, "missing required resultType — servers implementing protocol
+/// revision 2026-07-28 MUST include it". An absent field means "complete"
+/// (the spec), so the relay says so; rmcp removes it again for older apps.
+#[tokio::test]
+async fn a_new_protocol_app_gets_the_result_type_through_the_relay() {
+    for hello in [true, false] {
+        let call = call_through_the_relay("2026-07-28", hello).await;
+        assert_eq!(
+            call["result"]["resultType"],
+            json!("complete"),
+            "hello={hello}: {call}"
+        );
+        assert_eq!(call["result"]["content"][0]["text"], json!("ok"), "{call}");
+    }
+}
+
+#[tokio::test]
+async fn an_older_app_still_gets_the_older_shape_through_the_relay() {
+    let call = call_through_the_relay("2025-06-18", true).await;
+    assert!(call["result"].get("resultType").is_none(), "{call}");
+    assert_eq!(call["result"]["content"][0]["text"], json!("ok"), "{call}");
+}

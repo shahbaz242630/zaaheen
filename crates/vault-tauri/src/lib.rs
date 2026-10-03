@@ -716,6 +716,10 @@ mod tests {
             ("commands/engine.rs", include_str!("commands/engine.rs")),
             ("commands/export.rs", include_str!("commands/export.rs")),
             ("commands/erasure.rs", include_str!("commands/erasure.rs")),
+            (
+                "commands/erasure/owner.rs",
+                include_str!("commands/erasure/owner.rs"),
+            ),
             ("commands/logs.rs", include_str!("commands/logs.rs")),
             (
                 "commands/maintenance.rs",

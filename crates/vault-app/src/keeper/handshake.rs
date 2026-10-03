@@ -84,7 +84,14 @@ pub const MAGIC: &[u8; 4] = b"ZKH1";
 /// restart rather than served. Purpose 3 (admin, ADR-SEC-033, session 60)
 /// joined wire 4 before it shipped; the admin tool contract is pinned beside
 /// the AI apps' one and moves with this number too.
-pub const WIRE: u16 = 4;
+///
+/// 5 (session 83, app 0.3.1): the server instructions end with where setup
+/// help and fixes live (`https://zaaheen.com/llms.txt`), so the tool
+/// contract's hash changed. Nothing else on the pipe changed. A relay and a
+/// keeper always come from one install (every AI app, the Claude plugin
+/// included, runs the installed `zaaheen`), so a mismatch means a half-done
+/// update and the older side is told to restart.
+pub const WIRE: u16 = 5;
 
 /// Fresh random bytes each side contributes per connection.
 pub const CHALLENGE_LEN: usize = 32;
