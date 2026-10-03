@@ -1,0 +1,55 @@
+---
+import Policy, { type Outline } from '../../layouts/Policy.astro';
+import Row from '../../components/Row.astro';
+import CopyBox from '../../components/CopyBox.astro';
+import { COACHING } from '../../data/site';
+
+// Contact the Knowledge Centre (founder, session 83): its own page, its own
+// address (COACHING.email), never the app's. The coaching footer links here.
+const OUTLINE: Outline[] = [
+  { id: 'contact', title: 'Contact us', topics: [
+    { id: 'answers', title: 'Most answers are already here' },
+    { id: 'email', title: 'Email us' },
+    { id: 'include', title: 'What to include' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+const lede = `Questions about a coaching session or your booking? Most are answered in our coaching documents. If yours isn't, email the Knowledge Centre at ${COACHING.email}.`;
+---
+<Policy path="/knowledge-centre/contact/" heading="Contact the Knowledge Centre" lede={lede} outline={OUTLINE} coaching>
+  <ul slot="summary">
+    <li>Read the <a href="/knowledge-centre/booking-and-refunds/">Booking and Refund Policy</a> first: moving
+        a session, missed sessions and refunds.</li>
+    <li>Email us at {COACHING.email}.</li>
+  </ul>
+
+  <section id="contact" class="docs-section">
+    <h2 class="docs-title">Contact us</h2>
+
+    <Row id="answers" title={topic('answers')} where="Coaching documents">
+      <ul>
+        <li><a href="/knowledge-centre/#sessions">Sessions</a>: what each session covers and how it works.</li>
+        <li><a href="/knowledge-centre/booking-and-refunds/">Booking and Refund Policy</a>: moving your session,
+            late or missed sessions, and when we refund.</li>
+        <li><a href="/knowledge-centre/terms/">Coaching Terms</a> and the
+            <a href="/knowledge-centre/privacy/">Coaching Privacy Notice</a>.</li>
+      </ul>
+    </Row>
+
+    <Row id="email" title={topic('email')} where="Any coaching question">
+      <p>Write to us at <a href={`mailto:${COACHING.email}`}>{COACHING.email}</a>. If the link doesn't open
+         your email, copy the address:</p>
+      <CopyBox text={COACHING.email} />
+    </Row>
+
+    <Row id="include" title={topic('include')} where="So we can help the first time">
+      <ul>
+        <li>The email address you booked with.</li>
+        <li>The date and time of your session, if you have one booked.</li>
+        <li>What you would like us to do, for example move your session.</li>
+      </ul>
+      <p>Never send card details or a password. We will never ask for them.</p>
+    </Row>
+  </section>
+</Policy>

@@ -1,68 +1,18 @@
 ---
 import Guide from '../../layouts/Guide.astro';
-import Row from '../../components/Row.astro';
-import CopyBox from '../../components/CopyBox.astro';
-import { INSTALL_PATH, MAC_INSTALL_PATH, TIP_LINE } from '../../data/site';
+import ConnectSteps from '../../components/ConnectSteps.astro';
+import { connectOutline } from '../../data/app-words';
 
-// Claude Desktop, in the app's own words: CONNECT_WORDS.claude_desktop,
-// AGENTS (the setting by hand), AGENT_CHECKS and AGENT_TIPS in
-// crates/vault-tauri/dist/app.js. "Connect it for me" is ADR-106.
-const snippet = `{
-  "mcpServers": {
-    "zaaheen": {
-      "command": ${JSON.stringify(INSTALL_PATH)},
-      "args": ["mcp", "serve"]
-    }
-  }
-}`;
-const OUTLINE = [
-  { id: 'connect', title: 'Connect it' },
-  { id: 'not-asked', title: "If Claude doesn't ask" },
-  { id: 'by-hand', title: 'Add the setting yourself' },
-  { id: 'check', title: 'Check it worked' },
-  { id: 'tip', title: 'Make Claude check Zaaheen' },
-];
+// Claude Desktop, built from the app's own wording (data/app-words.ts reads
+// crates/vault-tauri/dist/app.js), so this page says what the Agents tab says.
+const NAME = 'Claude Desktop';
 ---
 <Guide
   path="/docs/connect-claude/"
-  lede="In Zaaheen, open the Agents tab, choose + Connect an AI app, then Claude Desktop and Connect it for me. Claude asks you to install Zaaheen: click Install, and it's connected. It works in Claude's Chat and Cowork."
-  outline={OUTLINE}
+  lede="In Zaaheen, open the Agents tab, choose + Connect an AI app, then Claude Desktop and Save the extension, and install it in Claude. Then add one line to Claude's instructions so it uses Zaaheen. It works in Claude's Chat and Cowork."
+  outline={connectOutline(NAME)}
 >
   <section class="docs-section">
-    <Row level={2} id="connect" title="Connect it" where="Agents › Connect">
-      <p>Zaaheen connects to the Claude app for your computer. It saves a small Claude extension,
-         and Claude asks you to install it. Zaaheen never changes Claude's settings itself.</p>
-      <ol>
-        <li>In Zaaheen, open the <em>Agents</em> tab and choose <em>+ Connect an AI app</em>.</li>
-        <li>Choose <em>Claude Desktop</em>, then <em>Connect it for me</em>.</li>
-        <li>Claude asks you to install Zaaheen. Click <em>Install</em>, and it's connected.</li>
-      </ol>
-    </Row>
-
-    <Row level={2} id="not-asked" title="If Claude doesn't ask" where="Claude › Settings">
-      <p>Zaaheen saves the extension to your Downloads folder. In Claude, open Settings, then
-         Extensions, then Advanced settings, then Install Extension, and choose
-         "Zaaheen for Claude.mcpb".</p>
-    </Row>
-
-    <Row level={2} id="by-hand" title="Add the setting yourself" where="Claude › Developer">
-      <p>If Zaaheen says it couldn't find, save or open Claude, add the setting yourself. In Claude,
-         open Settings, then Developer, then Edit Config. Add this to the file it shows you, save it,
-         then quit Claude and open it again:</p>
-      <CopyBox text={snippet} />
-      <p>That is where Zaaheen usually installs on Windows. On a Mac, the command is
-         <code>{MAC_INSTALL_PATH}</code> instead. The <em>Agents</em> tab shows the setting for your
-         computer exactly, ready to copy.</p>
-    </Row>
-
-    <Row level={2} id="check" title="Check it worked" where="Claude › Extensions">
-      <p>In Claude, open Settings, then Extensions. Zaaheen is listed there and switched on.</p>
-    </Row>
-
-    <Row level={2} id="tip" title="Make Claude check Zaaheen" where="Claude › Settings">
-      <p>Claude looks in its own memory first and may stop there. So it checks Zaaheen as well, add
-         this line to your personal preferences in Claude's Settings:</p>
-      <CopyBox text={TIP_LINE} />
-    </Row>
+    <ConnectSteps name={NAME} where="Claude › Settings" />
   </section>
 </Guide>

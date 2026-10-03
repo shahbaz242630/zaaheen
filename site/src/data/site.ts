@@ -1,6 +1,7 @@
 // Single source of truth for facts that appear on more than one page, in the
 // sitemap, in llms.txt or in structured data. Change a fact here, never inline.
 // Every claim must be true of the build a visitor actually downloads.
+import { appWords } from './app-words';
 
 export const SITE = {
   name: 'Zaaheen',
@@ -322,6 +323,14 @@ export const PAGES: PageEntry[] = [
     sources: ['src/pages/knowledge-centre/booking-and-refunds.astro', 'src/layouts/Policy.astro', 'src/data/site.ts', 'src/data/coaching.ts'],
   },
   {
+    path: '/knowledge-centre/contact/',
+    crumb: 'Contact the Knowledge Centre',
+    title: 'Contact the Knowledge Centre · Zaaheen Knowledge Centre',
+    description:
+      'How to reach the Zaaheen Knowledge Centre about a coaching session or booking, and what to include so we can help the first time.',
+    sources: ['src/pages/knowledge-centre/contact.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
+  },
+  {
     path: '/knowledge-centre/privacy/',
     crumb: 'Coaching Privacy Notice',
     title: 'Coaching Privacy Notice · Zaaheen Knowledge Centre',
@@ -375,8 +384,26 @@ export const PAGES: PageEntry[] = [
     heading: 'How to connect ChatGPT to Zaaheen',
     title: 'Connect ChatGPT to Zaaheen · Zaaheen',
     description:
-      'Connect the ChatGPT app for your computer to Zaaheen in Settings, Integrations, Plugins, use it in Work or Codex mode, and make ChatGPT check it.',
+      'Connect the ChatGPT app for your computer to Zaaheen in Settings, Plugins, MCP, use it in a Work or Codex chat, and make ChatGPT check it.',
     sources: ['src/pages/docs/connect-chatgpt.astro', 'src/layouts/Guide.astro'],
+  },
+  {
+    path: '/docs/connect-codex/',
+    crumb: 'Connect Codex',
+    heading: 'How to connect Codex to Zaaheen',
+    title: 'Connect Codex to Zaaheen · Zaaheen',
+    description:
+      "Give OpenAI's Codex a memory your other AI apps share: add Zaaheen's setting to config.toml, restart Codex, and check /mcp shows it connected.",
+    sources: ['src/pages/docs/connect-codex.astro', 'src/layouts/Guide.astro'],
+  },
+  {
+    path: '/docs/connect-antigravity/',
+    crumb: 'Connect Antigravity',
+    heading: 'How to connect Antigravity to Zaaheen',
+    title: 'Connect Antigravity to Zaaheen · Zaaheen',
+    description:
+      "Give Google's Antigravity a memory your other AI apps share: paste Zaaheen's setting into mcp_config.json, restart, and check it shows connected.",
+    sources: ['src/pages/docs/connect-antigravity.astro', 'src/layouts/Guide.astro'],
   },
   {
     path: '/docs/connect-other-apps/',
@@ -384,7 +411,7 @@ export const PAGES: PageEntry[] = [
     heading: 'How to connect other AI apps to Zaaheen',
     title: 'Connect other AI apps to Zaaheen with MCP · Zaaheen',
     description:
-      'Zaaheen works with AI apps that support MCP. The setting to give your app, where Zaaheen shows it ready to copy, and how to check it connected.',
+      'Zaaheen works with any AI app that supports MCP. Which apps have their own guide, the setting to give any other app, and how to check it connected.',
     sources: ['src/pages/docs/connect-other-apps.astro', 'src/layouts/Guide.astro'],
   },
   {
@@ -395,6 +422,15 @@ export const PAGES: PageEntry[] = [
     description:
       "What to do when an AI app doesn't use your Zaaheen memory, isn't listed as connected, or ChatGPT can't see it, and how to send us a record.",
     sources: ['src/pages/docs/troubleshooting.astro', 'src/layouts/Guide.astro'],
+  },
+  {
+    path: '/docs/contact/',
+    crumb: 'Contact us',
+    heading: 'Contact Zaaheen',
+    title: 'Contact us · Zaaheen',
+    description:
+      'Where to find answers about the Zaaheen memory app, how to email us, and what to include so we can help the first time.',
+    sources: ['src/pages/docs/contact.astro', 'src/layouts/Guide.astro'],
   },
   {
     path: '/pricing/',
@@ -439,8 +475,11 @@ export const GUIDES = [
   { path: '/docs/connect-claude-code/', label: 'Connect Claude Code' },
   { path: '/docs/connect-cursor/', label: 'Connect Cursor' },
   { path: '/docs/connect-chatgpt/', label: 'Connect ChatGPT' },
+  { path: '/docs/connect-codex/', label: 'Connect Codex' },
+  { path: '/docs/connect-antigravity/', label: 'Connect Antigravity' },
   { path: '/docs/connect-other-apps/', label: 'Connect other AI apps' },
   { path: '/docs/troubleshooting/', label: 'Troubleshooting' },
+  { path: '/docs/contact/', label: 'Contact us' },
 ] as const;
 
 // Where Zaaheen installs, as the connection settings show it. The app's Agents
@@ -451,10 +490,10 @@ export const INSTALL_PATH = 'C:\\Program Files\\Zaaheen\\zaaheen.exe';
 // to run from anywhere else).
 export const MAC_INSTALL_PATH = '/Applications/Zaaheen.app/Contents/MacOS/zaaheen';
 
-// The line that makes Claude and ChatGPT check Zaaheen as well as their own
-// memory, word for word as the app gives it (TIP_LINE in the desktop app).
-export const TIP_LINE =
-  'Before answering anything about me, my preferences, my work or my plans, also check my Zaaheen memory, even when your own memory has nothing.';
+// The line that makes Claude, ChatGPT and Codex save to and check Zaaheen as
+// well as their own memory: read from the desktop app itself (s82), so it is
+// always the app's line word for word.
+export const TIP_LINE = appWords().TIP_LINE;
 
 // The Documents menu: how-to sections (anchors on /docs/) and the policies.
 export const DOCS_SECTIONS = [

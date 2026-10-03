@@ -641,6 +641,12 @@ textarea.mv-input { resize: none; }
 .settings-section.on { display: block; }
 .settings-title { margin: 6px 0 6px; font: 500 17px var(--sans); color: var(--ink); }
 .settings-intro { margin: 0 0 8px; max-width: 62ch; font: 400 13px/1.6 var(--sans); color: var(--faint-2); }
+/* s82: the connect card says every step matters. */
+.connect-steps-note { margin: 4px 0 8px; max-width: 62ch; font: 600 13.5px/1.6 var(--sans); color: var(--ink); }
+.connect-steps-note:empty { display: none; }
+/* s82: an app-specific line above the steps (Codex shares ChatGPT's settings). */
+.connect-app-note { margin: 4px 0 8px; max-width: 62ch; padding: 10px 12px; border-radius: 8px; background: var(--chip-bg); font: 400 13px/1.6 var(--sans); color: var(--ink-soft); }
+.connect-app-note:empty { display: none; }
 .set-row {
   display: flex; align-items: center; justify-content: space-between; gap: 28px;
   padding: 16px 0;
@@ -723,6 +729,13 @@ textarea.mv-input { resize: none; }
   font: 400 13px/1.6 var(--sans); color: var(--faint-2);
   margin: 14px 0 0; max-width: 60ch;
 }
+/* A failed delete must be impossible to miss (s82: the friend's Mac showed
+   it in faint grey and he pressed the button again and again). */
+.erase-status.failed {
+  font: 500 14px/1.6 var(--sans); color: var(--red);
+  background: #f6e9e5; border-left: 3px solid var(--red);
+  border-radius: 4px; padding: 10px 12px;
+}
 
 /* footer */
 .statusbar {
@@ -800,6 +813,7 @@ textarea.mv-input { resize: none; }
 .maint-actions { display: flex; align-items: center; gap: 18px; margin: 20px 0 0; }
 .maint-actions .btn-pill { padding: 10px 26px; font-size: 13px; }
 .maint-save-note { font: 400 12px var(--sans); color: var(--muted); }
+.maint-mac-note { font: 400 12.5px/1.55 var(--sans); color: var(--muted); margin: 10px 0 0; max-width: 60ch; }
 
 .maint-status { margin: 16px auto 0; max-width: 520px; }
 .maint-status > div { font: 400 13px/1.6 var(--sans); margin-top: 4px; }
@@ -901,7 +915,8 @@ textarea.mv-input { resize: none; }
   border-radius: 999px;
   cursor: pointer;
 }
-.btn-ghost:hover { background: var(--ink-hover); }
+.btn-ghost:hover:not(:disabled) { background: var(--ink-hover); }
+.btn-ghost:disabled { opacity: 0.45; cursor: default; }
 .btn-danger {
   font: 400 13px var(--sans);
   color: var(--red);
@@ -910,7 +925,33 @@ textarea.mv-input { resize: none; }
   padding: 10px 4px;
   cursor: pointer;
 }
-.btn-danger:hover { text-decoration: underline; }
+.btn-danger:hover:not(:disabled) { text-decoration: underline; }
+.btn-danger:disabled { opacity: 0.45; cursor: default; text-decoration: none; }
+
+/* A delete at work (s82): a bar that moves while the app works, since how
+   long it takes is not known. Neutral, not green (done) and not red (failed). */
+.work-bar {
+  height: 4px;
+  max-width: 320px;
+  margin: 14px 0 0;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.work-fill {
+  height: 100%;
+  width: 35%;
+  border-radius: 999px;
+  background: var(--muted);
+  animation: mvSweep 1.4s ease-in-out infinite;
+}
+@keyframes mvSweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(290%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .work-fill { animation: none; width: 100%; opacity: 0.5; }
+}
 
 /* ---------------- moving your memories (ADR-105 L-f) ----------------
    Shown only while a start moves the memories. The bar is the move's real

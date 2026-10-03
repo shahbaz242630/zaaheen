@@ -1,0 +1,19 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import ConnectSteps from '../../components/ConnectSteps.astro';
+import { connectOutline } from '../../data/app-words';
+
+// Codex, OpenAI's coding assistant in the terminal, built from the app's own
+// wording (data/app-words.ts reads crates/vault-tauri/dist/app.js). Its own
+// page since session 83 (founder: each app separate, like the others).
+const NAME = 'Codex';
+---
+<Guide
+  path="/docs/connect-codex/"
+  lede="Add Zaaheen's setting to Codex's config.toml (the Agents tab in Zaaheen shows it for your computer), restart Codex, and check /mcp lists zaaheen as connected. Already connected ChatGPT Desktop? Codex shares its settings, so just check it's connected."
+  outline={connectOutline(NAME)}
+>
+  <section class="docs-section">
+    <ConnectSteps name={NAME} where="Codex › config.toml" />
+  </section>
+</Guide>

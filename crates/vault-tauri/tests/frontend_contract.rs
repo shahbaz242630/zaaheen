@@ -1475,7 +1475,8 @@ fn the_banners_are_the_ones_the_design_asks_for() {
     let functions = top_level_functions(&code);
     let banners = js_function(&functions, "bannerLines");
     for needle in [
-        "view.state === \"trial\" && view.days_left !== null && view.days_left <= TRIAL_BANNER_DAYS",
+        "view.state === \"trial\" && view.days_left !== null",
+        "lines.push(trialLine(view.days_left))",
         "view.state === \"payment_failed\"",
         "view.clock_wrong",
         // §8.26 §4, word for word.
@@ -1486,6 +1487,29 @@ fn the_banners_are_the_ones_the_design_asks_for() {
             "bannerLines no longer contains `{needle}`"
         );
     }
+}
+
+/// SIGNIN-DESIGN §8.46 (founder, s82): the trial shows on the home screen from
+/// its first day, quietly; the Subscribe button only in its last seven days
+/// (§8.26 §6's banner, unchanged). Payers see no trial line at all.
+#[test]
+fn the_trial_shows_from_its_first_day_and_asks_only_in_its_last_week() {
+    let code = js_code();
+    assert!(code.contains("const TRIAL_DAYS = 30;"));
+    let functions = top_level_functions(&code);
+    let line = js_function(&functions, "trialLine");
+    for needle in [
+        "if (days >= TRIAL_DAYS) return { text: `Your ${TRIAL_DAYS}-day free trial has started.` };",
+        "if (days > TRIAL_BANNER_DAYS) return { text: `${days} days left in your free trial.` };",
+        "return { text: trialEndsLine(days), action: \"subscribe\", label: \"Subscribe\" };",
+    ] {
+        assert!(line.body.contains(needle), "trialLine no longer contains `{needle}`");
+    }
+    // Only the last week's line carries a button.
+    assert_eq!(line.body.matches("action:").count(), 1);
+    // Only a trial gets a trial line.
+    let banners = js_function(&functions, "bannerLines");
+    assert_eq!(banners.body.matches("trialLine(").count(), 1);
 }
 
 /// §8.26 §7: *"dialog says the subscription continues until cancelled, with
@@ -1730,8 +1754,9 @@ fn the_connect_step_speaks_plainly() {
         "name: \"Claude Desktop\", desc: \"The Claude app for your computer, in Chat and Cowork\"",
         "In Claude, open Settings, then Developer, then Edit Config. Add this to the file it \
          shows you, save it, then quit Claude and open it again:",
-        "name: \"Cursor\", desc: \"AI code editor\"",
-        "name: \"ChatGPT\", desc: \"The ChatGPT app for your computer, in Work and Codex\"",
+        // s82, founder: the desktop apps named so people know which one.
+        "name: \"Cursor Desktop\", desc: \"AI code editor\"",
+        "name: \"ChatGPT Desktop\", desc: \"The ChatGPT app for your computer, in Work and Codex\"",
         "name: \"Antigravity\", desc: \"Google's AI app and code editor\"",
         "name: \"Claude Code\", desc: \"Claude in your terminal\"",
         "name: \"Codex\", desc: \"OpenAI's coding assistant in your terminal\"",
@@ -1760,15 +1785,23 @@ fn the_connect_step_speaks_plainly() {
 /// ADR-106: "Connect it for me" only for an app with its own install route
 /// (Claude Desktop and Cursor), and the page sends nothing but that app's
 /// name. Each answer has its line (founder: *"wording is good go ahead"*).
+/// s82: the button says what it does per app ("Save the extension" for
+/// Claude), and after a save the same button shows the file (the separate
+/// "Show the file" link is gone).
 #[test]
 fn connect_it_for_me_names_only_the_app() {
     let html = html();
     assert!(html
         .contains("<button id=\"connect-auto-btn\" class=\"btn-pill\">Connect it for me</button>"));
-    assert!(html.contains(
-        "<button id=\"connect-auto-show\" class=\"link-underline hidden\">Show the file</button>"
-    ));
+    assert!(!html.contains("connect-auto-show"));
     let code = js_code();
+    for words in [
+        "button: \"Save the extension\",",
+        "saved_button: \"Show me the file\",",
+        "button: \"Connect it for me\",",
+    ] {
+        assert!(code.contains(words), "{words}");
+    }
     assert_eq!(
         code.matches(", connect: \"").count(),
         2,
@@ -1792,12 +1825,35 @@ fn connect_it_for_me_names_only_the_app() {
     let functions = top_level_functions(&code);
     let ask = &js_function(&functions, "onConnectAuto").body;
     assert!(ask.contains("await invoke(\"connect_app\", { app: agent.connect })"));
-    assert_eq!(ask.matches("invoke(").count(), 1);
+    // The only other call shows the saved file; neither sends anything but
+    // the app's name.
+    assert!(ask.contains("invoke(\"show_claude_extension\")"));
+    assert_eq!(ask.matches("invoke(").count(), 2);
+    let saved = ask
+        .find("if (state.connectSaved) {")
+        .expect("a saved file is shown");
+    let asked = ask.find("invoke(\"connect_app\"").expect("the ask");
+    assert!(
+        saved < asked,
+        "after a save the button shows the file, not a second save"
+    );
+    let render = &js_function(&functions, "renderAgentCards").body;
+    assert!(
+        render.contains("state.connectSaved = false;")
+            && render.contains("$(\"connect-auto-btn\").textContent = CONNECT_WORDS[auto].button;"),
+        "choosing an app starts its button afresh"
+    );
     assert!(code.contains("$(\"connect-auto-btn\").addEventListener(\"click\", onConnectAuto)"));
     for words in [
-        "note: \"Cursor will ask you to install Zaaheen. Click Install there.\"",
-        "asked: \"Cursor should now be asking you to install Zaaheen. Click Install, and it's \
-         connected.\"",
+        // s82 live test: Cursor took about a minute to open and show its box.
+        "note: \"Zaaheen opens Cursor, and Cursor asks you to install Zaaheen. It can take up to \
+         a minute for Cursor to open and show its Install box, so please wait for it, then click \
+         Install.\"",
+        "waiting: \"Waiting for Cursor to open and show its Install box. This can take up to a \
+         minute.\"",
+        "asked: \"Cursor should now be showing its Install box. Click Install, and it's \
+         connected. If nothing has appeared, switch to the Cursor window: the box may be behind \
+         this one.\"",
         "app_not_found: \"Zaaheen couldn't find Cursor on this computer. If it's installed, you \
          can add the setting yourself below.\"",
         "could_not_open: \"Zaaheen couldn't open Cursor. You can add the setting yourself \
@@ -2526,16 +2582,23 @@ fn the_agents_tab_offers_the_same_picker_as_setup() {
 fn apps_without_an_install_route_get_exact_steps() {
     let code = js_code();
     for words in [
-        "In ChatGPT, open Settings, then Integrations, then Plugins. Choose Add, then Add MCP \
-         Server, and fill it in as below. Put mcp and serve in Arguments as two separate items.",
-        "its Chat mode can't connect to apps on your computer",
-        "Command:    ${command}",
-        "Arguments:  mcp\n            serve",
+        // s82, founder's live test: the menus moved, every field in its own
+        // numbered copy box in the order it is filled, and a space typed
+        // before the command stopped it starting (Windows error 123).
+        "hint: \"1. In ChatGPT Desktop, open Settings, then Plugins at the top, and choose MCP. \
+         Open the drop-down in the top right corner and choose Add MCP server.\"",
+        "{ label: \"2. Name\", command: \"Zaaheen\" },",
+        "{ label: \"3. Command: paste it exactly, with no space before it\", command: (c) => c },",
+        "{ label: \"4. Arguments: type mcp in the first box\", command: \"mcp\" },",
+        "{ label: \"5. Click + to add a second box, and type serve in it\", command: \"serve\" },",
+        "ChatGPT's Chat mode can't connect to apps on your computer.\", snippet: null }",
         // Session 64: each line to type in its own copy box.
         "{ label: \"Antigravity app\", command: \"notepad %USERPROFILE%\\\\.gemini\\\\config\\\\mcp_config.json\" }",
         "{ label: \"Antigravity IDE\", command: \"notepad %USERPROFILE%\\\\.gemini\\\\antigravity\\\\mcp_config.json\" }",
         "If the file already lists other apps, add the zaaheen part next to them.",
-        "copyText(opener.command, button)",
+        // A box holds fixed text or this computer's own command.
+        "copyText(openerCommand(opener), button)",
+        "return typeof o.command === \"function\" ? o.command(state.serverCommand) : o.command;",
         "close Antigravity fully and open it again",
         "`claude mcp add --transport stdio --scope user zaaheen -- ${command === SHORT_NAME \
          ? command : `\"${command}\"`} mcp serve`",
@@ -2898,6 +2961,10 @@ fn delete_my_account_never_auto_closes_and_shows_the_address() {
     assert!(js_function(&functions, "closeDeleteAccount")
         .body
         .contains("if (deleteAccountDone) return;"));
+    // s82: Escape does not hide a delete at work.
+    assert!(js_function(&functions, "closeDeleteAccount")
+        .body
+        .contains("if ($(\"delete-account-cancel\").disabled) return;"));
     assert!(js_function(&functions, "onDeleteAccountReopen")
         .body
         .contains("invoke(\"delete_account_open\")"));
@@ -2990,4 +3057,211 @@ fn the_documents_handler_sends_only_a_name() {
     assert!(body.contains("Your browser did not open."));
     assert!(APP_JS.contains("$(\"documents-list\").addEventListener(\"click\", onDocumentClick);"));
     assert!(INDEX_HTML.contains("<button data-section=\"documents\">Documents</button>"));
+}
+
+/// s82, the friend's Mac: Delete my account kept "Deleting your memories…" in
+/// a faint line while the red button still looked live, so he clicked it again
+/// and again. Both delete flows now show a moving bar and a "Deleting…" button
+/// that looks switched off; after a minute the line says it is still working
+/// (never that it finished or failed). The bar stops on every outcome.
+#[test]
+fn a_delete_in_progress_shows_it_is_working() {
+    let html = html();
+    for bar in [
+        "<div id=\"erase-progress\" class=\"work-bar hidden\" role=\"progressbar\" aria-label=\"Deleting your memories\"><div class=\"work-fill\"></div></div>",
+        "<div id=\"delete-account-progress\" class=\"work-bar hidden\" role=\"progressbar\" aria-label=\"Deleting your memories\"><div class=\"work-fill\"></div></div>",
+    ] {
+        assert!(html.contains(bar), "index.html is missing {bar}");
+    }
+    let code = js_code();
+    assert!(code.contains("const SLOW_DELETE_MS = 60 * 1000;"));
+    let functions = top_level_functions(&code);
+    let start = &js_function(&functions, "deleteWorkStart").body;
+    for needle in [
+        "button.textContent = \"Deleting…\";",
+        "status.textContent = \"Deleting your memories… This can take up to a minute. Please keep Zaaheen open.\";",
+        "bar.classList.remove(\"hidden\");",
+        "status.textContent = \"Still working. This is taking longer than usual. Please keep Zaaheen open.\";",
+        "SLOW_DELETE_MS",
+    ] {
+        assert!(start.contains(needle), "deleteWorkStart is missing `{needle}`");
+    }
+    let stop = &js_function(&functions, "deleteWorkStop").body;
+    assert!(
+        stop.contains("clearTimeout(timer);") && stop.contains("bar.classList.add(\"hidden\");")
+    );
+    for (name, bar, call) in [
+        (
+            "eraseEverything",
+            "erase-progress",
+            "invoke(\"erase_everything\")",
+        ),
+        (
+            "deleteAccountStart",
+            "delete-account-progress",
+            "invoke(\"delete_account_start\")",
+        ),
+    ] {
+        let body = &js_function(&functions, name).body;
+        let started = body
+            .find(&format!("deleteWorkStart($(\"{bar}\")"))
+            .unwrap_or_else(|| panic!("{name} does not start the bar"));
+        let called = body
+            .find(call)
+            .unwrap_or_else(|| panic!("{name} has no {call}"));
+        assert!(started < called, "{name} starts the bar before asking");
+        // Stopped on failure and on success alike.
+        assert_eq!(
+            body.matches(&format!("deleteWorkStop($(\"{bar}\")"))
+                .count(),
+            2,
+            "{name} stops the bar on both outcomes"
+        );
+    }
+    // The red button looks switched off while it is, and only moves under a
+    // live pointer.
+    let css = STYLES_CSS.replace("\r\n", "\n");
+    assert!(css.contains(
+        ".btn-danger:disabled { opacity: 0.45; cursor: default; text-decoration: none; }"
+    ));
+    assert!(css.contains(".btn-danger:hover:not(:disabled) { text-decoration: underline; }"));
+    assert!(!css.contains(".btn-danger:hover { text-decoration: underline; }"));
+    // Cancel too: the dark pill looked live while it was switched off.
+    assert!(css.contains(".btn-ghost:disabled { opacity: 0.45; cursor: default; }"));
+    assert!(css.contains(".btn-ghost:hover:not(:disabled) { background: var(--ink-hover); }"));
+    // Reduced motion: a still bar, the words carry it.
+    assert!(css.contains(".work-fill { animation: none; width: 100%; opacity: 0.5; }"));
+}
+
+/// Session 82: the friend's Mac showed "Your memories were NOT deleted" in
+/// faint 13 px grey, and he pressed the button again and again. A failed
+/// delete is now marked `failed` (red, larger, boxed) on both screens, and the
+/// mark is cleared when a new attempt starts or the screen is opened again.
+#[test]
+fn a_failed_delete_is_impossible_to_miss() {
+    let css = STYLES_CSS.replace("\r\n", "\n");
+    let rule = css
+        .split_once(".erase-status.failed {")
+        .expect("styles.css has a failed-delete rule")
+        .1
+        .split_once('}')
+        .expect("closed")
+        .0;
+    for needle in [
+        "color: var(--red);",
+        "font: 500 14px",
+        "border-left: 3px solid var(--red);",
+    ] {
+        assert!(
+            rule.contains(needle),
+            "the failed-delete rule is missing `{needle}`"
+        );
+    }
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    for (name, status) in [
+        ("eraseEverything", "erase-status"),
+        ("deleteAccountStart", "delete-account-status"),
+    ] {
+        let body = &js_function(&functions, name).body;
+        let marked = body
+            .find(&format!("$(\"{status}\").classList.add(\"failed\");"))
+            .unwrap_or_else(|| panic!("{name} does not mark its failure"));
+        let caught = body.find("} catch (err) {").expect("a failure path");
+        assert!(caught < marked, "{name} marks only the failure");
+    }
+    let start = &js_function(&functions, "deleteWorkStart").body;
+    assert!(start.contains("status.classList.remove(\"failed\");"));
+    for (name, status) in [
+        ("resetEraseConfirm", "erase-status"),
+        ("openDeleteAccount", "delete-account-status"),
+    ] {
+        let body = &js_function(&functions, name).body;
+        assert!(
+            body.contains(&format!("$(\"{status}\").classList.remove(\"failed\");")),
+            "{name} does not clear the failure mark"
+        );
+    }
+}
+
+/// Session 82, the app wording review with the founder: numbered steps and
+/// a bold "follow all N steps", the tip line with the saving sentence first
+/// (alone, the reading line left Claude saving to its own memory), each
+/// app's real settings path, Codex's shared-settings note, the Cursor wait
+/// that leaves a newly chosen card alone, and no empty copy box for an app
+/// filled in box by box.
+#[test]
+fn the_connect_card_has_numbered_steps_and_the_live_tested_words() {
+    let code = js_code();
+    for words in [
+        "const TIP_LINE = \"When I ask you to remember something, save it in Zaaheen. Before \
+         answering anything about me, my preferences, my work or my plans, also check my Zaaheen \
+         memory, even when your own memory has nothing.\";",
+        "\"Claude Desktop\": \"Claude looks in its own memory first. In Claude, open Settings, \
+         then Account, and add this line under Instructions for Claude:\",",
+        "note: \"Already connected ChatGPT Desktop? Codex uses the same settings, so you don't \
+         need to add Zaaheen again.",
+        "If the file already has a [mcp_servers.zaaheen] section, don't add a second one.",
+        "$(\"connect-auto-title\").textContent = \"Step 1A: The quick way\";",
+        "$(\"snippet-title\").textContent = \"Step 1B: Or add it yourself\";",
+        "$(\"snippet-title\").textContent = \"Step 1: Add it yourself\";",
+        "`Step ${step}: Check it's connected`",
+        "`Step ${step}: Tell ${agent.name} to use Zaaheen (don't skip this)`",
+        "`Please follow ${stepsWord(step)}. If you skip one, ${appCalled(agent.name)} may not use Zaaheen.`",
+        // s83: never "all 2 steps" or "Another app may not".
+        "return n === 2 ? \"both steps\" : `all ${n} steps`;",
+        "return name === \"Another app\" ? \"your app\" : name;",
+        "$(\"snippet-box\").classList.toggle(\"hidden\", !agent.snippet);",
+        "const CONNECT_WAIT_MS = 45 * 1000;",
+    ] {
+        assert!(code.contains(words), "{words}");
+    }
+    assert!(
+        !code.contains("SNIPPET_FORM"),
+        "ChatGPT's form is numbered boxes now"
+    );
+    let functions = top_level_functions(&code);
+    let ask = &js_function(&functions, "onConnectAuto").body;
+    let waited = ask
+        .find("setTimeout(resolve, CONNECT_WAIT_MS)")
+        .expect("the wait");
+    let guard = ask
+        .find("if (state.agentPicked !== picked) return;")
+        .expect("another card chosen meanwhile is left alone");
+    assert!(waited < guard);
+    let html = html();
+    for id in [
+        "<p id=\"connect-app-note\" class=\"connect-app-note\"></p>",
+        "<p id=\"connect-steps-note\" class=\"connect-steps-note\"></p>",
+        "<div id=\"connect-auto-progress\" class=\"work-bar hidden\" role=\"progressbar\" \
+         aria-label=\"Waiting for the app\"><div class=\"work-fill\"></div></div>",
+    ] {
+        assert!(html.contains(id), "{id}");
+    }
+}
+
+/// s81 Mac test: switching the schedule on made macOS announce "a background
+/// item was added", naming the developer, with no word from us first. The
+/// Consolidation tab and the setup step now say so beforehand, on a Mac only.
+#[test]
+fn the_mac_is_told_about_the_background_item_notice() {
+    let html = html();
+    for el in [
+        "<p id=\"maint-onboard-mac\" class=\"maint-mac-note hidden\"></p>",
+        "<p id=\"maint-mac-note\" class=\"maint-mac-note hidden\"></p>",
+    ] {
+        assert!(html.contains(el), "{el}");
+    }
+    let code = js_code();
+    assert!(code.contains(
+        "const MAC_SCHEDULE_NOTE = \"On a Mac, turning this on makes macOS show a notice that a \
+         background item was added, under our developer name. That is this schedule. To stop \
+         it, turn this off here.\";"
+    ));
+    let functions = top_level_functions(&code);
+    let init = &js_function(&functions, "init").body;
+    let shown = init.find("if (IS_MAC) {").expect("shown on a Mac only");
+    assert!(
+        init[shown..].contains("for (const id of [\"maint-onboard-mac\", \"maint-mac-note\"]) {")
+    );
 }

@@ -28,6 +28,12 @@ const onGuide = GUIDES.some((g) => g.path === current);
   </nav>
 ) : (
   <nav class="docs-sections" aria-label="Documents">
+    <!-- s83: search every guide, policy and error fix. Hidden until
+         scripts/search.js runs; it searches in the browser, sends nothing. -->
+    <form class="docs-search" role="search" data-search hidden>
+      <input type="search" name="q" placeholder="Search the documents" aria-label="Search the documents" autocomplete="off" />
+      <ul class="docs-search-results" aria-live="polite" hidden></ul>
+    </form>
     <details class="docs-group" open={onDocs}>
       <summary>Using Zaaheen</summary>
       {DOCS_SECTIONS.map((s) => (
@@ -48,3 +54,4 @@ const onGuide = GUIDES.some((g) => g.path === current);
     </details>
   </nav>
 )}
+{!coaching && <script src="../scripts/search.js"></script>}

@@ -12,3 +12,9 @@ if (onMac) {
     box.insertBefore(mac, win);
   }
 }
+
+// The connect guides' Windows | Mac switch (components/ConnectSteps.astro):
+// Windows is checked in the HTML; on a Mac, the Mac tab is chosen instead.
+if (onMac) {
+  for (const radio of document.querySelectorAll('[data-os-switch] [data-os-mac]')) radio.checked = true;
+}

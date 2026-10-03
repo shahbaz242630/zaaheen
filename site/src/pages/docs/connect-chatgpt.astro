@@ -1,57 +1,19 @@
 ---
 import Guide from '../../layouts/Guide.astro';
-import Row from '../../components/Row.astro';
-import CopyBox from '../../components/CopyBox.astro';
-import { INSTALL_PATH, MAC_INSTALL_PATH, TIP_LINE } from '../../data/site';
+import ConnectSteps from '../../components/ConnectSteps.astro';
+import { connectOutline } from '../../data/app-words';
 
-// ChatGPT desktop, in the app's own words: AGENTS (ChatGPT's form),
-// AGENT_CHECKS and AGENT_TIPS in crates/vault-tauri/dist/app.js. ChatGPT has
-// no install route, so it is added by hand (live-tested in session 59).
-const OUTLINE = [
-  { id: 'before', title: 'Before you start' },
-  { id: 'add', title: 'Add Zaaheen to ChatGPT' },
-  { id: 'check', title: 'Check it worked' },
-  { id: 'tip', title: 'Make ChatGPT check Zaaheen' },
-];
+// ChatGPT Desktop, built from the app's own wording (data/app-words.ts reads
+// crates/vault-tauri/dist/app.js). ChatGPT has no install route, so it is
+// added by hand, one box at a time.
+const NAME = 'ChatGPT Desktop';
 ---
 <Guide
   path="/docs/connect-chatgpt/"
-  lede="In the ChatGPT app for your computer, open Settings, then Integrations, then Plugins, choose Add, then Add MCP Server, and fill in Zaaheen's setting. Then use Zaaheen in ChatGPT's Work or Codex mode."
-  outline={OUTLINE}
+  lede="In ChatGPT Desktop, open Settings, then Plugins, then MCP, and add an MCP server named Zaaheen with the command from Zaaheen's Agents tab and the arguments mcp and serve. Then use Zaaheen in a Work or Codex chat."
+  outline={connectOutline(NAME)}
 >
   <section class="docs-section">
-    <Row level={2} id="before" title="Before you start" where="ChatGPT for your computer">
-      <p>Zaaheen connects to the ChatGPT app for your computer, in its Work and Codex modes. ChatGPT's
-         Chat mode can't connect to apps on your computer.</p>
-    </Row>
-
-    <Row level={2} id="add" title="Add Zaaheen to ChatGPT" where="ChatGPT › Settings">
-      <ol>
-        <li>In ChatGPT, open Settings, then Integrations, then Plugins.</li>
-        <li>Choose Add, then Add MCP Server, and fill it in:
-          <ul>
-            <li>Name: <code>Zaaheen</code></li>
-            <li>Command: where Zaaheen usually installs. On Windows:
-                <CopyBox text={INSTALL_PATH} />
-                On a Mac:
-                <CopyBox text={MAC_INSTALL_PATH} />
-                The <em>Agents</em> tab in Zaaheen shows yours exactly, ready to copy.</li>
-            <li>Arguments: <code>mcp</code> and <code>serve</code>, as two separate items. Typed
-                together on one line, they don't work.</li>
-          </ul>
-        </li>
-        <li>Save it, then use Zaaheen in ChatGPT's Work or Codex mode.</li>
-      </ol>
-    </Row>
-
-    <Row level={2} id="check" title="Check it worked" where="ChatGPT › Plugins">
-      <p>In ChatGPT, open Settings, then Integrations, then Plugins. Zaaheen is listed there.</p>
-    </Row>
-
-    <Row level={2} id="tip" title="Make ChatGPT check Zaaheen" where="ChatGPT › Personalization">
-      <p>ChatGPT looks in its own memory first and may stop there. So it checks Zaaheen as well, open
-         Settings, then Personalization, then Custom instructions, and add this line:</p>
-      <CopyBox text={TIP_LINE} />
-    </Row>
+    <ConnectSteps name={NAME} where="ChatGPT › Settings" />
   </section>
 </Guide>

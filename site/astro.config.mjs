@@ -1,10 +1,13 @@
 import { defineConfig } from 'astro/config';
+import searchIndex from './src/integrations/search-index.mjs';
 
 // Static output only: every page is plain HTML on disk, readable by crawlers
 // and AI page readers that never run JavaScript.
 export default defineConfig({
   site: 'https://zaaheen.com',
   output: 'static',
+  // The Documents search index, written after every build (s83).
+  integrations: [searchIndex()],
   trailingSlash: 'ignore',
   build: {
     format: 'directory',

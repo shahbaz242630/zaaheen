@@ -3,10 +3,12 @@ import Guide from '../../layouts/Guide.astro';
 import Row from '../../components/Row.astro';
 import CopyBox from '../../components/CopyBox.astro';
 import { COMPANY, TIP_LINE } from '../../data/site';
+import { FIXES } from '../../data/fixes';
 
 // The problems people actually met in our live tests (sessions 59 and 64,
 // CONNECT-APPS-DESIGN.md), each answered first, in the app's own words.
 const OUTLINE = [
+  { id: 'errors', title: 'Error messages and their fixes' },
   { id: 'not-using', title: "My AI app doesn't use Zaaheen" },
   { id: 'not-listed', title: "My app isn't in the Agents tab" },
   { id: 'chatgpt', title: "ChatGPT can't see Zaaheen" },
@@ -20,17 +22,30 @@ const OUTLINE = [
 ---
 <Guide
   path="/docs/troubleshooting/"
-  lede="Most problems come from an AI app looking only in its own memory, or not being connected yet. Each fix below starts with the answer. If yours isn't here, email us an activity record from Settings."
+  lede="Most problems come from an AI app looking only in its own memory, or not being connected yet. Each fix below starts with the answer. If yours isn't here, contact us with an activity record from Settings."
   outline={OUTLINE}
 >
   <section class="docs-section">
-    <Row level={2} id="not-using" title="My AI app answers without using Zaaheen" where="Claude, ChatGPT">
-      <p>Claude and ChatGPT look in their own memory first and may stop there. Add this line to
-         Claude's personal preferences, or to ChatGPT's Custom instructions, and they check Zaaheen as
-         well:</p>
+    <Row level={2} id="errors" title="Error messages and their fixes" where="Any app">
+      <p>Find the words you see, then do what it says next to them.</p>
+      <dl class="fixes">
+        {FIXES.map((f) => (
+          <>
+            <dt><code>{f.error}</code> <span class="set-where">{f.where}</span></dt>
+            <dd>{f.fix}</dd>
+          </>
+        ))}
+      </dl>
+    </Row>
+
+    <Row level={2} id="not-using" title="My AI app answers without using Zaaheen" where="Claude, ChatGPT, Codex">
+      <p>Claude, ChatGPT and Codex look in their own memory first and may stop there, or save there.
+         Add this line to Claude's Instructions for Claude (Settings, then Account), to ChatGPT's
+         Custom instructions, or to the file AGENTS.md in Codex's .codex folder, and they save to and
+         check Zaaheen as well:</p>
       <CopyBox text={TIP_LINE} />
       <p>You can also ask directly, for example "check my Zaaheen memory for how I like meetings
-         booked". Cursor checks Zaaheen by itself when you ask about yourself.</p>
+         booked". Cursor and Antigravity check Zaaheen by themselves when you ask about yourself.</p>
     </Row>
 
     <Row level={2} id="not-listed" title="My app isn't in the Agents tab" where="Agents">
@@ -44,8 +59,10 @@ const OUTLINE = [
 
     <Row level={2} id="chatgpt" title="ChatGPT can't see Zaaheen" where="ChatGPT">
       <p>Use ChatGPT's Work or Codex mode: its Chat mode can't connect to apps on your computer. Then
-         check the setting: <code>mcp</code> and <code>serve</code> must be two separate items under
-         Arguments, not one line. See <a href="/docs/connect-chatgpt/">Connect ChatGPT</a>.</p>
+         check the setting: the Command must start exactly with <code>C:\</code>, with no space or
+         quote marks before it, and <code>mcp</code> and <code>serve</code> must be two separate items
+         under Arguments, not one line. Quit ChatGPT completely and open it again. See
+         <a href="/docs/connect-chatgpt/">Connect ChatGPT Desktop</a>.</p>
     </Row>
 
     <Row level={2} id="claude" title="Claude didn't ask me to install Zaaheen" where="Claude › Extensions">
@@ -55,8 +72,10 @@ const OUTLINE = [
     </Row>
 
     <Row level={2} id="unknown-publisher" title="Windows says the publisher is unknown" where="Installer">
-      <p>Choose <em>More info</em>, then <em>Run anyway</em>. Zaaheen is in beta and its installer is
-         not code-signed yet; signing comes later.</p>
+      <p>Choose <em>More info</em>, then <em>Run anyway</em>. If Microsoft Edge says the file "isn't
+         commonly downloaded" first, choose the three dots next to the download, then <em>Keep</em>,
+         <em>Show more</em> and <em>Keep anyway</em>. Zaaheen is in beta and its installer is not
+         code-signed yet; signing comes later.</p>
     </Row>
 
     <Row level={2} id="mac-applications" title="My Mac says to move Zaaheen to Applications" where="Mac">
@@ -81,7 +100,7 @@ const OUTLINE = [
     <Row level={2} id="else" title="Something else went wrong" where="Settings › Help">
       <p>Choose <em>Save activity record…</em> in Settings, then email the file to
          <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> with what you were doing. The record
-         contains none of your memories.</p>
+         contains none of your memories. <a href="/docs/contact/">How to contact us</a>.</p>
     </Row>
   </section>
 </Guide>

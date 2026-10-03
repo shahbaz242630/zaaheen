@@ -1,0 +1,22 @@
+---
+import Base from '../layouts/Base.astro';
+import type { PageEntry } from '../data/site';
+
+// Where the app sends the browser after a sign-in succeeds (s83, ADR-SEC-041):
+// the app's local page answers with a redirect here, so the address bar ends
+// on zaaheen.com instead of 127.0.0.1 with the spent code. Static: nothing
+// from the app reaches it. Reached only from the app, so it is not in PAGES,
+// never in the sitemap, and noindex.
+const page: PageEntry = {
+  path: '/signed-in/',
+  title: 'Signed in · Zaaheen',
+  description: 'You are signed in to Zaaheen. You can close this tab and go back to the app.',
+  sources: ['src/pages/signed-in.astro'],
+};
+---
+<Base page={page} noindex>
+  <section class="page">
+    <h1>You're signed in.</h1>
+    <p>You can close this tab and go back to the Zaaheen app.</p>
+  </section>
+</Base>

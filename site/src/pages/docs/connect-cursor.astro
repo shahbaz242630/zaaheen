@@ -1,61 +1,18 @@
 ---
 import Guide from '../../layouts/Guide.astro';
-import Row from '../../components/Row.astro';
-import CopyBox from '../../components/CopyBox.astro';
-import { INSTALL_PATH, MAC_INSTALL_PATH } from '../../data/site';
+import ConnectSteps from '../../components/ConnectSteps.astro';
+import { connectOutline } from '../../data/app-words';
 
-// Cursor, in the app's own words: CONNECT_WORDS.cursor, AGENTS (the setting
-// by hand) and AGENT_CHECKS in crates/vault-tauri/dist/app.js. "Connect it for
-// me" opens Cursor's own install link (ADR-106, ADR-SEC-031).
-const snippet = `{
-  "mcpServers": {
-    "zaaheen": {
-      "command": ${JSON.stringify(INSTALL_PATH)},
-      "args": ["mcp", "serve"]
-    }
-  }
-}`;
-const OUTLINE = [
-  { id: 'connect', title: 'Connect it' },
-  { id: 'by-hand', title: 'Add the setting yourself' },
-  { id: 'check', title: 'Check it worked' },
-  { id: 'using', title: 'Using it' },
-];
+// Cursor Desktop (and through it the Cursor IDE), built from the app's own
+// wording (data/app-words.ts reads crates/vault-tauri/dist/app.js).
+const NAME = 'Cursor Desktop';
 ---
 <Guide
   path="/docs/connect-cursor/"
-  lede="In Zaaheen, open the Agents tab, choose + Connect an AI app, then Cursor and Connect it for me. Cursor asks you to install Zaaheen: click Install, and it's connected."
-  outline={OUTLINE}
+  lede="In Zaaheen, open the Agents tab, choose + Connect an AI app, then Cursor Desktop and Connect it for me. Cursor opens and asks you to install Zaaheen, which can take up to a minute: click Install. The Cursor IDE then uses the same connection."
+  outline={connectOutline(NAME)}
 >
   <section class="docs-section">
-    <Row level={2} id="connect" title="Connect it" where="Agents › Connect">
-      <p>Zaaheen opens Cursor's own install link, and Cursor asks you. Zaaheen never changes Cursor's
-         settings itself.</p>
-      <ol>
-        <li>In Zaaheen, open the <em>Agents</em> tab and choose <em>+ Connect an AI app</em>.</li>
-        <li>Choose <em>Cursor</em>, then <em>Connect it for me</em>.</li>
-        <li>Cursor asks you to install Zaaheen. Click <em>Install</em>, and it's connected.</li>
-      </ol>
-    </Row>
-
-    <Row level={2} id="by-hand" title="Add the setting yourself" where="Cursor › mcp.json">
-      <p>If Zaaheen says it couldn't find or open Cursor, add the setting yourself. Add this to
-         Cursor's settings file, mcp.json, in the .cursor folder in your home folder. Save it, then
-         restart Cursor:</p>
-      <CopyBox text={snippet} />
-      <p>That is where Zaaheen usually installs on Windows. On a Mac, the command is
-         <code>{MAC_INSTALL_PATH}</code> instead. The <em>Agents</em> tab shows the setting for your
-         computer exactly, ready to copy.</p>
-    </Row>
-
-    <Row level={2} id="check" title="Check it worked" where="Cursor › Settings">
-      <p>In Cursor, open Settings, then MCP (Tools &amp; MCP in newer versions). Zaaheen has a green
-         dot.</p>
-    </Row>
-
-    <Row level={2} id="using" title="Using it" where="Cursor">
-      <p>Cursor checks Zaaheen by itself when you ask about yourself, your preferences or your work.
-         What it saves there, your other connected AI apps can use too.</p>
-    </Row>
+    <ConnectSteps name={NAME} where="Cursor › Customize" />
   </section>
 </Guide>
