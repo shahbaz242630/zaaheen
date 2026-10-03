@@ -1,0 +1,1 @@
+var e=/Macintosh|Mac OS X/.test(navigator.userAgent);if(e)for(let e of document.querySelectorAll(`[data-dl]`)){let t=e.querySelector(`[data-os="windows"]`),n=e.querySelector(`[data-os="mac"]`);t&&n&&e.insertBefore(n,t)}if(e)for(let e of document.querySelectorAll(`[data-os-switch] [data-os-mac]`))e.checked=!0;
