@@ -22,10 +22,14 @@ name: Site
 
 on:
   pull_request:
-    paths: ['site/**', '.github/workflows/site.yml']
+    # crates/vault-tauri/dist/app.js: the guides read the app's connect wording
+    # from it (site/src/data/app-words.ts), so a wording change rebuilds the site (s83).
+    paths: ['site/**', '.github/workflows/site.yml', 'crates/vault-tauri/dist/app.js']
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/site.yml']
+    # crates/vault-tauri/dist/app.js: the guides read the app's connect wording
+    # from it (site/src/data/app-words.ts), so a wording change rebuilds the site (s83).
+    paths: ['site/**', '.github/workflows/site.yml', 'crates/vault-tauri/dist/app.js']
   workflow_dispatch:
 
 permissions:

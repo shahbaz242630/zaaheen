@@ -30,9 +30,12 @@ const OUTLINE = [
     </Row>
 
     <Row level={2} id="install" title="Install" where="Windows or Mac">
-      <p><strong>On Windows,</strong> open the installer you downloaded. Two things happen while it
-         installs:</p>
+      <p><strong>On Windows,</strong> open the installer you downloaded. You may see up to three
+         questions on the way, and each is expected:</p>
       <ul>
+        <li><strong>Microsoft Edge says the file "isn't commonly downloaded".</strong> The installer is
+            new, so Edge has not seen it often. Choose the three dots next to the download, then
+            <em>Keep</em>, <em>Show more</em> and <em>Keep anyway</em>. Chrome does not ask.</li>
         <li><strong>Windows says the publisher is unknown.</strong> Zaaheen is in beta, and the
             installer is not code-signed yet; signing comes later. Choose
             <em>More info</em>, then <em>Run anyway</em>.</li>

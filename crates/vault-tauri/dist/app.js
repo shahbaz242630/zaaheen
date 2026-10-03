@@ -378,6 +378,9 @@ function renderMaintEngineStatus() {
 // Windows. An AI app open before the install never sees the new PATH, so the
 // short name failed on the first connection ("'zaaheen' is not recognized").
 // The short name stays the fallback until the answer arrives, or if it can't.
+// >>> CONNECT WORDING: the website's guides and llms.txt read everything from
+// here to the END marker (site/src/data/app-words.ts), so they always say what
+// the app says (s82). Plain data and small functions only; it may use IS_MAC.
 const SHORT_NAME = "zaaheen";
 // JSON.stringify quotes the path for JSON and, identically, for a TOML
 // basic string (backslashes doubled).
@@ -399,10 +402,6 @@ args = ["mcp", "serve"]`;
 // no install route, so their steps name the exact screen or file, and
 // ChatGPT's form keeps the command and its two arguments apart (the whole
 // line typed into "Arguments" was the founder's first attempt, and it fails).
-const SNIPPET_FORM = (command) => `Name:       Zaaheen
-Command:    ${command}
-Arguments:  mcp
-            serve`;
 // As documented at code.claude.com/docs/en/mcp: user scope, so every project
 // has it; everything after `--` is the server's own command line. A full path
 // has a space ("Program Files"), so it is quoted for the terminal.
@@ -410,8 +409,19 @@ const SNIPPET_CLAUDE_CODE = (command) =>
   `claude mcp add --transport stdio --scope user zaaheen -- ${command === SHORT_NAME ? command : `"${command}"`} mcp serve`;
 const AGENTS = [
   { name: "Claude Desktop", desc: "The Claude app for your computer, in Chat and Cowork", hint: "In Claude, open Settings, then Developer, then Edit Config. Add this to the file it shows you, save it, then quit Claude and open it again:", snippet: SNIPPET_JSON, connect: "claude_desktop" },
-  { name: "Cursor", desc: "AI code editor", hint: "Add this to Cursor's settings file, mcp.json, in the .cursor folder in your home folder. Save it, then restart Cursor:", snippet: SNIPPET_JSON, connect: "cursor" },
-  { name: "ChatGPT", desc: "The ChatGPT app for your computer, in Work and Codex", hint: "In ChatGPT, open Settings, then Integrations, then Plugins. Choose Add, then Add MCP Server, and fill it in as below. Put mcp and serve in Arguments as two separate items. Save it, then use Zaaheen in ChatGPT's Work or Codex mode (its Chat mode can't connect to apps on your computer):", snippet: SNIPPET_FORM },
+  // s82, founder: "Cursor Desktop", and its new screens (Customize, MCPs).
+  { name: "Cursor Desktop", desc: "AI code editor", note: "Using the Cursor IDE? Connect Zaaheen here, through Cursor Desktop: the IDE has no MCP settings of its own, and it uses the ones you set in Cursor Desktop, so connecting once is enough for both.", hint: "In Cursor Desktop, choose Customize in the left bar, then MCPs. Scroll to the bottom, choose + New MCP server, and paste this in. Save it:", snippet: SNIPPET_JSON, connect: "cursor" },
+  // s82, founder's live test: "ChatGPT Desktop" so people know which one;
+  // the menus moved (Settings, Plugins, MCP), and a space typed before the
+  // command stopped it starting (Windows error 123) with no message shown.
+  // Founder (s82): in the order it is done, each copy box where it is used,
+  // and saving only after the boxes.
+  { name: "ChatGPT Desktop", desc: "The ChatGPT app for your computer, in Work and Codex", hint: "1. In ChatGPT Desktop, open Settings, then Plugins at the top, and choose MCP. Open the drop-down in the top right corner and choose Add MCP server.", openers: [
+    { label: "2. Name", command: "Zaaheen" },
+    { label: "3. Command: paste it exactly, with no space before it", command: (c) => c },
+    { label: "4. Arguments: type mcp in the first box", command: "mcp" },
+    { label: "5. Click + to add a second box, and type serve in it", command: "serve" },
+  ], pasteHint: "6. Click Save. Then quit ChatGPT completely (on Windows, also from its icon by the clock) and open it again. Use Zaaheen in a Work or Codex chat: ChatGPT's Chat mode can't connect to apps on your computer.", snippet: null },
   // Broken into steps, each line to type in its own copy box (founder,
   // session 64: "break it down .. and make type notepad commands copy able").
   { name: "Antigravity", desc: "Google's AI app and code editor", hint: IS_MAC
@@ -425,7 +435,10 @@ const AGENTS = [
     { label: "Antigravity IDE", command: "notepad %USERPROFILE%\\.gemini\\antigravity\\mcp_config.json" },
   ], pasteHint: "Then paste this in. If the file already lists other apps, add the zaaheen part next to them. Save it, then close Antigravity fully and open it again:", snippet: SNIPPET_JSON },
   { name: "Claude Code", desc: "Claude in your terminal", hint: "In a terminal, run this once. Zaaheen is then available in every Claude Code project:", snippet: SNIPPET_CLAUDE_CODE },
-  { name: "Codex", desc: "OpenAI's coding assistant in your terminal", hint: "Add this to Codex's settings file, config.toml, in the .codex folder in your home folder. Save it, then restart Codex:", snippet: SNIPPET_TOML },
+  // s82 live test: Codex shares its settings file with ChatGPT Desktop; a
+  // second [mcp_servers.zaaheen] section stops Codex reading the whole file;
+  // a year-old Codex timed out where an up-to-date one connected.
+  { name: "Codex", desc: "OpenAI's coding assistant in your terminal", note: "Already connected ChatGPT Desktop? Codex uses the same settings, so you don't need to add Zaaheen again. Just do Step 2 to check it's connected, then ask Codex to save or recall using Zaaheen.", hint: "Use an up-to-date Codex. Add this to Codex's settings file, config.toml, in the .codex folder in your home folder. If the file already has a [mcp_servers.zaaheen] section, don't add a second one. Save it, then restart Codex:", snippet: SNIPPET_TOML },
   { name: "Another app", desc: "Any AI app that can connect to Zaaheen", hint: "Give your app this setting:", snippet: SNIPPET_JSON },
 ];
 
@@ -434,29 +447,39 @@ const AGENTS = [
 // under token usage mcp tools click on show breakdown .. see zaaheen shows
 // up and has green circle").
 const AGENT_CHECKS = {
-  "Claude Desktop": "In Claude, open Settings, then Extensions. Zaaheen is listed there and switched on.",
-  "Cursor": "In Cursor, open Settings, then MCP (Tools & MCP in newer versions). Zaaheen has a green dot.",
-  "ChatGPT": "In ChatGPT, open Settings, then Integrations, then Plugins. Zaaheen is listed there.",
+  "Claude Desktop": "In Claude, open Settings, then Extensions. Zaaheen is listed there and switched on. If you added it yourself (Step 1B), it is listed under Settings, then Developer, instead.",
+  "Cursor Desktop": "In Cursor Desktop, choose Customize in the left bar, then MCPs. zaaheen is listed there and connected.",
+  "ChatGPT Desktop": "In ChatGPT, open Settings, then Plugins, then MCP. Zaaheen is listed there and switched on.",
   "Antigravity": "In Antigravity, open Settings, then Customization. Under Token usage, next to MCP tools, click Show breakdown. Zaaheen is listed with a green circle.",
   "Claude Code": "In a terminal, run claude mcp list. Zaaheen shows as connected.",
-  "Codex": "In a terminal, run codex mcp list. Zaaheen is listed.",
+  "Codex": "In Codex, type /mcp and press Enter. zaaheen is listed as connected, with 5 tools. If it shows no tools or says it timed out, update Codex (npm install -g @openai/codex@latest) and try again.",
   "Another app": "Your app's list of tools or MCP servers shows Zaaheen.",
 };
 
 // Session 64: Claude and ChatGPT look in their own memory first and may stop
 // there. One line in their own instructions makes them check Zaaheen too.
-const TIP_LINE = "Before answering anything about me, my preferences, my work or my plans, also check my Zaaheen memory, even when your own memory has nothing.";
+// s82 live test: the reading line alone left Claude saving to its own memory;
+// with the saving sentence first, it saved to Zaaheen.
+const TIP_LINE = "When I ask you to remember something, save it in Zaaheen. Before answering anything about me, my preferences, my work or my plans, also check my Zaaheen memory, even when your own memory has nothing.";
 const AGENT_TIPS = {
-  "Claude Desktop": "Claude looks in its own memory first. In Claude, open Settings, then Profile, and add this line to your personal preferences:",
-  "ChatGPT": "ChatGPT looks in its own memory first. In ChatGPT, open Settings, then Personalization, then Custom instructions, and add this line:",
+  "Claude Desktop": "Claude looks in its own memory first. In Claude, open Settings, then Account, and add this line under Instructions for Claude:",
+  "Codex": "Codex looks in its own knowledge first. Add this line to the file AGENTS.md in the .codex folder in your home folder (make the file if it isn't there):",
+  "ChatGPT Desktop": "ChatGPT looks in its own memory first. In ChatGPT, open Settings, then Personalization, then Custom instructions, and add this line:",
 };
 
 // "Connect it for me" (ADR-106): Zaaheen asks the app through its own
 // install route and never writes the app's settings, so the app asks the
 // person. One entry per `connect` value above; one line per answer of
 // `connect_app`.
+// How long the bar runs while an app opens and shows its Install box (s82).
+const CONNECT_WAIT_MS = 45 * 1000;
+
 const CONNECT_WORDS = {
   claude_desktop: {
+    // s82, founder: say what the button does; after a save the same button
+    // shows the file (it was a separate small link).
+    button: "Save the extension",
+    saved_button: "Show me the file",
     note: "Zaaheen saves a small Claude extension, and Claude asks you to install it.",
     asked: "Claude should now be asking you to install Zaaheen. Click Install, and it's connected.",
     saved: "Zaaheen saved the extension to your Downloads folder. In Claude, open Settings, then Extensions, then Advanced settings, then Install Extension, and choose \"Zaaheen for Claude.mcpb\".",
@@ -465,12 +488,25 @@ const CONNECT_WORDS = {
     could_not_open: "Zaaheen couldn't open Claude. You can add the setting yourself below.",
   },
   cursor: {
-    note: "Cursor will ask you to install Zaaheen. Click Install there.",
-    asked: "Cursor should now be asking you to install Zaaheen. Click Install, and it's connected.",
+    button: "Connect it for me",
+    // s82 live test: Cursor took about a minute to open and show its box.
+    note: "Zaaheen opens Cursor, and Cursor asks you to install Zaaheen. It can take up to a minute for Cursor to open and show its Install box, so please wait for it, then click Install.",
+    waiting: "Waiting for Cursor to open and show its Install box. This can take up to a minute.",
+    asked: "Cursor should now be showing its Install box. Click Install, and it's connected. If nothing has appeared, switch to the Cursor window: the box may be behind this one.",
     app_not_found: "Zaaheen couldn't find Cursor on this computer. If it's installed, you can add the setting yourself below.",
     could_not_open: "Zaaheen couldn't open Cursor. You can add the setting yourself below.",
   },
 };
+// "both steps" / "all 3 steps", and what to call an app in a sentence
+// (s83). The website's guides call these too (site/src/data/app-words.ts),
+// so the app and the site can never word the steps differently.
+function stepsWord(n) {
+  return n === 2 ? "both steps" : `all ${n} steps`;
+}
+function appCalled(name) {
+  return name === "Another app" ? "your app" : name;
+}
+// <<< END CONNECT WORDING
 
 // ------------------------------------------------------ account and the lock
 //
@@ -493,6 +529,8 @@ const RESUME_KEY = "mv_resume_location";
 
 // §8.26 §6: the trial banner shows from day 23 of 30.
 const TRIAL_BANNER_DAYS = 7;
+// The trial's length (§8.26 §4), for its first day's line.
+const TRIAL_DAYS = 30;
 // §8.26 §4: after a checkout, refresh every 10 s for 10 min.
 const CHECKOUT_POLL_MS = 10 * 1000;
 const CHECKOUT_POLL_FOR_MS = 10 * 60 * 1000;
@@ -843,8 +881,12 @@ function renderAgentCards() {
   $("snippet-wrap").classList.toggle("hidden", agent === null);
   $("connect-auto").classList.toggle("hidden", auto === null);
   $("connect-auto-status").textContent = "";
-  $("connect-auto-show").classList.add("hidden");
-  if (auto !== null) $("connect-auto-note").textContent = CONNECT_WORDS[auto].note;
+  $("connect-auto-progress").classList.add("hidden");
+  state.connectSaved = false;
+  if (auto !== null) {
+    $("connect-auto-note").textContent = CONNECT_WORDS[auto].note;
+    $("connect-auto-btn").textContent = CONNECT_WORDS[auto].button;
+  }
   const check = agent ? AGENT_CHECKS[agent.name] || null : null;
   $("connect-check").classList.toggle("hidden", check === null);
   if (check !== null) $("connect-check-text").textContent = check;
@@ -857,25 +899,57 @@ function renderAgentCards() {
   if (agent !== null) {
     $("connect-app-name").textContent = agent.name;
     $("connect-app-desc").textContent = agent.desc;
-    $("snippet-title").textContent = auto === null ? "Add it yourself" : "Or add it yourself";
+    $("connect-app-note").textContent = agent.note || "";
+    // Numbered steps (s82, founder): step 1 connects (A the quick way, B by
+    // hand), then the check, then the line that makes the app use Zaaheen.
+    let step = 1;
+    if (auto !== null) {
+      $("connect-auto-title").textContent = "Step 1A: The quick way";
+      $("snippet-title").textContent = "Step 1B: Or add it yourself";
+    } else {
+      $("snippet-title").textContent = "Step 1: Add it yourself";
+    }
+    if (check !== null) {
+      step += 1;
+      $("connect-check-title").textContent = `Step ${step}: Check it's connected`;
+    }
+    if (tip !== null) {
+      step += 1;
+      $("connect-tip-title").textContent = `Step ${step}: Tell ${agent.name} to use Zaaheen (don't skip this)`;
+    }
+    // s83: "both steps", never "all 2"; "your app" for the general card.
+    $("connect-steps-note").textContent = step > 1
+      ? `Please follow ${stepsWord(step)}. If you skip one, ${appCalled(agent.name)} may not use Zaaheen.`
+      : "";
     $("snippet-hint").textContent = agent.hint;
-    const openers = agent.openers || [];
-    $("snippet-openers").innerHTML = openers.map((o, i) => `
-      <div class="opener">
-        <div class="opener-label">${esc(o.label)}</div>
-        <div class="code-box">
-          <div class="snippet-code">${esc(o.command)}</div>
-          <button class="copy-chip" data-opener="${i}">copy</button>
-        </div>
-      </div>`).join("");
+    renderOpeners(agent);
     $("snippet-paste-hint").classList.toggle("hidden", !agent.pasteHint);
     $("snippet-paste-hint").textContent = agent.pasteHint || "";
-    $("snippet-code").textContent = agent.snippet(state.serverCommand);
+    // An app filled in box by box has no single setting to paste (s82).
+    $("snippet-box").classList.toggle("hidden", !agent.snippet);
+    $("snippet-code").textContent = agent.snippet ? agent.snippet(state.serverCommand) : "";
     $("connect-cta").textContent = "I've added it, continue";
     askServerCommand();
   } else {
     $("connect-cta").textContent = "Continue";
   }
+}
+
+// A step's copy box: fixed text, or this computer's own command (s82).
+function openerCommand(o) {
+  return typeof o.command === "function" ? o.command(state.serverCommand) : o.command;
+}
+
+function renderOpeners(agent) {
+  const openers = agent.openers || [];
+  $("snippet-openers").innerHTML = openers.map((o, i) => `
+      <div class="opener">
+        <div class="opener-label">${esc(o.label)}</div>
+        <div class="code-box">
+          <div class="snippet-code">${esc(openerCommand(o))}</div>
+          <button class="copy-chip" data-opener="${i}">copy</button>
+        </div>
+      </div>`).join("");
 }
 
 // Once per session, when an app is first picked (after sign-in: the command
@@ -887,7 +961,9 @@ function askServerCommand() {
     if (!answer || typeof answer.command !== "string" || answer.command === "") return;
     state.serverCommand = answer.command;
     if (state.agentPicked !== null) {
-      $("snippet-code").textContent = AGENTS[state.agentPicked].snippet(state.serverCommand);
+      const agent = AGENTS[state.agentPicked];
+      if (agent.snippet) $("snippet-code").textContent = agent.snippet(state.serverCommand);
+      renderOpeners(agent);
     }
   }).catch(() => { state.serverCommandAsked = false; });
 }
@@ -899,16 +975,33 @@ async function onConnectAuto() {
   if (!agent || !agent.connect) return;
   const words = CONNECT_WORDS[agent.connect];
   const button = $("connect-auto-btn");
+  // Saved, not opened: the person installs it from Claude's settings, and the
+  // same button now shows where the file is.
+  if (state.connectSaved) {
+    invoke("show_claude_extension").catch(() => { /* nothing to add: the steps are on screen */ });
+    return;
+  }
   button.disabled = true;
   $("connect-auto-status").textContent = "";
-  $("connect-auto-show").classList.add("hidden");
   try {
     const answer = await invoke("connect_app", { app: agent.connect });
     const outcome = answer && answer.outcome;
+    // The app takes its time to open and ask (s82): a moving bar meanwhile,
+    // then the line that says what to do.
+    if (outcome === "asked" && words.waiting) {
+      $("connect-auto-status").textContent = words.waiting;
+      $("connect-auto-progress").classList.remove("hidden");
+      const picked = state.agentPicked;
+      await new Promise((resolve) => setTimeout(resolve, CONNECT_WAIT_MS));
+      // Another app chosen meanwhile: its card is showing, leave it alone.
+      if (state.agentPicked !== picked) return;
+      $("connect-auto-progress").classList.add("hidden");
+    }
     $("connect-auto-status").textContent = words[outcome] || words.could_not_open;
-    // Saved, not opened: the person installs it from Claude's settings, and
-    // may want to see where it is.
-    $("connect-auto-show").classList.toggle("hidden", outcome !== "saved");
+    if (outcome === "saved" && words.saved_button) {
+      state.connectSaved = true;
+      button.textContent = words.saved_button;
+    }
   } catch (err) {
     $("connect-auto-status").textContent = String(err);
   } finally {
@@ -1465,6 +1558,31 @@ async function renderSettings() {
   renderMoveSection();
 }
 
+// -- a delete at work (both delete flows) --
+
+// s82, the friend's Mac: a faint line and a red button that still looked
+// live, so he clicked again and again. The bar moves while the app works;
+// after a minute the line says it is still working, never that it finished
+// or failed (only the command's answer says that).
+const SLOW_DELETE_MS = 60 * 1000;
+
+function deleteWorkStart(bar, status, button) {
+  button.dataset.label = button.textContent.trim();
+  button.textContent = "Deleting…";
+  status.classList.remove("failed");
+  status.textContent = "Deleting your memories… This can take up to a minute. Please keep Zaaheen open.";
+  bar.classList.remove("hidden");
+  return setTimeout(() => {
+    status.textContent = "Still working. This is taking longer than usual. Please keep Zaaheen open.";
+  }, SLOW_DELETE_MS);
+}
+
+function deleteWorkStop(bar, button, timer) {
+  clearTimeout(timer);
+  bar.classList.add("hidden");
+  if (button.dataset.label) button.textContent = button.dataset.label;
+}
+
 // -- delete everything (ADR-SEC-008) --
 
 const ERASE_PHRASE = "DELETE";
@@ -1475,6 +1593,7 @@ function resetEraseConfirm() {
   $("erase-phrase").value = "";
   $("erase-confirm-btn").disabled = true;
   $("erase-status").textContent = "";
+  $("erase-status").classList.remove("failed");
 }
 
 function revealEraseConfirm() {
@@ -1504,16 +1623,18 @@ async function eraseEverything() {
 
   $("erase-confirm-btn").disabled = true;
   $("erase-cancel").disabled = true;
-  $("erase-status").textContent = "Deleting your memories…";
+  const work = deleteWorkStart($("erase-progress"), $("erase-status"), $("erase-confirm-btn"));
 
   let result;
   try {
     result = await invoke("erase_everything");
   } catch (err) {
+    deleteWorkStop($("erase-progress"), $("erase-confirm-btn"), work);
     // Honest failure. The vault is STILL READABLE when this path runs, and
     // saying anything softer than that would be a lie about the one
     // property the user was trying to obtain. "erasure_busy" means a
     // background tidy-up is using the vault and was not interrupted.
+    $("erase-status").classList.add("failed");
     $("erase-status").textContent = String(err).includes("erasure_busy")
       ? "Zaaheen is tidying up your memories right now, so nothing was deleted and your memories are still readable. Please try again in a few minutes."
       : "Your memories were NOT deleted, and they are still readable. Nothing was changed. Please try again, or restart Zaaheen and retry.";
@@ -1525,6 +1646,7 @@ async function eraseEverything() {
   // Report what actually happened. Leftover files are a disk-space fact,
   // not a confidentiality one — once the key is destroyed the remaining
   // bytes cannot be read by anyone.
+  deleteWorkStop($("erase-progress"), $("erase-confirm-btn"), work);
   const leftover = Number(result && result.undeletable_count) || 0;
   $("erase-status").textContent = leftover > 0
     ? "Your memories are permanently deleted and can no longer be read. A few files could not be removed from disk, but they are now unreadable. Zaaheen will close."
@@ -1566,6 +1688,7 @@ function openDeleteAccount() {
     $("delete-account-go").disabled = true;
     $("delete-account-cancel").disabled = false;
     $("delete-account-status").textContent = "";
+    $("delete-account-status").classList.remove("failed");
     $("delete-account-export-status").textContent = "";
   }
   $("delete-account-overlay").classList.remove("hidden");
@@ -1574,6 +1697,8 @@ function openDeleteAccount() {
 
 function closeDeleteAccount() {
   if (deleteAccountDone) return;
+  // Not while it is working (s82): Escape would hide the only sign of it.
+  if ($("delete-account-cancel").disabled) return;
   $("delete-account-overlay").classList.add("hidden");
 }
 
@@ -1612,18 +1737,21 @@ async function deleteAccountStart() {
 
   $("delete-account-go").disabled = true;
   $("delete-account-cancel").disabled = true;
-  $("delete-account-status").textContent = "Deleting your memories…";
+  const work = deleteWorkStart($("delete-account-progress"), $("delete-account-status"), $("delete-account-go"));
 
   let result;
   try {
     result = await invoke("delete_account_start");
   } catch (err) {
+    deleteWorkStop($("delete-account-progress"), $("delete-account-go"), work);
+    $("delete-account-status").classList.add("failed");
     $("delete-account-status").textContent = erasureFailureLine(String(err));
     $("delete-account-cancel").disabled = false;
     $("delete-account-go").disabled = false;
     return;
   }
 
+  deleteWorkStop($("delete-account-progress"), $("delete-account-go"), work);
   deleteAccountDone = true;
   const erased = !!(result && result.erased);
   const opened = !!(result && result.opened);
@@ -2220,13 +2348,23 @@ function trialEndsLine(days) {
   return `Your free trial ends in ${days} days.`;
 }
 
+// The trial on the home screen (SIGNIN-DESIGN §8.46, founder s82): its first
+// day says it has started, then a quiet count, and only the last seven days
+// ask (§8.26 §6). Days count a part day as a day (§8.44), so a trial started
+// within the last day reads 30.
+function trialLine(days) {
+  if (days >= TRIAL_DAYS) return { text: `Your ${TRIAL_DAYS}-day free trial has started.` };
+  if (days > TRIAL_BANNER_DAYS) return { text: `${days} days left in your free trial.` };
+  return { text: trialEndsLine(days), action: "subscribe", label: "Subscribe" };
+}
+
 // The home screen's account notices (§8.26 §4 and §6). Information, never a
 // lock: while any of these shows, everything still works.
 function bannerLines(view) {
   const lines = [];
   if (!view) return lines;
-  if (view.state === "trial" && view.days_left !== null && view.days_left <= TRIAL_BANNER_DAYS) {
-    lines.push({ text: trialEndsLine(view.days_left), action: "subscribe", label: "Subscribe" });
+  if (view.state === "trial" && view.days_left !== null) {
+    lines.push(trialLine(view.days_left));
   }
   if (view.state === "payment_failed") {
     lines.push({ text: "Your last payment didn't go through.", action: "update_card", label: "Update your card", warn: true });
@@ -3062,7 +3200,18 @@ function renderFooter() {
 
 // ---------------------------------------------------------------- wiring
 
+// s81 Mac test: switching the schedule on makes macOS announce "a background
+// item was added", under the developer's name. Said beforehand, on a Mac only.
+const MAC_SCHEDULE_NOTE = "On a Mac, turning this on makes macOS show a notice that a background item was added, under our developer name. That is this schedule. To stop it, turn this off here.";
+
 function init() {
+  if (IS_MAC) {
+    for (const id of ["maint-onboard-mac", "maint-mac-note"]) {
+      $(id).textContent = MAC_SCHEDULE_NOTE;
+      $(id).classList.remove("hidden");
+    }
+  }
+
   // welcome
   $("begin-btn").addEventListener("click", beginSetup);
 
@@ -3110,19 +3259,17 @@ function init() {
     $("connect-head").scrollIntoView({ behavior: "smooth", block: "nearest" });
   });
   $("copy-snippet").addEventListener("click", () => {
-    if (state.agentPicked !== null) copyText(AGENTS[state.agentPicked].snippet(state.serverCommand), $("copy-snippet"));
+    const agent = state.agentPicked === null ? null : AGENTS[state.agentPicked];
+    if (agent && agent.snippet) copyText(agent.snippet(state.serverCommand), $("copy-snippet"));
   });
   $("copy-tip").addEventListener("click", () => copyText(TIP_LINE, $("copy-tip")));
   $("snippet-openers").addEventListener("click", (e) => {
     const button = e.target.closest("[data-opener]");
     const agent = state.agentPicked === null ? null : AGENTS[state.agentPicked];
     const opener = button && agent && agent.openers ? agent.openers[Number(button.dataset.opener)] : null;
-    if (opener) copyText(opener.command, button);
+    if (opener) copyText(openerCommand(opener), button);
   });
   $("connect-auto-btn").addEventListener("click", onConnectAuto);
-  $("connect-auto-show").addEventListener("click", () => {
-    invoke("show_claude_extension").catch(() => { /* nothing to add: the steps are on screen */ });
-  });
   $("connect-cta").addEventListener("click", connectContinue);
   $("connect-skip").addEventListener("click", () => showScreen("memory"));
 

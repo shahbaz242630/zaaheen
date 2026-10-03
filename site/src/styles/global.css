@@ -491,3 +491,42 @@ p.placeholder{border:1px dashed var(--border);border-radius:10px;padding:14px 18
   .mrow{grid-template-columns:auto minmax(0,1fr)}
   .mrow-wh{display:none}
 }
+
+/* Connect guides (components/ConnectSteps.astro, session 82): the app's note,
+   the bold "follow all steps" line, and a Windows | Mac switch with no script
+   needed (radio buttons; scripts/platform.js picks Mac on a Mac). */
+.connect-note{margin:0 0 12px;padding:10px 14px;border-radius:8px;background:var(--chip);color:var(--ink-soft)}
+.connect-steps-note{margin:0 0 16px;color:var(--ink)}
+.os-switch{margin-top:12px}
+.os-radio{position:absolute;opacity:0;width:1px;height:1px}
+.os-tab{display:inline-block;margin:0 6px 12px 0;padding:6px 14px;border:1px solid var(--border);border-radius:999px;cursor:pointer;font-size:14px;color:var(--muted)}
+.os-radio:checked+.os-tab{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.os-radio:focus-visible+.os-tab{outline:2px solid var(--sage-deep);outline-offset:2px}
+.os-pane{display:none}
+.os-radio-win:checked~.os-pane-win,.os-radio-mac:checked~.os-pane-mac{display:block}
+/* Troubleshooting: error messages and their fixes (data/fixes.ts, s82). */
+.fixes{margin:12px 0 0}
+.fixes dt{margin:16px 0 4px}
+.fixes dt code{white-space:normal;word-break:break-word}
+.fixes dd{margin:0 0 0 0;color:var(--ink-soft)}
+
+/* Documents search (s83) */
+.docs-search{margin:0 0 10px;position:relative}
+.docs-search input{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-size:15px}
+.docs-search input:focus{outline:2px solid var(--sage);outline-offset:1px}
+.docs-search-results{list-style:none;margin:0;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--card);max-height:70vh;overflow:auto;position:absolute;left:0;top:calc(100% + 6px);width:max(100%,min(460px,calc(100vw - 48px)));z-index:30;box-shadow:0 12px 32px rgba(0,0,0,.12)}
+.docs-sections .docs-search-results a{display:flex;flex-direction:column;gap:2px;padding:8px 10px}
+.docs-search-title{color:var(--ink);font-weight:500}
+.docs-search-page{font-size:12px;color:var(--faint)}
+.docs-search-snippet{font-size:13px;color:var(--muted);line-height:1.4}
+.docs-search-none{padding:8px 10px;font-size:14px;color:var(--muted)}
+.docs-sections .docs-search-none a{display:inline;padding:0;color:var(--ink);text-decoration:underline}
+
+/* Guides: the copy boxes hold the usual install path (s83) */
+.path-note{margin:0 0 14px;padding:10px 14px;border-left:3px solid var(--sage);background:var(--tint);border-radius:6px;font-size:15px;line-height:1.55}
+.path-note code{font-family:var(--mono);font-size:13px;word-break:break-all}
+
+/* No slanted text anywhere (founder, s83: italics look untidy). Emphasis,
+   mostly the app's button and menu names, is a little heavier instead. */
+em,i,cite,dfn,var,address{font-style:normal}
+em{font-weight:500;color:var(--ink)}

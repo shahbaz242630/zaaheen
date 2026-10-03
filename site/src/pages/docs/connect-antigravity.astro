@@ -1,0 +1,19 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import ConnectSteps from '../../components/ConnectSteps.astro';
+import { connectOutline } from '../../data/app-words';
+
+// Antigravity, Google's AI app and code editor, built from the app's own
+// wording (data/app-words.ts reads crates/vault-tauri/dist/app.js). Its own
+// page since session 83 (founder: each app separate, like the others).
+const NAME = 'Antigravity';
+---
+<Guide
+  path="/docs/connect-antigravity/"
+  lede="Open Antigravity's settings file, mcp_config.json, paste Zaaheen's setting from the Agents tab in Zaaheen, save, and restart Antigravity. Then check Zaaheen shows with a green circle under its MCP tools."
+  outline={connectOutline(NAME)}
+>
+  <section class="docs-section">
+    <ConnectSteps name={NAME} where="Antigravity › mcp_config.json" />
+  </section>
+</Guide>

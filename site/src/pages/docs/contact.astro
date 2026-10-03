@@ -1,0 +1,52 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import Row from '../../components/Row.astro';
+import CopyBox from '../../components/CopyBox.astro';
+import { COMPANY } from '../../data/site';
+
+// Contact us (founder, session 83): the answers first, then the address, as
+// a write-up rather than a form (no sending service, no stored details). The
+// footer's "Contact us" and the troubleshooting page link here.
+const OUTLINE = [
+  { id: 'answers', title: 'Most answers are already here' },
+  { id: 'email', title: 'Email us' },
+  { id: 'include', title: 'What to include' },
+];
+---
+<Guide
+  path="/docs/contact/"
+  lede={`Most questions are answered in our guides and on the troubleshooting page. If yours isn't, email us at ${COMPANY.email}.`}
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="answers" title="Most answers are already here" where="Documents">
+      <ul>
+        <li><a href="/docs/troubleshooting/">Troubleshooting</a>: error messages and their fixes, and what to
+            do when an AI app doesn't use Zaaheen.</li>
+        <li><a href="/docs/getting-started/">Getting started</a>: installing Zaaheen and connecting your first
+            AI app.</li>
+        <li><a href="/pricing/">Pricing</a> and the <a href="/refunds/">Refund Policy</a>: your trial,
+            subscription and refunds.</li>
+      </ul>
+      <p>Your AI app can look things up too: ask it to check Zaaheen's help at
+         <a href="/llms.txt">zaaheen.com/llms.txt</a>.</p>
+    </Row>
+
+    <Row level={2} id="email" title="Email us" where="Any question">
+      <p>Write to us at <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>. If the link doesn't open
+         your email, copy the address:</p>
+      <CopyBox text={COMPANY.email} />
+    </Row>
+
+    <Row level={2} id="include" title="What to include" where="So we can help the first time">
+      <ul>
+        <li>Windows or Mac.</li>
+        <li>Which AI app you were using.</li>
+        <li>The exact words of any error message.</li>
+        <li>For a problem in the app, its activity record: choose <em>Save activity record…</em> in
+            Settings and attach the file. It shows us the app version and what happened, and contains none of your memories.</li>
+      </ul>
+      <p>Never send your password or any sign-in code. We will never ask for them.</p>
+    </Row>
+  </section>
+</Guide>

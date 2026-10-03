@@ -1,5 +1,54 @@
 import type { APIRoute } from 'astro';
 import { SITE, RELEASE, TRIAL, COMPANY, COACHING, PAGES, INSTALL_PATH, MAC_INSTALL_PATH, absolute, verifiedAppList } from '../data/site';
+import { appWords, openerText, stepTitles } from '../data/app-words';
+import { FIXES } from '../data/fixes';
+
+// Each app's steps in the desktop app's own words (data/app-words.ts reads
+// crates/vault-tauri/dist/app.js), so an assistant reading this file gives
+// the same steps as the app's Agents tab (session 82).
+const GUIDES: Record<string, string> = {
+  'Claude Desktop': '/docs/connect-claude/',
+  'Cursor Desktop': '/docs/connect-cursor/',
+  'ChatGPT Desktop': '/docs/connect-chatgpt/',
+  'Claude Code': '/docs/connect-claude-code/',
+  Codex: '/docs/connect-codex/',
+  Antigravity: '/docs/connect-antigravity/',
+  'Another app': '/docs/connect-other-apps/',
+};
+const flat = (text: string) => text.replace(/\s*\n\s*/g, ' ').trim();
+function appSteps(): string[] {
+  const words = appWords();
+  const mac = appWords(true);
+  const out: string[] = [];
+  for (const agent of words.AGENTS) {
+    const t = stepTitles(agent.name);
+    const macAgent = mac.AGENTS.find((a) => a.name === agent.name)!;
+    out.push(`### ${agent.name}`, '');
+    if (t.note) out.push(t.note);
+    if (agent.note) out.push(agent.note);
+    const quick = agent.connect ? words.CONNECT_WORDS[agent.connect] : null;
+    if (quick && t.quick) {
+      out.push(`- ${t.quick}: in ${SITE.name}, Agents, "+ Connect an AI app", "${agent.name}", then "${quick.button}". ${quick.note} ${quick.saved ?? quick.asked}`);
+    }
+    const parts = [agent.hint];
+    for (const o of agent.openers ?? []) parts.push(`${o.label}: ${openerText(o, INSTALL_PATH)}`);
+    if (agent.pasteHint) parts.push(agent.pasteHint);
+    if (agent.snippet) parts.push(flat(agent.snippet(INSTALL_PATH)));
+    out.push(`- ${t.byHand} (Windows): ${parts.join(' ')}`);
+    if (macAgent.hint !== agent.hint || agent.snippet || (agent.openers ?? []).some((o) => typeof o.command === 'function')) {
+      const m = [macAgent.hint];
+      for (const o of macAgent.openers ?? []) m.push(`${o.label}: ${openerText(o, MAC_INSTALL_PATH)}`);
+      if (macAgent.pasteHint) m.push(macAgent.pasteHint);
+      if (macAgent.snippet) m.push(flat(macAgent.snippet(MAC_INSTALL_PATH)));
+      out.push(`- ${t.byHand} (Mac): ${m.join(' ')}`);
+    }
+    if (t.check) out.push(`- ${t.check}: ${words.AGENT_CHECKS[agent.name]}`);
+    if (t.tip) out.push(`- ${t.tip}: ${words.AGENT_TIPS[agent.name]} "${words.TIP_LINE}"`);
+    if (GUIDES[agent.name]) out.push(`- Guide: ${absolute(GUIDES[agent.name])}`);
+    out.push('');
+  }
+  return out;
+}
 
 // A plain-text summary for AI tools (llmstxt.org proposal). No search engine
 // has confirmed it reads these files, and Google says it neither helps nor
@@ -32,12 +81,16 @@ export const GET: APIRoute = () => {
     `## Helping someone connect ${SITE.name}`,
     '',
     `- First, the person opens ${SITE.name} on their computer and signs in; the first sign-in from the app starts the free trial.`,
-    `- In ${SITE.name}: the Agents tab, then "+ Connect an AI app", then the app. That tab shows the exact setting for their computer, ready to copy.`,
-    `- Claude Desktop and Cursor: choose "Connect it for me"; the app then asks to install ${SITE.name}: click Install. Guides: ${absolute('/docs/connect-claude/')}, ${absolute('/docs/connect-cursor/')}.`,
-    `- Claude Code: in a terminal, run once: claude mcp add --transport stdio --scope user zaaheen -- "${INSTALL_PATH}" mcp serve (on a Mac, the path is ${MAC_INSTALL_PATH}); check with claude mcp list. Guide: ${absolute('/docs/connect-claude-code/')}.`,
-    `- ChatGPT (desktop app): Settings, Integrations, Plugins, Add MCP Server; command ${INSTALL_PATH} on Windows or ${MAC_INSTALL_PATH} on a Mac; arguments "mcp" and "serve" as two separate items; use Work or Codex mode. Guide: ${absolute('/docs/connect-chatgpt/')}.`,
-    `- Any other app that supports MCP: an MCP server named "zaaheen" with command ${INSTALL_PATH} (Windows) or ${MAC_INSTALL_PATH} (Mac) and args ["mcp", "serve"], then restart the app. Guide: ${absolute('/docs/connect-other-apps/')}.`,
-    `- If an app answers without using ${SITE.name}: add to its personal preferences or custom instructions "Before answering anything about me, my preferences, my work or my plans, also check my Zaaheen memory, even when your own memory has nothing." More fixes: ${absolute('/docs/troubleshooting/')}.`,
+    `- In ${SITE.name}: the Agents tab, then "+ Connect an AI app", then the app. That tab shows the exact setting for their computer (its own install path), ready to copy: prefer it to the usual paths below (Windows ${INSTALL_PATH}, Mac ${MAC_INSTALL_PATH}). Use the Copy buttons; a space typed before the command stops it working.`,
+    `- Codex (terminal) and ChatGPT Desktop share one settings file (.codex/config.toml); the Cursor IDE uses Cursor Desktop's settings. Connect once.`,
+    `- Other apps: ${absolute('/docs/connect-other-apps/')}. More fixes: ${absolute('/docs/troubleshooting/')}.`,
+    '',
+    ...appSteps(),
+    // The exact words people and agents see, so a search for an error finds
+    // its fix (data/fixes.ts; the troubleshooting page shows the same list).
+    '## Problems and fixes',
+    '',
+    ...FIXES.map((f) => `- "${f.error}" (${f.where}): ${f.fix}`),
     '',
     '## Company',
     '',
