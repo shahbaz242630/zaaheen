@@ -92,3 +92,5 @@ tempfile = { workspace = true }
 # `#[async_trait]` trait. Dev-only, and no new supply-chain weight: the same
 # pinned version already arrives with `vault-mcp`.
 async-trait = { workspace = true }
+# THROWAWAY SPIKE (s82): the repro test prints the logs.
+tracing-subscriber = { workspace = true }

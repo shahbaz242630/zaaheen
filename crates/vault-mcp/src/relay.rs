@@ -136,7 +136,15 @@ fn relay_failure(message: &str) -> Result<CallToolResult, McpError> {
 
 fn to_mcp(result: Result<CallToolResult, UpstreamError>) -> Result<CallToolResult, McpError> {
     match result {
-        Ok(r) => Ok(r),
+        // The relay's link to the keeper negotiates an older protocol, so the
+        // keeper's answer arrives without `resultType`. Absent means
+        // "complete" (MCP 2026-07-28, SEP-2322), so say so: an app on
+        // 2026-07-28 requires the field (Claude Code refused every answer
+        // without it, session 82), and rmcp removes it again for older apps.
+        Ok(mut r) => {
+            r.result_type.get_or_insert(rmcp::model::ResultType::COMPLETE);
+            Ok(r)
+        }
         // The keeper's own errors: exactly what the direct server returns.
         Err(UpstreamError::Keeper(e)) => Err(e),
         Err(UpstreamError::NotSent(reason)) => relay_failure(reason),

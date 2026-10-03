@@ -141,15 +141,18 @@
           <div id="connect-head" class="hidden">
             <h2 id="connect-app-name" class="settings-title"></h2>
             <p id="connect-app-desc" class="settings-intro"></p>
+            <p id="connect-app-note" class="connect-app-note"></p>
+            <!-- s82, founder: numbered steps, and say every one matters. -->
+            <p id="connect-steps-note" class="connect-steps-note"></p>
           </div>
           <!-- "Connect it for me" (ADR-106): for an app with its own install
                route, Zaaheen asks the app, and the app asks the person. -->
           <div id="connect-auto" class="set-row connect-auto hidden">
             <div class="set-text">
-              <div class="set-name">The quick way</div>
+              <div id="connect-auto-title" class="set-name"></div>
               <p id="connect-auto-note" class="set-desc connect-auto-note"></p>
               <p id="connect-auto-status" class="connect-auto-status"></p>
-              <button id="connect-auto-show" class="link-underline hidden">Show the file</button>
+              <div id="connect-auto-progress" class="work-bar hidden" role="progressbar" aria-label="Waiting for the app"><div class="work-fill"></div></div>
             </div>
             <div class="set-action">
               <button id="connect-auto-btn" class="btn-pill">Connect it for me</button>
@@ -163,7 +166,7 @@
                    (Antigravity, session 64), then what to paste. -->
               <div id="snippet-openers"></div>
               <p id="snippet-paste-hint" class="set-desc hidden"></p>
-              <div class="code-box">
+              <div id="snippet-box" class="code-box">
                 <div id="snippet-code" class="snippet-code"></div>
                 <button id="copy-snippet" class="copy-chip">copy</button>
               </div>
@@ -171,7 +174,7 @@
           </div>
           <div id="connect-check" class="set-row hidden">
             <div class="set-text">
-              <div class="set-name">Check it's connected</div>
+              <div id="connect-check-title" class="set-name"></div>
               <p id="connect-check-text" class="set-desc"></p>
             </div>
           </div>
@@ -180,7 +183,7 @@
                (founder: "simple instructiosn on our app will be enough"). -->
           <div id="connect-tip" class="set-row set-stack hidden">
             <div class="set-text">
-              <div class="set-name">So it checks Zaaheen by itself</div>
+              <div id="connect-tip-title" class="set-name"></div>
               <p id="connect-tip-where" class="set-desc"></p>
               <div class="code-box">
                 <div id="connect-tip-text" class="snippet-code tip-code"></div>
@@ -665,6 +668,7 @@
                   Permanently delete everything
                 </button>
               </div>
+              <div id="erase-progress" class="work-bar hidden" role="progressbar" aria-label="Deleting your memories"><div class="work-fill"></div></div>
               <p id="erase-status" class="erase-status"></p>
             </div>
           </section>
@@ -771,6 +775,7 @@
           </label>
           <input id="delete-account-phrase" class="erase-input" type="text"
                  autocomplete="off" spellcheck="false" />
+          <div id="delete-account-progress" class="work-bar hidden" role="progressbar" aria-label="Deleting your memories"><div class="work-fill"></div></div>
           <p id="delete-account-status" class="erase-status"></p>
           <div class="confirm-actions">
             <button id="delete-account-cancel" class="btn-ghost">Cancel</button>

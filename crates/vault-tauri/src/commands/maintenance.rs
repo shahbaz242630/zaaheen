@@ -980,3 +980,7 @@ mod tests {
         );
     }
 }
+
+// THROWAWAY SPIKE (s82): never merged.
+#[cfg(test)]
+mod repro_s82;

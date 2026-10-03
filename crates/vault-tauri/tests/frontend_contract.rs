@@ -1475,7 +1475,8 @@ fn the_banners_are_the_ones_the_design_asks_for() {
     let functions = top_level_functions(&code);
     let banners = js_function(&functions, "bannerLines");
     for needle in [
-        "view.state === \"trial\" && view.days_left !== null && view.days_left <= TRIAL_BANNER_DAYS",
+        "view.state === \"trial\" && view.days_left !== null",
+        "lines.push(trialLine(view.days_left))",
         "view.state === \"payment_failed\"",
         "view.clock_wrong",
         // §8.26 §4, word for word.
@@ -1486,6 +1487,29 @@ fn the_banners_are_the_ones_the_design_asks_for() {
             "bannerLines no longer contains `{needle}`"
         );
     }
+}
+
+/// SIGNIN-DESIGN §8.46 (founder, s82): the trial shows on the home screen from
+/// its first day, quietly; the Subscribe button only in its last seven days
+/// (§8.26 §6's banner, unchanged). Payers see no trial line at all.
+#[test]
+fn the_trial_shows_from_its_first_day_and_asks_only_in_its_last_week() {
+    let code = js_code();
+    assert!(code.contains("const TRIAL_DAYS = 30;"));
+    let functions = top_level_functions(&code);
+    let line = js_function(&functions, "trialLine");
+    for needle in [
+        "if (days >= TRIAL_DAYS) return { text: `Your ${TRIAL_DAYS}-day free trial has started.` };",
+        "if (days > TRIAL_BANNER_DAYS) return { text: `${days} days left in your free trial.` };",
+        "return { text: trialEndsLine(days), action: \"subscribe\", label: \"Subscribe\" };",
+    ] {
+        assert!(line.body.contains(needle), "trialLine no longer contains `{needle}`");
+    }
+    // Only the last week's line carries a button.
+    assert_eq!(line.body.matches("action:").count(), 1);
+    // Only a trial gets a trial line.
+    let banners = js_function(&functions, "bannerLines");
+    assert_eq!(banners.body.matches("trialLine(").count(), 1);
 }
 
 /// §8.26 §7: *"dialog says the subscription continues until cancelled, with
@@ -2898,6 +2922,10 @@ fn delete_my_account_never_auto_closes_and_shows_the_address() {
     assert!(js_function(&functions, "closeDeleteAccount")
         .body
         .contains("if (deleteAccountDone) return;"));
+    // s82: Escape does not hide a delete at work.
+    assert!(js_function(&functions, "closeDeleteAccount")
+        .body
+        .contains("if ($(\"delete-account-cancel\").disabled) return;"));
     assert!(js_function(&functions, "onDeleteAccountReopen")
         .body
         .contains("invoke(\"delete_account_open\")"));
@@ -2990,4 +3018,107 @@ fn the_documents_handler_sends_only_a_name() {
     assert!(body.contains("Your browser did not open."));
     assert!(APP_JS.contains("$(\"documents-list\").addEventListener(\"click\", onDocumentClick);"));
     assert!(INDEX_HTML.contains("<button data-section=\"documents\">Documents</button>"));
+}
+
+/// s82, the friend's Mac: Delete my account kept "Deleting your memories…" in
+/// a faint line while the red button still looked live, so he clicked it again
+/// and again. Both delete flows now show a moving bar and a "Deleting…" button
+/// that looks switched off; after a minute the line says it is still working
+/// (never that it finished or failed). The bar stops on every outcome.
+#[test]
+fn a_delete_in_progress_shows_it_is_working() {
+    let html = html();
+    for bar in [
+        "<div id=\"erase-progress\" class=\"work-bar hidden\" role=\"progressbar\" aria-label=\"Deleting your memories\"><div class=\"work-fill\"></div></div>",
+        "<div id=\"delete-account-progress\" class=\"work-bar hidden\" role=\"progressbar\" aria-label=\"Deleting your memories\"><div class=\"work-fill\"></div></div>",
+    ] {
+        assert!(html.contains(bar), "index.html is missing {bar}");
+    }
+    let code = js_code();
+    assert!(code.contains("const SLOW_DELETE_MS = 60 * 1000;"));
+    let functions = top_level_functions(&code);
+    let start = &js_function(&functions, "deleteWorkStart").body;
+    for needle in [
+        "button.textContent = \"Deleting…\";",
+        "status.textContent = \"Deleting your memories… This can take up to a minute. Please keep Zaaheen open.\";",
+        "bar.classList.remove(\"hidden\");",
+        "status.textContent = \"Still working. This is taking longer than usual. Please keep Zaaheen open.\";",
+        "SLOW_DELETE_MS",
+    ] {
+        assert!(start.contains(needle), "deleteWorkStart is missing `{needle}`");
+    }
+    let stop = &js_function(&functions, "deleteWorkStop").body;
+    assert!(stop.contains("clearTimeout(timer);") && stop.contains("bar.classList.add(\"hidden\");"));
+    for (name, bar, call) in [
+        ("eraseEverything", "erase-progress", "invoke(\"erase_everything\")"),
+        ("deleteAccountStart", "delete-account-progress", "invoke(\"delete_account_start\")"),
+    ] {
+        let body = &js_function(&functions, name).body;
+        let started = body
+            .find(&format!("deleteWorkStart($(\"{bar}\")"))
+            .unwrap_or_else(|| panic!("{name} does not start the bar"));
+        let called = body.find(call).unwrap_or_else(|| panic!("{name} has no {call}"));
+        assert!(started < called, "{name} starts the bar before asking");
+        // Stopped on failure and on success alike.
+        assert_eq!(
+            body.matches(&format!("deleteWorkStop($(\"{bar}\")")).count(),
+            2,
+            "{name} stops the bar on both outcomes"
+        );
+    }
+    // The red button looks switched off while it is, and only moves under a
+    // live pointer.
+    let css = STYLES_CSS.replace("\r\n", "\n");
+    assert!(css.contains(".btn-danger:disabled { opacity: 0.45; cursor: default; text-decoration: none; }"));
+    assert!(css.contains(".btn-danger:hover:not(:disabled) { text-decoration: underline; }"));
+    assert!(!css.contains(".btn-danger:hover { text-decoration: underline; }"));
+    // Cancel too: the dark pill looked live while it was switched off.
+    assert!(css.contains(".btn-ghost:disabled { opacity: 0.45; cursor: default; }"));
+    assert!(css.contains(".btn-ghost:hover:not(:disabled) { background: var(--ink-hover); }"));
+    // Reduced motion: a still bar, the words carry it.
+    assert!(css.contains(".work-fill { animation: none; width: 100%; opacity: 0.5; }"));
+}
+
+/// Session 82: the friend's Mac showed "Your memories were NOT deleted" in
+/// faint 13 px grey, and he pressed the button again and again. A failed
+/// delete is now marked `failed` (red, larger, boxed) on both screens, and the
+/// mark is cleared when a new attempt starts or the screen is opened again.
+#[test]
+fn a_failed_delete_is_impossible_to_miss() {
+    let css = STYLES_CSS.replace("\r\n", "\n");
+    let rule = css
+        .split_once(".erase-status.failed {")
+        .expect("styles.css has a failed-delete rule")
+        .1
+        .split_once('}')
+        .expect("closed")
+        .0;
+    for needle in ["color: var(--red);", "font: 500 14px", "border-left: 3px solid var(--red);"] {
+        assert!(rule.contains(needle), "the failed-delete rule is missing `{needle}`");
+    }
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    for (name, status) in [
+        ("eraseEverything", "erase-status"),
+        ("deleteAccountStart", "delete-account-status"),
+    ] {
+        let body = &js_function(&functions, name).body;
+        let marked = body
+            .find(&format!("$(\"{status}\").classList.add(\"failed\");"))
+            .unwrap_or_else(|| panic!("{name} does not mark its failure"));
+        let caught = body.find("} catch (err) {").expect("a failure path");
+        assert!(caught < marked, "{name} marks only the failure");
+    }
+    let start = &js_function(&functions, "deleteWorkStart").body;
+    assert!(start.contains("status.classList.remove(\"failed\");"));
+    for (name, status) in [
+        ("resetEraseConfirm", "erase-status"),
+        ("openDeleteAccount", "delete-account-status"),
+    ] {
+        let body = &js_function(&functions, name).body;
+        assert!(
+            body.contains(&format!("$(\"{status}\").classList.remove(\"failed\");")),
+            "{name} does not clear the failure mark"
+        );
+    }
 }

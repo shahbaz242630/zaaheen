@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # THROWAWAY (s83 proof branch only): run the full CI here too.
+    branches: [main, 'repro/**']
   pull_request:
     branches: [main]
     # `labeled` is load-bearing, not decorative. `real-model-smoke`'s condition
