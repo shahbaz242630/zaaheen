@@ -271,7 +271,11 @@ async fn call_through_the_relay(version: &str, hello: bool) -> Value {
 async fn a_new_protocol_app_gets_the_result_type_through_the_relay() {
     for hello in [true, false] {
         let call = call_through_the_relay("2026-07-28", hello).await;
-        assert_eq!(call["result"]["resultType"], json!("complete"), "hello={hello}: {call}");
+        assert_eq!(
+            call["result"]["resultType"],
+            json!("complete"),
+            "hello={hello}: {call}"
+        );
         assert_eq!(call["result"]["content"][0]["text"], json!("ok"), "{call}");
     }
 }

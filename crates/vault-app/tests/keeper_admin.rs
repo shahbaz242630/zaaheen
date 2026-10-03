@@ -617,7 +617,7 @@ fn the_admin_tool_contract_is_pinned_to_the_wire_version() {
     let actual = hasher.finalize().to_hex().to_string();
     assert_eq!(
         (vault_app::keeper::handshake::WIRE, actual.as_str()),
-        (4, PINNED_ADMIN),
+        (5, PINNED_ADMIN),
         "The admin tool contract changed: bump WIRE in \
          vault_app::keeper::handshake and set PINNED_ADMIN to {actual}."
     );

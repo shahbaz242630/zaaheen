@@ -135,6 +135,12 @@ main{max-width:32rem;padding:2rem;text-align:center}\
 h1{font-size:1.5rem;font-weight:600;margin:0 0 .5rem}p{margin:0;color:#4a463f}\
 @media (prefers-color-scheme:dark){body{background:#1c1b19;color:#f3f1ec}p{color:#c9c4ba}}";
 
+/// Where a valid sign-in sends the browser (s83, ADR-SEC-041): the website's
+/// fixed, static page. Nothing from the request goes with it, and the
+/// response's `Referrer-Policy: no-referrer` keeps this address (its port and
+/// the spent code) from being sent there.
+pub(super) const SIGNED_IN_PAGE: &str = "https://zaaheen.com/signed-in/";
+
 /// `default-src 'none'` plus the one style block by its SHA-256, and the
 /// three directives that do not fall back to `default-src` (D8).
 pub(super) fn content_security_policy() -> String {
@@ -154,7 +160,7 @@ pub(super) fn content_security_policy() -> String {
 pub(super) fn response(page: Page) -> Vec<u8> {
     let (status, title, message) = match page {
         Page::SignedIn => (
-            "200 OK",
+            "303 See Other",
             "Signed in",
             "You're signed in to Zaaheen. You can close this tab and go back to the app.",
         ),
@@ -181,6 +187,12 @@ pub(super) fn response(page: Page) -> Vec<u8> {
     } else {
         ""
     };
+    // The same static page is the body, for a browser that does not follow.
+    let location = if page == Page::SignedIn {
+        format!("Location: {SIGNED_IN_PAGE}\r\n")
+    } else {
+        String::new()
+    };
     let body = format!(
         "<!doctype html><html><head><meta charset=\"utf-8\">\
          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
@@ -197,6 +209,7 @@ pub(super) fn response(page: Page) -> Vec<u8> {
          Referrer-Policy: no-referrer\r\n\
          X-Content-Type-Options: nosniff\r\n\
          {allow}\
+         {location}\
          Connection: close\r\n\
          \r\n\
          {body}",
@@ -461,7 +474,7 @@ mod tests {
     #[test]
     fn every_page_has_the_right_status_line() {
         let expected = [
-            (Page::SignedIn, "HTTP/1.1 200 "),
+            (Page::SignedIn, "HTTP/1.1 303 "),
             (Page::Cancelled, "HTTP/1.1 200 "),
             (Page::Invalid, "HTTP/1.1 400 "),
             (Page::NotFound, "HTTP/1.1 404 "),
@@ -472,6 +485,33 @@ mod tests {
             let text = String::from_utf8(response(page)).unwrap();
             assert!(text.starts_with(status), "{page:?}: {text}");
         }
+    }
+
+    /// s83 (founder: a clean address at the end): a valid sign-in moves the
+    /// browser on to the website's fixed page, with nothing from the request
+    /// in it, so the address bar no longer shows this computer's port and the
+    /// spent code. Only that page moves; a cancel or a bad link is answered
+    /// here, where the words can be right.
+    #[test]
+    fn only_a_sign_in_moves_on_and_only_to_the_fixed_page() {
+        assert_eq!(SIGNED_IN_PAGE, "https://zaaheen.com/signed-in/");
+        for page in ALL_PAGES {
+            let text = String::from_utf8(response(page)).unwrap();
+            let (headers, _) = text.split_once("\r\n\r\n").unwrap();
+            let locations: Vec<&str> = headers
+                .split("\r\n")
+                .filter_map(|line| line.strip_prefix("Location: "))
+                .collect();
+            if page == Page::SignedIn {
+                assert_eq!(locations, [SIGNED_IN_PAGE], "{page:?}");
+            } else {
+                assert!(locations.is_empty(), "{page:?} must not move on");
+            }
+        }
+        assert!(
+            !SIGNED_IN_PAGE.contains(['?', '#']),
+            "nothing carried along"
+        );
     }
 
     #[test]

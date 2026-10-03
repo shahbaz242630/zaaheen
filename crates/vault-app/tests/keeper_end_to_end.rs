@@ -701,14 +701,12 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     const PINNED: &str = "198591bd3b035767929eef3e50d802a83596e1231b0c129b40a281df5973998c";
 
     let server = StdioServer::new(Arc::new(NoVaultAdapter), Vec::new());
+    let instructions = server.get_info().instructions.unwrap_or_default();
+    // Wire 5 (s83): an app that hits an error can find its fix.
+    assert!(instructions
+        .ends_with("Setup help and fixes for error messages: https://zaaheen.com/llms.txt"));
     let mut hasher = blake3::Hasher::new();
-    hasher.update(
-        server
-            .get_info()
-            .instructions
-            .unwrap_or_default()
-            .as_bytes(),
-    );
+    hasher.update(instructions.as_bytes());
     for name in [
         "memory_delete",
         "memory_read",
@@ -724,7 +722,7 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     let actual = hasher.finalize().to_hex().to_string();
     assert_eq!(
         (WIRE, actual.as_str()),
-        (4, PINNED),
+        (5, PINNED),
         "The MCP tool contract changed. Relays and keepers from different \
          builds must not disagree about it silently: bump WIRE in \
          vault_app::keeper::handshake and set PINNED to {actual}."

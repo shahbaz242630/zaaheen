@@ -142,7 +142,8 @@ fn to_mcp(result: Result<CallToolResult, UpstreamError>) -> Result<CallToolResul
         // 2026-07-28 requires the field (Claude Code refused every answer
         // without it, session 82), and rmcp removes it again for older apps.
         Ok(mut r) => {
-            r.result_type.get_or_insert(rmcp::model::ResultType::COMPLETE);
+            r.result_type
+                .get_or_insert(rmcp::model::ResultType::COMPLETE);
             Ok(r)
         }
         // The keeper's own errors: exactly what the direct server returns.

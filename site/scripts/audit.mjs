@@ -22,8 +22,13 @@ const DIST = path.resolve(args.find((a) => !a.startsWith('--')) || 'dist');
 const INDEXNOW_KEY = 'dc7e96914b463f8b38a2ca7309b9a25f';
 // Pages that are never listed in search: no canonical, no JSON-LD, noindex,
 // never in the sitemap (section 3, rule 2 names the 404 page as the only
-// exception; /pay, Paddle's checkout page, is the second, SIGNIN-DESIGN §5).
-const UNLISTED = { '404.html': 'the 404 page', 'pay/index.html': 'the pay page' };
+// exception; /pay, Paddle's checkout page, is the second, SIGNIN-DESIGN §5;
+// /signed-in, where the app sends the browser after a sign-in, the third, s83).
+const UNLISTED = {
+  '404.html': 'the 404 page',
+  'pay/index.html': 'the pay page',
+  'signed-in/index.html': 'the signed-in page',
+};
 // Section 3, rule 8: no third-party requests. The single exception is the pay
 // page loading Paddle.js, which Paddle requires on its default payment link.
 const THIRD_PARTY_ALLOWED = { 'pay/index.html': ['https://cdn.paddle.com/paddle/v2/paddle.js'] };
@@ -71,6 +76,10 @@ for (const rel of [
   'favicon.ico', 'favicon.svg', 'favicon-192.png', 'apple-touch-icon.png',
   'icon-192.png', 'icon-512.png', 'manifest.webmanifest', 'og-v2.png', `${INDEXNOW_KEY}.txt`,
   'pay/index.html', 'pay/.htaccess', '.well-known/security.txt',
+  // s83: the app's sign-in redirect lands here; a missing page breaks its end.
+  'signed-in/index.html',
+  // s83: each footer's Contact us page.
+  'docs/contact/index.html', 'knowledge-centre/contact/index.html',
   ...Object.keys(POLICIES).map((u) => `${u.slice(1)}index.html`),
   ...Object.keys(COACHING_POLICIES).map((u) => `${u.slice(1)}index.html`),
 ]) {
@@ -147,6 +156,9 @@ for (const rel of files.filter((f) => f.endsWith('.html'))) {
   const inKc = rel.startsWith(COACHING_ROOT);
   if (inKc && !coaching) fail(rel, 'the Knowledge Centre must use the coaching footer (data-footer="coaching")');
   if (!inKc && coaching) fail(rel, 'the coaching footer is only for the Knowledge Centre');
+  // s83: every footer links its own Contact us page.
+  const contact = inKc || coaching ? '/knowledge-centre/contact/' : '/docs/contact/';
+  if (!hrefs.includes(contact)) fail(rel, `the footer must link to its Contact us page (${contact})`);
   if (inKc || coaching) {
     for (const [url, name] of Object.entries(COACHING_POLICIES)) {
       if (!hrefs.includes(url)) fail(rel, `the coaching footer must link to ${name} (${url})`);

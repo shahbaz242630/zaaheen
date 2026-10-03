@@ -1,6 +1,7 @@
 // Single source of truth for facts that appear on more than one page, in the
 // sitemap, in llms.txt or in structured data. Change a fact here, never inline.
 // Every claim must be true of the build a visitor actually downloads.
+import { appWords } from './app-words';
 
 export const SITE = {
   name: 'Zaaheen',
@@ -322,6 +323,14 @@ export const PAGES: PageEntry[] = [
     sources: ['src/pages/knowledge-centre/booking-and-refunds.astro', 'src/layouts/Policy.astro', 'src/data/site.ts', 'src/data/coaching.ts'],
   },
   {
+    path: '/knowledge-centre/contact/',
+    crumb: 'Contact the Knowledge Centre',
+    title: 'Contact the Knowledge Centre · Zaaheen Knowledge Centre',
+    description:
+      'How to reach the Zaaheen Knowledge Centre about a coaching session or booking, and what to include so we can help the first time.',
+    sources: ['src/pages/knowledge-centre/contact.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
+  },
+  {
     path: '/knowledge-centre/privacy/',
     crumb: 'Coaching Privacy Notice',
     title: 'Coaching Privacy Notice · Zaaheen Knowledge Centre',
@@ -397,6 +406,15 @@ export const PAGES: PageEntry[] = [
     sources: ['src/pages/docs/troubleshooting.astro', 'src/layouts/Guide.astro'],
   },
   {
+    path: '/docs/contact/',
+    crumb: 'Contact us',
+    heading: 'Contact Zaaheen',
+    title: 'Contact us · Zaaheen',
+    description:
+      'Where to find answers about the Zaaheen memory app, how to email us, and what to include so we can help the first time.',
+    sources: ['src/pages/docs/contact.astro', 'src/layouts/Guide.astro'],
+  },
+  {
     path: '/pricing/',
     title: `Pricing: ${PLANS.monthly} after ${TRIAL.days} days free · Zaaheen`,
     description:
@@ -441,6 +459,7 @@ export const GUIDES = [
   { path: '/docs/connect-chatgpt/', label: 'Connect ChatGPT' },
   { path: '/docs/connect-other-apps/', label: 'Connect other AI apps' },
   { path: '/docs/troubleshooting/', label: 'Troubleshooting' },
+  { path: '/docs/contact/', label: 'Contact us' },
 ] as const;
 
 // Where Zaaheen installs, as the connection settings show it. The app's Agents
@@ -451,10 +470,10 @@ export const INSTALL_PATH = 'C:\\Program Files\\Zaaheen\\zaaheen.exe';
 // to run from anywhere else).
 export const MAC_INSTALL_PATH = '/Applications/Zaaheen.app/Contents/MacOS/zaaheen';
 
-// The line that makes Claude and ChatGPT check Zaaheen as well as their own
-// memory, word for word as the app gives it (TIP_LINE in the desktop app).
-export const TIP_LINE =
-  'Before answering anything about me, my preferences, my work or my plans, also check my Zaaheen memory, even when your own memory has nothing.';
+// The line that makes Claude, ChatGPT and Codex save to and check Zaaheen as
+// well as their own memory: read from the desktop app itself (s82), so it is
+// always the app's line word for word.
+export const TIP_LINE = appWords().TIP_LINE;
 
 // The Documents menu: how-to sections (anchors on /docs/) and the policies.
 export const DOCS_SECTIONS = [

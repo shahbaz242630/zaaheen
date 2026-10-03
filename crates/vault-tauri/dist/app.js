@@ -3190,7 +3190,18 @@ function renderFooter() {
 
 // ---------------------------------------------------------------- wiring
 
+// s81 Mac test: switching the schedule on makes macOS announce "a background
+// item was added", under the developer's name. Said beforehand, on a Mac only.
+const MAC_SCHEDULE_NOTE = "On a Mac, turning this on makes macOS show a notice that a background item was added, under our developer name. That is this schedule. To stop it, turn this off here.";
+
 function init() {
+  if (IS_MAC) {
+    for (const id of ["maint-onboard-mac", "maint-mac-note"]) {
+      $(id).textContent = MAC_SCHEDULE_NOTE;
+      $(id).classList.remove("hidden");
+    }
+  }
+
   // welcome
   $("begin-btn").addEventListener("click", beginSetup);
 

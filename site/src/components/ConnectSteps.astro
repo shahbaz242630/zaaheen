@@ -1,0 +1,92 @@
+---
+// One connect guide's steps, built from the desktop app's own wording
+// (data/app-words.ts reads it from crates/vault-tauri/dist/app.js), so a guide
+// always says what the app says (session 82). Steps are numbered as the app
+// numbers them; a Windows | Mac switch shows the visitor's own computer first
+// (scripts/platform.js); the Agents tab's exact setting comes first, the usual
+// install path only as a fallback.
+import Row from './Row.astro';
+import CopyBox from './CopyBox.astro';
+import { appWords, appAgent, openerText, stepTitles } from '../data/app-words';
+import { INSTALL_PATH, MAC_INSTALL_PATH } from '../data/site';
+
+interface Props {
+  /** The app's name exactly as the app's Agents tab shows it. */
+  name: string;
+  /** Where the app's own settings live, for the rows' small tag. */
+  where: string;
+  /** Row ids' prefix, when one page holds several apps (connectOutline uses the same). */
+  prefix?: string;
+}
+const { name, where, prefix = '' } = Astro.props;
+const titles = stepTitles(name);
+const agent = appAgent(name);
+const macAgent = appAgent(name, true);
+const words = appWords();
+const quick = agent.connect ? words.CONNECT_WORDS[agent.connect] : null;
+const check = words.AGENT_CHECKS[name];
+const tip = words.AGENT_TIPS[name];
+const os = [
+  { key: 'win', label: 'Windows', agent, command: INSTALL_PATH },
+  { key: 'mac', label: 'Mac', agent: macAgent, command: MAC_INSTALL_PATH },
+];
+const group = `os-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+---
+{agent.note && <p class="connect-note">{agent.note}</p>}
+{titles.note && <p class="connect-steps-note"><strong>{titles.note}</strong></p>}
+
+{quick && (
+  <Row level={2} id={`${prefix}quick`} title={titles.quick!} where="Zaaheen › Agents">
+    <p>{quick.note}</p>
+    <ol>
+      <li>In Zaaheen, open the <em>Agents</em> tab and choose <em>+ Connect an AI app</em>.</li>
+      <li>Choose <em>{name}</em>, then <em>{quick.button}</em>.</li>
+      {quick.waiting && <li>{quick.waiting}</li>}
+      <li>{quick.saved ?? quick.asked}</li>
+    </ol>
+    {quick.saved && <p>If {name.split(' ')[0]} opens and asks you to install Zaaheen instead, click <em>Install</em>, and it's connected.</p>}
+  </Row>
+)}
+
+<Row level={2} id={`${prefix}by-hand`} title={titles.byHand} where={where}>
+  <p>The easiest way to get the setting right: in Zaaheen, open <em>Agents</em>, choose
+     <em>+ Connect an AI app</em>, then <em>{name}</em>. It shows the setting with this computer's own
+     path, with a Copy button. Use the Copy buttons rather than selecting text by hand.</p>
+  <div class="os-switch" data-os-switch>
+    <input class="os-radio os-radio-win" type="radio" name={group} id={`${group}-win`} checked />
+    <label class="os-tab" for={`${group}-win`}>Windows</label>
+    <input class="os-radio os-radio-mac" type="radio" name={group} id={`${group}-mac`} data-os-mac />
+    <label class="os-tab" for={`${group}-mac`}>Mac</label>
+    {os.map((o) => (
+      <div class={`os-pane os-pane-${o.key}`}>
+        <p>{o.agent.hint}</p>
+        {(o.agent.openers ?? []).map((opener) => (
+          <>
+            <p>{opener.label}</p>
+            <CopyBox text={openerText(opener, o.command)} />
+          </>
+        ))}
+        {o.agent.pasteHint && <p>{o.agent.pasteHint}</p>}
+        {o.agent.snippet && <CopyBox text={o.agent.snippet(o.command)} />}
+        {(o.agent.snippet || (o.agent.openers ?? []).some((x) => typeof x.command === 'function')) && (
+          <p class="code-note">That is where Zaaheen usually installs on {o.key === 'win' ? 'Windows' : 'a Mac'}. The
+             <em>Agents</em> tab shows your computer's exact path.</p>
+        )}
+      </div>
+    ))}
+  </div>
+</Row>
+
+{check && (
+  <Row level={2} id={`${prefix}check`} title={titles.check!} where={where}>
+    <p>{check}</p>
+  </Row>
+)}
+
+{tip && (
+  <Row level={2} id={`${prefix}tip`} title={titles.tip!} where={where}>
+    <p>{tip}</p>
+    <CopyBox text={words.TIP_LINE} />
+  </Row>
+)}
+<script src="../scripts/platform.js"></script>

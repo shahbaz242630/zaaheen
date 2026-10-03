@@ -29,7 +29,7 @@ const APP_COLUMNS = [
     { label: 'Company information', href: '/company/' },
     { label: 'Knowledge Centre', href: '/knowledge-centre/' },
     { label: 'Security', href: '/security/' },
-    { label: 'Contact us', href: `mailto:${COMPANY.email}` },
+    { label: 'Contact us', href: '/docs/contact/' },
   ] },
   { title: 'Legal', links: [
     { label: 'Terms of Service', href: '/terms/' },
@@ -43,7 +43,7 @@ const COACHING_COLUMNS = [
   { title: 'Coaching', links: [
     ...(COACHING.bookingOpen ? [{ label: 'Book a session', href: COACHING.bookingUrl }] : []),
     { label: 'Sessions', href: '/knowledge-centre/#sessions' },
-    { label: 'Contact the Knowledge Centre', href: `mailto:${COACHING.email}` },
+    { label: 'Contact us', href: '/knowledge-centre/contact/' },
   ] },
   { title: 'Zaaheen', links: [
     { label: 'Home', href: '/' },

@@ -4,44 +4,48 @@
     "date": "2026-10-01T12:16:53Z"
   },
   "/ai-and-your-data/": {
-    "text": "1535d29b95941419",
-    "date": "2026-09-30T17:37:40Z"
+    "text": "b740c49d6920125a",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/company/": {
-    "text": "71405a861b116ccb",
-    "date": "2026-09-30T17:37:40Z"
+    "text": "6e6d0e51560290fc",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/docs/": {
-    "text": "b4af9056927f57d6",
-    "date": "2026-10-01T12:16:53Z"
+    "text": "fb41f84f9b0078a5",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/docs/connect-chatgpt/": {
-    "text": "1404ccdab6b714a0",
-    "date": "2026-09-30T17:37:40Z"
+    "text": "ee069fbaf153134b",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/docs/connect-claude-code/": {
-    "text": "7f713e7b03d13aa3",
-    "date": "2026-09-30T17:37:40Z"
+    "text": "2293f584a5533062",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/docs/connect-claude/": {
-    "text": "129b27cf229e3e13",
-    "date": "2026-09-30T17:37:40Z"
+    "text": "fb41403192dbce65",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/docs/connect-cursor/": {
-    "text": "a37e8834ba821e0a",
-    "date": "2026-09-30T17:37:40Z"
+    "text": "0ccc824731a316fa",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/docs/connect-other-apps/": {
-    "text": "d7a3d71769dd36c9",
-    "date": "2026-09-30T17:37:40Z"
+    "text": "b1ffd732c4b84565",
+    "date": "2026-10-03T04:01:08Z"
+  },
+  "/docs/contact/": {
+    "text": "affe9367e3c6e164",
+    "date": "2026-10-03T04:03:11Z"
   },
   "/docs/getting-started/": {
-    "text": "558524a66a9e1033",
-    "date": "2026-10-01T12:16:53Z"
+    "text": "db28ffb5b445fd42",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/docs/troubleshooting/": {
-    "text": "2983d637e7337839",
-    "date": "2026-09-30T17:37:40Z"
+    "text": "92305198099bedc1",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/knowledge-centre/": {
     "text": "aec7dd5db1ff0147",
@@ -50,6 +54,10 @@
   "/knowledge-centre/booking-and-refunds/": {
     "text": "8eedbc0b9f2d9eec",
     "date": "2026-09-27T16:16:16Z"
+  },
+  "/knowledge-centre/contact/": {
+    "text": "72ac6f0d9f900ddf",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/knowledge-centre/privacy/": {
     "text": "fabac0c663f6c89b",
@@ -60,31 +68,31 @@
     "date": "2026-09-27T16:16:16Z"
   },
   "/licences/": {
-    "text": "b5c8a457bf3d7cd4",
-    "date": "2026-09-30T17:37:40Z"
+    "text": "b3a257be4cc8cc72",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/pricing/": {
     "text": "39196fe25f5d7102",
     "date": "2026-10-01T12:16:53Z"
   },
   "/privacy/": {
-    "text": "e60e563a1c56766d",
-    "date": "2026-10-01T16:38:14Z"
+    "text": "2bfcac1602d0e344",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/products/": {
     "text": "9e0b8a06396c1df4",
     "date": "2026-09-30T17:37:40Z"
   },
   "/refunds/": {
-    "text": "a8f9a7ac6a760372",
-    "date": "2026-09-30T17:37:40Z"
+    "text": "7c50c562f12daa8c",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/security/": {
-    "text": "c3d3152c26c67446",
-    "date": "2026-09-30T17:37:40Z"
+    "text": "a65d3a4d5624b8bd",
+    "date": "2026-10-03T04:01:08Z"
   },
   "/terms/": {
-    "text": "5dfd4435ef6b67ec",
-    "date": "2026-09-30T17:37:40Z"
+    "text": "e5a9c1dd3e914ff4",
+    "date": "2026-10-03T04:01:08Z"
   }
 }

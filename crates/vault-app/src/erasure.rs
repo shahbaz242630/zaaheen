@@ -450,7 +450,10 @@ mod tests {
         let line = report.to_line();
         assert!(!line.contains('\n'));
         assert!(!line.contains("vault.db"), "a report never carries a path");
-        assert_eq!(ErasureReport::from_output(&format!("\n{line}\n")), Some(report));
+        assert_eq!(
+            ErasureReport::from_output(&format!("\n{line}\n")),
+            Some(report)
+        );
     }
 
     /// Anything but exactly one report is no report: the desktop then says

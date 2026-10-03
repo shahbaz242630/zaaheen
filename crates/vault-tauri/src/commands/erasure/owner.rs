@@ -25,7 +25,10 @@ pub(super) const ERASE_ARGS: &[&str] = &["erase-vault", "--yes-delete-everything
 
 /// Run the eraser `program` and return its report. Its log lines go to the
 /// shared log file in `log_dir`, as the keeper's do.
-pub(super) async fn erase_in(program: &Path, log_dir: Option<&Path>) -> Result<ErasureReport, String> {
+pub(super) async fn erase_in(
+    program: &Path,
+    log_dir: Option<&Path>,
+) -> Result<ErasureReport, String> {
     let mut command = tokio::process::Command::new(program);
     command.args(ERASE_ARGS);
     if let Some(dir) = log_dir {

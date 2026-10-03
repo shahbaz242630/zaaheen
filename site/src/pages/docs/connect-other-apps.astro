@@ -1,53 +1,42 @@
 ---
 import Guide from '../../layouts/Guide.astro';
 import Row from '../../components/Row.astro';
-import CopyBox from '../../components/CopyBox.astro';
-import { INSTALL_PATH, MAC_INSTALL_PATH, verifiedAppList } from '../../data/site';
+import ConnectSteps from '../../components/ConnectSteps.astro';
+import { connectOutline } from '../../data/app-words';
+import { verifiedAppList } from '../../data/site';
 
-// Any other MCP app, in the app's own words: AGENTS "Another app" and
-// AGENT_CHECKS in crates/vault-tauri/dist/app.js. Only apps in VERIFIED_APPS
-// are named on the site (SEO-HANDOFF §3 rule 6); the app's Agents tab has
-// steps for more.
-const snippet = `{
-  "mcpServers": {
-    "zaaheen": {
-      "command": ${JSON.stringify(INSTALL_PATH)},
-      "args": ["mcp", "serve"]
-    }
-  }
-}`;
+// Codex, Antigravity and any other MCP app, each built from the app's own
+// wording (data/app-words.ts reads crates/vault-tauri/dist/app.js). Row ids
+// are prefixed per app so one page holds all three.
+const APPS = [
+  { name: 'Codex', prefix: 'codex-', where: 'Codex › config.toml' },
+  { name: 'Antigravity', prefix: 'antigravity-', where: 'Antigravity › mcp_config.json' },
+  { name: 'Another app', prefix: 'other-', where: 'Your app' },
+];
 const OUTLINE = [
   { id: 'what', title: 'What your app needs' },
-  { id: 'setting', title: 'The setting' },
-  { id: 'check', title: 'Check it worked' },
+  ...APPS.flatMap((a) => [{ id: `${a.prefix}app`, title: a.name }, ...connectOutline(a.name, a.prefix)]),
 ];
 ---
 <Guide
   path="/docs/connect-other-apps/"
-  lede="Zaaheen connects to AI apps over MCP, the standard way AI apps connect to tools. Give your app the setting below, or copy it from the Agents tab in Zaaheen, which shows it for your computer exactly."
+  lede="Zaaheen connects to AI apps over MCP, the standard way AI apps connect to tools. Codex, Antigravity and other apps take the setting from Zaaheen's Agents tab, which shows it for your computer exactly."
   outline={OUTLINE}
 >
   <section class="docs-section">
     <Row level={2} id="what" title="What your app needs" where="MCP">
       <p>Your AI app needs to support MCP servers that run on your computer. We have tested Zaaheen
          with {verifiedAppList()}, and each has its own guide. Other apps that support MCP should
-         work the same way. The <em>Agents</em> tab in Zaaheen has step-by-step instructions for
-         more apps.</p>
+         work the same way.</p>
     </Row>
 
-    <Row level={2} id="setting" title="The setting" where="Agents › Another app">
-      <p>Most apps take the setting in this form. Add it where your app keeps its MCP servers, save
-         it, then restart the app:</p>
-      <CopyBox text={snippet} />
-      <p>That is where Zaaheen usually installs on Windows. On a Mac, the command is
-         <code>{MAC_INSTALL_PATH}</code> instead. In Zaaheen, the <em>Agents</em> tab, then
-         <em>+ Connect an AI app</em>, then <em>Another app</em> shows the setting for your computer
-         exactly, ready to copy.</p>
-    </Row>
-
-    <Row level={2} id="check" title="Check it worked" where="Your app">
-      <p>Your app's list of tools or MCP servers shows Zaaheen. While the app is open and connected,
-         it also shows in Zaaheen's <em>Agents</em> tab.</p>
-    </Row>
+    {APPS.map((a) => (
+      <>
+        <Row level={2} id={`${a.prefix}app`} title={a.name} where={a.where}>
+          <p>The steps for {a.name === 'Another app' ? 'any other app' : a.name}, as Zaaheen's Agents tab gives them.</p>
+        </Row>
+        <ConnectSteps name={a.name} where={a.where} prefix={a.prefix} />
+      </>
+    ))}
   </section>
 </Guide>
