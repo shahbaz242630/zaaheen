@@ -244,6 +244,17 @@ enum Command {
         #[arg(long)]
         exit_on_stdin_eof: bool,
     },
+    /// Erase this computer's vault: destroy its key, then its files
+    /// (ADR-SEC-040). Run by the desktop app's "Delete everything" and
+    /// "Delete my account" while it holds the vault, because on a Mac only
+    /// this program, the key's creator, may delete the key. Prints one
+    /// report line. Not meant to be run by hand.
+    #[command(hide = true)]
+    EraseVault {
+        /// Required, so the command never runs by accident.
+        #[arg(long, required = true)]
+        yes_delete_everything: bool,
+    },
     /// Manage per-agent capability tokens for the multi-agent daemon
     /// (ADR-SEC-001). Storage-only — loads no models. Each agent connecting to
     /// the daemon presents a bearer token that scopes it to a set of
@@ -479,6 +490,27 @@ fn uses_keeper(direct: bool, explicit_storage: bool, phi4_model: bool, run_at: b
     !(direct || explicit_storage || phi4_model || run_at)
 }
 
+/// `zaaheen erase-vault` (ADR-SEC-040): the installed app's erasure, in the
+/// program that created the key. The recorded vault folder is resolved here,
+/// never taken as an argument, so no caller can point erasure elsewhere.
+/// Success prints the one report line; any failure prints nothing on stdout
+/// and exits non-zero, which the desktop reports as "nothing was deleted".
+async fn erase_vault_command() -> Result<()> {
+    let outcome = tokio::task::spawn_blocking(|| {
+        let homes = vault_app::location::Homes::production()?;
+        let root = vault_app::location::resolve(&homes)?;
+        vault_app::erase_installed_vault(root.path())
+    })
+    .await
+    .map_err(|e| anyhow!("the erasure stopped unexpectedly: {e}"))?
+    .map_err(|e| {
+        tracing::error!(error = %e, "erasure FAILED; the vault is still readable");
+        anyhow!("erasure failed; nothing was deleted")
+    })?;
+    println!("{}", vault_app::ErasureReport::from(&outcome).to_line());
+    Ok(())
+}
+
 /// Fill in any storage path the caller omitted, from the installed vault's
 /// layout (ADR-101).
 ///
@@ -600,6 +632,12 @@ async fn real_main() -> Result<()> {
     // Recorded before defaults are filled in: only the installed vault is
     // shared through the keeper (ADR-102), so an explicit path means direct.
     let explicit_storage = vault_db.is_some() || vector_dir.is_some() || graph_db.is_some();
+
+    // ADR-SEC-040: erasure opens nothing and must work on a vault that cannot
+    // be opened, so it resolves no storage paths.
+    if let Command::EraseVault { .. } = &command {
+        return erase_vault_command().await;
+    }
 
     // The relay an AI app starts (`zaaheen mcp serve`, shared through the
     // keeper) must serve before anything can fail, so it resolves nothing
@@ -723,6 +761,9 @@ async fn real_main() -> Result<()> {
             let backend = open_and_warn(&vault_db, &vector_dir, &graph_db, dimension).await?;
             dispatch_agent(&backend, action).await
         }
+        // Handled before any path is resolved (above); kept here so the
+        // match stays exhaustive without a panic.
+        Command::EraseVault { .. } => erase_vault_command().await,
         Command::Keeper {
             bge_model,
             bge_tokenizer,
@@ -2788,6 +2829,39 @@ mod tests {
                 .lines()
                 .any(|line| line.trim_start().starts_with("keeper")),
             "the keeper is internal and must not be listed in --help:\n{help}"
+        );
+    }
+
+    /// ADR-SEC-040: the desktop's eraser needs its confirmation flag, takes
+    /// no folder (it resolves the recorded one), and is not in --help.
+    #[test]
+    fn erase_vault_needs_its_flag_takes_no_folder_and_stays_out_of_help() {
+        use clap::CommandFactory;
+
+        assert!(Cli::try_parse_from(["zaaheen", "erase-vault"]).is_err());
+        assert!(Cli::try_parse_from([
+            "zaaheen",
+            "erase-vault",
+            "--yes-delete-everything",
+            "--vault-dir",
+            "/tmp"
+        ])
+        .is_err());
+        let cli = Cli::try_parse_from(["zaaheen", "erase-vault", "--yes-delete-everything"])
+            .expect("erase-vault parses");
+        assert!(matches!(
+            cli.command,
+            Command::EraseVault {
+                yes_delete_everything: true
+            }
+        ));
+
+        let help = Cli::command().render_help().to_string();
+        assert!(
+            !help
+                .lines()
+                .any(|line| line.trim_start().starts_with("erase-vault")),
+            "erase-vault is internal and must not be listed in --help:\n{help}"
         );
     }
 

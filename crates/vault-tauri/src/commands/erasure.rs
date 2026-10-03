@@ -29,12 +29,14 @@
 //! explicitly do NOT downgrade the confidentiality result: once the key is
 //! gone those bytes are undecryptable ciphertext.
 
+mod owner;
+
 use std::time::Duration;
 
 use tauri::State;
 use vault_app::keeper::exclusive::take_exclusive;
 use vault_app::keeper::relay::KeychainKeySource;
-use vault_app::keychain::KeyLocation;
+use vault_app::ErasureReport;
 
 use crate::commands::account::AccountSlot;
 use crate::link::KeeperLink;
@@ -96,25 +98,14 @@ async fn erase_at(vault_root: std::path::PathBuf) -> Result<serde_json::Value, S
             ERR_ERASURE_BUSY.to_string()
         })?;
 
-    // Blocking work (credential store + recursive file removal) off the
-    // async runtime, per BRD §2.
     // ADR-SEC-029 E1: the key step and the files run under the one key lock,
-    // so no process can open, move or restore the key meanwhile.
-    let outcome = tokio::task::spawn_blocking(move || {
-        KeyLocation::production().and_then(|key| {
-            let outcome = vault_app::erase_vault(&vault_root, &key)?;
-            // ADR-105 L5: an earlier move's old copy that could not be
-            // removed yet goes too — its key is gone with this one. Best
-            // effort: a copy still in use is removed at the next start.
-            if let Ok(homes) = vault_app::location::Homes::production() {
-                let old_copy = vault_app::location::moving::clean_old_copy_now(&homes, &key);
-                tracing::info!(target: "vault_tauri::erasure", ?old_copy, "an earlier move's old copy after erasure");
-            }
-            Ok(outcome)
-        })
-    })
-    .await
-    .map_err(|_| ERR_ERASURE_FAILED.to_string())?
+    // so no process can open, move or restore the key meanwhile (taken inside
+    // `erase_installed_vault`, wherever it runs).
+    let outcome = if ERASE_IN_OWNER {
+        erase_in_owner().await
+    } else {
+        erase_here(vault_root).await
+    }
     .map_err(|e| {
         tracing::error!(
             target: "vault_tauri::erasure",
@@ -138,12 +129,37 @@ async fn erase_at(vault_root: std::path::PathBuf) -> Result<serde_json::Value, S
     Ok(serde_json::json!({
         "key_destroyed": outcome.key_destroyed,
         "entries_removed": outcome.entries_removed,
-        "undeletable_count": outcome.undeletable.len(),
+        "undeletable_count": outcome.undeletable_count,
         // Always true once we reach here: the key step either succeeded or
         // returned Err above. Sent explicitly so the UI never has to infer
         // the security outcome from the file counts.
-        "data_is_unrecoverable": outcome.data_is_unrecoverable(),
+        "data_is_unrecoverable": true,
     }))
+}
+
+/// ADR-SEC-040: on a Mac only the key's creator, the bundled `zaaheen`, may
+/// delete it, so the erasure runs there. Windows has no such rule and keeps
+/// the in-process erasure it has always had.
+const ERASE_IN_OWNER: bool = cfg!(target_os = "macos");
+
+/// The erasure in this process. Blocking work (credential store + recursive
+/// file removal) off the async runtime, per BRD §2.
+async fn erase_here(vault_root: std::path::PathBuf) -> Result<ErasureReport, String> {
+    tokio::task::spawn_blocking(move || vault_app::erase_installed_vault(&vault_root))
+        .await
+        .map_err(|e| format!("the erasure stopped unexpectedly: {e}"))?
+        .map(|outcome| ErasureReport::from(&outcome))
+        .map_err(|e| e.to_string())
+}
+
+/// The erasure in the bundled `zaaheen`, beside this executable (never found
+/// through `PATH`). It resolves the recorded vault folder itself.
+async fn erase_in_owner() -> Result<ErasureReport, String> {
+    let program = vault_app::install_paths::resource_dir()
+        .map(|dir| dir.join(vault_app::server_command::PROGRAM_FILE))
+        .ok_or_else(|| "the install folder could not be found".to_owned())?;
+    let log_dir = vault_app::install_paths::log_dir();
+    owner::erase_in(&program, log_dir.as_deref()).await
 }
 
 /// Permanently destroy every memory in this vault, then sign this computer
@@ -428,25 +444,30 @@ mod tests {
         assert_eq!(command.matches("sign_out_after_erasure").count(), 1);
     }
 
-    /// ADR-105 L5: "Delete everything" also removes an earlier move's old
-    /// copy — only once the key is destroyed (`?` on the erasure first).
+    /// ADR-SEC-040: the Mac erases in the key's creator, everything else in
+    /// this process, and both run the one installed-app erasure (which also
+    /// removes an earlier move's old copy, pinned in vault-app).
     #[test]
-    fn erasure_also_removes_an_old_copy_after_the_key_is_gone() {
+    fn the_mac_erases_in_the_keys_creator_and_both_paths_share_one_erasure() {
+        assert_eq!(ERASE_IN_OWNER, cfg!(target_os = "macos"));
         let source = include_str!("erasure.rs").replace("\r\n", "\n");
-        let body = source
-            .split_once("async fn erase_at(")
-            .expect("the erasure itself is defined here")
+        let here = source
+            .split_once("async fn erase_here(")
+            .expect("the in-process erasure")
             .1
             .split_once("\n}\n")
-            .expect("the inner command is closed")
+            .expect("closed")
             .0;
-        let erased = body
-            .find("vault_app::erase_vault(&vault_root, &key)?")
-            .expect("the erasure, its failure returned first");
-        let cleaned = body
-            .find("clean_old_copy_now(")
-            .expect("the old copy is removed too");
-        assert!(erased < cleaned, "never before the key is destroyed");
+        assert!(here.contains("vault_app::erase_installed_vault(&vault_root)"));
+        let owner = source
+            .split_once("async fn erase_in_owner(")
+            .expect("the erasure in the key's creator")
+            .1
+            .split_once("\n}\n")
+            .expect("closed")
+            .0;
+        assert!(owner.contains("dir.join(vault_app::server_command::PROGRAM_FILE)"));
+        assert!(owner.contains("owner::erase_in("));
     }
 
     /// A8: the nightly job goes with the memories, and only once they are
@@ -462,7 +483,7 @@ mod tests {
             .expect("the inner command is closed")
             .0;
         let erased = body
-            .find("vault_app::erase_vault(&vault_root, &key)?")
+            .find("let outcome = if ERASE_IN_OWNER {")
             .expect("the erasure");
         let failed = body
             .find("ERR_ERASURE_FAILED.to_string()\n    })?;")

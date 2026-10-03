@@ -223,7 +223,12 @@ fn the_default_limits_are_the_locked_design() {
 async fn a_valid_callback_signs_in_with_a_static_page() {
     let h = start(fast()).await;
     let answer = h.get(&h.callback("good_code")).await;
-    assert!(answer.starts_with("HTTP/1.1 200 "), "{answer}");
+    // s83: on to the website's page, carrying nothing from the request.
+    assert!(answer.starts_with("HTTP/1.1 303 "), "{answer}");
+    assert!(answer
+        .lines()
+        .any(|l| l == "Location: https://zaaheen.com/signed-in/"));
+    assert!(!answer.contains("good_code"));
     assert!(answer.contains("You can close this tab"));
     let outcome = h.outcome().await;
     match outcome {
@@ -318,7 +323,7 @@ async fn a_replayed_callback_after_sign_in_gets_nothing() {
     let req = format!("GET {valid} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n");
     let replay = raw(port, req.as_bytes()).await;
     assert!(
-        !replay.contains("200"),
+        !replay.contains("HTTP/1.1 303") && !replay.contains("Location:"),
         "a replay must not be answered: {replay}"
     );
 }
@@ -330,10 +335,10 @@ async fn two_racing_valid_callbacks_sign_in_once() {
     let (a, b) = tokio::join!(h.get(&first), h.get(&second));
     let successes = [&a, &b]
         .iter()
-        .filter(|r| r.starts_with("HTTP/1.1 200 "))
+        .filter(|r| r.starts_with("HTTP/1.1 303 "))
         .count();
     assert_eq!(successes, 1, "exactly one success page:\n{a}\n---\n{b}");
-    let winner = if a.starts_with("HTTP/1.1 200 ") {
+    let winner = if a.starts_with("HTTP/1.1 303 ") {
         "aaa"
     } else {
         "bbb"
@@ -349,7 +354,10 @@ async fn a_second_request_pipelined_on_one_connection_is_never_read() {
         h.callback("smuggled")
     );
     let answer = raw(h.port, pipelined.as_bytes()).await;
-    assert!(!answer.contains("200 "), "{answer}");
+    assert!(
+        !answer.contains("HTTP/1.1 303") && !answer.contains("Location:"),
+        "{answer}"
+    );
     h.still_waiting(100).await;
     h.get(&h.callback("good")).await;
     assert_eq!(code_of(h.outcome().await), "good");
@@ -362,7 +370,10 @@ async fn an_oversized_request_is_refused_and_the_flow_keeps_waiting() {
     big.resize(9 * 1024, b'a');
     big.extend_from_slice(b"\r\n\r\n");
     let answer = raw(h.port, &big).await;
-    assert!(!answer.contains("200 "), "{answer}");
+    assert!(
+        !answer.contains("HTTP/1.1 303") && !answer.contains("Location:"),
+        "{answer}"
+    );
     h.still_waiting(100).await;
     h.get(&h.callback("good")).await;
     assert_eq!(code_of(h.outcome().await), "good");
@@ -397,7 +408,10 @@ async fn a_squatters_noise_is_answered_and_ignored() {
     ];
     for bytes in &noise {
         let answer = raw(port, bytes).await;
-        assert!(!answer.contains("200 "), "{answer}");
+        assert!(
+            !answer.contains("HTTP/1.1 303") && !answer.contains("Location:"),
+            "{answer}"
+        );
     }
     h.still_waiting(100).await;
     h.get(&h.callback("good")).await;

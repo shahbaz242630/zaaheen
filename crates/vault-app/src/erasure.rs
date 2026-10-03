@@ -214,6 +214,75 @@ pub fn erase_vault(
     })
 }
 
+/// The installed app's whole erasure ("Delete everything", "Delete my
+/// account"): [`erase_vault`] on `vault_root` under the production key, then
+/// an earlier move's old copy (ADR-105 L5), whose key is gone with this one —
+/// best effort, a copy still in use is removed at the next start.
+///
+/// **ADR-SEC-040:** on a Mac only the program that created the key may delete
+/// it, and that is the bundled `zaaheen`, so the desktop runs this there
+/// (`zaaheen erase-vault`); on Windows the desktop runs it in-process.
+///
+/// # Errors
+///
+/// As [`erase_vault`]: the key could not be destroyed (nothing was deleted),
+/// or the production key location could not be found.
+pub fn erase_installed_vault(vault_root: &Path) -> VaultResult<ErasureOutcome> {
+    let key = crate::keychain::KeyLocation::production()?;
+    let outcome = erase_vault(vault_root, &key)?;
+    if let Ok(homes) = crate::location::Homes::production() {
+        let old_copy = crate::location::moving::clean_old_copy_now(&homes, &key);
+        info!(target: "vault_app::erasure", ?old_copy, "an earlier move's old copy after erasure");
+    }
+    Ok(outcome)
+}
+
+/// What an erasure run in another process reports back (ADR-SEC-040): the
+/// counts the desktop shows, never a path. One JSON line on the eraser's
+/// standard output.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ErasureReport {
+    /// As [`ErasureOutcome::key_destroyed`].
+    pub key_destroyed: bool,
+    /// As [`ErasureOutcome::entries_removed`].
+    pub entries_removed: usize,
+    /// How many entries could not be removed (their key is gone).
+    pub undeletable_count: usize,
+}
+
+impl From<&ErasureOutcome> for ErasureReport {
+    fn from(o: &ErasureOutcome) -> Self {
+        Self {
+            key_destroyed: o.key_destroyed,
+            entries_removed: o.entries_removed,
+            undeletable_count: o.undeletable.len(),
+        }
+    }
+}
+
+impl ErasureReport {
+    /// The report's one line, as the eraser prints it.
+    #[must_use]
+    pub fn to_line(&self) -> String {
+        // A struct of a bool and two integers always serialises.
+        serde_json::to_string(self).unwrap_or_default()
+    }
+
+    /// The report from the eraser's whole standard output: exactly one
+    /// non-empty line, and it must be a report. Anything else is `None`,
+    /// which the caller treats as a failed erasure — never as success.
+    #[must_use]
+    pub fn from_output(stdout: &str) -> Option<Self> {
+        let mut lines = stdout.lines().map(str::trim).filter(|l| !l.is_empty());
+        let line = lines.next()?;
+        if lines.next().is_some() {
+            return None;
+        }
+        serde_json::from_str(line).ok()
+    }
+}
+
 /// Erasure's file step: remove the [`VAULT_ENTRIES`] names inside `folder`,
 /// and only those. Returns how many were removed and which could not be
 /// (locked, denied, or not even checkable — an entry whose existence cannot
@@ -347,6 +416,69 @@ mod tests {
         assert!(left.is_empty());
         for name in VAULT_KEEP_FILES {
             assert!(tmp.path().join(name).exists(), "{name} was erased");
+        }
+    }
+
+    /// ADR-105 L5: the installed-app erasure also removes an earlier move's
+    /// old copy, only once the key is destroyed (`?` on the erasure first).
+    #[test]
+    fn the_installed_erasure_removes_an_old_copy_after_the_key_is_gone() {
+        let source = include_str!("erasure.rs").replace("\r\n", "\n");
+        let body = source
+            .split_once("pub fn erase_installed_vault(")
+            .expect("defined here")
+            .1
+            .split_once("\n}\n")
+            .expect("closed")
+            .0;
+        let erased = body
+            .find("erase_vault(vault_root, &key)?")
+            .expect("the erasure, its failure returned first");
+        let cleaned = body.find("clean_old_copy_now(").expect("the old copy");
+        assert!(erased < cleaned, "never before the key is destroyed");
+    }
+
+    /// ADR-SEC-040: the report survives the trip between processes.
+    #[test]
+    fn an_erasure_report_round_trips_as_one_line() {
+        let report = ErasureReport::from(&ErasureOutcome {
+            key_destroyed: true,
+            entries_removed: 7,
+            undeletable: vec![PathBuf::from("vault.db")],
+        });
+        assert_eq!(report.undeletable_count, 1);
+        let line = report.to_line();
+        assert!(!line.contains('\n'));
+        assert!(!line.contains("vault.db"), "a report never carries a path");
+        assert_eq!(
+            ErasureReport::from_output(&format!("\n{line}\n")),
+            Some(report)
+        );
+    }
+
+    /// Anything but exactly one report is no report: the desktop then says
+    /// the erasure failed, never that it worked.
+    #[test]
+    fn anything_but_one_report_is_no_report() {
+        let line = ErasureReport {
+            key_destroyed: true,
+            entries_removed: 1,
+            undeletable_count: 0,
+        }
+        .to_line();
+        for bad in [
+            String::new(),
+            "\n  \n".to_owned(),
+            "erased".to_owned(),
+            "{}".to_owned(),
+            r#"{"key_destroyed":true,"entries_removed":1}"#.to_owned(),
+            r#"{"key_destroyed":true,"entries_removed":1,"undeletable_count":0,"extra":1}"#
+                .to_owned(),
+            r#"{"key_destroyed":"yes","entries_removed":1,"undeletable_count":0}"#.to_owned(),
+            format!("{line}\n{line}"),
+            format!("note\n{line}"),
+        ] {
+            assert_eq!(ErasureReport::from_output(&bad), None, "{bad:?}");
         }
     }
 

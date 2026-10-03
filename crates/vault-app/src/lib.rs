@@ -59,7 +59,7 @@ pub use adapter::VaultAdapter;
 pub use application::{Application, ApplicationHandle, RerankerState};
 pub use config::AppConfig;
 pub use consolidator_lock::{ConsolidatorLock, VAULT_LOCKFILE_NAME};
-pub use erasure::{erase_vault, ErasureOutcome};
+pub use erasure::{erase_installed_vault, erase_vault, ErasureOutcome, ErasureReport};
 pub use process_exit::{LiveProcessExit, ProcessExit};
 pub use signal_source::{LiveSignalSource, SignalSource};
 /// Re-export `EMBEDDING_DIM` from `vault_embedding` so vault-tauri (which
