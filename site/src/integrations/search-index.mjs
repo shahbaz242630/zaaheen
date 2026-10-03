@@ -16,17 +16,16 @@ export const SEARCHED = (rel) =>
   /^docs\/[^/]+\/index\.html$/.test(rel) ||
   /^(terms|privacy|refunds|ai-and-your-data|security|company|licences)\/index\.html$/.test(rel);
 
-const decode = (s) =>
-  s
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&#x27;|&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
+const NAMED = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+// One pass, so "&amp;lt;" becomes the text "&lt;", never "<".
+export const decode = (s) =>
+  s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (all, e) => {
+    if (e[0] !== '#') return NAMED[e.toLowerCase()] ?? all;
+    const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : Number(e.slice(1));
+    return n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : all;
+  });
 export const text = (html) =>
-  decode(html.replace(/<script\b[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' '))
+  decode(html.replace(/<script\b[\s\S]*?<\/script\b[^>]*>/gi, ' ').replace(/<[^>]+>/g, ' '))
     .replace(/\s+/g, ' ')
     .trim();
 
