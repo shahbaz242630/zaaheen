@@ -97,3 +97,40 @@ describe("readConfig", () => {
     expect(readConfig({ ...env, TRIAL_KEY: "k".repeat(64) })?.trials.key).toBe("k".repeat(64));
   });
 });
+
+// The website account page's settings (AUTH-PAGES-DESIGN S85-1, ADR-SEC-043):
+// all three or none, public values only.
+describe("readConfig, website settings", () => {
+  const key = JSON.stringify({ kty: "RSA", n: "nnnn", e: "AQAB", kid: "ins_x", alg: "RS256", use: "sig" });
+  const web = { CLERK_JWT_KEY: key, CLERK_ISSUER: "https://clerk.example.test", ACCOUNT_ORIGIN: "https://account.example.test" };
+
+  it("reads all three, keeping only the key's public parts", () => {
+    expect(readConfig({ ...env, ...web })?.web).toEqual({
+      jwk: { kty: "RSA", n: "nnnn", e: "AQAB" },
+      issuer: "https://clerk.example.test",
+      origin: "https://account.example.test",
+    });
+  });
+
+  it("leaves the website off (the rest still works) when any is missing or malformed", () => {
+    for (const bad of [
+      { CLERK_JWT_KEY: undefined },
+      { CLERK_ISSUER: undefined },
+      { ACCOUNT_ORIGIN: undefined },
+      { CLERK_JWT_KEY: "not json" },
+      { CLERK_JWT_KEY: JSON.stringify({ kty: "EC", x: "a", y: "b" }) },
+      { ACCOUNT_ORIGIN: "http://account.example.test" },
+      { ACCOUNT_ORIGIN: "https://account.example.test/" },
+      { CLERK_ISSUER: "https://clerk.example.test/path" },
+    ]) {
+      const cfg = readConfig({ ...env, ...web, ...bad } as Record<string, unknown>);
+      expect(cfg).not.toBeNull();
+      expect(cfg?.web).toBeUndefined();
+    }
+  });
+
+  it("refuses a private key pasted by mistake rather than trimming it", () => {
+    const priv = JSON.stringify({ kty: "RSA", n: "nnnn", e: "AQAB", d: "secret" });
+    expect(readConfig({ ...env, ...web, CLERK_JWT_KEY: priv })?.web).toBeUndefined();
+  });
+});

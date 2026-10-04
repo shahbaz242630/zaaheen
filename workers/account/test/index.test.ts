@@ -53,3 +53,31 @@ describe("the Worker's entry point", () => {
     expect(res.status).toBe(503);
   });
 });
+
+// ADR-SEC-043: a website preflight is answered before the flood check, and
+// with an incomplete configuration no origin is allowed.
+describe("a CORS preflight", () => {
+  const preflight = (path: string, env: Record<string, unknown>) =>
+    worker.fetch(
+      new Request(`https://api.example.test${path}`, {
+        method: "OPTIONS",
+        headers: { origin: "https://account.example.test", "access-control-request-method": "POST", "cf-connecting-ip": "203.0.113.9" },
+      }),
+      env as unknown as Env,
+    );
+
+  it("never reaches the limiter, and allows nobody without the website settings", async () => {
+    const l = limiter(false);
+    const res = await preflight("/v1/web/plan", { FLOOD: l });
+    expect(res.status).toBe(403);
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
+    expect(l.calls).toBe(0);
+  });
+
+  it("on a route the website does not call is not a preflight at all", async () => {
+    const l = limiter(true);
+    const res = await preflight("/v1/lease", { FLOOD: l });
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
+    expect(res.status).toBe(503);
+  });
+});

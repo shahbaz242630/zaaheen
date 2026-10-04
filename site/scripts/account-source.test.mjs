@@ -17,7 +17,9 @@ const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\
 const ACCOUNT = code(fs.readFileSync(path.join(DIR, 'account.js'), 'utf8'));
 
 test('the scripts exist and are the ones this test knows about', () => {
-  assert.deepEqual(SOURCES.map(([f]) => f).sort(), ['account-state.js', 'account.js', 'clerk-pin.js', 'csp.js', 'delete-state.js', 'redirect.js']);
+  assert.deepEqual(SOURCES.map(([f]) => f).sort(), [
+    'account-state.js', 'account.js', 'clerk-pin.js', 'csp.js', 'delete-state.js', 'my-account-state.js', 'my-account.js', 'redirect.js',
+  ]);
 });
 
 test('no HTML from strings, no eval, anywhere in our scripts', () => {
@@ -74,8 +76,11 @@ test('every URL Clerk navigates to by itself is validator output or our own sign
   // ...or, on Google's return from the delete page, the one fixed delete address
   // (ACCOUNT-DELETION-DESIGN D4): a constant on our own origin, never a URL
   // read from the address bar.
-  assert.match(ACCOUNT, /const done = AFTER_DELETE \? DELETE_URL : REDIRECT\.state === 'ok' \? REDIRECT\.url\.href : signIn;/);
-  assert.match(ACCOUNT, /const signIn = AFTER_DELETE \? NO_ACCOUNT_URL : new URL\(`\/sign-in\/\$\{keepQuery\(\)\}`, location\.origin\)\.href;/);
+  // ...or, from the account page (AUTH-PAGES-DESIGN S85-1), the one fixed account address.
+  assert.match(ACCOUNT, /const done = AFTER_DELETE \? DELETE_URL : AFTER_ACCOUNT \? ACCOUNT_URL : REDIRECT\.state === 'ok' \? REDIRECT\.url\.href : signIn;/);
+  assert.match(ACCOUNT, /const signIn = AFTER_DELETE \? NO_ACCOUNT_URL : AFTER_ACCOUNT \? ACCOUNT_NO_GOOGLE_URL : new URL\(`\/sign-in\/\$\{keepQuery\(\)\}`, location\.origin\)\.href;/);
+  assert.match(ACCOUNT, /const ACCOUNT_URL = new URL\(ACCOUNT_PATH, location\.origin\)\.href;/);
+  assert.match(ACCOUNT, /const AFTER_ACCOUNT = PAGE === 'sso-callback' && accountMarker\(location\.search\);/);
   assert.match(ACCOUNT, /const DELETE_URL = new URL\(DELETE_PATH, location\.origin\)\.href;/);
   assert.match(ACCOUNT, /const NO_ACCOUNT_URL = new URL\(NO_ACCOUNT_PATH, location\.origin\)\.href;/);
   assert.match(ACCOUNT, /const AFTER_DELETE = PAGE === 'sso-callback' && deleteMarker\(location\.search\);/);
@@ -85,7 +90,7 @@ test('every URL Clerk navigates to by itself is validator output or our own sign
   }
   // The only other URL handed to Clerk to finish on: Google's redirectUrlComplete.
   const complete = [...ACCOUNT.matchAll(/redirectUrlComplete:\s*([^\n]+)/g)].map((m) => m[1].trim());
-  assert.deepEqual(complete, ["DELETING ? DELETE_URL : REDIRECT.state === 'ok' ? REDIRECT.url.href : new URL('/sign-in/', location.origin).href,"]);
+  assert.deepEqual(complete, ["DELETING ? DELETE_URL : ACCOUNTING ? ACCOUNT_URL : REDIRECT.state === 'ok' ? REDIRECT.url.href : new URL('/sign-in/', location.origin).href,"]);
   // No other redirect-carrying option is passed to Clerk anywhere.
   for (const re of [/afterSignInUrl/, /afterSignUpUrl/, /signInUrl:(?!\s*signIn\b)/, /signUpUrl:(?!\s*signUp\b)/, /redirectUrl:(?!\s*new URL\(`\/sso-callback\/)/]) {
     assert.doesNotMatch(ACCOUNT, re, `${re}`);
@@ -98,8 +103,8 @@ test('every URL Clerk navigates to by itself is validator output or our own sign
 test('the delete path: no account creation, no sign-out, no false success', () => {
   const transfer = [...ACCOUNT.matchAll(/transferable\s*:[^}\n]*/g)].map((m) => m[0].trim());
   assert.deepEqual(transfer, ['transferable: false']);
-  assert.match(ACCOUNT, /\.\.\.\(AFTER_DELETE \? \{ transferable: false \} : \{\}\)/);
-  assert.match(ACCOUNT, /redirectUrl: new URL\(`\/sso-callback\/\$\{DELETING \? '\?after=delete' : keepQuery\(\)\}`, location\.origin\)\.href,/);
+  assert.match(ACCOUNT, /\.\.\.\(AFTER_DELETE \|\| AFTER_ACCOUNT \? \{ transferable: false \} : \{\}\)/);
+  assert.match(ACCOUNT, /redirectUrl: new URL\(`\/sso-callback\/\$\{DELETING \? '\?after=delete' : ACCOUNTING \? '\?after=account' : keepQuery\(\)\}`, location\.origin\)\.href,/);
   assert.doesNotMatch(ACCOUNT, /signOut\s*\(/);
   assert.equal([...ACCOUNT.matchAll(/\.delete\(\)/g)].length, 1, 'one user.delete() call');
   assert.match(ACCOUNT, /await clerk\.user\.delete\(\);\s*\n\s*next = afterDelete\(null, reverified\);/);
@@ -111,7 +116,7 @@ test('the delete path: no account creation, no sign-out, no false success', () =
 // line stays the default; only the delete and re-verify paths say "couldn't
 // delete"), m2 (no email-code factor is its own line, not "try again").
 test('the delete page: its error lines go only where they belong', () => {
-  assert.match(ACCOUNT, /if \(code === 'session_exists'\) return DELETING \? showConfirm\(\) : showSignedIn\(\);/);
+  assert.match(ACCOUNT, /if \(code === 'session_exists'\) return DELETING \? showConfirm\(\) : ACCOUNTING \? showAccount\(\) : showSignedIn\(\);/);
   assert.match(ACCOUNT, /function fatal\(line = FIXED_LINE\) \{/);
   assert.doesNotMatch(ACCOUNT, /line = DELETING/);
   assert.match(ACCOUNT, /const plan = reverifyPlan\(verification\);\s*\n\s*if \(plan\.view === 'error'\) return fatal\(plan\.line\);/);
@@ -149,4 +154,32 @@ test('the account CSP is the reviewed policy, word for word', async () => {
     "object-src 'none'", "frame-ancestors 'none'", "base-uri 'none'", "form-action 'self'",
     "require-trusted-types-for 'script'", 'trusted-types default',
   ].join('; '));
+  // ADR-SEC-043: the account service is the one addition, and only when there is one.
+  assert.equal(accountCsp('HOST', 'API').split('; ')[2], "connect-src 'self' https://HOST https://API");
+  assert.equal(accountCsp('HOST', null), accountCsp('HOST'));
+});
+
+// AUTH-PAGES-DESIGN S85-1, ADR-SEC-043: the account page's own script. Bearer
+// session tokens, never cookies; it opens only what my-account-state.js
+// checked; text only through textContent; one sign-out, on the button.
+test('the account page: session token, checked targets only, one sign-out', () => {
+  const MINE = code(fs.readFileSync(path.join(DIR, 'my-account.js'), 'utf8'));
+  assert.match(MINE, /headers: \{ authorization: `Bearer \$\{token\}`, 'content-type': 'application\/json' \},/);
+  assert.match(MINE, /credentials: 'omit',/);
+  assert.match(MINE, /const token = await clerk\.session\.getToken\(\);/);
+  const assigns = [...MINE.matchAll(/location\.assign\(([^)]*)\)/g)].map((m) => m[1].trim());
+  assert.deepEqual(assigns, ['target', 'target', 'target']);
+  assert.match(MINE, /const target = checkoutTarget\(await call\('\/v1\/checkout', \{ plan \}\)\);/);
+  assert.match(MINE, /const target = answer\.open;/);
+  assert.match(MINE, /const target = manageTarget\(await call\('\/v1\/checkout', \{ plan: 'monthly', portal_only: true \}\)\);/);
+  // Sign out stays on this page: the callback form (review s85, finding 1).
+  assert.match(MINE, /clerk\.signOut\(\(\) => onSignedOut\(\)\)/);
+  assert.match(MINE, /const answer = cancelAnswer\(await call\('\/v1\/cancel', \{\}\)\);/);
+  for (const re of [/location\.href\s*=/, /location\s*=[^=]/, /location\.replace\(/, /window\.open\(/, /\.href\s*=[^=]/, /\.innerText\s*=/, /\.message/]) {
+    assert.doesNotMatch(MINE, re, `${re}`);
+  }
+  assert.equal([...MINE.matchAll(/signOut\s*\(/g)].length, 1, 'one signOut, on the Sign out button');
+  const handlers = [...MINE.matchAll(/addEventListener\('click',\s*(async\s*)?\(ev\)\s*=>\s*\{\s*([^\n]*)/g)];
+  assert.equal(handlers.length, [...MINE.matchAll(/addEventListener\('click'/g)].length);
+  for (const h of handlers) assert.match(h[2], /^ev\.preventDefault\(\);/);
 });

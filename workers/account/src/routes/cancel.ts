@@ -16,7 +16,7 @@ import { bearerToken, errorResponse, jsonResponse } from "../http";
 import { PaddleClient } from "../paddle";
 import { parseRecord } from "../record";
 import { UpstreamError } from "../upstream";
-import { type RouteDeps, authenticate, log } from "./common";
+import { type RouteDeps, authenticateBilling, log } from "./common";
 
 const SUBSCRIBED = ["active", "past_due"] as const;
 
@@ -28,7 +28,7 @@ export async function handleCancel(request: Request, config: Config, deps: Route
   const clerk = new ClerkClient(config.clerk, deps.fetch);
   const paddle = new PaddleClient(config.paddle, deps.fetch);
   try {
-    const auth = await authenticate(clerk, token);
+    const auth = await authenticateBilling(clerk, token, config, deps.now());
     if (auth.kind === "refused") return auth.response;
     const { record, warnings } = parseRecord(auth.user.privateMetadata);
     for (const w of warnings) log("cancel", "record_warning", w);

@@ -118,7 +118,7 @@ if (RELEASE && ON_SALE && files.includes('pay/index.html')) {
 // "Get started" (sign-up) only while the app is on sale (ON_SALE above): before
 // that a new account has nothing to open, so the header must not link to
 // sign-up at all (founder, session 75).
-const ACCOUNT_LINKS = { 'bar-signin': ['Sign in', `${ACCOUNT_ORIGIN}/sign-in/`], 'bar-start': ['Get started', `${ACCOUNT_ORIGIN}/sign-up/`] };
+const ACCOUNT_LINKS = { 'bar-signin': ['Account', `${ACCOUNT_ORIGIN}/account/`], 'bar-start': ['Get started', `${ACCOUNT_ORIGIN}/sign-up/`] };
 for (const rel of files.filter((f) => f.endsWith('.html'))) {
   const html = read(rel);
   if (!/\bbar-actions\b/.test(html)) continue;
