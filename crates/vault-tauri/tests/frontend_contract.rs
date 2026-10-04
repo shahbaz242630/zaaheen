@@ -1903,6 +1903,7 @@ fn settings_has_sections_down_the_left_and_keeps_every_control() {
         "account-signout",
         "account-plans",
         "account-manage-btn",
+        "account-cancel-btn",
         "account-paid",
         "settings-rows",
         "data-location",
@@ -3264,4 +3265,76 @@ fn the_mac_is_told_about_the_background_item_notice() {
     assert!(
         init[shown..].contains("for (const id of [\"maint-onboard-mac\", \"maint-mac-note\"]) {")
     );
+}
+
+/// s85 founder's live test: setup's last step had "Not now" picked, so a
+/// person who clicked straight through never got the nightly tidy-up and
+/// their AI apps read "Zaaheen hasn't written a summary yet". "Yes, tidy
+/// automatically" at 03:00 is now the choice already made, its time shown,
+/// and "Not now" stays one click away.
+#[test]
+fn setup_tidies_automatically_unless_the_person_says_not_now() {
+    let html = html();
+    for el in [
+        "<input type=\"radio\" name=\"maint-onboard-choice\" id=\"maint-onboard-on\" value=\"on\" checked />",
+        "<label id=\"maint-onboard-time-wrap\" class=\"maint-onboard-time\">Run at",
+        "<input type=\"time\" id=\"maint-onboard-time\" value=\"03:00\" />",
+        "<input type=\"radio\" name=\"maint-onboard-choice\" id=\"maint-onboard-off\" value=\"off\" />",
+    ] {
+        assert!(html.contains(el), "{el}");
+    }
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let finish = &js_function(&functions, "finishFromMaintenance").body;
+    assert!(finish.contains("const on = $(\"maint-onboard-on\").checked;"));
+    assert!(finish.contains(
+        "await invoke(\"set_maintenance_schedule\", { enabled: true, frequency: \"daily\", weekday: 0, hour, minute });"
+    ));
+}
+
+/// s85 founder's live test: Settings read "zaaheen 0.3.1 · V0.2 beta". The
+/// internal stage label is gone; the row says the release and nothing else.
+#[test]
+fn settings_version_row_names_only_the_release() {
+    let code = js_code();
+    assert!(code.contains("{ label: \"Version\", value: `Zaaheen ${info.version}` },"));
+    assert!(!code.contains("V0.2 beta`"));
+}
+
+/// SIGNIN-DESIGN §8.48 (founder s85): "Cancel subscription" goes straight to
+/// Paddle's cancel step. Shown to a subscriber only, exactly like Manage;
+/// the command takes nothing (never a URL); the three answers are worded
+/// here and nowhere else; Manage no longer says it cancels.
+#[test]
+fn cancel_subscription_is_its_own_row_for_subscribers_only() {
+    let html = html();
+    for el in [
+        "<div id=\"account-cancel\" class=\"set-row hidden\">",
+        "<div class=\"set-name\">Cancel subscription</div>",
+        "<p class=\"set-desc\">Stop your subscription. Zaaheen keeps working until the end of the time you've paid for.</p>",
+        "<button id=\"account-cancel-btn\" class=\"btn-quiet\">Cancel subscription</button>",
+        "<p class=\"set-desc\">Change your plan or update your card. It opens in your browser.</p>",
+    ] {
+        assert!(html.contains(el), "{el}");
+    }
+    assert!(!html.contains("update your card, or cancel"));
+
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let panel = &js_function(&functions, "renderAccountPanel").body;
+    assert!(panel
+        .contains("$(\"account-cancel\").classList.toggle(\"hidden\", !subscriber || paying);"));
+    let click = &js_function(&functions, "onCancelSubscription").body;
+    assert!(click.contains("const outcome = await invoke(\"account_cancel_subscription\");"));
+    assert!(click.contains("status.textContent = CANCEL_LINES[outcome] || \"\";"));
+    for line in [
+        "opened: \"Finish cancelling in your browser. Zaaheen keeps working until the end of the time you've paid for.\",",
+        "nothing_to_cancel: \"You don't have a paid subscription, so there's nothing to cancel.\",",
+        "already_ending: \"Your subscription is already cancelled. Zaaheen keeps working until the end of the time you've paid for.\",",
+    ] {
+        assert!(code.contains(line), "{line}");
+    }
+    assert!(js_function(&functions, "init")
+        .body
+        .contains("$(\"account-cancel-btn\").addEventListener(\"click\", onCancelSubscription);"));
 }

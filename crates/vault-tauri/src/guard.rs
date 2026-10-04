@@ -338,6 +338,9 @@ pub const OPEN_COMMANDS: &[&str] = &[
     "account_sign_out",
     "account_subscribe",
     "account_refresh_now",
+    // "Cancel subscription" (SIGNIN-DESIGN 8.48, ADR-SEC-042): open, so a
+    // payment_failed customer can still cancel; no vault, like the five.
+    "account_cancel_subscription",
     // Also the **account** slot (S3 step 4d-1, SIGNIN-DESIGN 8.38): "is this
     // computer locked, and why", asked of this guard rather than guessed
     // from the account view. Given the guard and nothing else -- no vault --
@@ -891,6 +894,7 @@ mod tests {
                 "account_sign_out",
                 "account_subscribe",
                 "account_refresh_now",
+                "account_cancel_subscription",
                 "account_access",
                 "export_memories",
                 "startup_state",

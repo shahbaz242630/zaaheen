@@ -31,8 +31,9 @@
 use std::sync::Arc;
 
 use vault_account::{
-    clock_looks_wrong, Account, AccountConfig, AccountError, CheckoutAnswer, LeaseState,
-    ListenerLimits, PendingSignIn, Plan, RefreshOutcome, SignInOutcome, Status, Trigger,
+    clock_looks_wrong, Account, AccountConfig, AccountError, CancelAnswer, CheckoutAnswer,
+    LeaseState, ListenerLimits, PendingSignIn, Plan, RefreshOutcome, SignInOutcome, Status,
+    Trigger,
 };
 
 /// Which page "Sign in" or "Create an account" opens first (§8.41).
@@ -46,6 +47,30 @@ pub use vault_account::Plan as SubscriptionPlan;
 
 use crate::entitlement::Clock;
 use crate::external_link::{ExternalLink, LinkError};
+
+/// What a "Cancel subscription" click came to (SIGNIN-DESIGN §8.48), for
+/// the screen to word. Never a URL: the link was opened here.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CancelOutcome {
+    /// Paddle's cancel step is open in the browser.
+    Opened,
+    /// No paid subscription: nothing was opened.
+    NothingToCancel,
+    /// Already cancelled; it ends at the end of the paid period.
+    AlreadyEnding,
+}
+
+impl CancelOutcome {
+    /// The fixed string the frontend words (a closed set).
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            CancelOutcome::Opened => "opened",
+            CancelOutcome::NothingToCancel => "nothing_to_cancel",
+            CancelOutcome::AlreadyEnding => "already_ending",
+        }
+    }
+}
 
 /// What the desktop shows about the account. Plain data: no token, no lease
 /// bytes, no subject — nothing here is a secret, because all of it crosses
@@ -289,6 +314,43 @@ impl AccountOps {
                 tracing::info!(state = view.state, "a checkout attempt ended in an error");
                 Err(e.into())
             }
+        }
+    }
+
+    /// "Cancel subscription" (§8.48): ask the account service, open Paddle's
+    /// cancel step when there is one, and say what happened. As with
+    /// [`AccountOps::subscribe`], no URL crosses the IPC boundary.
+    ///
+    /// # Errors
+    ///
+    /// [`OpsError`], all opaque.
+    #[tracing::instrument(skip_all)]
+    pub async fn cancel_subscription(&self) -> Result<CancelOutcome, OpsError> {
+        match self.account.start_cancel().await {
+            Ok(answer) => Ok(Self::open_cancel(&answer)?),
+            Err(e) => {
+                // A rotation can sign this computer out, as in `subscribe`.
+                let view = self.status().await;
+                tracing::info!(state = view.state, "a cancel attempt ended in an error");
+                Err(e.into())
+            }
+        }
+    }
+
+    /// Open Paddle's cancel step when the answer has one; take the
+    /// already-validated answer, as [`AccountOps::open_checkout`] does.
+    ///
+    /// # Errors
+    ///
+    /// [`OpsError::Link`] if the link fails the final gate.
+    pub fn open_cancel(answer: &CancelAnswer) -> Result<CancelOutcome, OpsError> {
+        match answer {
+            CancelAnswer::Portal(url) => {
+                ExternalLink::portal(url)?.open()?;
+                Ok(CancelOutcome::Opened)
+            }
+            CancelAnswer::NothingToCancel => Ok(CancelOutcome::NothingToCancel),
+            CancelAnswer::AlreadyEnding => Ok(CancelOutcome::AlreadyEnding),
         }
     }
 

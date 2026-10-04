@@ -547,6 +547,7 @@ const account = {
   ready: null,         // the first answer at open, for "Begin set up"
   signingIn: false,
   subscribing: false,
+  cancelling: false,   // a "Cancel subscription" click in flight (§8.48)
   checkingPaid: false,
   checkout: null,      // { startState } while waiting for a payment to arrive
   lockCode: null,      // what the lock screen is showing, and why
@@ -1543,7 +1544,9 @@ async function renderSettings() {
     info.audit_chain_verified
       ? { label: "Audit log", value: "recorded locally · history verified", good: true }
       : { label: "Audit log", value: "history could not be verified, so the record may have been altered", good: false },
-    { label: "Version", value: `zaaheen ${info.version} · V0.2 beta` },
+    // Just the release (s85 founder): the old internal stage label read as
+    // "unfinished" to a paying customer.
+    { label: "Version", value: `Zaaheen ${info.version}` },
   ];
   $("settings-rows").innerHTML = rows.map((r) => `
     <div class="s-row">
@@ -2301,6 +2304,32 @@ function onManage() {
   onSubscribe("monthly");
 }
 
+// "Cancel subscription" (SIGNIN-DESIGN §8.48). The app names no URL: the
+// account service checks Paddle live, the application opens the cancel step
+// when there is one, and this only words what happened.
+const CANCEL_LINES = {
+  opened: "Finish cancelling in your browser. Zaaheen keeps working until the end of the time you've paid for.",
+  nothing_to_cancel: "You don't have a paid subscription, so there's nothing to cancel.",
+  already_ending: "Your subscription is already cancelled. Zaaheen keeps working until the end of the time you've paid for.",
+};
+
+async function onCancelSubscription() {
+  if (account.cancelling) return;
+  account.cancelling = true;
+  const status = accountStatusEl();
+  status.textContent = "";
+  try {
+    const outcome = await invoke("account_cancel_subscription");
+    status.textContent = CANCEL_LINES[outcome] || "";
+  } catch (err) {
+    status.textContent = String(err);
+  } finally {
+    account.cancelling = false;
+  }
+  // A cancel can end with this computer signed out, as a checkout can.
+  refreshAccountView();
+}
+
 function onCloseApp() {
   try {
     if (window.__TAURI__ && window.__TAURI__.window) {
@@ -2339,6 +2368,7 @@ function renderAccountPanel() {
   const paying = account.checkout !== null;
   $("account-plans").classList.toggle("hidden", subscriber || paying);
   $("account-manage").classList.toggle("hidden", !subscriber || paying);
+  $("account-cancel").classList.toggle("hidden", !subscriber || paying);
   $("account-paying").classList.toggle("hidden", !paying);
 }
 
@@ -3232,6 +3262,7 @@ function init() {
   $("account-signout").addEventListener("click", onSignOut);
   $("account-plans").addEventListener("click", onPlanClick);
   $("account-manage-btn").addEventListener("click", onManage);
+  $("account-cancel-btn").addEventListener("click", onCancelSubscription);
   $("account-paid").addEventListener("click", onPaid);
   $("export-memories").addEventListener("click", onSettingsExport);
   $("erase-manage").addEventListener("click", onManage);

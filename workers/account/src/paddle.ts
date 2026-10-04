@@ -158,6 +158,32 @@ export class PaddleClient {
     return overview;
   }
 
+  /**
+   * The portal's cancel step for one subscription (SIGNIN-DESIGN §8.48): the
+   * session's `urls.subscriptions[]` entry whose id is `subscriptionId`, its
+   * `cancel_subscription` link (https, on a Paddle host). Missing or off
+   * Paddle is an UpstreamError, never the overview instead.
+   */
+  async createCancelLink(customerId: string, subscriptionId: string): Promise<string> {
+    const what = "paddle cancel link";
+    if (!CUSTOMER_ID.test(customerId)) throw new UpstreamError(`${what}: bad customer id`);
+    const response = await send(this.fetch, what, `${this.base()}/customers/${customerId}/portal-sessions`, {
+      method: "POST",
+      headers: this.headers(true),
+      body: JSON.stringify({ subscription_ids: [subscriptionId] }),
+    });
+    if (response.status !== 201 && response.status !== 200) throw new UpstreamError(`${what}: status ${response.status}`);
+    const body = await readJson(what, response);
+    const data = isObject(body) ? body["data"] : undefined;
+    const urls = isObject(data) ? data["urls"] : undefined;
+    const links = isObject(urls) ? urls["subscriptions"] : undefined;
+    if (!Array.isArray(links)) throw new UpstreamError(`${what}: no subscription links`);
+    const mine = links.find((l) => isObject(l) && l["id"] === subscriptionId);
+    const cancel = isObject(mine) ? mine["cancel_subscription"] : undefined;
+    if (typeof cancel !== "string" || !isPaddleHttps(cancel)) throw new UpstreamError(`${what}: unexpected link`);
+    return cancel;
+  }
+
   /** A checkout transaction for one unit of `priceId`; returns its id. */
   async createTransaction(customerId: string, priceId: string, clerkUserId: string): Promise<string> {
     const what = "paddle transaction";

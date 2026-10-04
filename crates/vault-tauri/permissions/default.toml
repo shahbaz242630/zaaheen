@@ -158,6 +158,11 @@ description = "Allow invoking the account_subscribe command (start a subscriptio
 commands.allow = ["account_subscribe"]
 
 [[permission]]
+identifier = "allow-account-cancel-subscription"
+description = "Allow invoking the account_cancel_subscription command (open Paddle's cancel step for a paying member, or say there is nothing to cancel; SIGNIN-DESIGN 8.48). Takes nothing, never a URL: the link is decided, validated and opened by the application. Never given the vault."
+commands.allow = ["account_cancel_subscription"]
+
+[[permission]]
 identifier = "allow-account-refresh-now"
 description = "Allow invoking the account_refresh_now command (\"I've paid\": check the subscription again straight away rather than waiting for the daily check). Never given the vault."
 commands.allow = ["account_refresh_now"]

@@ -21,7 +21,7 @@
   "routes": [{ "pattern": "api.zaaheen.com", "custom_domain": true }],
   // The renewal sweep (src/sweep.ts), daily at 03:17 UTC.
   "triggers": { "crons": ["17 3 * * *"] },
-  // Flood protection for /v1/lease and /v1/checkout (src/flood.ts): per
+  // Flood protection for the /v1 routes (src/flood.ts): per
   // client address, per Cloudflare location. Far above real use.
   "ratelimits": [{ "name": "FLOOD", "namespace_id": "1001", "simple": { "limit": 60, "period": 60 } }],
   // One free trial per email (src/trials.ts, ACCOUNT-DELETION-DESIGN D8):
