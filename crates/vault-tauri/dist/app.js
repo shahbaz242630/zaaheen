@@ -541,6 +541,10 @@ const CHECKOUT_POLL_FOR_MS = 30 * 60 * 1000;
 // §8.49: said under the waiting row when a check made on coming back to the
 // window found no payment. It cancels nothing; the wait goes on.
 const NO_PAYMENT_YET = "No payment yet. If you closed the checkout without paying, choose Not now.";
+// §8.50 (founder s85): a subscribe, cancel or account deletion made on the
+// website reaches this app when Settings opens or the window comes back, at
+// most once per this long (the account service is on a free daily quota).
+const ACCOUNT_SYNC_MIN_MS = 5 * 60 * 1000;
 // A returning computer shows nothing until the lock answers, so a locked one
 // never flashes its memories. The answer is a file read when all is well; a
 // refusal refreshes first, which can take a few seconds (§8.26 §4), so after
@@ -557,6 +561,7 @@ const account = {
   cancelling: false,   // a "Cancel subscription" click in flight (§8.48)
   checkingPaid: false,
   checkout: null,      // { startState } while waiting for a payment to arrive
+  lastSync: 0,         // when syncAccount last asked the account service (§8.50)
   lockCode: null,      // what the lock screen is showing, and why
   lockVariant: null,
 };
@@ -1525,7 +1530,7 @@ function onSettingsNav(e) {
 
 async function renderSettings() {
   renderSettingsNav();
-  refreshAccountView();
+  refreshAccountView().then(syncAccount);
   $("settings-rows").innerHTML = `<div class="empty-note">Loading…</div>`;
   let info = null;
   try {
@@ -2272,14 +2277,35 @@ function napUnlessBack(wait, ms) {
   });
 }
 
-// Coming back to the Zaaheen window while a payment is awaited: check now
-// rather than at the next tick. It only wakes the wait; it never asks the
-// lock (§8.39: a focus listener must not reach account_access).
+// Coming back to the Zaaheen window. While a payment is awaited: check now
+// rather than at the next tick (it only wakes the wait). Otherwise: catch up
+// with anything done on the website (§8.50). Neither asks the lock (§8.39: a
+// focus listener must not reach account_access).
 function onWindowFocus() {
   const wait = account.checkout;
-  if (!wait || !wait.wake) return;
+  if (!wait) {
+    syncAccount();
+    return;
+  }
+  if (!wait.wake) return;
   wait.back = true;
   wait.wake();
+}
+
+// §8.50: ask the account service for the latest (a subscribe, cancel or
+// deletion made on the website) and redraw what shows the account. At most
+// once per ACCOUNT_SYNC_MIN_MS; never during a checkout wait, which refreshes
+// on its own; only refreshes, never asks the lock.
+async function syncAccount() {
+  if (!account.signIn || !account.view || !account.view.signed_in) return;
+  if (account.checkout || Date.now() - account.lastSync < ACCOUNT_SYNC_MIN_MS) return;
+  account.lastSync = Date.now();
+  try {
+    account.view = await invoke("account_refresh_now");
+  } catch {
+    return;
+  }
+  renderAccountSurfaces();
 }
 
 // "Not now" (§8.49): stop waiting at once and show the plans again. The
@@ -2359,7 +2385,7 @@ function onManage() {
 }
 
 // "Cancel subscription" (SIGNIN-DESIGN §8.48). The app names no URL: the
-// account service checks Paddle live, the application opens the cancel step
+// account service checks billing live, the application opens the cancel step
 // when there is one, and this only words what happened.
 const CANCEL_LINES = {
   opened: "Finish cancelling in your browser. Zaaheen keeps working until the end of the time you've paid for.",

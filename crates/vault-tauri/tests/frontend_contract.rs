@@ -1096,10 +1096,14 @@ fn coming_back_checks_at_once_and_not_now_ends_the_wait() {
     ));
     let functions = top_level_functions(&code);
     let focus = js_function(&functions, "onWindowFocus");
-    assert!(invoked_in(&focus.body).is_empty(), "focus invokes nothing");
+    assert!(
+        invoked_in(&focus.body).is_empty(),
+        "focus invokes nothing itself"
+    );
     assert!(!focus.body.contains("askAccess"));
     assert!(focus.body.contains("wait.back = true;"));
     assert!(focus.body.contains("wait.wake();"));
+    assert!(focus.body.contains("syncAccount();"));
     let not_now = js_function(&functions, "onNotNow");
     assert!(
         invoked_in(&not_now.body).is_empty(),
@@ -3381,4 +3385,29 @@ fn cancel_subscription_is_its_own_row_for_subscribers_only() {
     assert!(js_function(&functions, "init")
         .body
         .contains("$(\"account-cancel-btn\").addEventListener(\"click\", onCancelSubscription);"));
+}
+
+/// §8.50 (founder s85): what is done on the website (subscribe, cancel,
+/// delete the account) reaches the app when Settings opens or the window
+/// comes back, at most once every 5 minutes. The catch-up only refreshes:
+/// it never asks the lock, and it stays out of a checkout wait.
+#[test]
+fn the_app_catches_up_with_the_website_without_asking_the_lock() {
+    let code = js_code();
+    assert!(code.contains("const ACCOUNT_SYNC_MIN_MS = 5 * 60 * 1000;"));
+    let functions = top_level_functions(&code);
+    let sync = js_function(&functions, "syncAccount");
+    assert_eq!(
+        invoked_in(&sync.body),
+        vec!["account_refresh_now".to_string()],
+        "the catch-up may only refresh"
+    );
+    assert!(!sync.body.contains("askAccess"));
+    assert!(sync.body.contains(
+        "if (account.checkout || Date.now() - account.lastSync < ACCOUNT_SYNC_MIN_MS) return;"
+    ));
+    assert!(sync.body.contains("renderAccountSurfaces();"));
+    assert!(js_function(&functions, "renderSettings")
+        .body
+        .contains("refreshAccountView().then(syncAccount);"));
 }
