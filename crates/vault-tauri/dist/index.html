@@ -292,7 +292,9 @@
 
           <div id="lock-paying" class="lock-actions hidden">
             <p class="lock-note">Finish paying in your browser. Zaaheen unlocks by itself as soon as your payment comes through.</p>
+            <p id="lock-paying-back" class="lock-note" aria-live="polite"></p>
             <button id="lock-paid" class="btn-quiet">I've paid</button>
+            <button id="lock-notnow" class="btn-quiet">Not now</button>
           </div>
 
           <div id="lock-retry" class="lock-actions hidden">
@@ -588,8 +590,12 @@
               <div class="set-text">
                 <div class="set-name">Waiting for your payment</div>
                 <p class="set-desc">Finish paying in your browser. This page updates by itself as soon as your payment comes through.</p>
+                <p id="account-paying-back" class="set-desc" aria-live="polite"></p>
               </div>
-              <div class="set-action"><button id="account-paid" class="btn-quiet">I've paid</button></div>
+              <div class="set-action account-actions">
+                <button id="account-paid" class="btn-quiet">I've paid</button>
+                <button id="account-notnow" class="btn-quiet">Not now</button>
+              </div>
             </div>
             <p id="account-note" class="data-note"></p>
           </section>

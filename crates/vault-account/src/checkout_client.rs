@@ -217,7 +217,7 @@ impl CheckoutClient {
         access: &AccessToken,
         body: &impl Serialize,
         what: &str,
-    ) -> AccountResult<Vec<u8>> {
+    ) -> AccountResult<zeroize::Zeroizing<Vec<u8>>> {
         let response = self
             .http
             .post(endpoint)
@@ -260,7 +260,7 @@ impl CheckoutClient {
         })?;
         Ok(match parsed {
             CancelResponse::Portal { url } => CancelAnswer::Portal(PortalUrl::parse(&url)?),
-            CancelResponse::None {} => CancelAnswer::NothingToCancel,
+            CancelResponse::Nothing {} => CancelAnswer::NothingToCancel,
             CancelResponse::Ending {} => CancelAnswer::AlreadyEnding,
         })
     }
@@ -319,8 +319,11 @@ struct CancelRequest {}
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase", deny_unknown_fields)]
 enum CancelResponse {
-    Portal { url: String },
-    None {},
+    Portal {
+        url: String,
+    },
+    #[serde(rename = "none")]
+    Nothing {},
     Ending {},
 }
 

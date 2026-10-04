@@ -1040,31 +1040,31 @@ fn account_access_is_never_asked_on_a_timer() {
     }
 }
 
-/// §8.26 §4: *"After checkout: every 10 s for 10 min, plus an 'I've paid'
-/// button."* The wait refreshes and does nothing else — it never asks the
-/// lock (`afterCheckout` does that once, after it) — and it ends.
+/// §8.26 §4, amended in §8.49 (founder s85): after a checkout, every 10 s
+/// for 5 min, then every 30 s, for up to 30 min, plus "I've paid" and "Not
+/// now". The wait refreshes and does nothing else (it never asks the lock;
+/// `afterCheckout` does that once, after it) and it ends.
 #[test]
-fn the_checkout_wait_refreshes_every_ten_seconds_for_ten_minutes_and_ends() {
+fn the_checkout_wait_refreshes_for_thirty_minutes_and_ends() {
     let code = js_code();
-    assert!(
-        code.contains("const CHECKOUT_POLL_MS = 10 * 1000;"),
-        "the checkout poll is every 10 s (§8.26 §4)"
-    );
-    assert!(
-        code.contains("const CHECKOUT_POLL_FOR_MS = 10 * 60 * 1000;"),
-        "the checkout poll lasts 10 min (§8.26 §4)"
-    );
+    for constant in [
+        "const CHECKOUT_POLL_MS = 10 * 1000;",
+        "const CHECKOUT_POLL_SLOW_MS = 30 * 1000;",
+        "const CHECKOUT_POLL_FAST_FOR_MS = 5 * 60 * 1000;",
+        "const CHECKOUT_POLL_FOR_MS = 30 * 60 * 1000;",
+    ] {
+        assert!(code.contains(constant), "{constant}");
+    }
     let functions = top_level_functions(&code);
     let wait = js_function(&functions, "waitForPayment");
     for needle in [
-        "Date.now() + CHECKOUT_POLL_FOR_MS",
-        "while (Date.now() < until",
-        "sleep(CHECKOUT_POLL_MS)",
+        "const until = started + CHECKOUT_POLL_FOR_MS;",
+        "while (Date.now() < until && account.checkout === wait)",
+        "await napUnlessBack(wait, fast ? CHECKOUT_POLL_MS : CHECKOUT_POLL_SLOW_MS);",
     ] {
         assert!(
             wait.body.contains(needle),
-            "waitForPayment no longer contains `{needle}`: the wait must be every \
-             10 s and must end after 10 min"
+            "waitForPayment no longer contains `{needle}`: the wait must slow              down after 5 min and end after 30"
         );
     }
     assert_eq!(
@@ -1072,6 +1072,50 @@ fn the_checkout_wait_refreshes_every_ten_seconds_for_ten_minutes_and_ends() {
         vec!["account_refresh_now".to_string()],
         "the checkout wait may only refresh"
     );
+}
+
+/// §8.49 (founder s85): closing Paddle's checkout without paying left the
+/// app on "Waiting for your payment" for minutes. Coming back to the window
+/// checks at once and, with no payment, says so; "Not now" ends the wait.
+/// The focus listener only wakes the wait: it never asks the lock (§8.39),
+/// and it invokes nothing itself.
+#[test]
+fn coming_back_checks_at_once_and_not_now_ends_the_wait() {
+    let html = html();
+    for el in [
+        "<p id=\"account-paying-back\" class=\"set-desc\" aria-live=\"polite\"></p>",
+        "<button id=\"account-notnow\" class=\"btn-quiet\">Not now</button>",
+        "<p id=\"lock-paying-back\" class=\"lock-note\" aria-live=\"polite\"></p>",
+        "<button id=\"lock-notnow\" class=\"btn-quiet\">Not now</button>",
+    ] {
+        assert!(html.contains(el), "{el}");
+    }
+    let code = js_code();
+    assert!(code.contains(
+        "const NO_PAYMENT_YET = \"No payment yet. If you closed the checkout without paying, choose Not now.\";"
+    ));
+    let functions = top_level_functions(&code);
+    let focus = js_function(&functions, "onWindowFocus");
+    assert!(invoked_in(&focus.body).is_empty(), "focus invokes nothing");
+    assert!(!focus.body.contains("askAccess"));
+    assert!(focus.body.contains("wait.back = true;"));
+    assert!(focus.body.contains("wait.wake();"));
+    let not_now = js_function(&functions, "onNotNow");
+    assert!(
+        invoked_in(&not_now.body).is_empty(),
+        "Not now invokes nothing"
+    );
+    assert!(not_now.body.contains("account.checkout = null;"));
+    let wait = js_function(&functions, "waitForPayment");
+    assert!(wait.body.contains("if (cameBack && !wait.noPaymentYet) {"));
+    let init = js_function(&functions, "init");
+    for wire in [
+        "window.addEventListener(\"focus\", onWindowFocus);",
+        "$(\"account-notnow\").addEventListener(\"click\", onNotNow);",
+        "$(\"lock-notnow\").addEventListener(\"click\", onNotNow);",
+    ] {
+        assert!(init.body.contains(wire), "{wire}");
+    }
 }
 
 /// Every code a gated command can be refused with has a screen, and every
