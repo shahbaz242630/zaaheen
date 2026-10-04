@@ -5,6 +5,7 @@
 // a refusal that could look like the user's fault.
 
 import type { PaddleEnvironment } from "./paddle";
+import type { WebConfig } from "./session";
 
 export interface Config {
   /** `webhookSecret` is the Svix signing secret (`whsec_...`) for /clerk/webhook. */
@@ -28,6 +29,12 @@ export interface Config {
    * secret; absent or malformed only leaves the bar off.
    */
   latestAppVersion?: string;
+  /**
+   * The website account page (AUTH-PAGES-DESIGN S85-1, ADR-SEC-043): the
+   * sign-in instance's public key, its issuer and the account origin. All
+   * three or none; absent, the web routes answer 503 and no origin gets CORS.
+   */
+  web?: WebConfig;
 }
 
 const APP_VERSION_RELEASED = /^(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})$/;
@@ -82,8 +89,33 @@ export function readConfig(env: Record<string, unknown>): Config | null {
     trials: { key: trialKey },
     killSwitch: env["NEVER_END_PAYERS"] === "1",
     ...latestAppVersion(env["LATEST_APP_VERSION"]),
+    ...webConfig(env["CLERK_JWT_KEY"], env["CLERK_ISSUER"], env["ACCOUNT_ORIGIN"]),
   };
 }
+
+/**
+ * CLERK_JWT_KEY is the RS256 public key from the issuer's jwks.json, as one
+ * JWK in JSON; CLERK_ISSUER and ACCOUNT_ORIGIN are exact https origins. Plain
+ * vars (all public). Anything missing or malformed leaves the website off.
+ */
+function webConfig(key: unknown, issuer: unknown, origin: unknown): { web?: WebConfig } {
+  if (typeof key !== "string" || typeof issuer !== "string" || typeof origin !== "string") return {};
+  if (!HTTPS_ORIGIN.test(issuer) || !HTTPS_ORIGIN.test(origin)) return {};
+  let jwk: unknown;
+  try {
+    jwk = JSON.parse(key);
+  } catch {
+    return {};
+  }
+  if (typeof jwk !== "object" || jwk === null) return {};
+  const k = jwk as Record<string, unknown>;
+  if (k["kty"] !== "RSA" || typeof k["n"] !== "string" || typeof k["e"] !== "string") return {};
+  // A private key pasted by mistake is refused outright, not trimmed.
+  if ("d" in k) return {};
+  return { web: { jwk: { kty: "RSA", n: k["n"], e: k["e"] }, issuer, origin } };
+}
+
+const HTTPS_ORIGIN = /^https:\/\/[a-z0-9.-]+$/;
 
 function latestAppVersion(value: unknown): { latestAppVersion?: string } {
   return typeof value === "string" && APP_VERSION_RELEASED.test(value) ? { latestAppVersion: value } : {};

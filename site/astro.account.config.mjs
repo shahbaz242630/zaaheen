@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import { readAccountConfig } from './account/scripts/redirect.js';
 import { accountCsp } from './account/scripts/csp.js';
+import { apiHostFor } from './account/scripts/my-account-state.js';
 
 // account.zaaheen.com: the sign-in, sign-up and Google-return pages
 // (AUTH-PAGES-DESIGN, ADR-109). Same repo and styles as zaaheen.com, its own
@@ -26,6 +27,10 @@ if (config.dev && process.env.ACCOUNT_DEV !== '1') {
   throw new Error('account build: a pk_test_ key needs ACCOUNT_DEV=1 (a development build; never deployed)');
 }
 const here = path.dirname(fileURLToPath(import.meta.url));
+// The account service the /account/ page calls (ADR-SEC-043): derived from the
+// Frontend API host in production; a development build may name its own.
+const apiHost = apiHostFor(config, process.env.PUBLIC_ZAAHEEN_API_HOST);
+process.env.PUBLIC_ZAAHEEN_API_HOST_RESOLVED = apiHost ?? '';
 
 // The origin's one policy (account/scripts/csp.js), written into .htaccess with
 // this build's Frontend API host. scripts/audit-account.mjs pins it word for
@@ -37,7 +42,7 @@ const writeHtaccess = {
       const out = fileURLToPath(dir);
       const template = fs.readFileSync(path.join(here, 'account', 'htaccess.template'), 'utf8');
       if (template.split('{{CSP}}').length !== 2) throw new Error('htaccess.template must hold exactly one {{CSP}}');
-      fs.writeFileSync(path.join(out, '.htaccess'), template.replace('{{CSP}}', accountCsp(config.fapiHost)));
+      fs.writeFileSync(path.join(out, '.htaccess'), template.replace('{{CSP}}', accountCsp(config.fapiHost, apiHost)));
     },
   },
 };

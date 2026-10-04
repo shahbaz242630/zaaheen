@@ -8,12 +8,15 @@
 //                              the frame it opens (frame-src). Protect is not
 //                              allowed (D5): sign-in fails closed instead.
 //   the Frontend API host      every Clerk call (connect-src).
+//   the account service host   the account page's plan, subscribe and cancel
+//                              calls (connect-src; AUTH-PAGES-DESIGN S85-1,
+//                              ADR-SEC-043). Absent, the policy is unchanged.
 export const PRODUCTION_FAPI_HOST = 'clerk.zaaheen.com';
 
-export const accountCsp = (fapiHost) => [
+export const accountCsp = (fapiHost, apiHost = null) => [
   "default-src 'self'",
   "script-src 'self' https://challenges.cloudflare.com",
-  `connect-src 'self' https://${fapiHost}`,
+  `connect-src 'self' https://${fapiHost}${apiHost ? ` https://${apiHost}` : ''}`,
   'frame-src https://challenges.cloudflare.com',
   "img-src 'self' data:",
   "style-src 'self'",

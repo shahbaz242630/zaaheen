@@ -67,9 +67,11 @@ const jsonLd = noindex ? null : graphFor(page, lastModified(page.path), page.hea
     </nav>
     <!-- Our own account pages on account.zaaheen.com (AUTH-PAGES-DESIGN D1).
          "Get started" only while the app can be downloaded: before that, a new
-         account has nothing to open (founder, session 75). -->
+         account has nothing to open (founder, session 75). "Account" opens the
+         account page, which signs in first when needed (AUTH-PAGES-DESIGN
+         S85-1, founder s85: the app's Account tab on the website). -->
     <div class="bar-actions">
-      <a class="bar-signin" href={ACCOUNT.signIn}>Sign in</a>
+      <a class="bar-signin" href={ACCOUNT.page}>Account</a>
       {RELEASE.available
         ? <a class="bar-start" href={ACCOUNT.signUp}>Get started</a>
         : <span class="bar-start bar-soon"><span class="bar-soon-long">Coming soon for Windows and Mac</span><span class="bar-soon-short">Coming soon</span></span>}

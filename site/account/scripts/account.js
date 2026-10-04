@@ -9,8 +9,10 @@ import { readAccountConfig, readRedirect, checkTarget, checkNavigation } from '.
 import { FIXED_LINE, onLoad, afterSignIn, afterSignUp, resend, messageFor } from './account-state.js';
 import {
   DELETE_PATH, NO_ACCOUNT_PATH, DELETE_FAILED_LINE, deleteMarker, noGoogleAccount, onDeleteLoad,
-  confirmed, afterDelete, reverifyPlan, afterReverify,
+  confirmed, afterDelete, reverifyPlan, afterReverify, NO_ACCOUNT_LINE,
 } from './delete-state.js';
+import { ACCOUNT_PATH, accountMarker } from './my-account-state.js';
+import { openAccount, wireAccount } from './my-account.js';
 
 const body = document.body;
 const PAGE = body.dataset.page;
@@ -24,6 +26,18 @@ const $ = (id) => document.getElementById(id);
 const DELETING = PAGE === 'delete-account';
 const AFTER_DELETE = PAGE === 'sso-callback' && deleteMarker(location.search);
 const DELETE_URL = new URL(DELETE_PATH, location.origin).href;
+
+// The account page (AUTH-PAGES-DESIGN S85-1): it signs in like the delete page,
+// then shows the account. Google's return carries one fixed marker, and a
+// Google address with no account comes back here instead of becoming one.
+const ACCOUNTING = PAGE === 'account';
+const AFTER_ACCOUNT = PAGE === 'sso-callback' && accountMarker(location.search);
+const ACCOUNT_URL = new URL(ACCOUNT_PATH, location.origin).href;
+// A Google address with no account, back on the account page with the delete
+// page's fixed note (review s85, finding 3).
+const ACCOUNT_NO_GOOGLE_URL = new URL(`${ACCOUNT_PATH}?google=none`, location.origin).href;
+// The account service host the build derived (my-account-state.js apiHostFor).
+const API_HOST = body.dataset.api || null;
 const NO_ACCOUNT_URL = new URL(NO_ACCOUNT_PATH, location.origin).href;
 
 const LOAD_TIMEOUT_MS = 20_000;
@@ -56,7 +70,7 @@ const codeOf = (e) => (e && Array.isArray(e.errors) && e.errors[0] && e.errors[0
 
 function failWith(e) {
   const code = codeOf(e);
-  if (code === 'session_exists') return DELETING ? showConfirm() : showSignedIn();
+  if (code === 'session_exists') return DELETING ? showConfirm() : ACCOUNTING ? showAccount() : showSignedIn();
   const line = messageFor(code);
   if (line === FIXED_LINE) return fatal();
   formError(line);
@@ -101,6 +115,7 @@ async function finish(sessionId) {
   // A pending session task (D1) is something these pages cannot complete.
   if (clerk.session && clerk.session.currentTask) return fatal();
   if (DELETING) return showConfirm();
+  if (ACCOUNTING) return showAccount();
   goBack();
 }
 
@@ -257,8 +272,8 @@ function wireForms() {
     try {
       await attempt.authenticateWithRedirect({
         strategy: 'oauth_google',
-        redirectUrl: new URL(`/sso-callback/${DELETING ? '?after=delete' : keepQuery()}`, location.origin).href,
-        redirectUrlComplete: DELETING ? DELETE_URL : REDIRECT.state === 'ok' ? REDIRECT.url.href : new URL('/sign-in/', location.origin).href,
+        redirectUrl: new URL(`/sso-callback/${DELETING ? '?after=delete' : ACCOUNTING ? '?after=account' : keepQuery()}`, location.origin).href,
+        redirectUrlComplete: DELETING ? DELETE_URL : ACCOUNTING ? ACCOUNT_URL : REDIRECT.state === 'ok' ? REDIRECT.url.href : new URL('/sign-in/', location.origin).href,
         ...extra,
       });
     } catch (e) {
@@ -401,19 +416,25 @@ function wireDelete() {
   });
 }
 
+// ---------- the account page (AUTH-PAGES-DESIGN S85-1) -------------------------------
+
+function showAccount() {
+  openAccount({ clerk, show, apiHost: API_HOST });
+}
+
 // ---------- Google's return page ---------------------------------------------------
 
 async function callback() {
-  const signIn = AFTER_DELETE ? NO_ACCOUNT_URL : new URL(`/sign-in/${keepQuery()}`, location.origin).href;
-  const signUp = AFTER_DELETE ? NO_ACCOUNT_URL : new URL(`/sign-up/${keepQuery()}`, location.origin).href;
-  const cont = AFTER_DELETE ? NO_ACCOUNT_URL : new URL(`/sign-up/?${new URLSearchParams({ continue: '1', ...(REDIRECT.state === 'ok' ? { redirect_url: REDIRECT.url.href } : {}) })}`, location.origin).href;
+  const signIn = AFTER_DELETE ? NO_ACCOUNT_URL : AFTER_ACCOUNT ? ACCOUNT_NO_GOOGLE_URL : new URL(`/sign-in/${keepQuery()}`, location.origin).href;
+  const signUp = AFTER_DELETE ? NO_ACCOUNT_URL : AFTER_ACCOUNT ? ACCOUNT_NO_GOOGLE_URL : new URL(`/sign-up/${keepQuery()}`, location.origin).href;
+  const cont = AFTER_DELETE ? NO_ACCOUNT_URL : AFTER_ACCOUNT ? ACCOUNT_NO_GOOGLE_URL : new URL(`/sign-up/?${new URLSearchParams({ continue: '1', ...(REDIRECT.state === 'ok' ? { redirect_url: REDIRECT.url.href } : {}) })}`, location.origin).href;
   const handed = [signIn, signUp, cont];
   // Where a finished Google sign-in or sign-up goes. Clerk navigates there by
   // ITSELF, not through `navigate` below, and without checking
   // allowedRedirectOrigins (independent review, session 65). So all four
   // redirect props must be `done`, and `done` must be validator output or our
   // own sign-in page: scripts/account-source.test.mjs pins both.
-  const done = AFTER_DELETE ? DELETE_URL : REDIRECT.state === 'ok' ? REDIRECT.url.href : signIn;
+  const done = AFTER_DELETE ? DELETE_URL : AFTER_ACCOUNT ? ACCOUNT_URL : REDIRECT.state === 'ok' ? REDIRECT.url.href : signIn;
   // Clerk's other steps (the "one more step" page, a transfer between sign-in
   // and sign-up) go through this function.
   const navigate = (to) => {
@@ -432,7 +453,7 @@ async function callback() {
       signInForceRedirectUrl: done, signUpForceRedirectUrl: done,
       // From the delete page, a Google address with no account goes to
       // NO_ACCOUNT_URL (Clerk's sign-in URL) instead of becoming a sign-up.
-      ...(AFTER_DELETE ? { transferable: false } : {}),
+      ...(AFTER_DELETE || AFTER_ACCOUNT ? { transferable: false } : {}),
     }, navigate);
   } catch (e) {
     failWith(e);
@@ -460,6 +481,17 @@ async function start() {
     ]);
   } catch {
     return fatal();
+  }
+  if (ACCOUNTING) {
+    // Like the delete page, the account page takes no way back.
+    if (REDIRECT.state !== 'none') return show('bad-link');
+    wireForms();
+    wireAccount({ onSignedOut: () => show('start') });
+    if (clerk.user) return showAccount();
+    const noGoogle = noGoogleAccount(location.search);
+    $('start-note').textContent = noGoogle ? NO_ACCOUNT_LINE : '';
+    $('start-note').hidden = !noGoogle;
+    return show('start');
   }
   if (DELETING) {
     wireForms();

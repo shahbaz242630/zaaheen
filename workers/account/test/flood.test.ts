@@ -22,7 +22,7 @@ const post = (path: string, ip?: string) =>
 
 describe("floodCheck", () => {
   it("limits the two routes that cost upstream calls per request", () => {
-    expect([...FLOOD_LIMITED_ROUTES].sort()).toEqual(["/v1/cancel", "/v1/checkout", "/v1/lease"]);
+    expect([...FLOOD_LIMITED_ROUTES].sort()).toEqual(["/v1/cancel", "/v1/checkout", "/v1/lease", "/v1/web/plan"]);
   });
 
   it("lets a request through while the address is under the limit, keyed by the client address", async () => {

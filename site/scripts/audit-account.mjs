@@ -11,6 +11,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { readAccountConfig } from '../account/scripts/redirect.js';
 import { accountCsp, PRODUCTION_FAPI_HOST } from '../account/scripts/csp.js';
+import { apiHostFor, PRODUCTION_API_HOST } from '../account/scripts/my-account-state.js';
 import { CLERK_JS } from '../account/scripts/clerk-pin.js';
 
 const args = process.argv.slice(2);
@@ -24,7 +25,7 @@ const TT_SHA256 = 'ae1d1042194145e894e023f94d3eeb44ec4f20aa85c626f69da0a95f7b362
 // <IfModule> that silently drops every header is a change to this line
 // (independent review, session 65, finding 4).
 const SERVER_FILE_SHA256 = '8f5c1c70cd666bb721b2d529219d02a8e6a21ff86784cca53a9f7c5c587bc593';
-const PAGES = ['sign-in/index.html', 'sign-up/index.html', 'sso-callback/index.html', 'delete-account/index.html'];
+const PAGES = ['sign-in/index.html', 'sign-up/index.html', 'sso-callback/index.html', 'delete-account/index.html', 'account/index.html'];
 // Patterns no script we serve may contain. innerHTML and friends only in our
 // own code: Clerk's file carries its UI library's (unused here, and refused at
 // run time by tt.js); eval and new Function in neither.
@@ -59,25 +60,35 @@ if (files.includes('robots.txt') && !/^User-agent: \*\s*\nDisallow: \/\s*$/m.tes
 // --- Build settings (D3) -----------------------------------------------------------
 const settings = PAGES.filter((rel) => files.includes(rel)).map((rel) => {
   const html = read(rel);
-  return { rel, pk: (html.match(/\sdata-pk="([^"]*)"/) || [])[1] || '', clientId: (html.match(/\sdata-client-id="([^"]*)"/) || [])[1] || '' };
+  return {
+    rel,
+    pk: (html.match(/\sdata-pk="([^"]*)"/) || [])[1] || '',
+    clientId: (html.match(/\sdata-client-id="([^"]*)"/) || [])[1] || '',
+    api: (html.match(/\sdata-api="([^"]*)"/) || [])[1] || '',
+  };
 });
 const first = settings[0] || { pk: '', clientId: '' };
-if (settings.some((s) => s.pk !== first.pk || s.clientId !== first.clientId)) fail('pages', 'the pages disagree on the build settings');
+if (settings.some((s) => s.pk !== first.pk || s.clientId !== first.clientId || s.api !== first.api)) fail('pages', 'the pages disagree on the build settings');
 const config = readAccountConfig({ publishableKey: first.pk, clientId: first.clientId });
 if (!config) fail('pages', 'the build settings are missing or invalid (PUBLIC_CLERK_PUBLISHABLE_KEY, PUBLIC_ZAAHEEN_CLIENT_ID)');
 if (RELEASE && (!config || config.dev || config.fapiHost !== PRODUCTION_FAPI_HOST)) {
   fail('pages', `release needs a pk_live_ key for ${PRODUCTION_FAPI_HOST}`);
 }
+// ADR-SEC-043: the account service the pages call is the one the build derives
+// (production: from the Frontend API host), and a release names ours.
+const apiHost = first.api || null;
+if (config && apiHost !== apiHostFor(config, apiHost ?? undefined)) fail('pages', 'the account service host is not the one this build derives');
+if (RELEASE && apiHost !== PRODUCTION_API_HOST) fail('pages', `release needs the account service at ${PRODUCTION_API_HOST}`);
 
 // --- Headers and the CSP (D5, S1-1) ------------------------------------------------
 if (files.includes('.htaccess')) {
   const conf = read('.htaccess');
   const header = (name) => [...conf.matchAll(new RegExp(`^\\s*Header\\s+always\\s+set\\s+${name}\\s+"([^"]*)"\\s*$`, 'gim'))].map((m) => m[1]);
   const csps = header('Content-Security-Policy');
-  if (!config || csps.length !== 1 || csps[0] !== accountCsp(config.fapiHost)) {
+  if (!config || csps.length !== 1 || csps[0] !== accountCsp(config.fapiHost, apiHost)) {
     fail('.htaccess', 'the CSP is not the pinned policy (account/scripts/csp.js)');
   }
-  const asTemplate = config ? conf.replace(/\r\n/g, '\n').split(accountCsp(config.fapiHost)).join('{{CSP}}') : '';
+  const asTemplate = config ? conf.replace(/\r\n/g, '\n').split(accountCsp(config.fapiHost, apiHost)).join('{{CSP}}') : '';
   if (sha256(asTemplate) !== SERVER_FILE_SHA256) {
     fail('.htaccess', 'the server file is not the pinned template (SERVER_FILE_SHA256 in scripts/audit-account.mjs)');
   }

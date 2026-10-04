@@ -7,6 +7,11 @@
 //   transaction with custom_data.clerk_user_id server-side ->
 //   { kind:"checkout", txn }.
 //
+// `portal_only: true` (the website's Manage button, AUTH-PAGES-DESIGN S85-1,
+// review s85 finding 4): with no current subscription the answer is
+// {kind:"none"} and nothing is created or written, so Manage can never turn
+// into a checkout.
+//
 // §8.30: the record is written before the transaction exists, so a
 // checkout that could not be recorded is never started (503). Without a
 // stored customer, the user's primary email finds or creates one; with no
@@ -19,7 +24,7 @@ import { bearerToken, errorResponse, jsonResponse } from "../http";
 import { PaddleClient } from "../paddle";
 import { parseRecord, recordPatch } from "../record";
 import { UpstreamError } from "../upstream";
-import { type RouteDeps, authenticate, log, readJsonObject } from "./common";
+import { type RouteDeps, authenticateBilling, log, readJsonObject } from "./common";
 
 const MAX_BODY_BYTES = 1024;
 const SUBSCRIBED = ["active", "past_due"] as const;
@@ -31,12 +36,13 @@ export async function handleCheckout(request: Request, config: Config, deps: Rou
   const body = await readJsonObject(request, MAX_BODY_BYTES);
   const plan = body?.["plan"];
   if (plan !== "monthly" && plan !== "annual") return errorResponse(400, "bad_request");
+  const portalOnly = body?.["portal_only"] === true;
   const priceId = config.paddle.prices[plan];
 
   const clerk = new ClerkClient(config.clerk, deps.fetch);
   const paddle = new PaddleClient(config.paddle, deps.fetch);
   try {
-    const auth = await authenticate(clerk, token);
+    const auth = await authenticateBilling(clerk, token, config, deps.now());
     if (auth.kind === "refused") return auth.response;
     const { record, warnings } = parseRecord(auth.user.privateMetadata);
     for (const w of warnings) log("checkout", "record_warning", w);
@@ -50,6 +56,7 @@ export async function handleCheckout(request: Request, config: Config, deps: Rou
         return jsonResponse(200, { kind: "portal", url });
       }
     }
+    if (portalOnly) return jsonResponse(200, { kind: "none" });
 
     let customerId = record.paddle_customer_id;
     if (customerId === undefined) {

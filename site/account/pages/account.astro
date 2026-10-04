@@ -1,0 +1,86 @@
+---
+// Your account (AUTH-PAGES-DESIGN S85-1, ADR-SEC-043; founder s85: the app's
+// Account tab on the website). Sign in here first if needed (email code or
+// Google; Google returns through /sso-callback/?after=account, a fixed marker,
+// never a URL), then: Signed in as + Sign out, Your plan, the plans or Manage
+// + Cancel subscription, Delete my account. The plan, subscribe and cancel
+// calls go to the account service with Clerk's short-lived session token;
+// my-account.js opens only a checked pay page or a Paddle portal link.
+import Account from '../layouts/Account.astro';
+import CommonViews from '../components/CommonViews.astro';
+import CodeView from '../components/CodeView.astro';
+import GoogleButton from '../components/GoogleButton.astro';
+---
+<Account title="Your account" page="account" panel="none">
+  <CommonViews />
+
+  <div class="acct-view" data-view="start" hidden>
+    <h1>Sign in to your account.</h1>
+    <p class="acct-lede">We'll send a code to your email.</p>
+    <p class="acct-error" id="start-note" role="status" hidden></p>
+    <form id="start-form" class="acct-fields" novalidate>
+      <div class="acct-field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required>
+      </div>
+      <button class="acct-btn" type="submit">Send code</button>
+    </form>
+    <p class="acct-error" role="alert" hidden></p>
+    <GoogleButton />
+  </div>
+
+  <CodeView button="Sign in" />
+
+  <div class="acct-view" data-view="account" hidden>
+    <h1>Your account</h1>
+    <div class="acct-rows">
+      <div class="acct-row">
+        <div>
+          <p class="acct-row-name">Signed in as</p>
+          <p class="acct-row-desc" id="account-email"></p>
+        </div>
+        <button class="acct-btn-quiet" id="sign-out" type="button">Sign out</button>
+      </div>
+      <div class="acct-row">
+        <div>
+          <p class="acct-row-name">Your plan</p>
+          <p class="acct-row-desc" id="plan-line" role="status">Checking…</p>
+        </div>
+      </div>
+      <div class="acct-row" id="plans-row" hidden>
+        <div>
+          <p class="acct-row-name">Subscribe</p>
+          <p class="acct-row-desc">Payment opens on our secure checkout. Tax is added where it applies. Cancel anytime.</p>
+        </div>
+        <div class="acct-row-actions">
+          <button class="acct-btn-quiet" type="button" data-plan="monthly">$5 a month</button>
+          <button class="acct-btn-quiet" type="button" data-plan="annual">$48 a year (save $12)</button>
+        </div>
+      </div>
+      <div class="acct-row" id="manage-row" hidden>
+        <div>
+          <p class="acct-row-name">Manage subscription</p>
+          <p class="acct-row-desc">Change your plan or update your card.</p>
+        </div>
+        <button class="acct-btn-quiet" id="manage" type="button">Manage subscription</button>
+      </div>
+      <div class="acct-row" id="cancel-row" hidden>
+        <div>
+          <p class="acct-row-name">Cancel subscription</p>
+          <p class="acct-row-desc">Stop your subscription. Zaaheen keeps working until the end of the time you've paid for.</p>
+        </div>
+        <button class="acct-btn-quiet" id="cancel" type="button">Cancel subscription</button>
+      </div>
+      <div class="acct-row">
+        <div>
+          <p class="acct-row-name">Delete my account</p>
+          <p class="acct-row-desc">Deletes your Zaaheen account and cancels any subscription. The memories on your
+             computers stay there, encrypted, until you choose Delete everything in the app.</p>
+        </div>
+        <a class="acct-btn-quiet" href="/delete-account/">Delete my account</a>
+      </div>
+    </div>
+    <p class="acct-note" id="account-note" role="status" hidden></p>
+  </div>
+  <div id="clerk-captcha"></div>
+</Account>

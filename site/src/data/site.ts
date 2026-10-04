@@ -38,6 +38,7 @@ export const COMPANY = {
 // zaaheen.com itself is never published before them (site.yml).
 export const ACCOUNT = {
   signIn: 'https://account.zaaheen.com/sign-in/',
+  page: 'https://account.zaaheen.com/account/',
   signUp: 'https://account.zaaheen.com/sign-up/',
 } as const;
 

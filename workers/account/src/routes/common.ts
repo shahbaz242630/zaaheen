@@ -2,7 +2,9 @@
 // body, the Clerk check, and one log format.
 
 import { ClerkClient, type ClerkUser } from "../clerk";
+import type { Config } from "../config";
 import { errorResponse, readCapped } from "../http";
+import { looksLikeJwt, verifySessionToken } from "../session";
 import type { TrialStore } from "../trials";
 import type { Fetch } from "../upstream";
 
@@ -45,4 +47,27 @@ export async function authenticate(clerk: ClerkClient, token: string): Promise<A
 /** One structured log line. Never a token, key, user id, email or upstream body. */
 export function log(route: string, event: string, detail?: string): void {
   console.warn(JSON.stringify({ route, event, ...(detail === undefined ? {} : { detail }) }));
+}
+
+/**
+ * For the billing routes the website also calls (/v1/checkout, /v1/cancel;
+ * ADR-SEC-043): a JWT-shaped token is checked as a website session token
+ * (never sent to the OAuth verify, and refused when this Worker has no
+ * website settings); any other token is the app's opaque OAuth token
+ * (36 characters, measured in S1), checked as before.
+ */
+export async function authenticateBilling(clerk: ClerkClient, token: string, config: Config, now: number): Promise<Authenticated> {
+  if (!looksLikeJwt(token)) return authenticate(clerk, token);
+  return authenticateSession(clerk, token, config, now);
+}
+
+/** A website session token only (/v1/web/plan). */
+export async function authenticateSession(clerk: ClerkClient, token: string, config: Config, now: number): Promise<Authenticated> {
+  const refused: Authenticated = { kind: "refused", response: errorResponse(401, "token_refused") };
+  if (config.web === undefined || !looksLikeJwt(token)) return refused;
+  const check = await verifySessionToken(token, config.web, now);
+  if (check.kind === "refused") return refused;
+  const user = await clerk.getUser(check.sub);
+  if (user === null) return refused;
+  return { kind: "user", sub: check.sub, user };
 }

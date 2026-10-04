@@ -17,13 +17,16 @@ import { CLERK_JS } from '../scripts/clerk-pin.js';
 
 interface Props {
   title: string;
-  page: 'sign-in' | 'sign-up' | 'sso-callback' | 'delete-account' | 'not-found';
+  page: 'sign-in' | 'sign-up' | 'sso-callback' | 'delete-account' | 'account' | 'not-found';
   /** 'none': no app window (the delete page, ACCOUNT-DELETION-DESIGN D3). */
   panel: 'unlock' | 'connect' | 'none';
 }
 const { title, page, panel } = Astro.props;
 const publishableKey = import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY;
 const clientId = import.meta.env.PUBLIC_ZAAHEEN_CLIENT_ID;
+// The account service host the build derived (astro.account.config.mjs;
+// ADR-SEC-043). Every page carries it so the audit can check they agree.
+const apiHost = process.env.PUBLIC_ZAAHEEN_API_HOST_RESOLVED ?? '';
 ---
 <!doctype html>
 <html lang={SITE.lang}>
@@ -40,7 +43,7 @@ const clientId = import.meta.env.PUBLIC_ZAAHEEN_CLIENT_ID;
   <script is:inline src={`/clerk/${CLERK_JS.file}`} data-clerk-publishable-key={publishableKey}></script>
 )}
 </head>
-<body data-page={page} data-pk={publishableKey} data-client-id={clientId}>
+<body data-page={page} data-pk={publishableKey} data-client-id={clientId} data-api={apiHost}>
 <main class={panel === 'none' ? 'acct is-solo' : 'acct'}>
   <section class="acct-side">
     <a class="brand" href={SITE.origin} aria-label={`${SITE.name} home`}>

@@ -153,7 +153,7 @@ const cases = [
   ['live environment with a sandbox token', onSaleWith('production', `test_${'a'.repeat(27)}`), /pay\/index\.html: checkout is not set up for live payments/, ['--release']],
   ['sandbox environment with a live token', onSaleWith('sandbox', `live_${'b'.repeat(27)}`), /pay\/index\.html: checkout is not set up for live payments/, ['--release']],
   // The header's account buttons and the /sign-in, /sign-up forwards (AUTH-PAGES-DESIGN D1).
-  ['header Sign in not on the account origin', headerHref('bar-signin', '/#how'), /index\.html: header "Sign in" must link to https:\/\/account\.zaaheen\.com\/sign-in\//],
+  ['header Account not on the account origin', headerHref('bar-signin', '/#how'), /index\.html: header "Account" must link to https:\/\/account\.zaaheen\.com\/account\//],
   // "Get started" only while the app is on sale (founder, session 75).
   ['header Get started while not on sale', startLink('https://account.zaaheen.com/sign-up/'), /index\.html: header "Get started" must not be a link while the app is not on sale/],
   ['header sign-up link while not on sale', edit('index.html', (s) => s.replace('</header>', '<a href="https://account.zaaheen.com/sign-up/">Join</a></header>')), /index\.html: the header links to sign-up while the app is not on sale/],
@@ -162,7 +162,7 @@ const cases = [
   // Windows and Mac together (founder, session 78).
   ['header says Windows only while not on sale', edit('index.html', (s) => { const out = s.replace('Coming soon for Windows and Mac', 'Coming soon for Windows'); if (out === s) throw new Error('audit.test: no two-platform label'); return out; }), /index\.html: the header must say "Coming soon for Windows and Mac" while the app is not on sale/],
   ['on sale without the Mac download', (d) => { windowsOnlyLink(d); }, /index\.html: the app is on sale but the home page does not link the Mac disk image \(\.dmg\)/],
-  ['header Sign in removed', edit('index.html', (s) => s.replace(/<a\b[^>]*\bbar-signin\b[^>]*>[\s\S]*?<\/a>/, '')), /index\.html: header "Sign in" must link to/],
+  ['header Account removed', edit('index.html', (s) => s.replace(/<a\b[^>]*\bbar-signin\b[^>]*>[\s\S]*?<\/a>/, '')), /index\.html: header "Account" must link to/],
   ['sign-in forward missing', edit('.htaccess', (s) => s.replace(/^.*account\.zaaheen\.com.*$/gm, '')), /\.htaccess: \/sign-in and \/sign-up must forward to the account origin/],
   ['sign-in forward keeps the query', edit('.htaccess', (s) => s.replace('account.zaaheen.com/sign-$1/?', 'account.zaaheen.com/sign-$1/')), /\.htaccess: \/sign-in and \/sign-up must forward to the account origin/],
   // The policy pages: each one built, and linked from every page's footer
