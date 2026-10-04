@@ -1667,19 +1667,13 @@ async function eraseEverything() {
     ? "Your memories are permanently deleted and can no longer be read. A few files could not be removed from disk, but they are now unreadable. Zaaheen will close."
     : "Your memories are permanently deleted. Zaaheen will close.";
   // The apps it had seen connect go too: names and times, but the person
-  // asked for everything.
-  store.set(KNOWN_APPS_KEY, {});
+  // asked for everything. The next start is a new setup.
+  forgetThisComputer();
 
   // The app is now running against a vault that no longer exists; staying
   // open would show stale, already-unreadable state. Close rather than
   // pretend.
-  setTimeout(() => {
-    try {
-      if (window.__TAURI__ && window.__TAURI__.window) {
-        window.__TAURI__.window.getCurrentWindow().close();
-      }
-    } catch (_) { /* best-effort; the message above already stands */ }
-  }, 2500);
+  setTimeout(closeAppWindow, 2500);
 }
 
 // -- Delete my account (ADR-112, ACCOUNT-DELETION-DESIGN D2) --
@@ -1687,7 +1681,8 @@ async function eraseEverything() {
 // does), signs out, then opens the page where the person confirms deleting
 // the account. Reached from Settings and from every lock screen. Unlike
 // Delete everything it never closes the window: the finish panel stays, with
-// the page's address as text and a way to open it again.
+// the page's address as text and a way to open it again, until the person
+// presses Done, which starts the app again at the welcome (founder, s86).
 
 const DELETE_ACCOUNT_PHRASE = "DELETE";
 
@@ -1770,8 +1765,9 @@ async function deleteAccountStart() {
   deleteAccountDone = true;
   const erased = !!(result && result.erased);
   const opened = !!(result && result.opened);
-  // The apps it had seen connect go with the memories, as for Delete everything.
-  if (erased) store.set(KNOWN_APPS_KEY, {});
+  // This computer is now signed out with no memories: like a new install,
+  // as after Delete everything.
+  forgetThisComputer();
   $("delete-account-done-line").textContent = (erased ? "Your memories are deleted. " : "")
     + (opened
       ? "Finish on the page that just opened."
@@ -1781,6 +1777,12 @@ async function deleteAccountStart() {
   $("delete-account-ask").classList.add("hidden");
   $("delete-account-done").classList.remove("hidden");
   $("delete-account-reopen").focus();
+}
+
+// Done: start again from the top. forgetThisComputer has already run, so the
+// page loads at the welcome, as a new install does.
+function onDeleteAccountFinished() {
+  location.reload();
 }
 
 async function onDeleteAccountReopen() {
@@ -2410,12 +2412,32 @@ async function onCancelSubscription() {
   refreshAccountView();
 }
 
-function onCloseApp() {
+// close() answers with a promise: a refusal (s86: the window's close
+// permission was missing, so every Close Zaaheen silently did nothing) has
+// to be awaited to be caught at all.
+async function closeAppWindow() {
   try {
     if (window.__TAURI__ && window.__TAURI__.window) {
-      window.__TAURI__.window.getCurrentWindow().close();
+      await window.__TAURI__.window.getCurrentWindow().close();
     }
-  } catch (_) { /* nothing else to do; the words on screen still stand */ }
+  } catch (err) {
+    console.error("Zaaheen could not close its window", err);
+  }
+}
+
+function onCloseApp() {
+  closeAppWindow();
+}
+
+// After the memories are erased this computer is like a new install (s86,
+// H16 + H19): the next start is the welcome and the whole setup, whose last
+// step puts the nightly tidy-up back. Kept, `mv_onboarded` sent a returning
+// person straight to an empty home with no nightly task.
+function forgetThisComputer() {
+  store.set("mv_onboarded", false);
+  store.set(RESUME_KEY, null);
+  store.set(KNOWN_APPS_KEY, {});
+  store.set("mv_agents", []);
 }
 
 // -- the account panel and the banners --
@@ -3498,7 +3520,7 @@ function init() {
   $("delete-account-export").addEventListener("click", onDeleteAccountExport);
   $("delete-account-go").addEventListener("click", deleteAccountStart);
   $("delete-account-reopen").addEventListener("click", onDeleteAccountReopen);
-  $("delete-account-close").addEventListener("click", onCloseApp);
+  $("delete-account-finished").addEventListener("click", onDeleteAccountFinished);
 
   // Progress events for the two engine downloads. Only the listeners are
   // attached here: the downloads themselves are gated commands, started by
