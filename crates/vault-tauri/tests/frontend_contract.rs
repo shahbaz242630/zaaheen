@@ -2709,9 +2709,13 @@ fn the_agents_tab_lists_the_apps_actually_connected() {
         remember.contains("friendlyAppName(a.name)")
             && remember.contains("store.set(KNOWN_APPS_KEY, known)")
     );
+    // s86: through forgetThisComputer (pinned in its own test).
     let erase = &js_function(&functions, "eraseEverything").body;
     assert!(
-        erase.contains("store.set(KNOWN_APPS_KEY, {})"),
+        erase.contains("forgetThisComputer();")
+            && js_function(&functions, "forgetThisComputer")
+                .body
+                .contains("store.set(KNOWN_APPS_KEY, {})"),
         "Delete everything forgets them"
     );
     let footer = &js_function(&functions, "renderFooter").body;
@@ -2920,8 +2924,13 @@ fn delete_my_account_says_what_happens_and_is_gated_behind_delete_typed() {
         .expect("index.html has the Delete my account dialog")
         .1;
     for words in [
-        "Delete my account deletes the memories on this computer, then opens a page where you \
-         confirm deleting your Zaaheen account.",
+        // s86 (H17, founder-approved): ALL the memories on this computer,
+        // whichever account saved them; and the keep-my-memories way out.
+        "Delete my account deletes <strong>all</strong> the memories on this computer. They are \
+         kept here, not in your account, so this includes memories saved while signed in with \
+         any account. Then a page opens where you confirm deleting your Zaaheen account.",
+        "<strong>To delete only your account and keep your memories,</strong> use the page at \
+         <span class=\"support-email\">account.zaaheen.com/delete-account</span> instead.",
         "Deleting the account cancels any subscription straight away, with no refund of \
          the time left. Coaching bookings are kept separately.",
         "Want a copy first?",
@@ -2983,6 +2992,89 @@ fn delete_my_account_is_in_settings_and_on_every_lock_screen() {
             .contains("lock-delete"),
         "renderLock must not hide Delete my account for any reason"
     );
+}
+
+/// s86 (H19): every "Close Zaaheen" silently did nothing on the founder's
+/// laptop. `core:default` does not include closing a window, so close() was
+/// refused, and an un-awaited promise's refusal escapes try/catch. The lock
+/// screen and Delete everything both depend on it.
+#[test]
+fn the_app_may_close_its_window_and_waits_for_the_answer() {
+    assert!(
+        CAPABILITIES_JSON.contains("\"core:window:allow-close\""),
+        "without core:window:allow-close every Close Zaaheen is refused"
+    );
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let close = &js_function(&functions, "closeAppWindow").body;
+    assert!(close.contains("await window.__TAURI__.window.getCurrentWindow().close();"));
+    assert!(close.contains("catch (err)"));
+    assert!(calls(
+        &js_function(&functions, "onCloseApp").body,
+        "closeAppWindow"
+    ));
+    assert!(js_function(&functions, "eraseEverything")
+        .body
+        .contains("setTimeout(closeAppWindow, 2500);"));
+    // The only place close() is called: one way to close, one place to await it.
+    assert_eq!(code.matches("getCurrentWindow().close()").count(), 1);
+    assert!(code.contains("$(\"lock-close-btn\").addEventListener(\"click\", onCloseApp)"));
+}
+
+/// s86 (H16 + H19): after either delete the computer is a new install, so
+/// the next start is the welcome and the whole setup (which recreates the
+/// nightly tidy-up). Done on the delete-account finish panel starts it now.
+#[test]
+fn after_a_delete_the_app_starts_again_as_a_new_install() {
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let forget = &js_function(&functions, "forgetThisComputer").body;
+    for line in [
+        "store.set(\"mv_onboarded\", false);",
+        "store.set(RESUME_KEY, null);",
+        "store.set(KNOWN_APPS_KEY, {});",
+        "store.set(\"mv_agents\", []);",
+    ] {
+        assert!(
+            forget.contains(line),
+            "forgetThisComputer is missing {line:?}"
+        );
+    }
+    // Only after the command succeeded: a failed erasure returns earlier and
+    // keeps everything (the memories are still there).
+    for (name, command) in [
+        ("eraseEverything", "invoke(\"erase_everything\")"),
+        ("deleteAccountStart", "invoke(\"delete_account_start\")"),
+    ] {
+        let body = &js_function(&functions, name).body;
+        let invoked = body.find(command).expect("the command is invoked");
+        let failed = body[invoked..]
+            .find("return;")
+            .expect("the failure path returns")
+            + invoked;
+        let forgot = body
+            .find("forgetThisComputer();")
+            .expect("forgets after success");
+        assert!(
+            forgot > failed,
+            "{name} must forget only after the failure path returned"
+        );
+    }
+    let html = html();
+    assert!(
+        html.contains("<button id=\"delete-account-finished\" class=\"btn-ghost\">Done</button>")
+    );
+    assert!(!html.contains("delete-account-close"));
+    assert!(js_function(&functions, "onDeleteAccountFinished")
+        .body
+        .contains("location.reload();"));
+    assert!(code.contains(
+        "$(\"delete-account-finished\").addEventListener(\"click\", onDeleteAccountFinished)"
+    ));
+    // A start with mv_onboarded false is the welcome.
+    assert!(code.contains(
+        "screen: store.get(\"mv_onboarded\", false) || store.get(RESUME_KEY, null) ? \"boot\" : \"welcome\","
+    ));
 }
 
 /// D2: this path never closes the window by itself. It shows the page's

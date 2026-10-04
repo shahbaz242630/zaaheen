@@ -712,9 +712,10 @@ impl Application {
             None => {
                 tracing::info!(
                     target: "vault_app::startup",
-                    "phi4_model_path is None; consolidator not wired (graceful degradation \
-                     per locked-next-arc Thread 3 — write/read remain functional, \
-                     `vault-cli consolidate run` returns VaultError::Config)"
+                    "no consolidator in this process (phi4_model_path is None): expected \
+                     for the keeper and the desktop, whose nightly tidy-up runs in its own \
+                     scheduled task (`vault-cli consolidate run --phi4-model ...`); write/read \
+                     are unaffected"
                 );
                 None
             }
