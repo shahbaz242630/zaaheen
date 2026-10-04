@@ -1,11 +1,12 @@
 // The account Worker (SIGNIN-DESIGN.md §5). Routes built so far:
 //   POST /v1/lease      the signed entitlement lease
 //   POST /v1/checkout   a checkout transaction, or the customer portal
+//   POST /v1/cancel     Paddle's cancel step for a paying member (§8.48)
 //   POST /paddle/webhook  subscription.* notifications from Paddle
 //   POST /clerk/webhook   user.deleted from Clerk (cancels billing)
 // and a daily cron, the renewal sweep (wrangler.jsonc `triggers.crons`), which
 // also cancels billing for a deleted account (ACCOUNT-DELETION-DESIGN D6).
-// Everything else is a 404. The two /v1 routes are flood-limited per client
+// Everything else is a 404. The /v1 routes are flood-limited per client
 // address (src/flood.ts) before anything else runs. A missing or inconsistent
 // configuration is a 503 ("try later") for every route, and any unexpected
 // failure is a 503 too: the app keeps its lease on a 5xx and never signs
@@ -14,6 +15,7 @@
 import { readConfig } from "./config";
 import { floodCheck } from "./flood";
 import { errorResponse } from "./http";
+import { handleCancel } from "./routes/cancel";
 import { handleCheckout } from "./routes/checkout";
 import { handleClerkWebhook } from "./routes/clerk-webhook";
 import type { RouteDeps } from "./routes/common";
@@ -26,6 +28,7 @@ type Handler = (request: Request, config: NonNullable<ReturnType<typeof readConf
 const ROUTES: Record<string, Handler> = {
   "/v1/lease": handleLease,
   "/v1/checkout": handleCheckout,
+  "/v1/cancel": handleCancel,
   "/paddle/webhook": handlePaddleWebhook,
   "/clerk/webhook": handleClerkWebhook,
 };

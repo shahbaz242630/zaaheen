@@ -217,14 +217,14 @@
         <p class="sub">It runs on this computer. You can change this or turn it off anytime.</p>
         <div class="maint-onboard">
           <label class="maint-choice">
-            <input type="radio" name="maint-onboard-choice" id="maint-onboard-on" value="on" />
+            <input type="radio" name="maint-onboard-choice" id="maint-onboard-on" value="on" checked />
             <span><strong>Yes, tidy automatically</strong><br />every day at a quiet hour</span>
           </label>
-          <label id="maint-onboard-time-wrap" class="maint-onboard-time hidden">Run at
+          <label id="maint-onboard-time-wrap" class="maint-onboard-time">Run at
             <input type="time" id="maint-onboard-time" value="03:00" />
           </label>
           <label class="maint-choice">
-            <input type="radio" name="maint-onboard-choice" id="maint-onboard-off" value="off" checked />
+            <input type="radio" name="maint-onboard-choice" id="maint-onboard-off" value="off" />
             <span><strong>Not now</strong><br />I'll decide later in Consolidation</span>
           </label>
         </div>
@@ -561,9 +561,19 @@
             <div id="account-manage" class="set-row hidden">
               <div class="set-text">
                 <div class="set-name">Manage subscription</div>
-                <p class="set-desc">Change your plan, update your card, or cancel. It opens in your browser.</p>
+                <p class="set-desc">Change your plan or update your card. It opens in your browser.</p>
               </div>
               <div class="set-action"><button id="account-manage-btn" class="btn-quiet">Manage subscription</button></div>
+            </div>
+            <!-- SIGNIN-DESIGN 8.48 (founder s85): straight to Paddle's cancel
+                 step. Shown to a subscriber only, like Manage; the account
+                 service checks again when it is clicked. -->
+            <div id="account-cancel" class="set-row hidden">
+              <div class="set-text">
+                <div class="set-name">Cancel subscription</div>
+                <p class="set-desc">Stop your subscription. Zaaheen keeps working until the end of the time you've paid for.</p>
+              </div>
+              <div class="set-action"><button id="account-cancel-btn" class="btn-quiet">Cancel subscription</button></div>
             </div>
             <!-- Delete my account (ADR-112, ACCOUNT-DELETION-DESIGN D1/D2):
                  always here, signed in or not; the dialog is below. -->

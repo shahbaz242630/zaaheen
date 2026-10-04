@@ -44,7 +44,7 @@ mod tests;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use crate::checkout_client::{CheckoutAnswer, CheckoutClient, Plan};
+use crate::checkout_client::{CancelAnswer, CheckoutAnswer, CheckoutClient, Plan};
 use crate::entitlement::{
     assess, clock_looks_wrong, refresh_allowed, unused_too_long, Assessment, LocalState,
 };
@@ -498,13 +498,38 @@ impl Account {
     /// client reports otherwise.
     #[tracing::instrument(skip_all)]
     pub async fn start_checkout(&self, plan: Plan) -> AccountResult<CheckoutAnswer> {
+        // `_lock` is held through the call, as it always was.
+        let (checkout, access, _lock) = self.billing_access("checkout").await?;
+        checkout.start(&access, plan).await
+    }
+
+    /// Ask the account service for Paddle's cancel step (SIGNIN-DESIGN
+    /// §8.48). Same lock and the same one rotation path as
+    /// [`Account::start_checkout`] (ADR-SEC-025); the link comes back already
+    /// checked as a [`PortalUrl`](crate::PortalUrl).
+    ///
+    /// # Errors
+    ///
+    /// As [`Account::start_checkout`].
+    #[tracing::instrument(skip_all)]
+    pub async fn start_cancel(&self) -> AccountResult<CancelAnswer> {
+        let (checkout, access, _lock) = self.billing_access("cancel").await?;
+        checkout.cancel(&access).await
+    }
+
+    /// The checkout client, a fresh access token and the held refresh lock,
+    /// for a billing action the person just asked for.
+    async fn billing_access(
+        &self,
+        what: &str,
+    ) -> AccountResult<(&CheckoutClient, AccessToken, Arc<RefreshLock>)> {
         let Some(checkout) = self.checkout.as_ref() else {
-            return Err(AccountError::InvalidConfig(
-                "this build cannot start a checkout".into(),
-            ));
+            return Err(AccountError::InvalidConfig(format!(
+                "this build cannot start a {what}"
+            )));
         };
-        // Subscribing is something the person just asked for, so it waits as
-        // long as any other user action rather than giving up quickly.
+        // A billing action is something the person just asked for, so it waits
+        // as long as any other user action rather than giving up quickly.
         let Some(lock) = self.lock(self.timings.user_lock_wait).await? else {
             return Err(AccountError::Busy);
         };
@@ -518,12 +543,16 @@ impl Account {
 
         let access = match self.rotate_under_lock(&lock).await? {
             Rotated::SignedOut(reason) => {
-                tracing::info!(?reason, "checkout found this computer signed out");
+                tracing::info!(
+                    ?reason,
+                    what,
+                    "a billing action found this computer signed out"
+                );
                 return Err(AccountError::InvalidGrant);
             }
             Rotated::Tokens { access, .. } => access,
         };
-        checkout.start(&access, plan).await
+        Ok((checkout, access, lock))
     }
 
     /// Bookkeeping after use (a served call, the desktop opening): raise the

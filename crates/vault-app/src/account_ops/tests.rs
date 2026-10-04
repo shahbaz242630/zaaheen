@@ -244,3 +244,26 @@ fn account_ops_never_holds_the_vault() {
         );
     }
 }
+
+/// §8.48: the frontend words a closed set of three, and only one of them
+/// ever opens anything.
+#[test]
+fn a_cancel_answer_without_a_link_opens_nothing_and_says_why() {
+    assert_eq!(
+        AccountOps::open_cancel(&CancelAnswer::NothingToCancel).expect("no link, no error"),
+        CancelOutcome::NothingToCancel
+    );
+    assert_eq!(
+        AccountOps::open_cancel(&CancelAnswer::AlreadyEnding).expect("no link, no error"),
+        CancelOutcome::AlreadyEnding
+    );
+    let words: Vec<&str> = [
+        CancelOutcome::Opened,
+        CancelOutcome::NothingToCancel,
+        CancelOutcome::AlreadyEnding,
+    ]
+    .into_iter()
+    .map(CancelOutcome::as_str)
+    .collect();
+    assert_eq!(words, ["opened", "nothing_to_cancel", "already_ending"]);
+}

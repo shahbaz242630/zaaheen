@@ -65,6 +65,26 @@ export function ourSubscriptionIds(subscriptions: readonly unknown[], productId:
   return ids;
 }
 
+/**
+ * For `/v1/cancel` (§8.48): of our subscriptions whose status is one of
+ * `statuses`, the ids already scheduled to cancel and the ids still renewing.
+ */
+export function ourCancellable(
+  subscriptions: readonly unknown[],
+  productId: string,
+  statuses: readonly string[],
+): { ending: string[]; renewing: string[] } {
+  const ids = new Set(ourSubscriptionIds(subscriptions, productId, statuses));
+  const ending: string[] = [];
+  const renewing: string[] = [];
+  for (const sub of subscriptions) {
+    if (!isObject(sub) || typeof sub["id"] !== "string" || !ids.has(sub["id"])) continue;
+    const change = sub["scheduled_change"];
+    (isObject(change) && change["action"] === "cancel" ? ending : renewing).push(sub["id"]);
+  }
+  return { ending, renewing };
+}
+
 function isOurs(sub: unknown, productId: string): sub is Record<string, unknown> {
   if (!isObject(sub)) throw new BillingError("a subscription is not an object");
   const items = sub["items"];

@@ -160,10 +160,23 @@ pub enum CheckoutAnswer {
     Portal(PortalUrl),
 }
 
-/// Starts checkouts against the account Worker.
+/// What the Worker's `/v1/cancel` answered (SIGNIN-DESIGN §8.48), the link
+/// already checked.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CancelAnswer {
+    /// A paying member: open Paddle's cancel step for their subscription.
+    Portal(PortalUrl),
+    /// No paid subscription: nothing to cancel, nothing opened.
+    NothingToCancel,
+    /// Already cancelled; it ends at the end of the paid period.
+    AlreadyEnding,
+}
+
+/// Starts checkouts, and cancellations, against the account Worker.
 #[derive(Debug)]
 pub struct CheckoutClient {
     endpoint: String,
+    cancel_endpoint: String,
     http: reqwest::Client,
     timeout: Duration,
 }
@@ -178,6 +191,7 @@ impl CheckoutClient {
         validate_origin(api_origin, "account API origin")?;
         Ok(Self {
             endpoint: format!("{api_origin}/v1/checkout"),
+            cancel_endpoint: format!("{api_origin}/v1/cancel"),
             http: https_http()?,
             timeout: REQUEST_TIMEOUT,
         })
@@ -188,9 +202,67 @@ impl CheckoutClient {
     pub(crate) fn for_loopback_test(port: u16) -> Self {
         Self {
             endpoint: format!("http://127.0.0.1:{port}/v1/checkout"),
+            cancel_endpoint: format!("http://127.0.0.1:{port}/v1/cancel"),
             http: crate::oauth::loopback_http(),
             timeout: Duration::from_secs(1),
         }
+    }
+
+    /// POST `body` to `endpoint` and return the answer's bytes, or the
+    /// refusal as an error (the status only; the server's own words are
+    /// never quoted back, BRD §11.7.2).
+    async fn post(
+        &self,
+        endpoint: &str,
+        access: &AccessToken,
+        body: &impl Serialize,
+        what: &str,
+    ) -> AccountResult<Vec<u8>> {
+        let response = self
+            .http
+            .post(endpoint)
+            .bearer_auth(access.expose())
+            .json(body)
+            .timeout(self.timeout)
+            .send()
+            .await
+            .map_err(network)?;
+        let status = response.status();
+        let bytes = read_capped(response).await?;
+        if !status.is_success() {
+            tracing::info!(status = status.as_u16(), "{what} request refused");
+            return Err(status_class(status).unwrap_or_else(|| {
+                AccountError::Protocol(format!(
+                    "{what} request refused with status {}",
+                    status.as_u16()
+                ))
+            }));
+        }
+        Ok(bytes)
+    }
+
+    /// Ask for Paddle's cancel step (§8.48). The Worker never creates
+    /// anything for this call; the answer says whether there is anything to
+    /// cancel.
+    ///
+    /// # Errors
+    ///
+    /// As [`CheckoutClient::start`]: [`AccountError::Network`] is worth
+    /// retrying; [`AccountError::Protocol`] for a refused token, an answer of
+    /// no known shape, or a link off Paddle.
+    #[tracing::instrument(skip_all)]
+    pub async fn cancel(&self, access: &AccessToken) -> AccountResult<CancelAnswer> {
+        let body = self
+            .post(&self.cancel_endpoint, access, &CancelRequest {}, "cancel")
+            .await?;
+        let parsed: CancelResponse = serde_json::from_slice(&body).map_err(|_| {
+            AccountError::Protocol("cancel response is not the expected JSON".into())
+        })?;
+        Ok(match parsed {
+            CancelResponse::Portal { url } => CancelAnswer::Portal(PortalUrl::parse(&url)?),
+            CancelResponse::None {} => CancelAnswer::NothingToCancel,
+            CancelResponse::Ending {} => CancelAnswer::AlreadyEnding,
+        })
     }
 
     /// Ask for a checkout transaction, or the portal if already subscribed.
@@ -202,28 +274,14 @@ impl CheckoutClient {
     /// that is not one of the two shapes, or a value that fails its check.
     #[tracing::instrument(skip_all, fields(plan = plan.wire()))]
     pub async fn start(&self, access: &AccessToken, plan: Plan) -> AccountResult<CheckoutAnswer> {
-        let response = self
-            .http
-            .post(&self.endpoint)
-            .bearer_auth(access.expose())
-            .json(&CheckoutRequest { plan: plan.wire() })
-            .timeout(self.timeout)
-            .send()
-            .await
-            .map_err(network)?;
-        let status = response.status();
-        let body = read_capped(response).await?;
-        if !status.is_success() {
-            // The status only; the server's own words are never quoted back
-            // (BRD §11.7.2).
-            tracing::info!(status = status.as_u16(), "checkout request refused");
-            return Err(status_class(status).unwrap_or_else(|| {
-                AccountError::Protocol(format!(
-                    "checkout request refused with status {}",
-                    status.as_u16()
-                ))
-            }));
-        }
+        let body = self
+            .post(
+                &self.endpoint,
+                access,
+                &CheckoutRequest { plan: plan.wire() },
+                "checkout",
+            )
+            .await?;
 
         let malformed =
             || AccountError::Protocol("checkout response is not the expected JSON".into());
@@ -252,5 +310,22 @@ enum CheckoutResponse {
     Portal { url: String },
 }
 
+/// `/v1/cancel` takes no fields; an empty object keeps it JSON.
+#[derive(Serialize)]
+struct CancelRequest {}
+
+/// Struct variants with no fields, not unit variants, so
+/// `deny_unknown_fields` also refuses a `none` or `ending` carrying extras.
+#[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase", deny_unknown_fields)]
+enum CancelResponse {
+    Portal { url: String },
+    None {},
+    Ending {},
+}
+
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod cancel_tests;

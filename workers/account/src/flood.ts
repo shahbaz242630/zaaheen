@@ -26,7 +26,7 @@ export interface Limiter {
  * Clerk notification is a payment update or a cancellation delayed, and their
  * signatures are checked locally before any upstream call.
  */
-export const FLOOD_LIMITED_ROUTES: ReadonlySet<string> = new Set(["/v1/lease", "/v1/checkout"]);
+export const FLOOD_LIMITED_ROUTES: ReadonlySet<string> = new Set(["/v1/lease", "/v1/checkout", "/v1/cancel"]);
 
 /** `null` to go on; otherwise the answer to send (429, or 503 without the binding). */
 export async function floodCheck(request: Request, path: string, limiter: Limiter | undefined): Promise<Response | null> {

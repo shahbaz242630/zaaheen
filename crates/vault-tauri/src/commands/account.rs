@@ -310,6 +310,22 @@ pub async fn account_subscribe(
         .map_err(code_for)
 }
 
+/// "Cancel subscription" (SIGNIN-DESIGN 8.48). Takes nothing, never a URL:
+/// the account service is asked, Paddle's cancel step is validated and
+/// opened inside the application, and the screen gets one of three fixed
+/// words: `opened`, `nothing_to_cancel`, `already_ending`.
+#[tauri::command]
+pub async fn account_cancel_subscription(
+    account: State<'_, AccountSlot>,
+) -> Result<String, String> {
+    account
+        .ops()?
+        .cancel_subscription()
+        .await
+        .map(|outcome| outcome.as_str().to_string())
+        .map_err(code_for)
+}
+
 /// "I've paid", and the poll that follows a checkout. One refresh, then the
 /// fresh view. Never fails outright: refusing to answer would read as a lost
 /// subscription. With no account there is nothing to refresh, and the view

@@ -33,6 +33,7 @@
     "allow-account-sign-in",
     "allow-account-sign-out",
     "allow-account-subscribe",
+    "allow-account-cancel-subscription",
     "allow-account-refresh-now",
     "allow-delete-account-start",
     "allow-delete-account-open",
