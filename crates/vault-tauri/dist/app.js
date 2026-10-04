@@ -531,9 +531,16 @@ const RESUME_KEY = "mv_resume_location";
 const TRIAL_BANNER_DAYS = 7;
 // The trial's length (§8.26 §4), for its first day's line.
 const TRIAL_DAYS = 30;
-// §8.26 §4: after a checkout, refresh every 10 s for 10 min.
+// §8.26 §4, amended in §8.49 (founder s85): after a checkout, refresh every
+// 10 s for the first 5 min, then every 30 s, for up to 30 min, so somebody
+// still finding their card is not dropped at minute 10.
 const CHECKOUT_POLL_MS = 10 * 1000;
-const CHECKOUT_POLL_FOR_MS = 10 * 60 * 1000;
+const CHECKOUT_POLL_SLOW_MS = 30 * 1000;
+const CHECKOUT_POLL_FAST_FOR_MS = 5 * 60 * 1000;
+const CHECKOUT_POLL_FOR_MS = 30 * 60 * 1000;
+// §8.49: said under the waiting row when a check made on coming back to the
+// window found no payment. It cancels nothing; the wait goes on.
+const NO_PAYMENT_YET = "No payment yet. If you closed the checkout without paying, choose Not now.";
 // A returning computer shows nothing until the lock answers, so a locked one
 // never flashes its memories. The answer is a file read when all is well; a
 // refusal refreshes first, which can take a few seconds (§8.26 §4), so after
@@ -2070,6 +2077,7 @@ function renderLock(variant) {
   $("lock-signin").classList.toggle("hidden", copy.action !== "sign_in");
   $("lock-subscribe").classList.toggle("hidden", copy.action !== "subscribe" || paying);
   $("lock-paying").classList.toggle("hidden", !paying);
+  $("lock-paying-back").textContent = paying && account.checkout.noPaymentYet ? NO_PAYMENT_YET : "";
   $("lock-retry").classList.toggle("hidden", copy.action !== "retry");
   $("lock-close").classList.toggle("hidden", copy.action !== "close");
   if (changed) $("lock-status").textContent = "";
@@ -2221,23 +2229,69 @@ async function afterCheckout(before) {
   routeAfterAccess(await askAccess());
 }
 
-// §8.26 §4: after a checkout, refresh every 10 s for 10 min, and stop as soon
-// as the account changes (paid, or signed out) or "I've paid" settles it.
-// It only refreshes: asking the lock is afterCheckout's, once, afterwards.
+// §8.26 §4 / §8.49: after a checkout, refresh every 10 s for 5 min, then
+// every 30 s, for up to 30 min, and stop as soon as the account changes
+// (paid, or signed out) or "I've paid" or "Not now" settles it. Coming back
+// to the window cuts the current nap short (onWindowFocus), and a check made
+// that way that finds no payment says so. It only refreshes: asking the lock
+// is afterCheckout's, once, afterwards.
 async function waitForPayment(wait) {
-  const until = Date.now() + CHECKOUT_POLL_FOR_MS;
+  const started = Date.now();
+  const until = started + CHECKOUT_POLL_FOR_MS;
   let view = null;
   while (Date.now() < until && account.checkout === wait) {
-    await sleep(CHECKOUT_POLL_MS);
+    const fast = Date.now() - started < CHECKOUT_POLL_FAST_FOR_MS;
+    await napUnlessBack(wait, fast ? CHECKOUT_POLL_MS : CHECKOUT_POLL_SLOW_MS);
     if (account.checkout !== wait) break;
+    const cameBack = wait.back;
+    wait.back = false;
     try {
       view = await invoke("account_refresh_now");
     } catch {
       continue;
     }
     if (view.state !== wait.startState) break;
+    if (cameBack && !wait.noPaymentYet) {
+      wait.noPaymentYet = true;
+      renderPaying();
+    }
   }
   return view;
+}
+
+// A sleep that a return to the window, or "Not now", ends early.
+function napUnlessBack(wait, ms) {
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      wait.wake = null;
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    wait.wake = done;
+  });
+}
+
+// Coming back to the Zaaheen window while a payment is awaited: check now
+// rather than at the next tick. It only wakes the wait; it never asks the
+// lock (§8.39: a focus listener must not reach account_access).
+function onWindowFocus() {
+  const wait = account.checkout;
+  if (!wait || !wait.wake) return;
+  wait.back = true;
+  wait.wake();
+}
+
+// "Not now" (§8.49): stop waiting at once and show the plans again. The
+// checkout itself is untouched; a payment made later is still found by the
+// next refresh. afterCheckout then asks the lock once, as always.
+function onNotNow() {
+  const wait = account.checkout;
+  if (!wait) return;
+  account.checkout = null;
+  if (wait.wake) wait.wake();
+  accountStatusEl().textContent = "";
+  renderPaying();
 }
 
 // Redraw whichever surfaces show a checkout in progress.
@@ -2370,6 +2424,7 @@ function renderAccountPanel() {
   $("account-manage").classList.toggle("hidden", !subscriber || paying);
   $("account-cancel").classList.toggle("hidden", !subscriber || paying);
   $("account-paying").classList.toggle("hidden", !paying);
+  $("account-paying-back").textContent = paying && account.checkout.noPaymentYet ? NO_PAYMENT_YET : "";
 }
 
 function trialEndsLine(days) {
@@ -3264,6 +3319,9 @@ function init() {
   $("account-manage-btn").addEventListener("click", onManage);
   $("account-cancel-btn").addEventListener("click", onCancelSubscription);
   $("account-paid").addEventListener("click", onPaid);
+  $("account-notnow").addEventListener("click", onNotNow);
+  $("lock-notnow").addEventListener("click", onNotNow);
+  window.addEventListener("focus", onWindowFocus);
   $("export-memories").addEventListener("click", onSettingsExport);
   $("erase-manage").addEventListener("click", onManage);
 
