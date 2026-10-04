@@ -1702,7 +1702,7 @@ function openDeleteAccount() {
     $("delete-account-export-status").textContent = "";
   }
   $("delete-account-overlay").classList.remove("hidden");
-  (deleteAccountDone ? $("delete-account-reopen") : $("delete-account-cancel")).focus();
+  (deleteAccountDone ? $("delete-account-finished") : $("delete-account-cancel")).focus();
 }
 
 function closeDeleteAccount() {
@@ -1776,7 +1776,7 @@ async function deleteAccountStart() {
   $("delete-account-reopen-status").textContent = "";
   $("delete-account-ask").classList.add("hidden");
   $("delete-account-done").classList.remove("hidden");
-  $("delete-account-reopen").focus();
+  $("delete-account-finished").focus();
 }
 
 // Done: start again from the top. forgetThisComputer has already run, so the
