@@ -3065,6 +3065,12 @@ fn after_a_delete_the_app_starts_again_as_a_new_install() {
         html.contains("<button id=\"delete-account-finished\" class=\"btn-ghost\">Done</button>")
     );
     assert!(!html.contains("delete-account-close"));
+    // s86 (H18): Edge's history showed the delete page open in four tabs;
+    // focus on "Open the page again" made one more a keypress away.
+    assert!(js_function(&functions, "deleteAccountStart")
+        .body
+        .contains("$(\"delete-account-finished\").focus();"));
+    assert!(!code.contains("$(\"delete-account-reopen\").focus()"));
     assert!(js_function(&functions, "onDeleteAccountFinished")
         .body
         .contains("location.reload();"));
@@ -3451,7 +3457,10 @@ fn cancel_subscription_is_its_own_row_for_subscribers_only() {
     for el in [
         "<div id=\"account-cancel\" class=\"set-row hidden\">",
         "<div class=\"set-name\">Cancel subscription</div>",
-        "<p class=\"set-desc\">Stop your subscription. Zaaheen keeps working until the end of the time you've paid for.</p>",
+        // s86 (founder): every cancel route named, no "email us".
+        "<p class=\"set-desc\">Stop your subscription. Zaaheen keeps working until the end of the \
+         time you've paid for. You can also cancel on your website Account page, or with the \
+         cancel link in any email from Paddle, our reseller.</p>",
         "<button id=\"account-cancel-btn\" class=\"btn-quiet\">Cancel subscription</button>",
         "<p class=\"set-desc\">Change your plan or update your card. It opens in your browser.</p>",
     ] {
