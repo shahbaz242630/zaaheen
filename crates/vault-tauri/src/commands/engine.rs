@@ -235,6 +235,8 @@ mod tests {
                 .and_then(|(_, rest)| rest.split_once("\n}\n"))
                 .map(|(body, _)| body)
                 .expect(command);
+            // Whitespace-free, so rustfmt's line breaks cannot matter.
+            let body: String = body.split_whitespace().collect();
             let proof = body.find("entitlement.require().await?").expect(command);
             let resume = body
                 .find("link.resume_after_erasure(&entitled);")
