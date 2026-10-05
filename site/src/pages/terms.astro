@@ -1,7 +1,7 @@
 ---
 import Policy, { type Outline } from '../layouts/Policy.astro';
 import Row from '../components/Row.astro';
-import { COMPANY, PLANS, SITE, TRIAL } from '../data/site';
+import { ACCOUNT, COMPANY, PLANS, SITE, TRIAL } from '../data/site';
 
 // The Terms of Service (founder, session 67; hardened in session 69 from two
 // independent research reports, LEGAL-DOCUMENTS-DESIGN.md). No lawyer
@@ -192,10 +192,10 @@ const lede = `These are the terms for using ${SITE.name}, the private memory for
     </Row>
 
     <Row id="cancel" title={topic('cancel')} where="Settings › Account">
-      <p>Open Zaaheen, go to <em>Settings</em>, then <em>Account</em>, and choose <em>Manage
-         subscription</em>. You can cancel there in a few clicks, or email us and we'll do it
-         for you. Cancelling stops the next renewal, and you keep access until the end of the
-         time you've already paid for.</p>
+      <p>In the app: <em>Settings › Account › Cancel subscription</em>. On the website:
+         <em>Account</em>, then <em>Cancel subscription</em>. Or use the cancel link in any email
+         from Paddle, our reseller, which works from any device. Cancelling stops the next
+         renewal, and you keep access until the end of the time you've already paid for.</p>
       <p>We do not refund the unused part of a month or a year, except where these terms say so.
          Refunds are covered by our <a href="/refunds/">Refund Policy</a>.</p>
     </Row>
@@ -237,7 +237,7 @@ const lede = `These are the terms for using ${SITE.name}, the private memory for
     </Row>
 
     <Row id="ai-limits" title={topic('ai-limits')} where="On your computer">
-      <p>Zaaheen uses AI on your computer to find memories and, if you turn it on, to tidy them.
+      <p>Zaaheen uses AI on your computer to find memories and, when tidying is on, to tidy them.
          Search can miss a memory or return one that does not fit the question. Tidying merges
          near duplicates, rewords memories when it merges them, settles facts that contradict
          each other in favour of the newer one, and writes short summaries. It keeps the older
@@ -291,7 +291,7 @@ const lede = `These are the terms for using ${SITE.name}, the private memory for
     </Row>
 
     <Row id="closing" title={topic('closing')} where="Your account">
-      <p>You can delete your Zaaheen account at any time on our <em>Delete my account</em> page,
+      <p>You can delete your Zaaheen account at any time on our <a href={ACCOUNT.deleteAccount}><em>Delete my account</em> page</a>,
          by choosing <em>Delete my account</em> in the app, or by emailing us. Deleting your
          account cancels any subscription straight away and ends your access. Time left on your
          plan is not refunded, so if you paid in the last 14 days, ask for your refund under our

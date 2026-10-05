@@ -318,6 +318,23 @@ function wireForms() {
     ev.preventDefault();
     goBack();
   });
+
+  // s86 (H14): sign this browser out of Zaaheen (not Google), then the
+  // ordinary form on this same page, so the app's way back is kept. The
+  // callback form: Clerk then skips its own navigation to "/". Never on the
+  // delete or account pages: they never show the signed-in view.
+  $('switch-account').addEventListener('click', async (ev) => {
+    ev.preventDefault();
+    const btn = $('switch-account');
+    btn.disabled = true;
+    try {
+      await clerk.signOut(() => show('start'));
+    } catch {
+      fatal();
+    } finally {
+      btn.disabled = false;
+    }
+  });
 }
 
 // ---------- the delete page (ACCOUNT-DELETION-DESIGN D3) ----------------------------

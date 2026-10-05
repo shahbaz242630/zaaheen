@@ -66,3 +66,31 @@ describe("wrangler.jsonc deployments", () => {
     expect(sandbox.triggers.crons).toEqual(["17 3 * * *"]);
   });
 });
+
+// AUTH-PAGES-DESIGN S85-1, ADR-SEC-043: production's three website settings
+// are the real public ones and read as a website config; the sandbox has none.
+describe("the website account page's settings", () => {
+  it("production names our issuer and origin and a public RSA key that readConfig accepts", async () => {
+    const { readConfig } = await import("../src/config");
+    expect(top.vars.CLERK_ISSUER).toBe("https://clerk.zaaheen.com");
+    expect(top.vars.ACCOUNT_ORIGIN).toBe("https://account.zaaheen.com");
+    const key = JSON.parse(top.vars.CLERK_JWT_KEY);
+    expect(Object.keys(key).sort()).toEqual(["e", "kty", "n"]);
+    const env = {
+      CLERK_SECRET_KEY: "sk_live_x", CLERK_OAUTH_CLIENT_ID: "c", CLERK_WEBHOOK_SECRET: "whsec_x",
+      PADDLE_API_KEY: "pdl_live_apikey_x", PADDLE_ENVIRONMENT: "live", PADDLE_PRODUCT_ID: "pro_01aaaaaaaaaaaaaaaaaaaaaaaa",
+      PADDLE_PRICE_MONTHLY: "pri_01bbbbbbbbbbbbbbbbbbbbbbbb", PADDLE_PRICE_ANNUAL: "pri_01cccccccccccccccccccccccc",
+      PADDLE_WEBHOOK_SECRET: "x", LEASE_PRIMARY_KID: "prod-p1", LEASE_PRIMARY_KEY: "x", TRIAL_KEY: "k".repeat(32),
+      ...top.vars,
+    };
+    expect(readConfig(env)?.web?.origin).toBe("https://account.zaaheen.com");
+  });
+
+  it("the sandbox has none, so its website parts stay off", () => {
+    for (const k of ["CLERK_JWT_KEY", "CLERK_ISSUER", "ACCOUNT_ORIGIN"]) expect(sandbox.vars[k]).toBeUndefined();
+  });
+
+  it("both announce the same newest app version", () => {
+    expect(top.vars.LATEST_APP_VERSION).toBe(sandbox.vars.LATEST_APP_VERSION);
+  });
+});

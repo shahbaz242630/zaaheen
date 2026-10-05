@@ -29,5 +29,8 @@ import { BAD_LINK_LINE, FIXED_LINE } from '../scripts/account-state.js';
     Open the Zaaheen app on your computer to use your account. New here? Get the app at
     <a href={SITE.origin}>zaaheen.com</a>.
   </p>
+  <!-- s86 (LAUNCH-CHECKLIST H14): the app's Sign out leaves this browser
+       signed in, so without this the only way on was the old account. -->
+  <p class="acct-links">Not you? <button class="acct-btn-quiet" id="switch-account" type="button">Use a different account</button></p>
   <p class="acct-error" role="alert" hidden></p>
 </div>

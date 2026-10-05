@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { SITE, RELEASE, TRIAL, COMPANY, COACHING, PAGES, INSTALL_PATH, MAC_INSTALL_PATH, absolute, verifiedAppList } from '../data/site';
+import { SITE, ACCOUNT, RELEASE, TRIAL, COMPANY, COACHING, PAGES, INSTALL_PATH, MAC_INSTALL_PATH, absolute, verifiedAppList } from '../data/site';
 import { appWords, openerText, stepTitles } from '../data/app-words';
 import { FIXES } from '../data/fixes';
 
@@ -91,6 +91,14 @@ export const GET: APIRoute = () => {
     '## Problems and fixes',
     '',
     ...FIXES.map((f) => `- "${f.error}" (${f.where}): ${f.fix}`),
+    '',
+    // How to cancel (founder s85: automatic routes only, no "email us").
+    '## Cancelling',
+    '',
+    `- In the app: Settings, then Account, then "Cancel subscription".`,
+    `- On the website: ${ACCOUNT.page} ("Account" at the top of zaaheen.com), then "Cancel subscription".`,
+    '- From any device: the cancel link in any email from Paddle, the reseller.',
+    '- Cancelling stops the next renewal; access continues until the end of the time paid for.',
     '',
     '## Company',
     '',

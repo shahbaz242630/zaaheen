@@ -31,7 +31,16 @@
   // The newest app version, sent beside the lease for the app's "a new version
   // is available" bar (launch checklist B6). Not a secret. Raise it in the
   // same change that publishes a new download.
-  "vars": { "LATEST_APP_VERSION": "0.3.0" },
+  // The website account page (AUTH-PAGES-DESIGN S85-1, ADR-SEC-043): the
+  // sign-in instance's RS256 public key (from https://clerk.zaaheen.com/
+  // .well-known/jwks.json, kid ins_3Js6Zpp4WQ50QJBHxPERmK6mliF), its issuer and
+  // the account origin. All public. Remove all three to switch the website off.
+  "vars": {
+    "LATEST_APP_VERSION": "0.3.3",
+    "CLERK_ISSUER": "https://clerk.zaaheen.com",
+    "ACCOUNT_ORIGIN": "https://account.zaaheen.com",
+    "CLERK_JWT_KEY": "{\"kty\":\"RSA\",\"n\":\"uFfPNA2ybJXW-4quQpTiLtLXbdo2meqQGUGvL6Fu486GHVEOaihzILAx_RsBEEmmaZWxQLDWn_uJ2Z7xTfWammU2yi67dLz4Ro0Q7BAJYt98YL_giZ0zPYGQ1xI3nRmVfS2s0bhVAywParI2bFtE2OXUtYEdnGYgCkTfS3dkKZ_WM4xBSaN2S_t36vKmtva9ZoCbzEqlnvO23TLy3ipdkR2ClF0gycwRlZjLNEP1AC386aE8I41kx_n97mPQFnicTyEDRHb81xxcDvtlWL_PPV_1Of6g-9oDa8pBfAiYblCuCTuRw__9oXbuuAwYcc5MvnB9ZygQ5PBocJrQo7rD1Q\",\"e\":\"AQAB\"}"
+  },
   "env": {
     "sandbox": {
       "name": "zaaheen-account-sandbox",
@@ -44,7 +53,7 @@
       // Its own TRIALS too (sandbox trials never block production ones).
       // Created 2026-09-28 (session 73) as "sandbox-TRIALS".
       "kv_namespaces": [{ "binding": "TRIALS", "id": "51e82fb035fc499ca44cb7afcbd26f8e" }],
-      "vars": { "LATEST_APP_VERSION": "0.3.0" }
+      "vars": { "LATEST_APP_VERSION": "0.3.3" }
     }
   }
 }

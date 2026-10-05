@@ -105,7 +105,10 @@ test('the delete path: no account creation, no sign-out, no false success', () =
   assert.deepEqual(transfer, ['transferable: false']);
   assert.match(ACCOUNT, /\.\.\.\(AFTER_DELETE \|\| AFTER_ACCOUNT \? \{ transferable: false \} : \{\}\)/);
   assert.match(ACCOUNT, /redirectUrl: new URL\(`\/sso-callback\/\$\{DELETING \? '\?after=delete' : ACCOUNTING \? '\?after=account' : keepQuery\(\)\}`, location\.origin\)\.href,/);
-  assert.doesNotMatch(ACCOUNT, /signOut\s*\(/);
+  // s86 (H14): the one sign-out is "Use a different account" on the
+  // signed-in view, which the delete page never shows (it goes to confirm).
+  assert.equal([...ACCOUNT.matchAll(/signOut\s*\(/g)].length, 1, 'one signOut, on Use a different account');
+  assert.match(ACCOUNT, /\$\('switch-account'\)\.addEventListener\('click', async \(ev\) => \{[\s\S]{0,200}await clerk\.signOut\(\(\) => show\('start'\)\);/);
   assert.equal([...ACCOUNT.matchAll(/\.delete\(\)/g)].length, 1, 'one user.delete() call');
   assert.match(ACCOUNT, /await clerk\.user\.delete\(\);\s*\n\s*next = afterDelete\(null, reverified\);/);
   assert.match(ACCOUNT, /next = afterDelete\(codeOf\(e\) \|\| 'unknown', reverified\);/);
