@@ -99,7 +99,11 @@ pub async fn ensure_recall_engine(
     entitlement: State<'_, Entitlement>,
 ) -> Result<(), String> {
     // A locked computer must not download 2.86 GB of models.
-    let _entitled = entitlement.require().await?;
+    let entitled = entitlement.require().await?;
+    // The first call of every entitled start (app.js startEntitledWork):
+    // after an erasure in this window, a new sign-in may start a keeper
+    // again (s87, H21).
+    link.resume_after_erasure(&entitled);
     let unavailable = |code: String| {
         tracing::warn!(code, "recall engine acquisition could not be followed");
         ERR_ACQUISITION_FAILED.to_string()
@@ -131,7 +135,8 @@ pub async fn recall_engine_state(
     link: State<'_, KeeperLink>,
     entitlement: State<'_, Entitlement>,
 ) -> Result<String, String> {
-    let _entitled = entitlement.require().await?;
+    let entitled = entitlement.require().await?;
+    link.resume_after_erasure(&entitled);
     let now = status(link.inner()).await?;
     Ok(now["state"].as_str().unwrap_or("preparing").to_string())
 }
@@ -143,7 +148,8 @@ pub async fn warm_recall_engine(
     link: State<'_, KeeperLink>,
     entitlement: State<'_, Entitlement>,
 ) -> Result<bool, String> {
-    let _entitled = entitlement.require().await?;
+    let entitled = entitlement.require().await?;
+    link.resume_after_erasure(&entitled);
     let text = link
         .call("admin_engine_warm", json!({}), Kind::Read)
         .await?;
@@ -211,5 +217,33 @@ mod tests {
             .split_once("#[cfg(test)]")
             .map_or(source.as_str(), |(c, _)| c);
         assert!(!code.contains("ensure_reranker"));
+    }
+
+    /// s87 H21: each entitled start's first calls lift an erasure's poison,
+    /// after the proof and before they reach for a keeper (app.js runs the
+    /// fetch and the state poll side by side, so all three do).
+    #[test]
+    fn the_engine_calls_resume_the_link_after_the_proof_and_before_the_keeper() {
+        let source = include_str!("engine.rs").replace("\r\n", "\n");
+        for command in [
+            "pub async fn ensure_recall_engine(",
+            "pub async fn recall_engine_state(",
+            "pub async fn warm_recall_engine(",
+        ] {
+            let body = source
+                .split_once(command)
+                .and_then(|(_, rest)| rest.split_once("\n}\n"))
+                .map(|(body, _)| body)
+                .expect(command);
+            let proof = body.find("entitlement.require().await?").expect(command);
+            let resume = body
+                .find("link.resume_after_erasure(&entitled);")
+                .expect(command);
+            let keeper = body
+                .find("link.call(")
+                .or_else(|| body.find("status(link.inner())"))
+                .expect(command);
+            assert!(proof < resume && resume < keeper, "{command}");
+        }
     }
 }

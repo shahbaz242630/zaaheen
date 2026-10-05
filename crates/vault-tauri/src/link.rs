@@ -31,6 +31,8 @@ use vault_app::keeper::relay::{
 use vault_app::keeper::start_failure;
 use vault_app::location::Homes;
 
+use crate::guard::Entitled;
+
 /// The vault is being tidied ("Run now", or the nightly run): try soon.
 pub const ERR_MAINTENANCE: &str = "vault_maintenance_in_progress";
 /// This window is older than the keeper: close and reopen.
@@ -96,6 +98,11 @@ pub struct KeeperLink {
     /// The search in flight, cancelled when a newer one starts so abandoned
     /// searches never queue ahead of the AI apps' questions (review B-S2).
     search: Mutex<Option<CancellationToken>>,
+    /// An erasure finished in this window: the poison it left is lifted by
+    /// the next entitled call (s87, H21), never by anything else.
+    erased: AtomicBool,
+    /// A newer keeper was met: that poison is never lifted in this window.
+    update_needed: AtomicBool,
 }
 
 impl KeeperLink {
@@ -122,6 +129,8 @@ impl KeeperLink {
             connected: AtomicBool::new(false),
             tidying: AtomicBool::new(false),
             search: Mutex::new(None),
+            erased: AtomicBool::new(false),
+            update_needed: AtomicBool::new(false),
         }
     }
 
@@ -238,6 +247,7 @@ impl KeeperLink {
             ResolveError::Busy => ERR_MAINTENANCE,
             ResolveError::UpdateNeeded => {
                 // A newer keeper: this window must never start or evict one.
+                self.update_needed.store(true, Ordering::SeqCst);
                 self.pool.poison().await;
                 ERR_UPDATE_NEEDED
             }
@@ -272,7 +282,41 @@ impl KeeperLink {
 
     /// Undo [`Self::poison`]: the erasure or the move did not happen.
     pub fn clear_poison(&self) {
+        // A newer keeper's poison is never lifted in this window (s87 review).
+        if self.update_needed.load(Ordering::SeqCst) {
+            return;
+        }
         self.pool.clear_poison();
+    }
+
+    /// The erasure finished. Its poison stays on: nothing may start a keeper
+    /// (and so make a key) while this computer is still the one that was
+    /// just emptied. See [`Self::resume_after_erasure`].
+    pub fn mark_erased(&self) {
+        self.erased.store(true, Ordering::SeqCst);
+    }
+
+    /// A new start after an erasure in this same window (s87, H21: setting
+    /// up again after Delete my account without reopening the app left the
+    /// keeper unstartable until a restart). The erasure signed this computer
+    /// out, so the [`Entitled`] proof exists only once somebody has signed
+    /// in again: that is when the erasure's poison may go. A newer keeper's
+    /// poison is never lifted. Returns whether the link may start a keeper
+    /// again.
+    pub fn resume_after_erasure(&self, _entitled: &Entitled) -> bool {
+        self.lift_erasure_poison()
+    }
+
+    fn lift_erasure_poison(&self) -> bool {
+        if self.update_needed.load(Ordering::SeqCst) {
+            return false;
+        }
+        if !self.erased.swap(false, Ordering::SeqCst) {
+            return false;
+        }
+        self.pool.clear_poison();
+        tracing::info!("the link may start a keeper again: a new start after the erasure");
+        true
     }
 
     /// Where the link is, for the home screen (`link_state`). Reads files
@@ -463,6 +507,86 @@ mod tests {
         assert!(
             !main.contains("block_on(tokio::time::"),
             "a timer built outside block_on panics outside the runtime"
+        );
+    }
+
+    struct NeverStarts;
+    impl KeeperStarter for NeverStarts {
+        fn request_start(&self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn link_in(tmp: &tempfile::TempDir) -> KeeperLink {
+        let homes = Homes {
+            local: tmp.path().join("local"),
+            roaming: tmp.path().join("roaming"),
+        };
+        let pool = KeeperPool::new(
+            RelaySettings::desktop(homes.clone()),
+            Arc::new(NeverStarts),
+            Arc::new(KeychainKeySource),
+        );
+        KeeperLink::with_pool(pool, homes)
+    }
+
+    // s87 H21: after Delete my account, setting up again in the same window
+    // found the link still poisoned, so no keeper could start until the app
+    // was reopened. The poison now lifts once the erasure has finished and
+    // somebody is entitled again, and only then.
+    #[tokio::test]
+    async fn the_erasure_poison_lifts_only_after_the_erasure_finished_and_only_once() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let link = link_in(&tmp);
+        link.poison().await;
+        assert!(
+            !link.lift_erasure_poison(),
+            "mid-erasure: nothing to lift yet"
+        );
+        assert!(link.pool.is_poisoned());
+
+        link.mark_erased();
+        assert!(link.lift_erasure_poison());
+        assert!(!link.pool.is_poisoned(), "a new start may start a keeper");
+        assert!(
+            !link.lift_erasure_poison(),
+            "lifted once, not on every call"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_newer_keepers_poison_is_never_lifted_by_a_new_start() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let link = link_in(&tmp);
+        let code = link.code_for(ResolveError::UpdateNeeded).await;
+        assert_eq!(code, ERR_UPDATE_NEEDED);
+        link.mark_erased();
+        assert!(!link.lift_erasure_poison());
+        // Nor by a failed erasure or move putting things back.
+        link.clear_poison();
+        assert!(
+            link.pool.is_poisoned(),
+            "an older window never starts a keeper"
+        );
+    }
+
+    #[test]
+    fn only_the_entitled_proof_lifts_the_erasure_poison() {
+        let link = include_str!("link.rs").replace("\r\n", "\n");
+        let resume = link
+            .split_once("pub fn resume_after_erasure(")
+            .and_then(|(_, rest)| rest.split_once("fn lift_erasure_poison("))
+            .map(|(body, _)| body)
+            .expect("resume_after_erasure");
+        assert!(resume.contains("_entitled: &Entitled"));
+        let shipped = link
+            .split_once("#[cfg(test)]\nmod tests")
+            .map(|(code, _)| code)
+            .expect("tests module");
+        assert_eq!(
+            shipped.matches(".lift_erasure_poison()").count(),
+            1,
+            "only resume_after_erasure, which needs the entitled proof, lifts it"
         );
     }
 
