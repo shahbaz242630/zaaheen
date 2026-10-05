@@ -32,7 +32,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RELEASE_VERSION: '0.3.3'
+  RELEASE_VERSION: '0.3.4'
 
 jobs:
   windows:
@@ -191,7 +191,7 @@ jobs:
       SANDBOX_ZAAHEEN_LEASE_PRIMARY_KEY: ${{ secrets.MAC_TEST_LEASE_PRIMARY_KEY }}
       SANDBOX_ZAAHEEN_LEASE_BACKUP_KID: ${{ secrets.MAC_TEST_LEASE_BACKUP_KID }}
       SANDBOX_ZAAHEEN_LEASE_BACKUP_KEY: ${{ secrets.MAC_TEST_LEASE_BACKUP_KEY }}
-      DMG: ${{ inputs.account == 'production' && 'Zaaheen_0.3.3_aarch64.dmg' || 'Zaaheen_0.3.3_aarch64_sandbox.dmg' }}
+      DMG: ${{ inputs.account == 'production' && 'Zaaheen_0.3.4_aarch64.dmg' || 'Zaaheen_0.3.4_aarch64_sandbox.dmg' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

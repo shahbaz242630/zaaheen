@@ -118,14 +118,22 @@ impl AccountSlot {
 
     /// Sign out after "Delete everything" (§8.26 §7), best effort: logged,
     /// never an error, because the erasure has already happened and is what
-    /// the person is told about.
-    pub(crate) async fn sign_out_after_erasure(&self) {
+    /// the person is told about. Returns whether this computer is now signed
+    /// out: only then may a later sign-in start a keeper again in this window
+    /// (s87 H21, ADR-SEC-044).
+    pub(crate) async fn sign_out_after_erasure(&self) -> bool {
         let Ok(ops) = self.ops() else {
-            return;
+            return false;
         };
         match ops.sign_out().await {
-            Ok(_) => tracing::info!("signed out after erasure"),
-            Err(e) => tracing::warn!(error = ?e, "could not sign out after erasure"),
+            Ok(_) => {
+                tracing::info!("signed out after erasure");
+                true
+            }
+            Err(e) => {
+                tracing::warn!(error = ?e, "could not sign out after erasure");
+                false
+            }
         }
     }
 
@@ -462,8 +470,9 @@ mod tests {
         assert_eq!(view.state, "cannot_confirm");
         assert!(!view.signed_in);
         assert!(slot.for_background_refresh().is_none());
-        // Best effort, and nothing to do: must simply return.
-        slot.sign_out_after_erasure().await;
+        // Best effort, and nothing to do: must simply return, and must not
+        // count as signed out (s87 H21: that would allow a resume).
+        assert!(!slot.sign_out_after_erasure().await);
         // Delete my account asks for the page first: with no account there
         // is none, so nothing is erased (ADR-112 D2, session 68).
         assert_eq!(

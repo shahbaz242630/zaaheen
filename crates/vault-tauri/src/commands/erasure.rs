@@ -180,7 +180,10 @@ pub async fn erase_everything(
     account: State<'_, AccountSlot>,
 ) -> Result<serde_json::Value, String> {
     let erased = erase_everything_inner(link.inner()).await;
-    sign_out_if_erased(erased, || account.sign_out_after_erasure()).await
+    sign_out_if_erased(erased, || {
+        sign_out_then_allow_resume(|| account.sign_out_after_erasure(), || link.mark_erased())
+    })
+    .await
 }
 
 /// "Delete my account" (ADR-112, ACCOUNT-DELETION-DESIGN D2): erase the
@@ -212,7 +215,7 @@ pub async fn delete_account_start(
     let steps = delete_account_steps(
         link.vault_recorded(),
         || erase_everything_inner(link.inner()),
-        || account.sign_out_after_erasure(),
+        || sign_out_then_allow_resume(|| account.sign_out_after_erasure(), || link.mark_erased()),
         || page.open().is_ok(),
     )
     .await?;
@@ -253,6 +256,22 @@ where
         erased: vault_recorded,
         opened,
     })
+}
+
+/// s87 H21 (ADR-SEC-044): the erasure's poison may be lifted later, by the
+/// next entitled call, only when this computer really signed out after it.
+/// A failed sign-out leaves the person entitled, so the poison then holds
+/// until the app is reopened: no keeper, and so no new key, right after
+/// "Delete everything".
+async fn sign_out_then_allow_resume<S, SFut, M>(sign_out: S, mark_erased: M)
+where
+    S: FnOnce() -> SFut,
+    SFut: std::future::Future<Output = bool>,
+    M: FnOnce(),
+{
+    if sign_out().await {
+        mark_erased();
+    }
 }
 
 /// §8.26 §7: *"Delete everything (erasure + local sign-out + revoke)"*.
@@ -341,6 +360,54 @@ mod tests {
         let erase = body.find("erase_at(vault_root)").expect("then erased");
         assert!(poison < erase);
         assert!(body.contains("if erased.is_err() {\n        link.clear_poison();"));
+        // s87 H21: the erasure itself never allows a resume; only a sign-out
+        // that succeeded does (sign_out_then_allow_resume).
+        assert!(!body.contains("mark_erased"));
+    }
+
+    /// s87 H21 (ADR-SEC-044): a resume is allowed only after a sign-out that
+    /// succeeded.
+    #[tokio::test]
+    async fn only_a_sign_out_that_succeeded_allows_a_resume() {
+        let marked = AtomicBool::new(false);
+        sign_out_then_allow_resume(|| async { false }, || marked.store(true, Ordering::SeqCst))
+            .await;
+        assert!(
+            !marked.load(Ordering::SeqCst),
+            "still signed in: the poison must hold"
+        );
+        sign_out_then_allow_resume(|| async { true }, || marked.store(true, Ordering::SeqCst))
+            .await;
+        assert!(marked.load(Ordering::SeqCst));
+    }
+
+    /// Both erasing commands sign out through it, with the link's mark.
+    #[test]
+    fn both_erasing_commands_allow_a_resume_only_through_a_sign_out() {
+        let source = include_str!("erasure.rs").replace("\r\n", "\n");
+        let code = source
+            .split_once("#[cfg(test)]\nmod tests")
+            .map(|(code, _)| code)
+            .expect("tests module");
+        for command in [
+            "pub async fn erase_everything(",
+            "pub async fn delete_account_start(",
+        ] {
+            let body = code
+                .split_once(command)
+                .and_then(|(_, rest)| rest.split_once("\n}\n"))
+                .map(|(body, _)| body)
+                .expect(command);
+            // Whitespace-free, so rustfmt's line breaks cannot matter.
+            let flat: String = body.split_whitespace().collect();
+            assert!(
+                flat.contains(
+                    "sign_out_then_allow_resume(||account.sign_out_after_erasure(),||link.mark_erased()"
+                ),
+                "{command}"
+            );
+        }
+        assert_eq!(code.matches("link.mark_erased()").count(), 2);
     }
 
     /// ACCOUNT-DELETION-DESIGN D2: erase, then sign out, then open.
