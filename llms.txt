@@ -4,8 +4,8 @@
 
 Zaaheen is a desktop app that gives AI assistants one private, persistent memory about the person using them. Memories are stored and encrypted on that person's own computer and are never uploaded. The account is only for signing in and the subscription; it never holds the memories.
 
-- Current version: 0.3.1 (beta), for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
-- Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.1_x64.msi (148 MB); Mac https://dl.zaaheen.com/Zaaheen_0.3.1_aarch64.dmg (154 MB), a disk image: drag Zaaheen into Applications and open it from there.
+- Current version: 0.3.3 (beta), for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
+- Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.3_x64.msi (148 MB); Mac https://dl.zaaheen.com/Zaaheen_0.3.3_aarch64.dmg (155 MB), a disk image: drag Zaaheen into Applications and open it from there.
 - Free trial: 30 days, no card needed.
 - Tested with: Claude, Cursor and ChatGPT. Other apps that support MCP should work the same way.
 - Delete everything: one button destroys the encryption key and the files, leaving what remains on disk unreadable.
@@ -95,6 +95,26 @@ Please follow both steps. If you skip one, your app may not use Zaaheen.
 - "Still working. This is taking longer than usual. Please keep Zaaheen open." (Mac, during Delete everything or Delete my account): macOS may be asking about Zaaheen and your keychain in a box behind the Zaaheen window: look for it and choose Allow. The delete then finishes. Nothing is deleted until your key is gone, so if you close Zaaheen instead, your memories are still there and you can try again.
 - "This site can't be reached (or another browser error) right after signing in" (Your browser, after signing in from the Zaaheen app): Go back to the Zaaheen app: it shows whether you are signed in. The page after sign-in only confirms it, so it does not matter if that page failed to load.
 
+## Release notes
+
+- Latest: 0.3.3, 2026-10-05. Cancel your subscription from the app, tidy-up switched on from the start, and fixes to closing Zaaheen and to setting up again after deleting an account. (0.3.2 was a test version and was never offered for download.)
+- New in 0.3.3: Cancel subscription in Settings, then Account, for paid plans. It also names the other ways to cancel: the Account page on zaaheen.com, and the cancel link in any email about your subscription.
+- New in 0.3.3: Setup now has "Keep my vault tidy automatically" switched on, so Zaaheen tidies your memories every day at 3 am. "Not now" is still one click away.
+- New in 0.3.3: After paying, Zaaheen checks again as soon as you come back to its window, and "Not now" ends the wait if you closed the checkout without paying.
+- New in 0.3.3: A subscription you start or cancel on the website, or an account you delete there, shows in the app when you open Settings or come back to its window.
+- New in 0.3.3: Settings shows the version plainly, for example "Zaaheen 0.3.3".
+- Fixed in 0.3.3: Close Zaaheen did nothing on the lock screen, after Delete everything, and after Delete my account. It now closes the app.
+- Fixed in 0.3.3: After Delete my account, signing in again skipped setup, so the nightly tidy-up was not set up again. Zaaheen now starts like a new install.
+- Fixed in 0.3.3: The last screen of Delete my account now says plainly that all the memories on this computer are deleted, and Done takes you back to the welcome screen.
+- Every release, newest first: https://zaaheen.com/docs/release-notes/.
+
+## Cancelling
+
+- In the app: Settings, then Account, then "Cancel subscription".
+- On the website: https://account.zaaheen.com/account/ ("Account" at the top of zaaheen.com), then "Cancel subscription".
+- From any device: the cancel link in any email from Paddle, the reseller.
+- Cancelling stops the next renewal; access continues until the end of the time paid for.
+
 ## Company
 
 - Zaaheen is the trading name of Zaaheen Artificial Intelligence Developing Services (Dubai trade licence 1651252).
@@ -126,5 +146,6 @@ Please follow both steps. If you skip one, your app may not use Zaaheen.
 - [Connect Antigravity to Zaaheen · Zaaheen](https://zaaheen.com/docs/connect-antigravity/): Give Google's Antigravity a memory your other AI apps share: paste Zaaheen's setting into mcp_config.json, restart, and check it shows connected.
 - [Connect other AI apps to Zaaheen with MCP · Zaaheen](https://zaaheen.com/docs/connect-other-apps/): Zaaheen works with any AI app that supports MCP. Which apps have their own guide, the setting to give any other app, and how to check it connected.
 - [Zaaheen troubleshooting: fix common problems · Zaaheen](https://zaaheen.com/docs/troubleshooting/): What to do when an AI app doesn't use your Zaaheen memory, isn't listed as connected, or ChatGPT can't see it, and how to send us a record.
+- [Zaaheen release notes: what changed in each version · Zaaheen](https://zaaheen.com/docs/release-notes/): What is new and what was fixed in each version of the Zaaheen memory app for Windows and Mac, newest first, and how to update to the latest version.
 - [Contact us · Zaaheen](https://zaaheen.com/docs/contact/): Where to find answers about the Zaaheen memory app, how to email us, and what to include so we can help the first time.
 - [Pricing: $5 a month after 30 days free · Zaaheen](https://zaaheen.com/pricing/): Zaaheen pricing: 30 days free with no card, then $5 a month or $48 a year. How Zaaheen compares with other AI memory tools and ChatGPT and Claude memory.
