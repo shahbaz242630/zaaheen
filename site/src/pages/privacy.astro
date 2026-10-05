@@ -1,7 +1,7 @@
 ---
 import Policy, { type Outline } from '../layouts/Policy.astro';
 import Row from '../components/Row.astro';
-import { COMPANY, SITE } from '../data/site';
+import { ACCOUNT, COMPANY, SITE } from '../data/site';
 
 // The Privacy Policy (founder, session 67). Every statement here was checked
 // against the code in session 67: the app's network calls (vault-app,
@@ -293,7 +293,7 @@ const topic = (id: string) =>
             more than two years after the conversation ends.</li>
       </ul>
       <p><em>Delete everything</em> in the app deletes your memories and leaves your account in
-         place. The <em>Delete my account</em> page on our website deletes your account and leaves
+         place. The <a href={ACCOUNT.deleteAccount}><em>Delete my account</em> page</a> on our website deletes your account and leaves
          your memories in place. <em>Delete my account</em> in the app does both: it deletes the
          memories on that computer, then opens the page where you confirm deleting your
          account.</p>

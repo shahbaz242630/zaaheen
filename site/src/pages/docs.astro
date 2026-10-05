@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import DocsNav from '../components/DocsNav.astro';
-import { COMPANY, PLANS, RELEASE, TRIAL, pageFor } from '../data/site';
+import { ACCOUNT, COMPANY, PLANS, RELEASE, TRIAL, pageFor } from '../data/site';
 import { lastModified } from '../lib/lastmod';
 
 // How-to for the memory app. Every step quotes the app's own screens and
@@ -224,11 +224,11 @@ const topic = (id: string) =>
                  into one, resolves facts that contradict each other in favour of the newer one, and
                  archives older memories you never use out of everyday recall. It never deletes them,
                  and all of it happens on your computer.</p>
-              <p>It is off unless you turn it on: switch on <em>Keep my vault tidy automatically</em>
-                 and choose every day or once a week, and a time. If your computer was asleep or off
-                 at that time, it catches up later. To tidy straight away, choose <em>Run
-                 consolidation now</em>. The first time you turn it on, Zaaheen makes a one-time
-                 download of about 2.5 GB.</p>
+              <p>Setup turns it on, every day at 3 am, unless you choose <em>Not now</em>. You can
+                 change or turn it off under <em>Consolidation</em>. If your computer was asleep or
+                 off at that time, it catches up later. To tidy straight away, choose <em>Run
+                 consolidation now</em>. Zaaheen downloads what it needs, about 2.5 GB, once, during
+                 setup.</p>
             </div>
           </div>
 
@@ -255,7 +255,7 @@ const topic = (id: string) =>
                  memory files, so it cannot be undone, and no encrypted copy can be unlocked again.
                  Files you saved with <em>Download my memories</em> are readable copies that are not
                  affected, so delete them yourself. Deleting your memories does not cancel your
-                 subscription; cancel that separately with <em>Manage subscription</em>.</p>
+                 subscription; cancel that separately with <em>Cancel subscription</em>.</p>
             </div>
           </div>
         </section>
@@ -272,7 +272,10 @@ const topic = (id: string) =>
               <p>The first {TRIAL.days} days are free, with no card. After that it is {PLANS.monthly}
                  or {PLANS.yearly}. To subscribe, choose <em>Subscribe</em> in the app: payment opens
                  in your browser, and Zaaheen unlocks by itself once it goes through. To change your
-                 plan, update your card or cancel, choose <em>Manage subscription</em>.</p>
+                 plan or update your card, choose <em>Manage subscription</em>. To stop it, choose
+                 <em>Cancel subscription</em>. Both are also on your <em>Account</em> page at
+                 zaaheen.com. Or use the cancel link in any email from Paddle, our reseller, which
+                 works from any device.</p>
               <p>If a trial or subscription ends, nothing is deleted. Everything stays on your
                  computer, and you can still download it.</p>
             </div>
@@ -287,7 +290,7 @@ const topic = (id: string) =>
               <p>Choose <em>Delete my account</em> in the app. It offers to download your memories,
                  deletes the memories on this computer, then opens a page where you confirm deleting
                  your Zaaheen account. To delete only your account and keep your memories, use the
-                 <em>Delete my account</em> page on our website instead.</p>
+                 <a href={ACCOUNT.deleteAccount}><em>Delete my account</em> page</a> on our website instead.</p>
               <p>Deleting your account cancels any subscription straight away, with no refund of the
                  time left. If you paid in the last 14 days, ask for your refund first under our
                  <a href="/refunds/">Refund Policy</a>.</p>

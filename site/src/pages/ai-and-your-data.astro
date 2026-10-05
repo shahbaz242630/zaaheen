@@ -8,7 +8,8 @@ import { COMPANY, SITE } from '../data/site';
 // search model ships in the installer, the ranking and tidying models are
 // downloaded (vault-app model_fetch.rs, vault-llm phi4_mini.rs), the read path
 // has no language model (the architectural lock: the vault returns facts, the
-// agent composes), and tidying is off until switched on. White label: no model
+// agent composes), and setup turns tidying on unless the person chooses Not
+// now (founder s85, app 0.3.2). White label: no model
 // or vendor names here, only what each one does.
 const OUTLINE: Outline[] = [
   { id: 'models', title: 'The AI inside Zaaheen', topics: [
@@ -36,7 +37,8 @@ const lede = `${SITE.name} uses AI to keep your memories easy to find. All of it
         service by Zaaheen.</li>
     <li>It finds the right memories for your AI apps. It doesn't chat with you or write
         answers.</li>
-    <li>Tidying up is off until you turn it on, and it never deletes a memory.</li>
+    <li>Setup turns tidying on at 3 am unless you choose Not now, and you can turn it off at any
+        time. It never deletes a memory.</li>
     <li>Your memories are never used to train AI, by us or for anyone else.</li>
   </ul>
 
@@ -51,7 +53,7 @@ const lede = `${SITE.name} uses AI to keep your memories easy to find. All of it
         <li><strong>Ranking results</strong>, so the most relevant memories come first. The app
             downloads it the first time it starts.</li>
         <li><strong>Tidying up</strong>, which merges duplicates and settles contradictions. The
-            app downloads it only when you turn tidying on, about 2.5 GB, once.</li>
+            app downloads it once, about 2.5 GB, while you set up.</li>
       </ul>
     </Row>
 
@@ -82,9 +84,9 @@ const lede = `${SITE.name} uses AI to keep your memories easy to find. All of it
     </Row>
 
     <Row id="control" title={topic('control')} where="Settings">
-      <p>Tidying is off unless you switch on <em>Keep my vault tidy automatically</em>. You choose
-         every day or once a week and the time, or run it yourself whenever you like. You can
-         turn it off again at any time.</p>
+      <p>Setup turns on <em>Keep my vault tidy automatically</em>, every day at 3 am, unless you
+         choose <em>Not now</em>. You can change it to once a week, pick another time, run it
+         yourself whenever you like, or turn it off, at any time.</p>
     </Row>
   </section>
 
