@@ -3457,10 +3457,11 @@ fn cancel_subscription_is_its_own_row_for_subscribers_only() {
     for el in [
         "<div id=\"account-cancel\" class=\"set-row hidden\">",
         "<div class=\"set-name\">Cancel subscription</div>",
-        // s86 (founder): every cancel route named, no "email us".
+        // s86 (founder): every cancel route named, no "email us"; no vendor
+        // name in the app (ADR-086), so "any email about your subscription".
         "<p class=\"set-desc\">Stop your subscription. Zaaheen keeps working until the end of the \
          time you've paid for. You can also cancel on your website Account page, or with the \
-         cancel link in any email from Paddle, our reseller.</p>",
+         cancel link in any email about your subscription.</p>",
         "<button id=\"account-cancel-btn\" class=\"btn-quiet\">Cancel subscription</button>",
         "<p class=\"set-desc\">Change your plan or update your card. It opens in your browser.</p>",
     ] {
