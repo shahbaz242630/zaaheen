@@ -426,6 +426,16 @@ export const PAGES: PageEntry[] = [
       "What to do when an AI app doesn't use your Zaaheen memory, isn't listed as connected, or ChatGPT can't see it, and how to send us a record.",
     sources: ['src/pages/docs/troubleshooting.astro', 'src/layouts/Guide.astro'],
   },
+  // What changed in each release (founder, session 87), from data/releases.ts.
+  {
+    path: '/docs/release-notes/',
+    crumb: 'Release notes',
+    heading: "What's new in Zaaheen: release notes",
+    title: 'Zaaheen release notes: what changed in each version · Zaaheen',
+    description:
+      'What is new and what was fixed in each version of the Zaaheen memory app for Windows and Mac, newest first, and how to update to the latest version.',
+    sources: ['src/pages/docs/release-notes.astro', 'src/layouts/Guide.astro', 'src/data/releases.ts'],
+  },
   {
     path: '/docs/contact/',
     crumb: 'Contact us',
@@ -482,6 +492,7 @@ export const GUIDES = [
   { path: '/docs/connect-antigravity/', label: 'Connect Antigravity' },
   { path: '/docs/connect-other-apps/', label: 'Connect other AI apps' },
   { path: '/docs/troubleshooting/', label: 'Troubleshooting' },
+  { path: '/docs/release-notes/', label: 'Release notes' },
   { path: '/docs/contact/', label: 'Contact us' },
 ] as const;
 

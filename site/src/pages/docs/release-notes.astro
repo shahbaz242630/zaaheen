@@ -1,0 +1,41 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import Row from '../../components/Row.astro';
+import { RELEASE } from '../../data/site';
+import { RELEASE_NOTES } from '../../data/releases';
+
+// What changed in each release, newest first (founder, session 87). The
+// download buttons and these notes must name the same latest version.
+if (RELEASE_NOTES[0]?.version !== RELEASE.version) {
+  throw new Error(`release notes start at ${RELEASE_NOTES[0]?.version}, the download offers ${RELEASE.version}`);
+}
+const id = (version: string) => `v${version.replace(/\./g, '-')}`;
+const day = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const OUTLINE = RELEASE_NOTES.map((r) => ({ id: id(r.version), title: `Zaaheen ${r.version}` }));
+---
+<Guide
+  path="/docs/release-notes/"
+  lede={`The latest version is Zaaheen ${RELEASE.version}. Each release below lists what is new and what was fixed, newest first. To update, download the latest version from zaaheen.com and install it over the one you have: your account and memories stay.`}
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    {RELEASE_NOTES.map((r) => (
+      <Row level={2} id={id(r.version)} title={`Zaaheen ${r.version}`} where={day(r.date)}>
+        <p>{r.summary}</p>
+        {r.added.length > 0 && (
+          <>
+            <p><strong>New</strong></p>
+            <ul>{r.added.map((line) => <li>{line}</li>)}</ul>
+          </>
+        )}
+        {r.fixed.length > 0 && (
+          <>
+            <p><strong>Fixed</strong></p>
+            <ul>{r.fixed.map((line) => <li>{line}</li>)}</ul>
+          </>
+        )}
+      </Row>
+    ))}
+  </section>
+</Guide>

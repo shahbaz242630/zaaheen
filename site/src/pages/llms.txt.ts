@@ -2,6 +2,9 @@ import type { APIRoute } from 'astro';
 import { SITE, ACCOUNT, RELEASE, TRIAL, COMPANY, COACHING, PAGES, INSTALL_PATH, MAC_INSTALL_PATH, absolute, verifiedAppList } from '../data/site';
 import { appWords, openerText, stepTitles } from '../data/app-words';
 import { FIXES } from '../data/fixes';
+import { RELEASE_NOTES } from '../data/releases';
+
+const latest = RELEASE_NOTES[0];
 
 // Each app's steps in the desktop app's own words (data/app-words.ts reads
 // crates/vault-tauri/dist/app.js), so an assistant reading this file gives
@@ -91,6 +94,14 @@ export const GET: APIRoute = () => {
     '## Problems and fixes',
     '',
     ...FIXES.map((f) => `- "${f.error}" (${f.where}): ${f.fix}`),
+    '',
+    // The latest release in full, the rest on the page (data/releases.ts).
+    '## Release notes',
+    '',
+    `- Latest: ${latest.version}, ${latest.date}. ${latest.summary}`,
+    ...latest.added.map((line) => `- New in ${latest.version}: ${line}`),
+    ...latest.fixed.map((line) => `- Fixed in ${latest.version}: ${line}`),
+    `- Every release, newest first: ${absolute('/docs/release-notes/')}.`,
     '',
     // How to cancel (founder s85: automatic routes only, no "email us").
     '## Cancelling',
