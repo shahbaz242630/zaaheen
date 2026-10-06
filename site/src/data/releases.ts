@@ -17,6 +17,15 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '0.3.4',
+    date: '2026-10-06',
+    summary: 'A fix to setting up again after deleting an account.',
+    added: [],
+    fixed: [
+      'After Delete my account, setting up again without closing Zaaheen left your AI apps unable to reach it until the app was reopened. They now connect straight away.',
+    ],
+  },
+  {
     version: '0.3.3',
     date: '2026-10-05',
     summary:
