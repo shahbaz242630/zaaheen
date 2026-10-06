@@ -1,0 +1,114 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+
+// Learn article 3 (s91). Facts read on 2026-10-06:
+// - Anthropic, "How Claude remembers your project" (code.claude.com/docs/en/memory):
+//   CLAUDE.md + auto memory per repository, machine-local; Claude Code reads
+//   AGENTS.md as project instructions when there is no CLAUDE.md in the working
+//   directory or above it (v2.1.277 or later).
+// - Cursor, "Rules" (cursor.com/docs/rules): Project Rules in .cursor/rules
+//   (.mdc), User Rules in Customize, Rules (all projects), Team Rules, AGENTS.md.
+// - OpenAI, Codex memories (learn.chatgpt.com/docs/customization/memories):
+//   off by default for local Codex clients; ~/.codex/memories/; separate from
+//   ChatGPT web memory; no sync across machines or tools; keep required guidance
+//   in AGENTS.md.
+// The chart is the 2026-06-05 cross-agent test (notes HANDOFF_V0.2_PART2_ARCHIVE
+// "Cross-agent result"; memory project_cross_agent_proven_on_cursor): Cursor, 5
+// questions on a ~15-fact shared memory, development build: 3 recalled
+// (instrument, pets, collection), 1 correct "don't know" (blood type), 1 trick
+// resisted (a cat, when the memory held a dog).
+const OUTLINE = [
+  { id: 'each', title: 'What each one keeps' },
+  { id: 'rules', title: 'Project rules: one AGENTS.md' },
+  { id: 'you', title: 'What they know about you' },
+  { id: 'test', title: 'Our test' },
+];
+const CLAUDE_DOCS = 'https://code.claude.com/docs/en/memory';
+const CURSOR_DOCS = 'https://cursor.com/docs/rules';
+const CODEX_DOCS = 'https://learn.chatgpt.com/docs/customization/memories?surface=app';
+---
+<Learn
+  path="/learn/one-memory-across-claude-code-cursor-and-codex/"
+  lede="Claude Code, Cursor and Codex each keep their own memory, and none of them reads the others'. Put project rules in one AGENTS.md file, which all three can read, and keep what's true about you in one shared memory that all three connect to."
+  outline={OUTLINE}
+>
+  <section id="each">
+    <h2>What each one keeps</h2>
+    <p>From each company's own documentation:</p>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col">App</th><th scope="col">Its own memory</th><th scope="col">Shared with the others?</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Claude Code</th><td>CLAUDE.md files you write, plus auto memory it writes, in a folder for each project on your computer (<a href={CLAUDE_DOCS}>Anthropic</a>)</td><td>No</td></tr>
+        <tr><th scope="row">Cursor</th><td>Project rules in <code>.cursor/rules</code>, user rules for all your projects, and AGENTS.md (<a href={CURSOR_DOCS}>Cursor</a>)</td><td>No</td></tr>
+        <tr><th scope="row">Codex</th><td>AGENTS.md, plus memories it can write to <code>~/.codex/memories/</code>, off until you turn them on (<a href={CODEX_DOCS}>OpenAI</a>)</td><td>No, not even with ChatGPT</td></tr>
+      </tbody>
+    </table>
+    <p>So a preference you teach Claude Code on Monday is new to Cursor on Tuesday and to Codex
+       on Wednesday. Developers who switch between them end up repeating the same things three
+       times, or keeping three files in step by hand.</p>
+  </section>
+
+  <section id="rules">
+    <h2>Project rules: one AGENTS.md for all three</h2>
+    <p>For rules about the project itself, such as how to build it, how to run the tests and the
+       conventions to follow, there is now a simple answer: AGENTS.md. Cursor reads it as one of
+       its kinds of rules. OpenAI suggests keeping the guidance Codex must always follow in it.
+       And Claude Code reads it as the project's instructions when the project has no CLAUDE.md
+       (from version 2.1.277).</p>
+    <p>One file in the repository, checked in with the code, and all three tools start from the
+       same rules. If you already have a CLAUDE.md, Anthropic's documentation shows how to point
+       it at AGENTS.md so the two never disagree.</p>
+  </section>
+
+  <section id="you">
+    <h2>What they know about you: one shared memory</h2>
+    <p>AGENTS.md is the wrong place for facts about you. They aren't part of the project, they
+       change, and they belong in every project, not one. That is where a shared memory comes in:
+       a memory outside all three tools that each connects to through MCP, the standard way AI
+       apps plug into tools and data.</p>
+
+    <MemoryFlow
+      id="flow-codex-cursor"
+      from="Codex"
+      to="Cursor"
+      fact="Prefers pnpm over npm"
+      others={['Claude Code']}
+      caption="A preference you tell Codex is saved once, on your computer. Cursor and Claude Code recall it in their next session, in any project."
+    />
+
+    <p>Zaaheen is one such memory, for Windows and Mac, kept encrypted on your own computer. Each
+       tool is connected once: Claude Code with one command, Cursor with an install link, and
+       Codex with a few lines in its settings file (<a href="/docs/connect-claude-code/">Claude
+       Code</a>, <a href="/docs/connect-cursor/">Cursor</a>, <a href="/docs/connect-codex/">Codex</a>).
+       After that, what any of them saves about you, the others can recall.</p>
+  </section>
+
+  <section id="test">
+    <h2>Our test</h2>
+    <p>We tried this with Cursor reading a shared memory that held about 15 facts about a person,
+       saved earlier by another app. The questions were the kind you would really ask, and two were
+       designed to catch it out: one about something the memory didn't hold, and one trick
+       question.</p>
+
+    <BarChart
+      id="chart-cursor-recall"
+      title="5 questions to Cursor about facts saved by another app"
+      measure="Questions"
+      max={5}
+      bars={[
+        { label: 'Recalled the fact', value: 3, note: 'of 5' },
+        { label: "Said it didn't know", value: 1, note: 'of 5' },
+        { label: 'Avoided the trick', value: 1, note: 'of 5' },
+      ]}
+      source={{ text: "Zaaheen's own test, 5 June 2026, a development version of Zaaheen on Windows. Recalled: the instrument the person plays, their pet and what they collect. Didn't know, correctly: their blood type, which the memory didn't hold. The trick: asked about their cat, it said they have a dog." }}
+    />
+
+    <p>All five answers were right, including the two where the right answer was "no". For a
+       memory, that second part matters as much as the first: an app that invents an answer is
+       worse than one that says it doesn't know.</p>
+  </section>
+</Learn>
