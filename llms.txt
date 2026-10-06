@@ -4,8 +4,8 @@
 
 Zaaheen is a desktop app that gives AI assistants one private, persistent memory about the person using them. Memories are stored and encrypted on that person's own computer and are never uploaded. The account is only for signing in and the subscription; it never holds the memories.
 
-- Current version: 0.3.4 (beta), for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
-- Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.4_x64.msi (148 MB, SHA-256 7d9bfedd9637babe42f5a1395365adefa05db255aa7c52eddec1745824197b90); Mac https://dl.zaaheen.com/Zaaheen_0.3.4_aarch64.dmg (154 MB, SHA-256 b020e4472526fc09336295094af3390c2522a9893cee38cbdcdc61baedd7ddd1), a disk image: drag Zaaheen into Applications and open it from there.
+- Current version: 0.3.5 (beta), for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
+- Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.5_x64.msi (148 MB, SHA-256 c58c6f0e0ad17ccb1e41855a1e36cfc73b81f9a72e2b3ecd9c106600904d91c0); Mac https://dl.zaaheen.com/Zaaheen_0.3.5_aarch64.dmg (154 MB, SHA-256 615e00a5d5ba9bdef26a64ff321847550ac46b4c3683a2ecdf585c8550d8b41a), a disk image: drag Zaaheen into Applications and open it from there.
 - Free trial: 30 days, no card needed.
 - Price after the trial: $5 a month or $48 a year (US dollars, plus VAT or sales tax where it applies). Both plans include everything. Sold through our reseller Paddle.com.
 - Cancel any time in the app: Settings, then Account, then "Cancel subscription". A payment is refunded in full if asked within 14 days of it, once per person.
@@ -109,8 +109,11 @@ Please follow both steps. If you skip one, your app may not use Zaaheen.
 
 ## Release notes
 
-- Latest: 0.3.4, 2026-10-06. A fix to setting up again after deleting an account.
-- Fixed in 0.3.4: After Delete my account, setting up again without closing Zaaheen left your AI apps unable to reach it until the app was reopened. They now connect straight away.
+- Latest: 0.3.5, 2026-10-06. Security fixes from our own audit.
+- Fixed in 0.3.5: An AI app could change a memory that was kept away from it. It can now change only the memories it's allowed to see.
+- Fixed in 0.3.5: Zaaheen's log file could record words from your memories or your searches. It no longer does.
+- Fixed in 0.3.5: The name an AI app gives itself when it saves a memory is now cleaned and shortened, and shown as not verified.
+- Fixed in 0.3.5: Zaaheen now checks your plan with our server each time it starts and once a day, instead of relying on the record kept on your computer.
 - Every release, newest first: https://zaaheen.com/docs/release-notes/.
 
 ## Cancelling
