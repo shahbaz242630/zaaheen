@@ -159,6 +159,39 @@ export const FAQ: readonly Faq[] = [
     a: `No. MCP is the standard way AI apps connect to tools, and the Zaaheen app connects ${verifiedAppList()} for you. For other AI apps that support MCP, the Documents page shows how.`,
     link: { href: '/docs/#connecting', text: 'How to connect your AI apps' },
   },
+  // Session 90: the questions people search for most, in their own words
+  // (keyword research, SEO-HANDOFF §0). Founder-approved ("perfect"). Each
+  // states only what the app does today and links the guide that shows it.
+  {
+    q: 'Does Claude Code remember things between sessions?',
+    a: 'Claude Code keeps notes for each project in files such as CLAUDE.md. Connect it to Zaaheen once, with one command, and it can also save what it learns about you and how you work, then recall it in any later session and in every project. Your other connected AI apps share the same memories.',
+    link: { href: '/docs/connect-claude-code/', text: 'Connect Claude Code' },
+  },
+  {
+    q: 'Does Cursor remember me between chats?',
+    a: 'Yes, once Cursor is connected to Zaaheen. It can save what it learns about you as you work and look it up in any later chat or project. Cursor checks Zaaheen by itself when you ask about yourself.',
+    link: { href: '/docs/connect-cursor/', text: 'Connect Cursor' },
+  },
+  {
+    q: 'Can I use one memory across Claude Code, Cursor and Codex?',
+    a: 'Yes. Connect each of them to Zaaheen once, and they all read from and save to the same memory on your computer. A preference you tell Claude Code is there when you open Cursor or Codex.',
+    link: { href: '/docs/#connecting', text: 'How to connect your AI apps' },
+  },
+  {
+    q: 'How do I switch between ChatGPT and Claude without losing context?',
+    a: "Connect both to Zaaheen. What you tell either app goes into one memory on your computer, so the other can recall it after you switch. Each app's own built-in memory can't be imported in one click yet, so ask the app you've been using to save what matters to Zaaheen.",
+    link: { href: '/docs/#connecting', text: 'How to connect your AI apps' },
+  },
+  {
+    q: 'What is an MCP memory server?',
+    a: 'MCP is the standard way AI apps connect to tools. A memory server is a tool that gives AI apps somewhere to save facts about you and look them up later. Zaaheen is one: it runs on your own computer and lets connected apps read, search, save, correct and forget memories.',
+    link: { href: '/docs/#connecting', text: 'How to connect your AI apps' },
+  },
+  {
+    q: 'Does ChatGPT work with Zaaheen?',
+    a: "Yes, the ChatGPT app for your computer. Add Zaaheen in ChatGPT's Settings, under Plugins, then MCP, and use it in a Work or Codex chat. ChatGPT's Chat mode, and ChatGPT in a web browser, can't connect to apps on your computer.",
+    link: { href: '/docs/connect-chatgpt/', text: 'Connect ChatGPT' },
+  },
   {
     q: 'Does Zaaheen use AI itself?',
     a: 'Yes, three small AI models that run on your own computer: one understands meaning, one ranks results, and one tidies up. Once downloaded they work offline, and your memories never pass through an online AI service. Zaaheen hands your AI apps the memories that match, as stored, and the app you are using writes the reply.',
