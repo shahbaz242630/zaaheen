@@ -553,6 +553,15 @@ export const PAGES: PageEntry[] = [
       "Claude Code, Cursor and Codex each keep their own memory. Share project rules with one AGENTS.md, and what's true about you with one shared memory.",
     sources: ['src/pages/learn/one-memory-across-claude-code-cursor-and-codex.astro', 'src/layouts/Learn.astro'],
   },
+  {
+    path: '/learn/ai-memory-tool-or-notes-file/',
+    crumb: 'A memory tool or a notes file?',
+    heading: 'Do you need an AI memory tool, or is a notes file enough?',
+    title: 'AI memory tool or a notes file? An honest answer · Zaaheen',
+    description:
+      'For one project in one coding tool, CLAUDE.md or AGENTS.md is often enough. When a notes file stops being enough, and how to use both.',
+    sources: ['src/pages/learn/ai-memory-tool-or-notes-file.astro', 'src/layouts/Learn.astro'],
+  },
 ];
 
 // The Learn articles, newest last, for the /learn/ hub and the "People also
@@ -580,7 +589,13 @@ export const LEARN: readonly LearnArticle[] = [
     path: '/learn/one-memory-across-claude-code-cursor-and-codex/',
     summary:
       'Each keeps its own memory. Share project rules through one AGENTS.md, and what they know about you through one shared memory.',
-    related: ['/learn/does-claude-code-remember-between-sessions/', '/learn/share-memory-between-chatgpt-and-claude/'],
+    related: ['/learn/ai-memory-tool-or-notes-file/', '/learn/does-claude-code-remember-between-sessions/', '/learn/share-memory-between-chatgpt-and-claude/'],
+  },
+  {
+    path: '/learn/ai-memory-tool-or-notes-file/',
+    summary:
+      "Often enough for one project in one tool. Where a file falls short, and why you'll likely want both.",
+    related: ['/learn/one-memory-across-claude-code-cursor-and-codex/', '/learn/does-claude-code-remember-between-sessions/'],
   },
 ];
 
