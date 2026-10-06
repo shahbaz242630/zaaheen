@@ -170,7 +170,8 @@ export const FAQ: readonly Faq[] = [
   {
     q: 'Does Claude Code remember things between sessions?',
     a: 'Claude Code keeps notes for each project in files such as CLAUDE.md. Connect it to Zaaheen once, with one command, and it can also save what it learns about you and how you work, then recall it in any later session and in every project. Your other connected AI apps share the same memories.',
-    link: { href: '/docs/connect-claude-code/', text: 'Connect Claude Code' },
+    // The full answer is the Learn article (s91); it links the connect guide.
+    link: { href: '/learn/does-claude-code-remember-between-sessions/', text: 'Does Claude Code remember between sessions?' },
   },
   {
     q: 'Does Cursor remember me between chats?',
@@ -533,6 +534,15 @@ export const PAGES: PageEntry[] = [
       "ChatGPT and Claude each keep their own memory and can't read each other's. Three ways to carry what they know about you from one to the other.",
     sources: ['src/pages/learn/share-memory-between-chatgpt-and-claude.astro', 'src/layouts/Learn.astro'],
   },
+  {
+    path: '/learn/does-claude-code-remember-between-sessions/',
+    crumb: 'Does Claude Code remember between sessions?',
+    heading: 'Does Claude Code remember between sessions?',
+    title: 'Does Claude Code remember between sessions? · Zaaheen',
+    description:
+      "Yes, within one project on one computer. What CLAUDE.md and Claude Code's auto memory keep, what loads each session, and what they don't carry.",
+    sources: ['src/pages/learn/does-claude-code-remember-between-sessions.astro', 'src/layouts/Learn.astro'],
+  },
 ];
 
 // The Learn articles, newest last, for the /learn/ hub and the "People also
@@ -548,7 +558,13 @@ export const LEARN: readonly LearnArticle[] = [
     path: '/learn/share-memory-between-chatgpt-and-claude/',
     summary:
       "They can't read each other's memory. Copy it across, use Claude's import, or give both apps one shared memory.",
-    related: [],
+    related: ['/learn/does-claude-code-remember-between-sessions/'],
+  },
+  {
+    path: '/learn/does-claude-code-remember-between-sessions/',
+    summary:
+      'Yes, within one project on one computer. What CLAUDE.md and auto memory keep, what loads each session, and what they leave behind.',
+    related: ['/learn/share-memory-between-chatgpt-and-claude/'],
   },
 ];
 
