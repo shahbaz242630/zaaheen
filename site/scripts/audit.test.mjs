@@ -115,6 +115,8 @@ const onSaleWith = (env, token) => (d) => {
   payConfig(env, token)(d);
 };
 
+// The first Learn article (s91), for the Learn cases.
+const LEARN_1 = 'learn/share-memory-between-chatgpt-and-claude/index.html';
 const cases = [
   ['robots.txt blocks crawlers', edit('robots.txt', (s) => s.replace('Allow: /', 'Disallow: /')), /contains a Disallow rule/],
   ['home page noindex', edit('index.html', (s) => s.replace('<title>', '<meta name="robots" content="noindex"><title>')), /robots meta contains "noindex"/],
@@ -223,6 +225,23 @@ const cases = [
   ['sitemap date not the recorded one', edit('sitemap.xml', (s) => { const out = s.replace(/<lastmod>[^<]*<\/lastmod>/, '<lastmod>2020-01-01T00:00:00Z</lastmod>'); if (out === s) throw new Error('audit.test: no lastmod'); return out; }), /sitemap\.xml: lastmod for \/ is 2020-01-01T00:00:00Z, not its recorded date/],
   ['absolute security claim', inject('<p>Zaaheen is unhackable.</p>'), /index\.html: absolute security claim "unhackable"/],
   ['absolute security claim in llms.txt', edit('llms.txt', (s) => `${s}\nYour memories are 100% secure.\n`), /llms\.txt: absolute security claim "100% secure"/],
+  // Learn articles (s91): a chart, an animation, no stock phrases, an Article,
+  // and a link from outside /learn/. Each edit throws if it changed nothing.
+  ['Learn article without an animation', edit(LEARN_1, (s) => { const out = s.replace(/<figure class="flow"[\s\S]*?<\/figure>/, ''); if (out === s) throw new Error('audit.test: no animation'); return out; }), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: a Learn article needs an animation/],
+  ['Learn article without a chart', edit(LEARN_1, (s) => { const out = s.replace(/<figure class="chart"[\s\S]*?<\/figure>/, '').replace(/<p class="placeholder">[\s\S]*?<\/p>/, ''); if (out === s) throw new Error('audit.test: no chart or chart placeholder'); return out; }), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: a Learn article needs a chart/],
+  ['stock phrase in a Learn article', edit(LEARN_1, (s) => s.replace('</main>', '<p>Let us delve into your memory.</p></main>')), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: stock phrase "delve"/],
+  ['Learn article without an Article', ldEdit(LEARN_1, (g) => { const i = g.findIndex((n) => n['@type'] === 'Article'); if (i < 0) throw new Error('audit.test: no Article'); g.splice(i, 1); }), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: a guide must carry one Article/],
+  ['Learn article linked only from /learn/', (d) => {
+    const url = '/learn/share-memory-between-chatgpt-and-claude/';
+    let removed = 0;
+    const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]));
+    for (const f of walk(d).filter((f) => f.endsWith('.html') && !path.relative(d, f).startsWith('learn'))) {
+      const s = fs.readFileSync(f, 'utf8');
+      const out = s.replaceAll(`href="${url}"`, 'href="/learn/"');
+      if (out !== s) { removed++; fs.writeFileSync(f, out); }
+    }
+    if (!removed) throw new Error('audit.test: nothing outside /learn/ links the article');
+  }, /learn\/share-memory-between-chatgpt-and-claude\/index\.html: no page outside \/learn\/ links to this article/],
 ];
 
 if (!fs.existsSync(DIST)) {

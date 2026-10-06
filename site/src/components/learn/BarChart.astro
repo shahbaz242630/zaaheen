@@ -1,0 +1,59 @@
+---
+// A horizontal bar chart for a Learn article (founder rule s91: every article
+// has a chart). Drawn as SVG in the HTML, so it needs no script and passes the
+// CSP; the bars grow in by CSS (global.css, .chart), still under
+// prefers-reduced-motion. The same numbers are in a table for screen readers,
+// crawlers and AI page readers.
+//
+// Real numbers only: from a named source, or measured by us and said so
+// (`source`). Never an estimate drawn as data (project rule: correctness of
+// output is the product).
+interface Bar {
+  label: string;
+  value: number;
+  /** Shown after the value, e.g. "of 10". */
+  note?: string;
+}
+interface Props {
+  id: string;
+  title: string;
+  /** What the numbers count, for the table header, e.g. "Facts recalled". */
+  measure: string;
+  bars: Bar[];
+  /** The scale's top; the largest value when left out. */
+  max?: number;
+  /** Where the numbers come from, in words, and a link when it is a page. */
+  source: { text: string; href?: string };
+}
+const { id, title, measure, bars, max, source } = Astro.props;
+const top = max ?? Math.max(...bars.map((b) => b.value));
+if (!(top > 0)) throw new Error(`chart ${id}: needs a positive scale`);
+const ROW = 46;
+const LABEL = 200;
+const WIDTH = 640;
+const BAR = WIDTH - LABEL - 90;
+const height = bars.length * ROW + 8;
+---
+<figure class="chart" id={id} aria-labelledby={`${id}-title`}>
+  <figcaption id={`${id}-title`} class="chart-title">{title}</figcaption>
+  <svg viewBox={`0 0 ${WIDTH} ${height}`} role="img" aria-labelledby={`${id}-title`} class="chart-svg">
+    {bars.map((b, i) => {
+      const y = i * ROW + 8;
+      const w = Math.max(2, (b.value / top) * BAR);
+      return (
+        <g class="chart-row">
+          <text x={LABEL - 14} y={y + 21} text-anchor="end" class="chart-label">{b.label}</text>
+          <rect x={LABEL} y={y + 4} width={BAR} height="26" rx="6" class="chart-track" />
+          <rect x={LABEL} y={y + 4} width={w} height="26" rx="6" class={`chart-bar chart-bar-${i}`} />
+          <text x={LABEL + w + 10} y={y + 22} class={`chart-value chart-value-${i}`}>{b.value}{b.note && ` ${b.note}`}</text>
+        </g>
+      );
+    })}
+  </svg>
+  <table class="sr-only">
+    <caption>{title}</caption>
+    <thead><tr><th scope="col">Option</th><th scope="col">{measure}</th></tr></thead>
+    <tbody>{bars.map((b) => <tr><th scope="row">{b.label}</th><td>{b.value}{b.note && ` ${b.note}`}</td></tr>)}</tbody>
+  </table>
+  <p class="chart-source">Source: {source.href ? <a href={source.href}>{source.text}</a> : source.text}</p>
+</figure>

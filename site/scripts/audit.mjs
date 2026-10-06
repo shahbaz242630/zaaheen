@@ -294,7 +294,8 @@ function checkBreadcrumbs(rel, url, html, graph) {
 // what the reader sees.
 function checkArticle(rel, url, html, graph) {
   const segments = url.split('/').filter(Boolean);
-  if (!(segments.length === 2 && segments[0] === 'docs')) return;
+  // Learn articles too (s91): the same Article, written by the company.
+  if (!(segments.length === 2 && (segments[0] === 'docs' || segments[0] === 'learn'))) return;
   const articles = graph.filter((n) => n['@type'] === 'Article');
   // A contact page is a ContactPage with no Article (session 90).
   if (graph.some((n) => n['@type'] === 'ContactPage')) {
@@ -507,6 +508,38 @@ for (const rel of files.filter((f) => /\.(html|txt|xml)$/i.test(f))) {
     const at = m.index ?? 0;
     const around = text.slice(Math.max(0, at - 30), at + 30).replace(/\s+/g, ' ');
     fail(rel, `em dash in published text; rewrite the sentence: "${around}"`);
+  }
+}
+
+// --- Learn articles (s91) ---------------------------------------------------------
+// Founder rule (s91): every article carries a chart and an animation, and reads
+// as written by a person: no em dashes (above) and none of the stock phrases
+// that give machine-written text away. Each is also linked from at least one
+// page outside /learn/, so no article is reachable only through the hub. An
+// article whose chart is still a [Placeholder] passes here; the release run
+// refuses the placeholder itself (below).
+const AI_TELLS = /\b(?:delve[sd]?|delving|tapestry|in today's (?:fast-paced|digital|ever-changing)|ever-evolving|game-?changer|unlock(?:s|ing)? the (?:power|potential)|seamless(?:ly)?|navigate the (?:complexities|world)|in the realm of|it's not just|not only .{1,40} but also|elevate your|look no further|harness(?:es|ing)? the power|robust|leverage[sd]?|embark|in conclusion|in summary)\b/gi;
+{
+  const learnPages = htmlFiles.filter((f) => /^learn\/[^/]+\/index\.html$/.test(f));
+  for (const rel of learnPages) {
+    const main = (read(rel).match(/<main\b[^>]*>([\s\S]*)<\/main>/i) || [])[1] || '';
+    const pending = main.includes('[Placeholder]');
+    if (!main.includes('<figure class="chart"') && !pending) fail(rel, 'a Learn article needs a chart (components/learn/BarChart.astro)');
+    if (!main.includes('<figure class="flow"')) fail(rel, 'a Learn article needs an animation (components/learn/MemoryFlow.astro)');
+    const text = plainText(main);
+    for (const m of text.matchAll(AI_TELLS)) {
+      const at = m.index ?? 0;
+      fail(rel, `stock phrase "${m[0]}" reads as machine-written; rewrite: "${text.slice(Math.max(0, at - 30), at + 40)}"`);
+    }
+    const url = urlFor(rel);
+    const linked = htmlFiles.some((other) => !other.startsWith('learn/') &&
+      all(read(other), /\shref="([^"#]*)/gi).some((m) => m[1] === url));
+    if (!linked) fail(rel, 'no page outside /learn/ links to this article: link it where it answers a question (the home FAQ, a guide)');
+    // Founder (s91): related articles at the bottom, under "People also read".
+    if (learnPages.length > 1) {
+      const also = (main.match(/<nav class="learn-more" aria-label="People also read">([\s\S]*?)<\/nav>/) || [])[1] || '';
+      if (!/href="\/learn\/[^"]+\/"/.test(also)) fail(rel, 'a Learn article needs a People also read list linking other articles');
+    }
   }
 }
 

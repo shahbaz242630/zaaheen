@@ -1,0 +1,62 @@
+---
+// An animated picture for a Learn article (founder rule s91: every article has
+// an animation): a memory told to one app travels into the one memory on your
+// computer and out to another app. Plain SVG moved by CSS (global.css, .flow),
+// so it needs no script and passes the CSP. With reduced motion it is a still
+// picture: the memory resting in the middle, both lines drawn.
+interface Props {
+  id: string;
+  /** The app the memory is told to (left). */
+  from: string;
+  /** The app that recalls it (right). */
+  to: string;
+  /** The memory itself, short enough for the card (about 24 characters). */
+  fact: string;
+  /** Other connected apps, drawn small under the middle (up to 3). */
+  others?: string[];
+  /** What the picture shows, in a sentence: the caption and the SVG's name. */
+  caption: string;
+}
+const { id, from, to, fact, others = [], caption } = Astro.props;
+if (fact.length > 28) throw new Error(`flow ${id}: the fact "${fact}" is too long for its card`);
+const extra = others.slice(0, 3);
+const height = extra.length ? 300 : 224;
+const chipX = (i: number) => 320 + (i - (extra.length - 1) / 2) * 150;
+---
+<figure class="flow" id={id}>
+  <svg viewBox={`0 0 640 ${height}`} role="img" aria-labelledby={`${id}-cap`} class="flow-svg">
+    <line x1="170" y1="128" x2="230" y2="128" class="flow-line" />
+    <line x1="410" y1="128" x2="470" y2="128" class="flow-line" />
+    {extra.map((_, i) => <line x1={320} y1={170} x2={chipX(i)} y2={232} class="flow-line flow-line-soft" />)}
+
+    <g class="flow-app">
+      <rect x="20" y="100" width="150" height="56" rx="12" />
+      <text x="95" y="134" text-anchor="middle">{from}</text>
+    </g>
+    <g class="flow-hub">
+      <rect x="230" y="86" width="180" height="84" rx="14" />
+      <text x="320" y="122" text-anchor="middle" class="flow-hub-name">Zaaheen</text>
+      <text x="320" y="146" text-anchor="middle" class="flow-hub-note">on your computer</text>
+    </g>
+    <g class="flow-app">
+      <rect x="470" y="100" width="150" height="56" rx="12" />
+      <text x="545" y="134" text-anchor="middle">{to}</text>
+    </g>
+    {extra.map((name, i) => (
+      <g class="flow-app flow-app-small">
+        <rect x={chipX(i) - 60} y="232" width="120" height="40" rx="10" />
+        <text x={chipX(i)} y="257" text-anchor="middle">{name}</text>
+      </g>
+    ))}
+
+    <g class="flow-saved">
+      <rect x="255" y="182" width="130" height="28" rx="8" />
+      <text x="320" y="201" text-anchor="middle">Saved once</text>
+    </g>
+    <g class="flow-card">
+      <rect x="245" y="34" width="150" height="32" rx="8" />
+      <text x="320" y="55" text-anchor="middle">{fact}</text>
+    </g>
+  </svg>
+  <figcaption id={`${id}-cap`} class="flow-caption">{caption}</figcaption>
+</figure>
