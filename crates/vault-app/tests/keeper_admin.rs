@@ -591,6 +591,7 @@ async fn the_admin_server_serves_exactly_the_tools_in_the_table() {
 /// here (ADR-SEC-033 D1).
 #[test]
 fn the_admin_tool_contract_is_pinned_to_the_wire_version() {
+    // Unchanged at wire 5 and 6 (only the AI apps' contract moved).
     // Recorded 2026-09-24 on Windows under rmcp 3.4.1 (session 60, wire 4,
     // the first admin contract).
     const PINNED_ADMIN: &str = "f4d3f7faeca531a07e2e6dfbc93c7cf6d24fa7ead4fdb5e58ae16285edd2b6cf";
@@ -617,7 +618,7 @@ fn the_admin_tool_contract_is_pinned_to_the_wire_version() {
     let actual = hasher.finalize().to_hex().to_string();
     assert_eq!(
         (vault_app::keeper::handshake::WIRE, actual.as_str()),
-        (5, PINNED_ADMIN),
+        (6, PINNED_ADMIN),
         "The admin tool contract changed: bump WIRE in \
          vault_app::keeper::handshake and set PINNED_ADMIN to {actual}."
     );

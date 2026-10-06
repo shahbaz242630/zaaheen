@@ -43,6 +43,8 @@ $TokenizerUrl = "https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/main/toke
 $OrtVersion = "1.22.0"  # MUST match ort crate version's bundled ORT (see header above).
 $OrtAsset = "onnxruntime-win-x64-${OrtVersion}.zip"
 $OrtUrl = "https://github.com/microsoft/onnxruntime/releases/download/v${OrtVersion}/${OrtAsset}"
+# SHA-256 of $OrtAsset for v1.22.0, recorded 2026-10-06 (security audit s89).
+$ExpectedOrtSha256 = "174c616efc0271194488642a72f1a514e01487da4dfe84c49296d66e40ebe0da"
 
 New-Item -ItemType Directory -Path $FixtureDir -Force | Out-Null
 Set-Location $FixtureDir
@@ -101,6 +103,15 @@ if (Test-Path "onnxruntime.dll") {
 } else {
     Write-Host "  -> downloading $OrtAsset from $OrtUrl"
     Invoke-WebRequest -Uri $OrtUrl -OutFile $OrtAsset -UseBasicParsing
+    # The runtime ships inside the installer, so the archive is checked like
+    # the model (security audit s89). A new $OrtVersion needs a new hash.
+    $OrtActual = Sha256OfFile $OrtAsset
+    if ($OrtActual -ne $ExpectedOrtSha256) {
+        Remove-Item $OrtAsset
+        Write-Error "SHA-256 mismatch for $OrtAsset`n       expected: $ExpectedOrtSha256`n       actual:   $OrtActual"
+        exit 1
+    }
+    Write-Host "  OK $OrtAsset (SHA-256 verified)"
     Expand-Archive -Path $OrtAsset -DestinationPath . -Force
     $InnerDll = Join-Path "onnxruntime-win-x64-${OrtVersion}\lib" "onnxruntime.dll"
     Copy-Item $InnerDll "onnxruntime.dll"

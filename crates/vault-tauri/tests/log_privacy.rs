@@ -217,3 +217,211 @@ fn the_scanner_sees_multi_line_calls_and_skips_comments() {
         );
     }
 }
+
+// ---- `#[instrument]` arguments (security audit s89) ---------------------------------
+//
+// `#[instrument]` records every argument it does not skip as a span field,
+// and every event inside the span carries those fields into the log line. Two
+// audits found memory text recorded this way (`apply_merge`'s `merged_text`,
+// the keyword search's `query`) and the graph store recording an entity's
+// `name`: nothing leaked only because no event fired inside those spans yet.
+// The macro scan above never saw them, because no macro names the field.
+
+/// Argument names that carry memory text, user queries or names taken from
+/// memories. An instrumented function with one of these must skip it (or use
+/// `skip_all`); record its length or an id instead.
+const CONTENT_ARGUMENTS: &[&str] = &[
+    "content",
+    "fact",
+    "query",
+    "query_text",
+    "merged_text",
+    "merged_reasoning",
+    "memory_content",
+    "text",
+    "name",
+    "prompt",
+    "new_memory",
+    "memory",
+];
+
+/// One instrumented function: the attribute text and its argument names.
+struct Instrumented {
+    line: usize,
+    attribute: String,
+    arguments: Vec<String>,
+}
+
+/// Finds each `#[instrument` / `#[tracing::instrument` attribute and the
+/// argument names of the function under it. Bounded like the macro scan.
+fn instrumented_functions(text: &str) -> Vec<Instrumented> {
+    const MAX_LINES: usize = 40;
+    let lines: Vec<&str> = text.lines().collect();
+    let mut out = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        let trimmed = line.trim_start();
+        if !(trimmed.starts_with("#[instrument") || trimmed.starts_with("#[tracing::instrument")) {
+            continue;
+        }
+        let mut chunk = String::new();
+        for l in lines.iter().skip(i).take(MAX_LINES) {
+            if !l.trim_start().starts_with("//") {
+                chunk.push_str(l);
+                chunk.push('\n');
+            }
+        }
+        let Some(fn_at) = find_fn_keyword(&chunk) else {
+            continue;
+        };
+        let attribute = chunk[..fn_at].to_owned();
+        let Some(open) = chunk[fn_at..].find('(') else {
+            continue;
+        };
+        let mut depth = 0usize;
+        let mut signature = String::new();
+        for c in chunk[fn_at + open..].chars() {
+            match c {
+                '(' => depth += 1,
+                ')' => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+            signature.push(c);
+            if depth == 0 {
+                break;
+            }
+        }
+        out.push(Instrumented {
+            line: i + 1,
+            attribute,
+            arguments: argument_names(&signature),
+        });
+    }
+    out
+}
+
+/// Byte offset of the first `fn ` keyword (as a whole word) in `chunk`.
+fn find_fn_keyword(chunk: &str) -> Option<usize> {
+    let bytes = chunk.as_bytes();
+    chunk
+        .match_indices("fn ")
+        .map(|(at, _)| at)
+        .find(|&at| at == 0 || !(bytes[at - 1].is_ascii_alphanumeric() || bytes[at - 1] == b'_'))
+}
+
+/// `name: Type` pairs at the top level of a parameter list.
+fn argument_names(signature: &str) -> Vec<String> {
+    let inner = signature.trim_start_matches('(').trim_end_matches(')');
+    let mut names = Vec::new();
+    let mut depth = 0i32;
+    let mut part = String::new();
+    for c in inner.chars().chain(std::iter::once(',')) {
+        match c {
+            '<' | '(' | '[' => depth += 1,
+            '>' | ')' | ']' => depth -= 1,
+            _ => {}
+        }
+        if c == ',' && depth == 0 {
+            if let Some((name, _)) = part.split_once(':') {
+                let name = name.trim().trim_start_matches("mut ").trim();
+                if !name.is_empty() && name.chars().all(|ch| ch.is_alphanumeric() || ch == '_') {
+                    names.push(name.to_owned());
+                }
+            }
+            part.clear();
+        } else {
+            part.push(c);
+        }
+    }
+    names
+}
+
+/// Whether the attribute keeps `argument` out of the span.
+fn skips(attribute: &str, argument: &str) -> bool {
+    if attribute.contains("skip_all") {
+        return true;
+    }
+    let Some(start) = attribute.find("skip(") else {
+        return false;
+    };
+    let rest = &attribute[start + "skip(".len()..];
+    let list = rest.split(')').next().unwrap_or("");
+    list.split(',').any(|s| s.trim() == argument)
+}
+
+#[test]
+fn no_instrumented_function_records_memory_content() {
+    let crates = workspace_crates_dir();
+    let mut files = Vec::new();
+    rust_files(&crates, &mut files);
+    files.sort();
+
+    let mut violations = Vec::new();
+    let mut scanned = 0usize;
+    for file in &files {
+        if file.components().any(|c| c.as_os_str() == "tests") {
+            continue;
+        }
+        let Ok(text) = fs::read_to_string(file) else {
+            continue;
+        };
+        for f in instrumented_functions(&text) {
+            scanned += 1;
+            for argument in &f.arguments {
+                if CONTENT_ARGUMENTS.contains(&argument.as_str()) && !skips(&f.attribute, argument)
+                {
+                    violations.push(format!(
+                        "{}:{} records argument `{argument}`",
+                        file.strip_prefix(&crates).unwrap_or(file).display(),
+                        f.line
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(
+        scanned >= 50,
+        "expected to scan many #[instrument] functions, found {scanned}; the \
+         attribute patterns this test looks for have probably changed"
+    );
+    assert!(
+        violations.is_empty(),
+        "ADR-SEC-014 violation: these #[instrument] spans record user memory \
+         text, and every event inside them would write it to the plaintext log \
+         file:\n  {}\n\nAdd the argument to `skip(...)` and record its length \
+         or an id instead.",
+        violations.join("\n  ")
+    );
+}
+
+#[test]
+fn the_instrument_scanner_sees_recorded_and_skipped_arguments() {
+    let recorded = "    #[instrument(skip(self), fields(limit))]\n    pub async fn search(&self, query: &str, limit: usize) -> R {\n";
+    let found = instrumented_functions(recorded);
+    assert_eq!(found.len(), 1);
+    assert_eq!(
+        found[0].arguments,
+        vec!["query".to_owned(), "limit".to_owned()]
+    );
+    assert!(
+        !skips(&found[0].attribute, "query"),
+        "query is recorded here"
+    );
+
+    let multi = "#[instrument(\n    skip(cluster, merged_text, storage),\n    fields(id = cluster.id)\n)]\npub async fn apply_merge(\n    cluster: &Cluster,\n    merged_text: &str,\n    storage: &Map<K, V>,\n) -> R {\n";
+    let found = instrumented_functions(multi);
+    assert_eq!(found.len(), 1);
+    assert_eq!(
+        found[0].arguments,
+        vec![
+            "cluster".to_owned(),
+            "merged_text".to_owned(),
+            "storage".to_owned()
+        ]
+    );
+    assert!(skips(&found[0].attribute, "merged_text"));
+
+    let all = "#[tracing::instrument(skip_all)]\nfn f(content: String) {}\n";
+    let found = instrumented_functions(all);
+    assert!(skips(&found[0].attribute, "content"));
+}

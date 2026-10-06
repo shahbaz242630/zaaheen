@@ -740,7 +740,7 @@ impl GraphStore for DuckDbGraphStore {
         .map_err(|e| VaultError::Storage(format!("spawn_blocking join: {e}")))?
     }
 
-    #[instrument(skip(self, entity_type), fields(boundary = boundary.as_str()))]
+    #[instrument(skip(self, name, entity_type), fields(boundary = boundary.as_str()))]
     async fn get_entity(
         &self,
         name: &str,

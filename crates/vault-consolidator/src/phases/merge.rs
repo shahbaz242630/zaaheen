@@ -308,7 +308,7 @@ pub struct AppliedMerge {
 ///
 /// [`find_candidate_clusters`]: crate::find_candidate_clusters
 #[instrument(
-    skip(cluster, storage, embeddings),
+    skip(cluster, merged_text, merged_reasoning, storage, embeddings),
     fields(cluster_id = cluster.id, cluster_size = cluster.size())
 )]
 pub async fn apply_merge(

@@ -91,7 +91,12 @@ pub const MAGIC: &[u8; 4] = b"ZKH1";
 /// keeper always come from one install (every AI app, the Claude plugin
 /// included, runs the installed `zaaheen`), so a mismatch means a half-done
 /// update and the older side is told to restart.
-pub const WIRE: u16 = 5;
+///
+/// 6 (session 89, app 0.3.5): `memory_read`'s description says
+/// `source_agent` is the saving app's own name, not verified (security
+/// audit s89), so the tool contract's hash changed. Nothing else on the pipe
+/// changed; the admin contract is unchanged and moves with this number.
+pub const WIRE: u16 = 6;
 
 /// Fresh random bytes each side contributes per connection.
 pub const CHALLENGE_LEN: usize = 32;

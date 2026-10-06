@@ -50,7 +50,7 @@ EXPECTED_MODEL_SHA256="828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559
 MODEL_URL="https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/main/onnx/model.onnx?download=true"
 TOKENIZER_URL="https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/main/tokenizer.json"
 
-ORT_VERSION="1.22.0"  # MUST match ort crate version's bundled ORT (see header). Override via env var.
+ORT_VERSION="1.22.0"  # MUST match ort crate version's bundled ORT (see header). A new version needs new ORT_SHA256 values below.
 ORT_RELEASE_BASE="https://github.com/microsoft/onnxruntime/releases/download"
 
 mkdir -p "${FIXTURE_DIR}"
@@ -127,11 +127,13 @@ case "$(uname -s)" in
         ORT_ASSET="onnxruntime-linux-x64-${ORT_VERSION}.tgz"
         ORT_LIB_NAME="libonnxruntime.so"
         ORT_INNER_PATH="onnxruntime-linux-x64-${ORT_VERSION}/lib/libonnxruntime.so.${ORT_VERSION}"
+        ORT_SHA256="8344d55f93d5bc5021ce342db50f62079daf39aaafb5d311a451846228be49b3"
         ;;
     Darwin*)
         ORT_ASSET="onnxruntime-osx-arm64-${ORT_VERSION}.tgz"
         ORT_LIB_NAME="libonnxruntime.dylib"
         ORT_INNER_PATH="onnxruntime-osx-arm64-${ORT_VERSION}/lib/libonnxruntime.${ORT_VERSION}.dylib"
+        ORT_SHA256="cab6dcbd77e7ec775390e7b73a8939d45fec3379b017c7cb74f5b204c1a1cc07"
         ;;
     *)
         echo "ERROR: unsupported platform $(uname -s) — use scripts/setup-dev-env.ps1 on Windows"
@@ -145,6 +147,18 @@ else
     ORT_URL="${ORT_RELEASE_BASE}/v${ORT_VERSION}/${ORT_ASSET}"
     echo "  -> downloading ${ORT_ASSET} from ${ORT_URL}"
     curl --fail --location --silent --show-error -o "${ORT_ASSET}" "${ORT_URL}"
+    # The runtime ships inside the installer, so the archive is checked like
+    # the model (security audit s89). Hashes are for v1.22.0, recorded
+    # 2026-10-06; a new ORT_VERSION needs new ones.
+    ort_actual="$(sha256_of "${ORT_ASSET}")"
+    if [[ "${ort_actual}" != "${ORT_SHA256}" ]]; then
+        rm -f "${ORT_ASSET}"
+        echo "ERROR: SHA-256 mismatch for ${ORT_ASSET}" >&2
+        echo "       expected: ${ORT_SHA256}" >&2
+        echo "       actual:   ${ort_actual}" >&2
+        exit 1
+    fi
+    echo "  OK ${ORT_ASSET} (SHA-256 verified)"
     tar -xzf "${ORT_ASSET}"
     cp "${ORT_INNER_PATH}" "${ORT_LIB_NAME}"
     rm -rf "${ORT_ASSET}" "$(dirname "$(dirname "${ORT_INNER_PATH}")")"
