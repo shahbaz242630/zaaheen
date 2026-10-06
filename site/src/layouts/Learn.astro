@@ -1,0 +1,65 @@
+---
+import Base from './Base.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import { RELEASE, TRIAL, alsoRead, pageFor } from '../data/site';
+import { lastModified } from '../lib/lastmod';
+
+// A Learn article (s91): the answer first, in the lede; then the body, which
+// carries at least one chart (components/learn/BarChart.astro) and one
+// animation (components/learn/MemoryFlow.astro), founder rule s91 and checked by
+// scripts/audit.mjs; then one quiet line about Zaaheen and "People also read" (data/site.ts alsoRead).
+// The author is the company, never an invented person (SEO-HANDOFF §0).
+interface Props {
+  path: string;
+  /** The answer, in a sentence or two. */
+  lede: string;
+  /** The page's sections, for "On this page"; the sections use the same ids. */
+  outline: { id: string; title: string }[];
+}
+const { path, lede, outline } = Astro.props;
+const page = pageFor(path);
+if (!page.heading) throw new Error(`Learn article ${path} needs a heading in its PAGES entry`);
+const updated = lastModified(page.path);
+const updatedLabel = updated
+  ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  : undefined;
+const more = alsoRead(path).map((a) => ({ ...a, heading: pageFor(a.path).heading }));
+---
+<Base page={page}>
+  <div class="docs learn">
+    <header class="docs-head">
+      <Breadcrumbs page={page} />
+      <h1>{page.heading}</h1>
+      <p class="learn-lede">{lede}</p>
+      <p class="doc-updated">By Zaaheen{updatedLabel && ` · Last updated ${updatedLabel}`}</p>
+    </header>
+
+    <div class="learn-layout">
+      <article class="learn-body">
+        <slot />
+
+        <aside class="learn-cta" aria-label="About Zaaheen">
+          <p>Zaaheen is one private memory for Claude, ChatGPT, Cursor and your other AI apps, kept
+             encrypted on your own computer. {TRIAL.days} days free, no card.</p>
+          {RELEASE.available
+            ? <a class="cta cta-sm" href="/docs/getting-started/">Try Zaaheen free</a>
+            : <a class="cta cta-sm" href="/products/">See how Zaaheen works</a>}
+        </aside>
+
+        {more.length > 0 && (
+          <nav class="learn-more" aria-label="People also read">
+            <h2>People also read</h2>
+            <ul>
+              {more.map((a) => <li><a href={a.path}>{a.heading}</a><span>{a.summary}</span></li>)}
+            </ul>
+          </nav>
+        )}
+      </article>
+
+      <aside class="docs-toc" aria-label="On this page">
+        <p class="docs-toc-title">On this page</p>
+        {outline.map((s) => <a class="docs-toc-section" href={`#${s.id}`}>{s.title}</a>)}
+      </aside>
+    </div>
+  </div>
+</Base>

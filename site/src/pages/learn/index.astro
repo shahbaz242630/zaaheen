@@ -1,0 +1,22 @@
+---
+import Base from '../../layouts/Base.astro';
+import { LEARN, pageFor } from '../../data/site';
+
+// The Learn hub (s91): every article, newest last as LEARN lists them.
+const page = pageFor('/learn/');
+const articles = LEARN.map((a) => ({ ...a, heading: pageFor(a.path).heading }));
+---
+<Base page={page}>
+  <div class="docs learn">
+    <header class="docs-head">
+      <h1>Learn about AI memory</h1>
+      <p class="learn-lede">Plain answers to the questions people ask about AI apps that remember: how
+         Claude, ChatGPT, Claude Code and Cursor keep what they know about you, and how to keep one
+         memory across all of them. Written by Zaaheen and checked against each company's own help
+         pages.</p>
+    </header>
+    <ul class="learn-list">
+      {articles.map((a) => <li><a href={a.path}>{a.heading}</a><p>{a.summary}</p></li>)}
+    </ul>
+  </div>
+</Base>
