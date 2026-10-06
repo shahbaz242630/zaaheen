@@ -183,6 +183,9 @@ export const PRICING_FAQ: readonly Faq[] = [
   },
   {
     q: 'Why not just keep a text file of notes for my AI?',
-    a: 'A notes file only helps when you paste it in. Zaaheen works by itself: your AI apps save what they learn about you as they go, find the right memory when it matters, and share it across every app you connect.',
+    // s91: coding tools read their own notes files (CLAUDE.md, AGENTS.md) by
+    // themselves, so "only helps when you paste it in" was no longer true.
+    a: "A notes file works well for one app and one project, and a file such as AGENTS.md is the right home for a project's rules. Zaaheen is for what's true about you: your AI apps save what they learn about you as they go, find the right memory when it matters, and share it across every app you connect.",
+    link: { href: '/learn/ai-memory-tool-or-notes-file/', text: 'A memory tool or a notes file?' },
   },
 ];

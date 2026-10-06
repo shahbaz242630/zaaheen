@@ -1,0 +1,107 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+
+// Learn article 4 (s91): the honest answer to the biggest doubt in the s90
+// keyword research ("why not just a notes file?"). Facts read on 2026-10-06:
+// - Anthropic (code.claude.com/docs/en/memory): CLAUDE.md target under 200
+//   lines; the first 200 lines or 25KB of MEMORY.md load at session start;
+//   AGENTS.md read when there is no CLAUDE.md.
+// - Cursor (cursor.com/docs/rules): .cursor/rules, user rules, AGENTS.md.
+// - OpenAI (help.openai.com/en/articles/8590148): ChatGPT memory lives in its
+//   account. Anthropic (support.claude.com/en/articles/11817273): Claude's too.
+// The Reddit benchmark the research found could not be opened to check, so the
+// article quotes no numbers from it.
+// The chart is measured on our own project on 2026-10-06 (line counts only):
+// CLAUDE.md 147 lines, MEMORY.md 155 lines; Anthropic's 200-line guide.
+const OUTLINE = [
+  { id: 'enough', title: 'When a file is enough' },
+  { id: 'short', title: 'Where a file falls short' },
+  { id: 'ours', title: 'Our own files' },
+  { id: 'both', title: 'Use both' },
+];
+const CLAUDE_DOCS = 'https://code.claude.com/docs/en/memory';
+---
+<Learn
+  path="/learn/ai-memory-tool-or-notes-file/"
+  lede="For one project in one coding tool, a notes file such as CLAUDE.md or AGENTS.md is often all you need. It stops being enough when you use several AI apps, when the facts are about you rather than the project, or when the file grows past what the app reads at the start."
+  outline={OUTLINE}
+>
+  <section id="enough">
+    <h2>When a notes file is enough</h2>
+    <p>Many developers say a plain notes file is all the memory an AI needs, and for some jobs
+       they're right. A file is free, you can read every word of it, it lives in the project with
+       the code, and nothing happens to it that you didn't write.</p>
+    <p>A file is the right tool when:</p>
+    <ul>
+      <li>You use one AI app, mostly in one project.</li>
+      <li>What it needs to know is about the project: how to build it, how to test it, what to
+          avoid.</li>
+      <li>You keep it short and up to date yourself.</li>
+    </ul>
+    <p>Claude Code reads CLAUDE.md, Cursor reads its rules, and all three of Claude Code, Cursor
+       and Codex can read an AGENTS.md. For project rules, one AGENTS.md checked in with the code
+       is hard to beat.</p>
+  </section>
+
+  <section id="short">
+    <h2>Where a file falls short</h2>
+    <ul>
+      <li><strong>Every app reads a different file, or none.</strong> The ChatGPT and Claude chat
+          apps don't read your coding tools' notes files; their own memory lives in each
+          company's account.</li>
+      <li><strong>Facts about you don't belong to one project.</strong> How you like answers,
+          the tools you prefer, what you're working on this month: put them in one repository's
+          file and the next project doesn't have them.</li>
+      <li><strong>Someone has to write it.</strong> A file only knows what you, or the app,
+          remembered to add, and keeping three apps' files in step is a chore that slips.</li>
+      <li><strong>Only so much is read at the start.</strong> Anthropic suggests keeping each
+          CLAUDE.md under 200 lines, and loads only the first 200 lines or 25KB of Claude Code's
+          memory index when a session starts (<a href={CLAUDE_DOCS}>Anthropic's documentation</a>).
+          Past that, a longer file costs more and is followed less.</li>
+    </ul>
+  </section>
+
+  <section id="ours">
+    <h2>Our own files, after five months</h2>
+    <p>We build Zaaheen with Claude Code and keep both kinds of notes, so we counted ours:</p>
+
+    <BarChart
+      id="chart-notes-lines"
+      title="Our own Claude Code notes after five months, in lines, against the 200-line guide"
+      measure="Lines"
+      max={200}
+      bars={[
+        { label: 'Our CLAUDE.md', value: 147, note: 'lines' },
+        { label: 'Our memory index', value: 155, note: 'lines' },
+        { label: "Anthropic's guide", value: 200, note: 'lines' },
+      ]}
+      source={{ text: "Zaaheen's own project, measured on 6 October 2026. The 200-line figure is from Anthropic's Claude Code documentation.", href: CLAUDE_DOCS }}
+    />
+
+    <p>Both are close to the line, and they only stay under it because we prune them: one line per
+       memory, details moved into separate files, old entries merged or dropped. A notes file
+       works, and it takes upkeep.</p>
+  </section>
+
+  <section id="both">
+    <h2>Use both, for different things</h2>
+    <p>The question isn't really file or tool. Keep the project's rules in a file with the code.
+       Keep what's true about you in one memory that every AI app can reach, so it stays out of
+       your project files and you never write it three times.</p>
+
+    <MemoryFlow
+      id="flow-notes-shared"
+      from="ChatGPT"
+      to="Claude Code"
+      fact="Plain English, no jargon"
+      others={['Cursor', 'Claude']}
+      caption="A preference about you, told to ChatGPT once, is saved to one memory on your computer. Claude Code, Cursor and Claude recall it without any file to keep in step."
+    />
+
+    <p>Zaaheen is a memory of that kind, for Windows and Mac: your AI apps save what they learn
+       about you as they go, and find it again when it matters, while your memories stay
+       encrypted on your own computer. You can see every memory in the app, and forget any one.</p>
+  </section>
+</Learn>
