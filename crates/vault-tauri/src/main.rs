@@ -507,8 +507,8 @@ fn open_the_vault(app: &tauri::AppHandle, start: Start, moved: MoveOutcome, star
     // export nobody can reach.
     let (entitlement, account) = vault_tauri::guard::build();
 
-    // 4b. The lease refresh at desktop open (only when stale) and then daily
-    // (§8.26 §4). Holds the account, never the vault.
+    // 4b. The lease refresh at desktop open and then daily, always (§8.51)
+    // (§8.26 §4, amendment 24). Holds the account, never the vault.
     if let Some(ops) = account.for_background_refresh() {
         tauri::async_runtime::spawn(ops.refresh_at_open_then_daily());
     }
