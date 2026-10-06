@@ -29,9 +29,9 @@
 //! out from the same reading that decided the call — never with a refusal.
 //!
 //! **The routine refresh (§8.26 §4, §8.40)** is here too, shared by the keeper
-//! and the desktop: at start when the lease is stale, then a jittered daily
-//! tick that also refreshes only a stale lease, so two processes on one
-//! computer still ask about once a day.
+//! and the desktop: at start, then a jittered daily tick, whatever the local
+//! record says (§8.51: the record can be rewritten; the server cannot), with
+//! the once-a-minute limit so two processes do not ask at the same moment.
 
 mod lock_mode;
 #[cfg(test)]
@@ -46,8 +46,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use vault_account::{
-    stale_at_start, AccountResult, Assessment, Denial, Entitlement, LeaseState, RefreshOutcome,
-    Status, Trigger,
+    AccountResult, Assessment, Denial, Entitlement, LeaseState, RefreshOutcome, Status, Trigger,
 };
 use vault_mcp::{AccountNotice, EntitlementCheck, LockReason, Verdict};
 
@@ -195,8 +194,8 @@ impl AccountCheck {
         }
     }
 
-    /// §8.26 §4's routine refresh for this account — at start when the lease
-    /// is stale, then daily — which the keeper spawns on its full path
+    /// The routine refresh for this account — at start, then daily, whatever
+    /// the local record says (§8.51) — which the keeper spawns on its full path
     /// (§8.40). Never returns. Holds only the account, and records no use.
     pub async fn refresh_at_start_then_daily(self: Arc<Self>) {
         run_routine_refresh(Arc::clone(&self.account), Arc::clone(&self.clock)).await;
@@ -333,16 +332,17 @@ fn whole_days(seconds: i64) -> u32 {
     u32::try_from((seconds - 1) / DAY + 1).unwrap_or(u32::MAX)
 }
 
-/// §8.26 §4 at start (keeper start, desktop open): "refresh if the lease is
-/// older than 24 h or any deadline is within 3 days". Nobody signed in has
-/// nothing to refresh; a computer with no lease yet always tries (the first
-/// fetch may have failed at sign-in).
+/// At start (keeper start, desktop open) and on each daily tick: anyone signed
+/// in asks the server, whatever the local record says (SIGNIN-DESIGN §8.51,
+/// amendment 24, founder s89). §8.26 §4 refreshed only a stale lease, but
+/// "stale" was judged from the clock and `state.json`, both of which the
+/// person at the computer can rewrite: a trial could be kept forever by
+/// editing the record. Only the server's answer cannot be forged. The
+/// once-a-minute limit (`refresh_allowed`) still keeps the keeper and the
+/// desktop from both asking at the same moment. Nobody signed in has nothing
+/// to refresh.
 fn wants_refresh_at_start(state: &AccountState) -> bool {
-    match state {
-        AccountState::SignedOut => false,
-        AccountState::NoLease => true,
-        AccountState::Leased { assessment, .. } => stale_at_start(assessment),
-    }
+    !matches!(state, AccountState::SignedOut)
 }
 
 /// A day, spread over a six-hour window so installs do not all ask the Worker
@@ -362,14 +362,14 @@ fn daily_period(now: i64) -> Duration {
     Duration::from_secs(DAY_SECS + offset)
 }
 
-/// One routine refresh, only when §4 asks for one (see
+/// One routine refresh for anyone signed in (see
 /// [`wants_refresh_at_start`]). Returns whether it refreshed.
 ///
 /// Records no use: a refresh is not somebody using their vault (§8.35), and
 /// recording one here would keep the 30-days-unused sign-out from ever firing.
 /// Failures are logged at debug and swallowed — the lease on disk is still
 /// good for up to 30 days offline.
-async fn refresh_if_stale(account: &dyn AccountAccess, clock: &dyn Clock) -> bool {
+async fn routine_refresh(account: &dyn AccountAccess, clock: &dyn Clock) -> bool {
     let now = clock.now();
     match account.state(now).await {
         Ok(state) if wants_refresh_at_start(&state) => {
@@ -379,7 +379,7 @@ async fn refresh_if_stale(account: &dyn AccountAccess, clock: &dyn Clock) -> boo
             true
         }
         Ok(_) => {
-            tracing::debug!("the lease is fresh; no routine refresh");
+            tracing::debug!("nobody is signed in; no routine refresh");
             false
         }
         Err(e) => {
@@ -389,13 +389,13 @@ async fn refresh_if_stale(account: &dyn AccountAccess, clock: &dyn Clock) -> boo
     }
 }
 
-/// §8.26 §4's routine for one account: [`refresh_if_stale`] at start, then
-/// once a day on a jittered timer, refreshing again only a stale lease. The
+/// §8.26 §4's routine for one account: [`routine_refresh`] at start, then
+/// once a day on a jittered timer, whatever the local record says. The
 /// keeper (through [`AccountCheck::refresh_at_start_then_daily`]) and the
 /// desktop (`AccountOps::refresh_at_open_then_daily`) both run this one
 /// (§8.40). Never returns; the caller spawns it.
 pub async fn run_routine_refresh(account: Arc<dyn AccountAccess>, clock: Arc<dyn Clock>) {
-    refresh_if_stale(account.as_ref(), clock.as_ref()).await;
+    routine_refresh(account.as_ref(), clock.as_ref()).await;
 
     let period = daily_period(clock.now());
     tracing::info!(
@@ -408,6 +408,6 @@ pub async fn run_routine_refresh(account: Arc<dyn AccountAccess>, clock: Arc<dyn
     timer.tick().await;
     loop {
         timer.tick().await;
-        refresh_if_stale(account.as_ref(), clock.as_ref()).await;
+        routine_refresh(account.as_ref(), clock.as_ref()).await;
     }
 }
