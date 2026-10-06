@@ -562,6 +562,15 @@ export const PAGES: PageEntry[] = [
       'For one project in one coding tool, CLAUDE.md or AGENTS.md is often enough. When a notes file stops being enough, and how to use both.',
     sources: ['src/pages/learn/ai-memory-tool-or-notes-file.astro', 'src/layouts/Learn.astro'],
   },
+  {
+    path: '/learn/switch-from-chatgpt-to-claude/',
+    crumb: 'Switch from ChatGPT to Claude',
+    heading: 'How to switch from ChatGPT to Claude without starting over',
+    title: 'Switch from ChatGPT to Claude without starting over · Zaaheen',
+    description:
+      'Bring your ChatGPT memory, custom instructions and old chats to Claude: the steps, how long each takes, and how to never move them again.',
+    sources: ['src/pages/learn/switch-from-chatgpt-to-claude.astro', 'src/layouts/Learn.astro'],
+  },
 ];
 
 // The Learn articles, newest last, for the /learn/ hub and the "People also
@@ -577,7 +586,7 @@ export const LEARN: readonly LearnArticle[] = [
     path: '/learn/share-memory-between-chatgpt-and-claude/',
     summary:
       "They can't read each other's memory. Copy it across, use Claude's import, or give both apps one shared memory.",
-    related: ['/learn/does-claude-code-remember-between-sessions/'],
+    related: ['/learn/switch-from-chatgpt-to-claude/', '/learn/does-claude-code-remember-between-sessions/'],
   },
   {
     path: '/learn/does-claude-code-remember-between-sessions/',
@@ -596,6 +605,12 @@ export const LEARN: readonly LearnArticle[] = [
     summary:
       "Often enough for one project in one tool. Where a file falls short, and why you'll likely want both.",
     related: ['/learn/one-memory-across-claude-code-cursor-and-codex/', '/learn/does-claude-code-remember-between-sessions/'],
+  },
+  {
+    path: '/learn/switch-from-chatgpt-to-claude/',
+    summary:
+      'Bring your ChatGPT memory, instructions and old chats to Claude, how long each step takes, and how to never move them again.',
+    related: ['/learn/share-memory-between-chatgpt-and-claude/', '/learn/ai-memory-tool-or-notes-file/'],
   },
 ];
 

@@ -140,6 +140,7 @@ export const PRICING_FAQ: readonly Faq[] = [
   {
     q: 'Can ChatGPT and Claude share the same memory?',
     a: 'Yes, with Zaaheen. Connect both apps to Zaaheen and they read from and save to the same memory on your computer.',
+    link: { href: '/learn/share-memory-between-chatgpt-and-claude/', text: 'How to share memory between ChatGPT and Claude' },
   },
   {
     q: 'How is Zaaheen different from MemoryPlugin, Pieces, Mem or Supermemory?',
@@ -168,6 +169,7 @@ export const PRICING_FAQ: readonly Faq[] = [
   {
     q: 'Can I bring my existing ChatGPT or Claude memories into Zaaheen?',
     a: 'There is no one-click import yet. Once an app is connected, you can ask it to save what matters to Zaaheen, and every other connected app can then use it.',
+    link: { href: '/learn/switch-from-chatgpt-to-claude/', text: 'Switching from ChatGPT to Claude without starting over' },
   },
   {
     q: 'Does Zaaheen work on Mac or on my phone?',
