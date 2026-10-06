@@ -9,7 +9,7 @@
     "preview": "astro preview",
     "check": "node scripts/audit.mjs",
     "stamp": "astro build && node scripts/page-dates.mjs --write && astro build",
-    "test": "node --test scripts/page-dates.test.mjs scripts/app-words.test.mjs scripts/search-index.test.mjs scripts/pay.test.mjs scripts/coaching-sync.test.mjs scripts/live-headers.test.mjs && node scripts/audit-test-off-sale.mjs",
+    "test": "node --test scripts/page-dates.test.mjs scripts/app-words.test.mjs scripts/release-facts.test.mjs scripts/search-index.test.mjs scripts/pay.test.mjs scripts/coaching-sync.test.mjs scripts/live-headers.test.mjs && node scripts/audit-test-off-sale.mjs",
     "build:account": "astro build --config astro.account.config.mjs",
     "build:account:test": "node scripts/build-account-test.mjs",
     "check:account": "node scripts/audit-account.mjs",

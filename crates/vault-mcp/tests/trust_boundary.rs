@@ -302,3 +302,97 @@ async fn delete_unauthorized_boundary_returns_access_denied() {
         mock.delete_calls()
     );
 }
+
+// =============================================================================
+// 6. `memory_update` gates on the STORED boundary too (security audit s89, F-01)
+// =============================================================================
+
+fn update_params(boundary: &str) -> vault_mcp::WriteToolParams {
+    vault_mcp::WriteToolParams {
+        content: "The user prefers tea.".into(),
+        boundary: boundary.into(),
+        memory_type: None,
+        source_agent: None,
+        confidence: None,
+        as_of: None,
+    }
+}
+
+/// An agent authorized for `work` names `work` in the request, but the
+/// memory lives in `personal`. Before the fix the request's boundary was
+/// the only check, so the memory was rewritten into `work` and became
+/// readable. The update must be refused before the adapter is reached.
+#[tokio::test]
+async fn update_of_memory_stored_in_unauthorized_boundary_returns_access_denied() {
+    let (server, mock) = make_mock_server_with_adapter(vec!["work"]);
+    mock.set_lookup_boundary(Some(
+        Boundary::new("personal").expect("'personal' is a valid Boundary literal"),
+    ));
+
+    let id = vault_core::MemoryId::new();
+    match server.handle_update(id, update_params("work")).await {
+        Ok(()) => panic!("update rewrote a memory stored in unauthorized boundary 'personal'"),
+        Err(vault_core::VaultError::AccessDenied(msg)) => {
+            assert!(
+                msg.contains("personal"),
+                "message names the stored boundary: {msg}"
+            );
+            assert!(
+                msg.contains(&id.to_string()),
+                "message names the memory id: {msg}"
+            );
+        }
+        Err(_) => panic!("expected AccessDenied for an update across boundaries"),
+    }
+    assert!(
+        mock.update_calls().is_empty(),
+        "Adapter::update must not be reached when the stored boundary is unauthorized"
+    );
+}
+
+/// Sharing between apps is unchanged: a memory stored in a boundary the
+/// agent is authorized for is updated as before.
+#[tokio::test]
+async fn update_of_memory_stored_in_authorized_boundary_reaches_adapter() {
+    let (server, mock) = make_mock_server_with_adapter(vec!["work", "personal"]);
+    mock.set_lookup_boundary(Some(
+        Boundary::new("personal").expect("'personal' is a valid Boundary literal"),
+    ));
+
+    let id = vault_core::MemoryId::new();
+    assert!(
+        server
+            .handle_update(id, update_params("work"))
+            .await
+            .is_ok(),
+        "an authorized update must succeed"
+    );
+    let calls = mock.update_calls();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].id, id);
+}
+
+// =============================================================================
+// 7. `source_agent` is bounded and cleaned before storage (security audit s89)
+// =============================================================================
+
+#[tokio::test]
+async fn source_agent_is_cut_cleaned_and_empty_reads_as_absent() {
+    let (server, mock) = make_mock_server_with_adapter(vec!["work"]);
+    let mut long = update_params("work");
+    long.source_agent = Some(format!("  user\u{0007}\n{}", "x".repeat(500)));
+    assert!(server.handle_write(long).await.is_ok(), "write succeeds");
+
+    let mut blank = update_params("work");
+    blank.source_agent = Some(" \n\t ".into());
+    assert!(server.handle_write(blank).await.is_ok(), "write succeeds");
+
+    let writes = mock.write_calls();
+    let kept = writes[0].source_agent.clone().expect("a name is kept");
+    assert!(
+        kept.starts_with("userx"),
+        "control characters dropped: {kept:?}"
+    );
+    assert_eq!(kept.chars().count(), vault_mcp::MAX_SOURCE_AGENT_CHARS);
+    assert_eq!(writes[1].source_agent, None);
+}

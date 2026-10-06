@@ -341,6 +341,9 @@ jobs:
         run: |
           curl.exe -o $env:RUNNER_TEMP/VulkanSDK-Installer.exe -L `
             "https://sdk.lunarg.com/sdk/download/${env:VULKAN_VERSION}/windows/vulkansdk-windows-X64-${env:VULKAN_VERSION}.exe"
+            # Checked before it runs (security audit s89); a new VULKAN_VERSION needs a new hash.
+            $vk = (Get-FileHash "$env:RUNNER_TEMP/VulkanSDK-Installer.exe" -Algorithm SHA256).Hash.ToLower()
+            if ($vk -ne "34a921d951858274ca8e470e9d0a3b7624db41216b3908ccea9f73c8a1b7500e") { throw "Vulkan SDK installer SHA-256 mismatch: $vk" }
           & "$env:RUNNER_TEMP\VulkanSDK-Installer.exe" --accept-licenses --default-answer --confirm-command install
           Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\${env:VULKAN_VERSION}"
           Add-Content $env:GITHUB_PATH "C:\VulkanSDK\${env:VULKAN_VERSION}\bin"
@@ -603,6 +606,9 @@ jobs:
         run: |
           curl.exe -o $env:RUNNER_TEMP/VulkanSDK-Installer.exe -L `
             "https://sdk.lunarg.com/sdk/download/${env:VULKAN_VERSION}/windows/vulkansdk-windows-X64-${env:VULKAN_VERSION}.exe"
+            # Checked before it runs (security audit s89); a new VULKAN_VERSION needs a new hash.
+            $vk = (Get-FileHash "$env:RUNNER_TEMP/VulkanSDK-Installer.exe" -Algorithm SHA256).Hash.ToLower()
+            if ($vk -ne "34a921d951858274ca8e470e9d0a3b7624db41216b3908ccea9f73c8a1b7500e") { throw "Vulkan SDK installer SHA-256 mismatch: $vk" }
           & "$env:RUNNER_TEMP\VulkanSDK-Installer.exe" --accept-licenses --default-answer --confirm-command install
           Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\${env:VULKAN_VERSION}"
           Add-Content $env:GITHUB_PATH "C:\VulkanSDK\${env:VULKAN_VERSION}\bin"
@@ -843,6 +849,9 @@ jobs:
         run: |
           curl.exe -o $env:RUNNER_TEMP/VulkanSDK-Installer.exe -L `
             "https://sdk.lunarg.com/sdk/download/${env:VULKAN_VERSION}/windows/vulkansdk-windows-X64-${env:VULKAN_VERSION}.exe"
+            # Checked before it runs (security audit s89); a new VULKAN_VERSION needs a new hash.
+            $vk = (Get-FileHash "$env:RUNNER_TEMP/VulkanSDK-Installer.exe" -Algorithm SHA256).Hash.ToLower()
+            if ($vk -ne "34a921d951858274ca8e470e9d0a3b7624db41216b3908ccea9f73c8a1b7500e") { throw "Vulkan SDK installer SHA-256 mismatch: $vk" }
           & "$env:RUNNER_TEMP\VulkanSDK-Installer.exe" --accept-licenses --default-answer --confirm-command install
           Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\${env:VULKAN_VERSION}"
           Add-Content $env:GITHUB_PATH "C:\VulkanSDK\${env:VULKAN_VERSION}\bin"

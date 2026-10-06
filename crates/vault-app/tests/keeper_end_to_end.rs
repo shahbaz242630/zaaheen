@@ -690,9 +690,12 @@ async fn erasure_waits_out_and_reports_a_maintenance_run() {
 /// this hash, and the fix is to bump `WIRE` deliberately.
 #[test]
 fn the_tool_contract_is_pinned_to_the_wire_version() {
-    // Recorded 2026-10-03 from the wire-v5 tool contract (session 83: the
-    // instructions end with where setup help and fixes live), computed on
-    // CI (Linux and macOS agree) under rmcp 3.4.1. Wire 4 was
+    // Wire 6 (session 89): `memory_read` says `source_agent` is not
+    // verified; recorded 2026-10-06 on CI (Linux and macOS agree). Wire 5 was
+    // 5ca1913b1cd3750439e3e4862fb4551140b03bca0cb1432ac02abfd53a564bd3,
+    // recorded 2026-10-03 (session 83: the instructions end with where setup
+    // help and fixes live), computed on CI (Linux and macOS agree) under
+    // rmcp 3.4.1. Wire 4 was
     // 198591bd3b035767929eef3e50d802a83596e1231b0c129b40a281df5973998c
     // (session 59, "one question at a time", ADR-107). Wire 3 was
     // 7a941150d4fe95809f1a0847607b607d3ecc79caabfad2e2f645719e1af4584d
@@ -700,7 +703,7 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     // 64bafc664287b3e09449bb4c093e38bfa87b287bbb769ce86e14967363a7d836 (CI,
     // Linux and macOS, ADR-SEC-021 D4c); wire 1 was
     // 2e062fb5bc6adb1a62b37ca9c33adb51dbfd2f59249e501d7fa6dfb9871309be.
-    const PINNED: &str = "5ca1913b1cd3750439e3e4862fb4551140b03bca0cb1432ac02abfd53a564bd3";
+    const PINNED: &str = "36c2ad4654001bfd296da020bdd6510684e22a4f43c290ab4daff712ab7263dc";
 
     let server = StdioServer::new(Arc::new(NoVaultAdapter), Vec::new());
     let instructions = server.get_info().instructions.unwrap_or_default();
@@ -724,7 +727,7 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     let actual = hasher.finalize().to_hex().to_string();
     assert_eq!(
         (WIRE, actual.as_str()),
-        (5, PINNED),
+        (6, PINNED),
         "The MCP tool contract changed. Relays and keepers from different \
          builds must not disagree about it silently: bump WIRE in \
          vault_app::keeper::handshake and set PINNED to {actual}."

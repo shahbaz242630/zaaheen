@@ -39,6 +39,16 @@
 //! A value of `0` (or less) in the record means "absent": a missing or
 //! damaged file must never sign anyone out.
 //!
+//! # A record that does not know the lease (SIGNIN-DESIGN §8.26 amendment, s89)
+//!
+//! Deleting the file each day with the clock set back kept `elapsed` near 0,
+//! so no refresh ever fired and a trial never ended (security audit s89,
+//! F-02). Such a record is now [`Assessment::anchored`] `false`, which asks
+//! for a refresh at start and on the daily timer, and use bookkeeping never
+//! adopts a lease the record does not know: only a received lease
+//! ([`LocalState::on_new_lease`]) anchors the record. Nobody is signed out
+//! by it; the server's answer decides.
+//!
 //! # 30 days unused (§8.26 §4, quoted)
 //!
 //! > activity is recorded in **server time** (`last_active_anchor = issued_at
@@ -133,6 +143,10 @@ pub struct Assessment {
     /// the offline allowance; 0 when denied. For trial banners (day 23, last
     /// 5 days).
     pub remaining: i64,
+    /// The local record belongs to this lease. `false` when `state.json` was
+    /// deleted, damaged or not yet rewritten: the floor is unknown, so the
+    /// lease is refreshed at the next chance (module docs).
+    pub anchored: bool,
 }
 
 /// The local record, `state.json` (§8.26 §4). Written under the lock by the
@@ -240,10 +254,12 @@ pub fn assess(lease: &Lease, state: &LocalState, now: i64) -> Assessment {
     let client_time = lease.client_time();
     let floor = stored_floor(lease, state).max(now);
     let elapsed = floor.saturating_sub(client_time).max(0);
+    let anchored = state.lease_issued_at == lease.issued_at();
     let denied = |denial| Assessment {
         entitlement: Entitlement::Denied(denial),
         elapsed,
         remaining: 0,
+        anchored,
     };
 
     if now < client_time.saturating_sub(CLOCK_BEHIND_TOLERANCE) {
@@ -278,6 +294,7 @@ pub fn assess(lease: &Lease, state: &LocalState, now: i64) -> Assessment {
         entitlement: Entitlement::Entitled { payment_failed },
         elapsed,
         remaining: term_left.min(offline_left),
+        anchored,
     }
 }
 
@@ -308,9 +325,11 @@ pub fn refresh_allowed(state: &LocalState, now: i64, after_ended: bool) -> bool 
 }
 
 /// At keeper start and desktop open: refresh when the lease is more than a
-/// day old or its deadline is within three days.
+/// day old or its deadline is within three days, or when the local record
+/// does not know it (its age cannot be trusted).
 pub fn stale_at_start(assessment: &Assessment) -> bool {
-    assessment.elapsed >= REFRESH_WHEN_OLDER_THAN
+    !assessment.anchored
+        || assessment.elapsed >= REFRESH_WHEN_OLDER_THAN
         || assessment.remaining < REFRESH_WHEN_DEADLINE_WITHIN
 }
 

@@ -622,3 +622,5 @@ em{font-weight:500;color:var(--ink)}
   .chart-bar,.chart-value,.flow-line,.flow-hub rect,.flow-card,.flow-saved{animation:none}
   .flow-saved{opacity:0}
 }
+/* Download fingerprints (security audit s89): 64 characters must wrap on a phone. */
+code.hash{font-family:var(--mono);font-size:13px;word-break:break-all}
