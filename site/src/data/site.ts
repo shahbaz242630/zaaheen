@@ -52,13 +52,13 @@ export const RELEASE = {
   // scripts/audit.mjs treats a home page without the installer link as "not on
   // sale"). Set true in the same change that uploads the installer.
   available: true,
-  version: '0.3.3',
+  version: '0.3.4',
   stage: 'Beta',
   windows: {
     // The name .github/workflows/release-build.yml gives the production installer.
-    file: 'Zaaheen_0.3.3_x64.msi',
-    url: 'https://dl.zaaheen.com/Zaaheen_0.3.3_x64.msi',
-    // As Windows Explorer reports it (155,643,904 bytes, the 0.3.3 production build, session 86).
+    file: 'Zaaheen_0.3.4_x64.msi',
+    url: 'https://dl.zaaheen.com/Zaaheen_0.3.4_x64.msi',
+    // As Windows Explorer reports it (155,635,712 bytes, the 0.3.4 production build, session 87).
     size: '148 MB',
     arch: '64-bit',
     // Only Windows 11 has been tested. Do not claim Windows 10 until it has been.
@@ -68,10 +68,10 @@ export const RELEASE = {
   // (founder, session 77). Signed and notarised by Apple, a disk image to drag
   // into Applications.
   mac: {
-    file: 'Zaaheen_0.3.3_aarch64.dmg',
-    url: 'https://dl.zaaheen.com/Zaaheen_0.3.3_aarch64.dmg',
-    // As Finder counts it (154,651,397 bytes, the 0.3.3 production build, session 86).
-    size: '155 MB',
+    file: 'Zaaheen_0.3.4_aarch64.dmg',
+    url: 'https://dl.zaaheen.com/Zaaheen_0.3.4_aarch64.dmg',
+    // As Finder counts it (154,063,675 bytes, the 0.3.4 production build, session 87).
+    size: '154 MB',
     arch: 'Apple chip (M1 or newer)',
     // Only macOS 26 has been tested. Do not claim older versions until they have been.
     tested: 'macOS 26',
