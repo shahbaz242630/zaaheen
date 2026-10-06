@@ -12,6 +12,8 @@ ErrorDocument 404 /404.html
 
 <IfModule mod_mime.c>
   AddType application/manifest+json .webmanifest
+  # llms.txt carries "·" and other non-ASCII text (SEO audit, session 90).
+  AddCharset UTF-8 .txt .xml
 </IfModule>
 
 <IfModule mod_rewrite.c>

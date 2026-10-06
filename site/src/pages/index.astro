@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import Placeholder from '../components/Placeholder.astro';
 import Download from '../components/Download.astro';
-import { DEMO_APPS, FAQ, RELEASE, TRIAL, VERIFIED_APPS, pageFor, verifiedAppList } from '../data/site';
+import { DEMO_APPS, FAQ, PICTURED_APPS, PLANS, RELEASE, TRIAL, pageFor, verifiedAppList } from '../data/site';
 
 const page = pageFor('/');
 const apps = verifiedAppList();
@@ -36,6 +36,8 @@ const START = [
         <Download />
         <span class="cta-meta">{RELEASE.stage} · {RELEASE.version}</span>
       </div>
+      <p class="cta-note">For {RELEASE.windows.arch} {RELEASE.windows.tested}, or a Mac with an Apple chip (M1 or
+         newer). {TRIAL.days} days free, then {PLANS.monthly}. <a href="/pricing/">See pricing</a></p>
     </div>
 
     <!-- A picture of the app, animated by scripts/hero.js. Decorative: every
@@ -86,10 +88,10 @@ const START = [
         <div class="compare-card is-before">
           <div class="compare-head">
             <h3>Without Zaaheen</h3>
-            <span class="mono-note">{VERIFIED_APPS.length} apps · {VERIFIED_APPS.length} separate memories</span>
+            <span class="mono-note">{PICTURED_APPS.length} apps · {PICTURED_APPS.length} separate memories</span>
           </div>
           <div class="app-trio">
-            {VERIFIED_APPS.map((a) => (
+            {PICTURED_APPS.map((a) => (
               <div class="app-card">
                 <div class="app-name">{a}</div>
                 <div class="app-quote">"I prefer short answers in plain English…"</div>
@@ -102,11 +104,11 @@ const START = [
         <div class="compare-card is-after">
           <div class="compare-head">
             <h3>With Zaaheen</h3>
-            <span class="mono-note is-sage">{VERIFIED_APPS.length} apps · 1 memory</span>
+            <span class="mono-note is-sage">{PICTURED_APPS.length} apps · 1 memory</span>
           </div>
           <div class="shared">
             <div class="app-trio">
-              {VERIFIED_APPS.map((a) => <div class="app-tile">{a}</div>)}
+              {PICTURED_APPS.map((a) => <div class="app-tile">{a}</div>)}
             </div>
             <div class="shared-line"></div>
             <div class="shared-memory">
@@ -123,11 +125,13 @@ const START = [
       <div class="strip-row">
         <div class="strip-item">
           <h3>It stays on your computer</h3>
-          <p>Stored and encrypted on your device, never uploaded.</p>
+          <p>Stored and encrypted on your device, never uploaded.
+             <a href="/ai-and-your-data/">What we can and can't see</a></p>
         </div>
         <div class="strip-item">
           <h3>Your AI apps share it</h3>
-          <p>Connect {apps} once. Other apps that support MCP should work the same way.</p>
+          <p>Connect {apps} once. Other apps that support MCP should work the same way.
+             <a href="/docs/#connecting">How to connect each app</a></p>
         </div>
         <div class="strip-item">
           <h3>You can delete all of it</h3>
@@ -154,7 +158,8 @@ const START = [
             <h3>Install and sign in</h3>
             <p>Download the app for Windows or Mac, then create an account or sign in from it. Your
                {TRIAL.days}-day free trial starts the first time you sign in from the Zaaheen app,
-               and no card is needed. Your account never holds your memories.</p>
+               and no card is needed. Your account never holds your memories.
+               <a href="/docs/getting-started/">Install and set-up guide</a></p>
           </div>
           <div class="snippet">
             <div class="snippet-title">Create your Zaaheen account, or sign in.</div>
@@ -169,7 +174,7 @@ const START = [
                the same way.</p>
           </div>
           <div class="snippet snippet-list">
-            {VERIFIED_APPS.map((a, i) => (
+            {PICTURED_APPS.map((a, i) => (
               <div class={i < 2 ? 'srow' : 'srow is-off'}>
                 <span class="srow-name"><span class="chip-dot"></span>{a}</span>
                 <span class="mono-note">{i < 2 ? 'connected' : '+ connect'}</span>
@@ -209,7 +214,7 @@ const START = [
               {FAQ.map((f) => (
                 <details class="faq-item">
                   <summary>{f.q}</summary>
-                  <p>{f.a}</p>
+                  <p>{f.a}{f.link && <> <a href={f.link.href}>{f.link.text}</a>.</>}</p>
                 </details>
               ))}
             </div>

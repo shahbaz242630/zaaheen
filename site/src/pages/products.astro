@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import Logo from '../components/Logo.astro';
-import { COMPANY, pageFor } from '../data/site';
+import { COMPANY, PLANS, RELEASE, TRIAL, pageFor } from '../data/site';
 
 // Only the memory app is listed (founder, session 79: coaching "is not a
 // product", so its card is gone for now; the Knowledge Centre keeps it).
@@ -21,5 +21,18 @@ const page = pageFor('/products/');
         <span class="card-link">See the memory app</span>
       </a>
     </div>
+
+    <h2>What the memory app does</h2>
+    <ul class="facts">
+      <li><strong>One memory for all your AI apps.</strong> Tell Claude something once, and Cursor or
+          ChatGPT can recall it. <a href="/docs/#connecting">How to connect your AI apps</a></li>
+      <li><strong>It stays on your computer.</strong> Your memories are stored and encrypted on your
+          device, and never uploaded. <a href="/ai-and-your-data/">What we can and can't see</a></li>
+      <li><strong>You stay in charge.</strong> See every memory, forget any one, download them all, or
+          delete everything in one step. <a href="/docs/#memories">Looking after your memories</a></li>
+      <li><strong>For Windows and Mac.</strong> {RELEASE.windows.arch} {RELEASE.windows.tested}, or a Mac
+          with an Apple chip (M1 or newer). {TRIAL.days} days free, then {PLANS.monthly} or
+          {PLANS.yearly}. <a href="/pricing/">Pricing</a></li>
+    </ul>
   </section>
 </Base>

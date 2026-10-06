@@ -40,6 +40,12 @@ export function graphFor(page: PageEntry, modified?: string, published?: string)
       name: SITE.name,
       legalName: COMPANY.legalName,
       email: COMPANY.email,
+      contactPoint: {
+        '@type': 'ContactPoint',
+        contactType: 'customer support',
+        email: COMPANY.email,
+        availableLanguage: 'en',
+      },
       address: {
         '@type': 'PostalAddress',
         addressLocality: COMPANY.city,
@@ -54,14 +60,16 @@ export function graphFor(page: PageEntry, modified?: string, published?: string)
       },
     },
     {
-      '@type': 'WebPage',
+      '@type': page.contact ? 'ContactPage' : 'WebPage',
       '@id': `${url}#webpage`,
       url,
       name: page.title,
       description: page.description,
       isPartOf: { '@id': website },
       inLanguage: SITE.lang,
-      ...(page.path === '/' ? { about: { '@id': app } } : {}),
+      // The Pricing page is about the app too: its prices are the app's offers
+      // (SEO audit, session 90).
+      ...(page.path === '/' || page.path === '/pricing/' ? { about: { '@id': app } } : {}),
       ...(modified ? { dateModified: modified } : {}),
     },
   ];
@@ -93,7 +101,7 @@ export function graphFor(page: PageEntry, modified?: string, published?: string)
 
   // A how-to guide: an Article whose headline is the page's H1 (Guide.astro
   // renders page.heading), written and published by the company.
-  if (page.heading) {
+  if (page.heading && !page.contact) {
     graph.push({
       '@type': 'Article',
       '@id': `${url}#article`,

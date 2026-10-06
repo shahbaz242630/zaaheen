@@ -36,6 +36,11 @@ export function pageText(html) {
   const desc = (html.match(/<meta\b[^>]*\sname="description"[^>]*\scontent="([^"]*)"/i) || [])[1] || '';
   const main = ((html.match(/<main\b[^>]*>([\s\S]*)<\/main>/i) || [])[1] || '')
     .replace(/<p class="doc-updated">[\s\S]*?<\/p>/gi, '')
+    // The Documents menu (DocsNav) and the "On this page" list sit inside
+    // <main> but are not the page's words: a new guide in the menu re-dated
+    // every policy and guide (SEO audit, session 90; commit 671aa30).
+    .replace(/<nav class="docs-sections"[\s\S]*?<\/nav>/gi, ' ')
+    .replace(/<aside class="docs-toc"[\s\S]*?<\/aside>/gi, ' ')
     .replace(/<script\b[\s\S]*?<\/script\b[^>]*>/gi, ' ')
     .replace(/<[^>]+>/g, ' ');
   return decode(`${title}\n${desc}\n${main}`).replace(/\s+/g, ' ').trim();

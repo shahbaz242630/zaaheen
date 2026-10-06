@@ -53,8 +53,13 @@ for (const rel of [...PAGES, '404.html', '.htaccess', 'tt.js', 'robots.txt', `cl
 for (const rel of ['sitemap.xml', 'llms.txt']) {
   if (files.includes(rel)) fail(rel, `the account origin must not publish ${rel} (D1: nothing listed)`);
 }
-if (files.includes('robots.txt') && !/^User-agent: \*\s*\nDisallow: \/\s*$/m.test(read('robots.txt'))) {
-  fail('robots.txt', 'robots.txt must disallow everything');
+// Crawling is allowed so the noindex on every page is seen (session 90, as on
+// coaching.zaaheen.com): a Disallow hides it, and the URLs can still be listed.
+if (files.includes('robots.txt')) {
+  const robots = read('robots.txt');
+  if (!/^User-agent: \*\s*\nAllow: \/\s*$/m.test(robots) || /^\s*Disallow:\s*\S/im.test(robots)) {
+    fail('robots.txt', 'robots.txt must allow crawling so the noindex is seen');
+  }
 }
 
 // --- Build settings (D3) -----------------------------------------------------------

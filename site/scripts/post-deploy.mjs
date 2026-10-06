@@ -72,7 +72,7 @@ await expect('robots.txt', `${ORIGIN}/robots.txt`, (r, b) =>
   r.status !== 200 ? `HTTP ${r.status}`
     : /Cloudflare Managed/i.test(b) ? 'Cloudflare is injecting its managed robots.txt again (turn it off: SEO-HANDOFF section 7)'
     : /^\s*Disallow:\s*\S/im.test(b) ? 'contains a Disallow rule' : '');
-for (const path of ['/sitemap.xml', '/llms.txt', '/favicon.ico', '/favicon-192.png', '/og-v2.png', `/${KEY}.txt`]) {
+for (const path of ['/sitemap.xml', '/llms.txt', '/favicon.ico', '/favicon-192.png', '/og-v3.png', `/${KEY}.txt`]) {
   await expect(path, `${ORIGIN}${path}`, (r) => (r.status !== 200 ? `HTTP ${r.status}` : ''));
 }
 await expect('missing page is a real 404', `${ORIGIN}/no-such-page-${Date.now()}/`, (r) =>
@@ -90,7 +90,15 @@ for (const path of ['/.htaccess', '/pay/.htaccess']) {
   await expect(`${path} is not served`, `${ORIGIN}${path}`, (r) =>
     r.status === 200 ? `HTTP 200: ${path} is publicly readable` : '');
 }
-for (const ua of ['Googlebot/2.1 (+http://www.google.com/bot.html)', 'OAI-SearchBot/1.0; +https://openai.com/searchbot', 'Claude-SearchBot/1.0']) {
+// Search crawlers and the training crawlers too (locked rule 1: every crawler
+// is welcome). Session 90: the Hostinger origin answered GPTBot with 429 on
+// every page while every other bot got 200, unnoticed until an SEO audit.
+for (const ua of [
+  'Googlebot/2.1 (+http://www.google.com/bot.html)', 'bingbot/2.0; +http://www.bing.com/bingbot.htm',
+  'OAI-SearchBot/1.0; +https://openai.com/searchbot', 'GPTBot/1.2; +https://openai.com/gptbot',
+  'Claude-SearchBot/1.0', 'ClaudeBot/1.0; +claudebot@anthropic.com', 'PerplexityBot/1.0',
+  'Applebot/0.1; +http://www.apple.com/go/applebot',
+]) {
   await expect(`reachable as ${ua.split('/')[0]}`, `${ORIGIN}/`, (r) => (r.status !== 200 ? `HTTP ${r.status}` : ''),
     { headers: { 'User-Agent': `Mozilla/5.0 (compatible; ${ua})`, 'Cache-Control': 'no-cache' } });
 }

@@ -21,7 +21,11 @@ interface Props {
 
 const { page, noindex = false, footer = 'app' } = Astro.props;
 const canonical = absolute(page.path);
-const jsonLd = noindex ? null : graphFor(page, lastModified(page.path), page.heading ? firstPublished(page.sources) : undefined);
+const modified = lastModified(page.path);
+const published = page.heading ? firstPublished(page.sources) : undefined;
+const jsonLd = noindex ? null : graphFor(page, modified, published);
+// Guides are articles to link previews as well as to search (SEO audit, session 90).
+const isArticle = Boolean(page.heading && !page.contact);
 ---
 <!doctype html>
 <html lang={SITE.lang}>
@@ -39,7 +43,9 @@ const jsonLd = noindex ? null : graphFor(page, lastModified(page.path), page.hea
 <link rel="icon" href="/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
-<meta property="og:type" content="website">
+<meta property="og:type" content={isArticle ? 'article' : 'website'}>
+{isArticle && published && <meta property="article:published_time" content={published}>}
+{isArticle && modified && <meta property="article:modified_time" content={modified}>}
 <meta property="og:site_name" content={SITE.name}>
 <meta property="og:locale" content={SITE.locale}>
 <meta property="og:title" content={page.title}>
@@ -53,6 +59,7 @@ const jsonLd = noindex ? null : graphFor(page, lastModified(page.path), page.hea
 {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 
 <header class="site-head">
   <div class="bar">
@@ -79,7 +86,7 @@ const jsonLd = noindex ? null : graphFor(page, lastModified(page.path), page.hea
   </div>
 </header>
 
-<main>
+<main id="main">
   <slot />
 </main>
 

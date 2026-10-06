@@ -57,7 +57,7 @@ const cases = [
   ['indexable page', signIn((s) => s.replace('content="noindex, nofollow"', 'content="index"')), /robots meta noindex/],
   ['captcha element missing', edit('sso-callback/index.html', (s) => s.replace('id="clerk-captcha"', 'id="gone"')), /clerk-captcha/],
   ['sitemap published', (d) => fs.writeFileSync(path.join(d, 'sitemap.xml'), '<urlset/>'), /must not publish sitemap\.xml/],
-  ['robots allows crawling', edit('robots.txt', (s) => s.replace('Disallow: /', 'Allow: /')), /robots\.txt must disallow everything/],
+  ['robots blocks crawling', edit('robots.txt', (s) => s.replace('Allow: /', 'Disallow: /')), /robots\.txt must allow crawling/],
   ['page missing', (d) => fs.rmSync(path.join(d, 'sso-callback', 'index.html')), /sso-callback\/index\.html: required file is missing/],
   // Build settings (D3).
   ['key and client missing', signIn((s) => s.replace(/data-pk="[^"]*"/, 'data-pk=""')), /build settings are missing or invalid/],

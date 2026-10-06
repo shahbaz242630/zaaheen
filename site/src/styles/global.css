@@ -81,6 +81,7 @@ a{color:inherit}
 .lede{font-size:19px;line-height:1.6;color:var(--ink-soft);max-width:480px;margin:0 0 34px;text-wrap:pretty}
 .cta-row{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
 .cta-meta{font:400 13px var(--mono);color:var(--faint)}
+.cta-note{margin:12px 0 0;font-size:14px;color:var(--muted)}
 .promise-dots{list-style:none;display:flex;flex-wrap:wrap;gap:10px 26px;margin:48px 0 0;
   padding:24px 0 0;border-top:1px solid var(--line);font-size:14.5px;color:var(--muted)}
 .promise-dots li{display:flex;align-items:center;gap:8px}
@@ -211,6 +212,9 @@ a{color:inherit}
 .page{max-width:680px;margin:0 auto;padding:70px 32px 90px}
 .page h1{font-size:clamp(32px,5vw,44px);line-height:1.15;margin:0 0 18px}
 .page p{color:var(--ink-soft)}
+.page h2{font-size:22px;margin:46px 0 12px}
+.facts{padding-left:20px;color:var(--ink-soft)}
+.facts li{margin:0 0 12px}
 
 /* ---------- /docs/: laid out like the app's Settings tab ---------- */
 /* Sections on the left (the app's settings menu), settings rows in the middle
@@ -531,3 +535,6 @@ p.placeholder{border:1px dashed var(--border);border-radius:10px;padding:14px 18
    mostly the app's button and menu names, is a little heavier instead. */
 em,i,cite,dfn,var,address{font-style:normal}
 em{font-weight:500;color:var(--ink)}
+.skip{position:absolute;left:12px;top:-60px;z-index:100;padding:10px 16px;background:var(--ink);color:#fff;border-radius:8px;text-decoration:none}
+.skip:focus{top:12px}
+.docs-section .dl{margin:16px 0 18px}
