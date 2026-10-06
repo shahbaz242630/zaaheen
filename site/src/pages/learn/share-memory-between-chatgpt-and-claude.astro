@@ -1,7 +1,7 @@
 ---
 import Learn from '../../layouts/Learn.astro';
 import MemoryFlow from '../../components/learn/MemoryFlow.astro';
-import Placeholder from '../../components/Placeholder.astro';
+import BarChart from '../../components/learn/BarChart.astro';
 import { TIP_LINE } from '../../data/site';
 
 // Learn article 1 (s91). Every statement about ChatGPT or Claude is from their
@@ -16,6 +16,7 @@ import { TIP_LINE } from '../../data/site';
 // - Anthropic, "Use Claude's chat search and memory"
 //   (support.claude.com/en/articles/11817273): Settings, Memory; each project
 //   has its own memory space.
+// The chart is the session 64 live test (notes HANDOFF_V0.2_PART6_ARCHIVE "Session 64 live test"): 8 cross-app questions, 4 answered unprompted, 3 once told to check Zaaheen, 1 blocked by a Google add-on in Antigravity.
 // Zaaheen's own steps are the connect guides' (/docs/connect-chatgpt/,
 // /docs/connect-claude/), which are the app's own words.
 const OUTLINE = [
@@ -127,11 +128,27 @@ const CLAUDE_MEMORY = 'https://support.claude.com/en/articles/11817273-use-claud
       </tbody>
     </table>
 
-    <Placeholder>Chart: our own test. Tell ChatGPT 10 facts about yourself over two days, five on
-      day one and five on day two after the import, then ask Claude about all 10 in a new chat.
-      Count how many Claude gets right with no link, after Claude's memory import (done at the end
-      of day one), and with both apps connected to Zaaheen. Measured on the founder's computer,
-      with the date and app versions in the source line.</Placeholder>
+    <p>We tested a shared memory ourselves. Five AI apps on one Windows computer were connected
+       to the same Zaaheen memory, and we asked eight questions about the person, such as their
+       favourite tea, their favourite city and when they like meetings, in a different app from
+       the one that saved the answer.</p>
+
+    <BarChart
+      id="chart-shared-recall"
+      title="8 questions about the person, asked across 5 AI apps sharing one memory"
+      measure="Questions"
+      max={8}
+      bars={[
+        { label: 'Answered by itself', value: 4, note: 'of 8' },
+        { label: 'Once told to check', value: 3, note: 'of 8' },
+        { label: 'Blocked by an add-on', value: 1, note: 'of 8' },
+      ]}
+      source={{ text: "Zaaheen's own live test, 26 September 2026, Windows, with Claude Desktop, Cursor, ChatGPT (Work and Codex) and Antigravity. The blocked answer was a Google add-on crashing Antigravity's tool calls before they reached Zaaheen." }}
+    />
+
+    <p>Every app that reached the memory gave the right answer. Half the time the app checked by
+       itself; the other times it answered from its own memory first and needed "check Zaaheen".
+       That is why the line above, in each app's instructions, matters.</p>
 
     <p>If you only use the two apps now and then, copying a short list once may be all you need.
        If you're moving from ChatGPT to Claude for good, Claude's import is made for that. If you
