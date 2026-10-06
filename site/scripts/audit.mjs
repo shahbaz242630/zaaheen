@@ -74,7 +74,7 @@ const read = (rel) => fs.readFileSync(path.join(DIST, rel), 'utf8');
 for (const rel of [
   'index.html', '404.html', 'robots.txt', 'sitemap.xml', 'llms.txt', '.htaccess',
   'favicon.ico', 'favicon.svg', 'favicon-192.png', 'apple-touch-icon.png',
-  'icon-192.png', 'icon-512.png', 'manifest.webmanifest', 'og-v2.png', `${INDEXNOW_KEY}.txt`,
+  'icon-192.png', 'icon-512.png', 'manifest.webmanifest', 'og-v3.png', `${INDEXNOW_KEY}.txt`,
   'pay/index.html', 'pay/.htaccess', '.well-known/security.txt',
   // s83: the app's sign-in redirect lands here; a missing page breaks its end.
   'signed-in/index.html',
@@ -296,6 +296,11 @@ function checkArticle(rel, url, html, graph) {
   const segments = url.split('/').filter(Boolean);
   if (!(segments.length === 2 && segments[0] === 'docs')) return;
   const articles = graph.filter((n) => n['@type'] === 'Article');
+  // A contact page is a ContactPage with no Article (session 90).
+  if (graph.some((n) => n['@type'] === 'ContactPage')) {
+    if (articles.length) fail(rel, 'a contact page must not carry an Article');
+    return;
+  }
   if (articles.length !== 1) { fail(rel, `a guide must carry one Article in its JSON-LD, found ${articles.length}`); return; }
   const a = articles[0];
   const h1 = plainText((html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i) || [])[1] || '');
@@ -363,7 +368,9 @@ for (const rel of htmlFiles) {
         const graph = JSON.parse(ld[0][1])['@graph'];
         if (!Array.isArray(graph) || !graph.length) fail(rel, 'JSON-LD has no @graph');
         const types = graph.map((n) => n['@type']);
-        for (const t of ['WebSite', 'Organization', 'WebPage']) if (!types.includes(t)) fail(rel, `JSON-LD lacks ${t}`);
+        for (const t of ['WebSite', 'Organization']) if (!types.includes(t)) fail(rel, `JSON-LD lacks ${t}`);
+        // ContactPage is schema.org's WebPage for a contact page (session 90).
+        if (!types.includes('WebPage') && !types.includes('ContactPage')) fail(rel, 'JSON-LD lacks WebPage');
         if (JSON.stringify(graph).match(/"(aggregateRating|review)"/)) fail(rel, 'JSON-LD claims ratings or reviews; a beta has none (section 3, rule 5)');
         checkOffers(rel, graph);
         checkBreadcrumbs(rel, url, html, graph);

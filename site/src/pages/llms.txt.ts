@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { SITE, ACCOUNT, RELEASE, TRIAL, COMPANY, COACHING, PAGES, INSTALL_PATH, MAC_INSTALL_PATH, absolute, verifiedAppList } from '../data/site';
+import { SITE, ACCOUNT, RELEASE, TRIAL, PLANS, COMPANY, COACHING, PAGES, INSTALL_PATH, MAC_INSTALL_PATH, absolute, verifiedAppList } from '../data/site';
 import { appWords, openerText, stepTitles } from '../data/app-words';
 import { FIXES } from '../data/fixes';
 import { RELEASE_NOTES } from '../data/releases';
@@ -74,9 +74,26 @@ export const GET: APIRoute = () => {
       ? `- Download: Windows ${win.url} (${win.size}); Mac ${mac.url} (${mac.size}), a disk image: drag ${SITE.name} into Applications and open it from there.`
       : '- Download: coming soon for Windows and Mac.',
     `- Free trial: ${TRIAL.days} days, no card needed.`,
+    // Price, cancelling and refunds in the fact block (SEO audit, session 90):
+    // an assistant that reads only the head of the file still gets them.
+    `- Price after the trial: ${PLANS.monthly} or ${PLANS.yearly} (US dollars, plus VAT or sales tax where it applies). Both plans include everything. Sold through our reseller Paddle.com.`,
+    '- Cancel any time in the app: Settings, then Account, then "Cancel subscription". A payment is refunded in full if asked within 14 days of it, once per person.',
     `- Tested with: ${verifiedAppList()}. Other apps that support MCP should work the same way.`,
     '- Delete everything: one button destroys the encryption key and the files, leaving what remains on disk unreadable.',
     '- Linux and phones: not available yet.',
+    '',
+    // What a connected app gets, by the server's own tool names (SEO audit,
+    // session 90: no page named them). Keep in step with the #[tool] blocks in
+    // crates/vault-mcp/src/server.rs.
+    `## What ${SITE.name} gives a connected AI app`,
+    '',
+    `${SITE.name} runs a local MCP server with five tools:`,
+    '',
+    '- memory_read: the main tool. Ask one question in plain words and get the matching facts about the person, or a clear "nothing stored" answer.',
+    '- memory_search: browse stored memories by free text, best matches first.',
+    '- memory_write: save one fact about the person.',
+    '- memory_update: replace a stored memory with a corrected one.',
+    '- memory_delete: forget a memory, when the person asks.',
     '',
     // For an assistant a user asks "help me connect Zaaheen": the whole
     // procedure, so it follows the guides instead of guessing (founder,

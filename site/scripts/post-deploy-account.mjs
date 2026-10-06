@@ -74,8 +74,9 @@ for (const path of PAGES) {
 await expect('the origin forwards to sign-in', `${ORIGIN}/`, (r) =>
   r.status !== 302 ? `HTTP ${r.status}, expected 302` : r.headers.get('location') !== `${ORIGIN}/sign-in/` && r.headers.get('location') !== '/sign-in/'
     ? `Location ${r.headers.get('location')}` : '');
-await expect('robots.txt disallows everything', `${ORIGIN}/robots.txt`, (r, b) =>
-  r.status !== 200 ? `HTTP ${r.status}` : !/^User-agent: \*\s*\nDisallow: \/\s*$/m.test(b) ? 'not "Disallow: /"' : '');
+// Crawling allowed so every page's noindex is seen (session 90).
+await expect('robots.txt allows crawling', `${ORIGIN}/robots.txt`, (r, b) =>
+  r.status !== 200 ? `HTTP ${r.status}` : !/^User-agent: \*\s*\nAllow: \/\s*$/m.test(b) || /^\s*Disallow:\s*\S/im.test(b) ? 'not "Allow: /"' : '');
 await expect('missing page is a real 404', `${ORIGIN}/no-such-page-${Date.now()}/`, (r) =>
   r.status !== 404 ? `HTTP ${r.status}, expected 404` : '');
 if (ORIGIN === ACCOUNT_ORIGIN) {

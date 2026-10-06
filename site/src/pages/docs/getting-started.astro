@@ -1,6 +1,7 @@
 ---
 import Guide from '../../layouts/Guide.astro';
 import Row from '../../components/Row.astro';
+import Download from '../../components/Download.astro';
 import { RELEASE, TRIAL } from '../../data/site';
 
 // Install and first launch, in the app's own words (the setup screens in
@@ -27,6 +28,7 @@ const OUTLINE = [
       <p>Zaaheen {RELEASE.version} is a {RELEASE.stage.toLowerCase()} for {win.arch} Windows, tested
          on {win.tested}, and for Macs with an Apple chip, M1 or newer, tested on {mac.tested}. It is
          not available for Linux or phones yet.</p>
+      <Download small />
     </Row>
 
     <Row level={2} id="install" title="Install" where="Windows or Mac">

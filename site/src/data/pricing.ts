@@ -1,4 +1,4 @@
-import { PRICES, TRIAL, VERIFIED_APPS, verifiedAppList } from './site';
+import { PRICES, TRIAL, VERIFIED_APPS, verifiedAppList, type Faq } from './site';
 
 /** "Claude, Cursor, ChatGPT": for sentences that go on with "and other apps". */
 const appsThen = VERIFIED_APPS.join(', ');
@@ -120,7 +120,7 @@ export const COMPARISON_SOURCES = [
 // (competitor FAQs and Hacker News threads, pricing-research-s69 section 5),
 // the first one defining the product (SEO-HANDOFF section 3a rule 18). Plain
 // HTML, no FAQPage schema (lib/seo.ts). Every answer is true of the app today.
-export const PRICING_FAQ: readonly { q: string; a: string }[] = [
+export const PRICING_FAQ: readonly Faq[] = [
   {
     q: 'What is Zaaheen?',
     a: `Zaaheen is a private memory for your AI apps. It runs on your Windows PC or Mac and gives ${appsThen} and other AI apps one shared memory about you, so you stop repeating yourself. Your memories stay on your own computer, encrypted.`,
@@ -175,7 +175,7 @@ export const PRICING_FAQ: readonly { q: string; a: string }[] = [
   },
   {
     q: 'Can I cancel Zaaheen at any time?',
-    a: 'Yes. Cancel in the app under Settings, Account, Manage subscription, and you keep access until the end of the time you have paid for. If you ask within 14 days of a payment, we refund it in full, once per person.',
+    a: 'Yes. Cancel in the app under Settings, then Account, then Cancel subscription, and you keep access until the end of the time you have paid for. If you ask within 14 days of a payment, we refund it in full, once per person.',
   },
   {
     q: 'What happens to my memories if I stop paying for Zaaheen?',

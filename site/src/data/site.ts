@@ -13,7 +13,7 @@ export const SITE = {
     'Zaaheen keeps what your AI assistants know about you on your own computer, ' +
     'encrypted, and entirely under your control.',
   themeColor: '#faf8f3',
-  ogImage: '/og-v2.png',
+  ogImage: '/og-v3.png',
   // What the link-preview picture says (scripts/og-card.html).
   ogImageAlt: 'Zaaheen: One memory for all your AI apps',
   logo: { path: '/icon-512.png', width: 512, height: 512 },
@@ -84,12 +84,20 @@ export const PLATFORMS = 'Windows and Mac';
 // Apps we have verified end to end against a real install. Add one only after a
 // live test; the site must never promise an app we have not seen work.
 // ChatGPT: the desktop app, live-tested in session 59 (CONNECT-APPS-DESIGN.md).
-export const VERIFIED_APPS = ['Claude', 'Cursor', 'ChatGPT'] as const;
+// Antigravity (session 64: memories shared both ways), Codex (session 82:
+// connected and recalled) and Claude Code (session 85: read and saved) were
+// added in session 90 (founder: "Yes, add all three"), so every app with a
+// connect guide is named as tested.
+export const VERIFIED_APPS = ['Claude', 'Cursor', 'ChatGPT', 'Claude Code', 'Codex', 'Antigravity'] as const;
+
+// The three apps the home page's pictures draw (the before-and-after cards and
+// the animated window): the layouts hold three. Running text names them all.
+export const PICTURED_APPS = VERIFIED_APPS.slice(0, 3);
 
 // The home page's animated app window only (founder, session 61: "keep hermes
 // and openclaw .. we will test them shortly"). A picture, never a written
 // claim: move an app to VERIFIED_APPS after its live test.
-export const DEMO_APPS = [...VERIFIED_APPS, 'Hermes', 'OpenClaw'] as const;
+export const DEMO_APPS = [...PICTURED_APPS, 'Hermes', 'OpenClaw'] as const;
 
 /** "Claude, Cursor and ChatGPT": the verified apps as one English list. */
 export const verifiedAppList = (): string =>
@@ -118,7 +126,10 @@ export const PLANS = {
 // how-it-works questions; every answer restates a fact already on /docs/,
 // /ai-and-your-data/ or this page. Pricing, trial, cancelling and competitors
 // live in the Pricing FAQ (src/data/pricing.ts), so the two never duplicate.
-export const FAQ: readonly { q: string; a: string }[] = [
+/** A FAQ entry; `link` is shown after the answer (session 90 SEO audit: answers that name a page link to it). */
+export type Faq = { q: string; a: string; link?: { href: string; text: string } };
+
+export const FAQ: readonly Faq[] = [
   {
     q: 'What does Zaaheen do?',
     a: `Zaaheen gives your AI apps one shared memory about you. Tell ${verifiedAppList()} something once, and every app you connect can recall it later. It runs on your Windows PC or Mac and keeps your memories there, encrypted.`,
@@ -129,6 +140,7 @@ export const FAQ: readonly { q: string; a: string }[] = [
   {
     q: 'Why choose Zaaheen over other AI memory tools?',
     a: `Zaaheen puts three things together. Your memories stay on your own computer, encrypted, and our servers never receive them. One memory works across all your connected AI apps instead of a separate one inside each. And you stay in charge: see every memory, forget any one, download them all, or delete everything in one step. It costs ${PLANS.monthly} or ${PLANS.yearly} after a ${TRIAL.days}-day free trial with no card. Our Pricing page compares it with other memory tools, checked on each company's own website.`,
+    link: { href: '/pricing/#compare', text: 'Compare Zaaheen with other memory tools' },
   },
   {
     q: 'Where does Zaaheen keep my memories?',
@@ -145,6 +157,7 @@ export const FAQ: readonly { q: string; a: string }[] = [
   {
     q: 'Do I need to know what MCP is?',
     a: `No. MCP is the standard way AI apps connect to tools, and the Zaaheen app connects ${verifiedAppList()} for you. For other AI apps that support MCP, the Documents page shows how.`,
+    link: { href: '/docs/#connecting', text: 'How to connect your AI apps' },
   },
   {
     q: 'Does Zaaheen use AI itself?',
@@ -213,19 +226,24 @@ export interface PageEntry {
    * requires the two to be identical).
    */
   heading?: string;
+  /**
+   * A contact page: its WebPage is a ContactPage and it carries no Article
+   * (SEO audit, session 90: a contact form is not an article).
+   */
+  contact?: true;
 }
 
 export const PAGES: PageEntry[] = [
   {
     path: '/',
-    title: 'Zaaheen: a private memory for your AI assistants',
+    title: 'Zaaheen: one private memory for Claude, ChatGPT and Cursor',
     description:
       'Zaaheen gives Claude, Cursor, ChatGPT and other AI apps one shared memory about you, encrypted on your own computer. For Windows and Mac, 30 days free.',
     sources: ['src/pages/index.astro', 'src/data/site.ts'],
   },
   {
     path: '/products/',
-    title: 'Products: the memory app and AI coaching · Zaaheen',
+    title: 'Products: a private memory for your AI apps · Zaaheen',
     description:
       'The products Zaaheen makes, starting with a private, encrypted memory that your AI assistants share on your own computer.',
     sources: ['src/pages/products.astro', 'src/data/site.ts'],
@@ -347,7 +365,7 @@ export const PAGES: PageEntry[] = [
     path: '/docs/getting-started/',
     crumb: 'Getting started',
     heading: 'How to install and set up Zaaheen',
-    title: 'Install and set up Zaaheen on Windows or Mac · Zaaheen',
+    title: 'Install and set up Zaaheen on Windows or Mac',
     description:
       'Install Zaaheen on Windows or Mac, create your account, choose where your memories live and connect your first AI app. Setting up takes about three minutes.',
     sources: ['src/pages/docs/getting-started.astro', 'src/layouts/Guide.astro'],
@@ -358,7 +376,7 @@ export const PAGES: PageEntry[] = [
     path: '/docs/connect-claude/',
     crumb: 'Connect Claude Desktop',
     heading: 'How to connect Claude Desktop to Zaaheen',
-    title: 'Connect Claude Desktop to Zaaheen · Zaaheen',
+    title: 'Connect Claude Desktop to Zaaheen: shared AI memory',
     description:
       "Give the Claude app on your computer a private memory it shares with your other AI apps: one click in Zaaheen, then Install in Claude.",
     sources: ['src/pages/docs/connect-claude.astro', 'src/layouts/Guide.astro'],
@@ -367,7 +385,7 @@ export const PAGES: PageEntry[] = [
     path: '/docs/connect-claude-code/',
     crumb: 'Connect Claude Code',
     heading: 'How to connect Claude Code to Zaaheen',
-    title: 'Connect Claude Code to Zaaheen · Zaaheen',
+    title: 'Connect Claude Code to Zaaheen: memory across sessions',
     description:
       'Give Claude Code a memory your other AI apps share: run one command in a terminal, and Zaaheen is there in every Claude Code project.',
     sources: ['src/pages/docs/connect-claude-code.astro', 'src/layouts/Guide.astro'],
@@ -376,7 +394,7 @@ export const PAGES: PageEntry[] = [
     path: '/docs/connect-cursor/',
     crumb: 'Connect Cursor',
     heading: 'How to connect Cursor to Zaaheen',
-    title: 'Connect Cursor to Zaaheen · Zaaheen',
+    title: 'Connect Cursor to Zaaheen: memory across sessions',
     description:
       'Give Cursor a memory that your other AI apps share: one click in Zaaheen, then Install in Cursor. How to check it worked, and the setting by hand.',
     sources: ['src/pages/docs/connect-cursor.astro', 'src/layouts/Guide.astro'],
@@ -385,7 +403,7 @@ export const PAGES: PageEntry[] = [
     path: '/docs/connect-chatgpt/',
     crumb: 'Connect ChatGPT',
     heading: 'How to connect ChatGPT to Zaaheen',
-    title: 'Connect ChatGPT to Zaaheen · Zaaheen',
+    title: 'Connect ChatGPT to Zaaheen: shared AI memory',
     description:
       'Connect the ChatGPT app for your computer to Zaaheen in Settings, Plugins, MCP, use it in a Work or Codex chat, and make ChatGPT check it.',
     sources: ['src/pages/docs/connect-chatgpt.astro', 'src/layouts/Guide.astro'],
@@ -394,7 +412,7 @@ export const PAGES: PageEntry[] = [
     path: '/docs/connect-codex/',
     crumb: 'Connect Codex',
     heading: 'How to connect Codex to Zaaheen',
-    title: 'Connect Codex to Zaaheen · Zaaheen',
+    title: 'Connect Codex to Zaaheen: shared AI memory',
     description:
       "Give OpenAI's Codex a memory your other AI apps share: add Zaaheen's setting to config.toml, restart Codex, and check /mcp shows it connected.",
     sources: ['src/pages/docs/connect-codex.astro', 'src/layouts/Guide.astro'],
@@ -403,7 +421,7 @@ export const PAGES: PageEntry[] = [
     path: '/docs/connect-antigravity/',
     crumb: 'Connect Antigravity',
     heading: 'How to connect Antigravity to Zaaheen',
-    title: 'Connect Antigravity to Zaaheen · Zaaheen',
+    title: 'Connect Antigravity to Zaaheen: shared AI memory',
     description:
       "Give Google's Antigravity a memory your other AI apps share: paste Zaaheen's setting into mcp_config.json, restart, and check it shows connected.",
     sources: ['src/pages/docs/connect-antigravity.astro', 'src/layouts/Guide.astro'],
@@ -412,7 +430,7 @@ export const PAGES: PageEntry[] = [
     path: '/docs/connect-other-apps/',
     crumb: 'Connect other AI apps',
     heading: 'How to connect other AI apps to Zaaheen',
-    title: 'Connect other AI apps to Zaaheen with MCP · Zaaheen',
+    title: 'Connect other AI apps to Zaaheen with MCP',
     description:
       'Zaaheen works with any AI app that supports MCP. Which apps have their own guide, the setting to give any other app, and how to check it connected.',
     sources: ['src/pages/docs/connect-other-apps.astro', 'src/layouts/Guide.astro'],
@@ -421,7 +439,7 @@ export const PAGES: PageEntry[] = [
     path: '/docs/troubleshooting/',
     crumb: 'Troubleshooting',
     heading: 'Fixing common problems with Zaaheen',
-    title: 'Zaaheen troubleshooting: fix common problems · Zaaheen',
+    title: 'Zaaheen troubleshooting: fix common problems',
     description:
       "What to do when an AI app doesn't use your Zaaheen memory, isn't listed as connected, or ChatGPT can't see it, and how to send us a record.",
     sources: ['src/pages/docs/troubleshooting.astro', 'src/layouts/Guide.astro'],
@@ -431,13 +449,14 @@ export const PAGES: PageEntry[] = [
     path: '/docs/release-notes/',
     crumb: 'Release notes',
     heading: "What's new in Zaaheen: release notes",
-    title: 'Zaaheen release notes: what changed in each version · Zaaheen',
+    title: 'Zaaheen release notes: what changed in each version',
     description:
       'What is new and what was fixed in each version of the Zaaheen memory app for Windows and Mac, newest first, and how to update to the latest version.',
     sources: ['src/pages/docs/release-notes.astro', 'src/layouts/Guide.astro', 'src/data/releases.ts'],
   },
   {
     path: '/docs/contact/',
+    contact: true,
     crumb: 'Contact us',
     heading: 'Contact Zaaheen',
     title: 'Contact us · Zaaheen',

@@ -39,7 +39,7 @@ const from = formatAed(LOWEST_PRICE_AED);
     <div class="demo" id="booking-demo" aria-hidden="true">
       <div class="win">
         <div class="win-bar win-bar-split">
-          <span class="win-title">coaching.zaaheen.com</span>
+          <span class="win-title">{open ? 'coaching.zaaheen.com' : 'Book a session'}</span>
           <span class="win-title" id="bk-step">Step 1 of 3</span>
         </div>
         <div class="bk-body" id="bk-pane">
@@ -125,7 +125,8 @@ const from = formatAed(LOWEST_PRICE_AED);
       ? <a class="cta" href={book}>Book your session</a>
       : <span class="cta cta-soon">Booking opens soon</span>}
     <p class="kc-contact">{open ? 'Questions about a session or a booking? Email' : 'Online booking opens soon. To ask about a session before then, email'}
-       <a href={`mailto:${COACHING.email}`}>{COACHING.email}</a>.</p>
+       <a href={`mailto:${COACHING.email}`}>{COACHING.email}</a>, or use the
+       <a href="/knowledge-centre/contact/">Knowledge Centre contact page</a>.</p>
   </section>
 
   <script src="../../scripts/booking-demo.js"></script>

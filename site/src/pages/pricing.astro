@@ -23,7 +23,7 @@ const INCLUDED = [
   <div class="pricing">
     <header class="pricing-head">
       <p class="eyebrow">Start with {TRIAL.days} days free, no card needed</p>
-      <h1>One plan. Everything included.</h1>
+      <h1>Zaaheen pricing: one plan, everything included.</h1>
       <p class="lede">Zaaheen gives all your AI apps one private memory, kept on your own computer.
          Try it free for {TRIAL.days} days, then choose how you'd like to pay.</p>
     </header>
@@ -35,7 +35,7 @@ const INCLUDED = [
         <p class="plan-tax">Plus VAT or sales tax where it applies.</p>
         <p class="plan-note">Renews every month until you cancel.</p>
         {RELEASE.available
-          ? <a class="cta" href="/docs/#install">Start your free trial</a>
+          ? <a class="cta" href="/docs/getting-started/">Start your free trial</a>
           : <span class="cta cta-soon">Coming soon for Windows and Mac</span>}
       </section>
       <section class="plan plan-best" aria-labelledby="plan-yearly">
@@ -45,7 +45,7 @@ const INCLUDED = [
         <p class="plan-tax">Plus VAT or sales tax where it applies.</p>
         <p class="plan-note">Renews every year until you cancel.</p>
         {RELEASE.available
-          ? <a class="cta" href="/docs/#install">Start your free trial</a>
+          ? <a class="cta" href="/docs/getting-started/">Start your free trial</a>
           : <span class="cta cta-soon">Coming soon for Windows and Mac</span>}
       </section>
     </div>
@@ -118,7 +118,7 @@ const INCLUDED = [
         {PRICING_FAQ.map((f) => (
           <details class="faq-item">
             <summary>{f.q}</summary>
-            <p>{f.a}</p>
+            <p>{f.a}{f.link && <> <a href={f.link.href}>{f.link.text}</a>.</>}</p>
           </details>
         ))}
       </div>

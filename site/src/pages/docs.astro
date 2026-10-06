@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import DocsNav from '../components/DocsNav.astro';
+import Download from '../components/Download.astro';
 import { ACCOUNT, COMPANY, PLANS, RELEASE, TRIAL, pageFor } from '../data/site';
 import { lastModified } from '../lib/lastmod';
 
@@ -57,7 +58,7 @@ const topic = (id: string) =>
 <Base page={page}>
   <div class="docs">
     <header class="docs-head">
-      <h1>Documents</h1>
+      <h1>Help and guides for Zaaheen</h1>
       <p>How to install the Zaaheen memory app, connect your AI apps to it, and look after your
          memories. Each step uses the same words you will see on screen.</p>
       {updatedLabel && <p class="doc-updated">Last updated {updatedLabel}</p>}
@@ -81,25 +82,12 @@ const topic = (id: string) =>
               <p>Zaaheen {RELEASE.version} is a {RELEASE.stage.toLowerCase()} for Windows ({win.arch},
                  tested on {win.tested}) and for Macs with an Apple chip, M1 or newer (tested on
                  {mac.tested}). It is not available for Linux or phones yet.</p>
-              <p><strong>On Windows,</strong> download the installer{RELEASE.available ? ` (${win.size})` : ''}
-                 and open it. Two things happen while it installs:</p>
-              <ul>
-                <li><strong>Windows says the publisher is unknown.</strong> Zaaheen is in beta, and
-                    the installer is not code-signed yet; signing comes later.
-                    Choose <em>More info</em>, then <em>Run anyway</em>.</li>
-                <li><strong>Windows asks for administrator permission.</strong> Zaaheen installs for
-                    everyone on the computer, so Windows asks once. It does not need administrator
-                    rights to run afterwards.</li>
-              </ul>
-              <p><strong>On a Mac,</strong> download the disk image{RELEASE.available ? ` (${mac.size})` : ''}
-                 and open it, then drag Zaaheen into the Applications folder and open it from there.
-                 Zaaheen only runs from Applications.</p>
-              <ul>
-                <li><strong>Your Mac asks whether to open an app from the internet.</strong> It names
-                    the developer. The Mac app is signed and checked by Apple. Choose <em>Open</em>.</li>
-                <li><strong>Your Mac may ask whether Zaaheen can use your keychain.</strong> That is
-                    where the key to your memories is kept. Choose <em>Always Allow</em>.</li>
-              </ul>
+              <Download small />
+              <p><strong>On Windows,</strong> open the installer{RELEASE.available ? ` (${win.size})` : ''}.
+                 <strong>On a Mac,</strong> open the disk image{RELEASE.available ? ` (${mac.size})` : ''},
+                 drag Zaaheen into the Applications folder and open it from there. Windows or your
+                 Mac may ask a question or two on the way, and each is expected:
+                 <a href="/docs/getting-started/#install">what each question means and what to choose</a>.</p>
             </div>
           </div>
 
@@ -179,7 +167,7 @@ const topic = (id: string) =>
                 <h3 class="set-name">ChatGPT (the app for your computer)</h3>
                 <span class="set-where">ChatGPT › Settings</span>
               </div>
-              <p>In ChatGPT, open Settings, then Integrations, then Plugins, and add Zaaheen as an MCP
+              <p>In ChatGPT, open Settings, then Plugins, then MCP, and add Zaaheen as an MCP
                  server. Use it in ChatGPT's Work or Codex mode; its Chat mode cannot connect to apps
                  on your computer. <a href="/docs/connect-chatgpt/">Full guide: connect ChatGPT</a>.</p>
             </div>
