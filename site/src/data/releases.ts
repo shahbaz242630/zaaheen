@@ -17,6 +17,18 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '0.3.5',
+    date: '2026-10-06',
+    summary: 'Security fixes from our own audit.',
+    added: [],
+    fixed: [
+      "An AI app could change a memory that was kept away from it. It can now change only the memories it's allowed to see.",
+      "Zaaheen's log file could record words from your memories or your searches. It no longer does.",
+      'The name an AI app gives itself when it saves a memory is now cleaned and shortened, and shown as not verified.',
+      'Zaaheen now checks your plan with our server each time it starts and once a day, instead of relying on the record kept on your computer.',
+    ],
+  },
+  {
     version: '0.3.4',
     date: '2026-10-06',
     summary: 'A fix to setting up again after deleting an account.',
