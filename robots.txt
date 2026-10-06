@@ -1,2 +1,7 @@
+# account.zaaheen.com
+# Crawlers may fetch these pages so they see that none of them is to be
+# indexed: every page says noindex (meta and X-Robots-Tag). A Disallow here
+# would hide that, and the addresses could still be listed (session 90).
+
 User-agent: *
-Disallow: /
+Allow: /
