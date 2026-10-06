@@ -491,6 +491,33 @@ fn a_stale_or_nearly_due_lease_is_refreshed_at_start() {
     assert!(stale_at_start(&assess(&ended, &received(&ended), T0)));
 }
 
+/// Security audit s89, F-02: the clock set back to the lease's anchor and
+/// `state.json` deleted kept `elapsed` at 0, so no refresh ever fired and a
+/// trial never ended. A record that does not know the lease is unanchored
+/// and asks for a refresh, however young the lease looks; it still entitles
+/// (a missing file never signs anyone out; the server decides).
+#[test]
+fn a_record_that_does_not_know_the_lease_asks_for_a_refresh_at_start() {
+    let lease = trial_lease(T0);
+    let fresh = assess(&lease, &received(&lease), T0 + 60);
+    assert!(fresh.anchored);
+    assert!(!stale_at_start(&fresh));
+
+    let deleted = assess(&lease, &LocalState::default(), T0 + 60);
+    assert!(!deleted.anchored);
+    assert_eq!(deleted.entitlement, ENTITLED);
+    assert!(stale_at_start(&deleted));
+
+    // A record left by an older lease (another issue time) does not anchor
+    // this one either.
+    let other = LocalState {
+        lease_issued_at: T0 - DAY,
+        floor: T0 - DAY,
+        ..LocalState::default()
+    };
+    assert!(stale_at_start(&assess(&lease, &other, T0 + 60)));
+}
+
 // ---- robustness --------------------------------------------------------------------
 
 #[test]

@@ -303,7 +303,7 @@ impl KeywordIndex {
     ///
     /// Query text is sanitised (Lucene operator chars stripped) before
     /// parsing — see module-level docs for the empirical basis.
-    #[instrument(skip(self), fields(limit, query_len = query.len()))]
+    #[instrument(skip(self, query), fields(limit, query_len = query.len()))]
     pub async fn search(&self, query: &str, limit: usize) -> VaultResult<Vec<(MemoryId, f32)>> {
         let trimmed = query.trim();
         if trimmed.is_empty() || limit == 0 {
@@ -326,7 +326,9 @@ impl KeywordIndex {
         let parser = QueryParser::for_index(&self.index, vec![self.content_field]);
         let parsed = parser
             .parse_query(&sanitized)
-            .map_err(|e| vault_err(&format!("parse_query (sanitized={sanitized:?})"), e))?;
+            // The parser's message can quote the query, and errors reach the
+            // log file: name the step only (ADR-SEC-014; audit s89).
+            .map_err(|_| vault_err("parse_query", "the query could not be parsed"))?;
 
         let top: Vec<(f32, tantivy::DocAddress)> = searcher
             .search(&parsed, &TopDocs::with_limit(limit).order_by_score())

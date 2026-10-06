@@ -578,11 +578,15 @@ impl Account {
             let state = dir.read_state();
             let assessment = assess(&lease, &state, now);
             let mut next = state;
-            let raised = state.with_floor(&lease, now);
-            if raised.lease_issued_at != state.lease_issued_at
-                || raised.floor.saturating_sub(state.floor) >= FLOOR_WRITE_EVERY
-            {
-                next = raised;
+            // Only a record that already knows this lease has its floor
+            // raised: adopting an unknown lease here would re-anchor a
+            // deleted record at the current clock and hide it from the
+            // refresh at start (security audit s89, F-02).
+            if assessment.anchored {
+                let raised = state.with_floor(&lease, now);
+                if raised.floor.saturating_sub(state.floor) >= FLOOR_WRITE_EVERY {
+                    next = raised;
+                }
             }
             if let Some(active) = next.with_activity(&lease, &assessment) {
                 next = active;

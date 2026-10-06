@@ -531,3 +531,5 @@ p.placeholder{border:1px dashed var(--border);border-radius:10px;padding:14px 18
    mostly the app's button and menu names, is a little heavier instead. */
 em,i,cite,dfn,var,address{font-style:normal}
 em{font-weight:500;color:var(--ink)}
+/* Download fingerprints (security audit s89): 64 characters must wrap on a phone. */
+code.hash{font-family:var(--mono);font-size:13px;word-break:break-all}

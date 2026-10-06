@@ -32,7 +32,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RELEASE_VERSION: '0.3.4'
+  RELEASE_VERSION: '0.3.5'
 
 jobs:
   windows:
@@ -100,6 +100,9 @@ jobs:
         run: |
           curl.exe -o $env:RUNNER_TEMP/VulkanSDK-Installer.exe -L `
             "https://sdk.lunarg.com/sdk/download/${env:VULKAN_VERSION}/windows/vulkansdk-windows-X64-${env:VULKAN_VERSION}.exe"
+            # Checked before it runs (security audit s89); a new VULKAN_VERSION needs a new hash.
+            $vk = (Get-FileHash "$env:RUNNER_TEMP/VulkanSDK-Installer.exe" -Algorithm SHA256).Hash.ToLower()
+            if ($vk -ne "34a921d951858274ca8e470e9d0a3b7624db41216b3908ccea9f73c8a1b7500e") { throw "Vulkan SDK installer SHA-256 mismatch: $vk" }
           & "$env:RUNNER_TEMP\VulkanSDK-Installer.exe" --accept-licenses --default-answer --confirm-command install
           Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\${env:VULKAN_VERSION}"
           Add-Content $env:GITHUB_PATH "C:\VulkanSDK\${env:VULKAN_VERSION}\bin"
@@ -191,7 +194,7 @@ jobs:
       SANDBOX_ZAAHEEN_LEASE_PRIMARY_KEY: ${{ secrets.MAC_TEST_LEASE_PRIMARY_KEY }}
       SANDBOX_ZAAHEEN_LEASE_BACKUP_KID: ${{ secrets.MAC_TEST_LEASE_BACKUP_KID }}
       SANDBOX_ZAAHEEN_LEASE_BACKUP_KEY: ${{ secrets.MAC_TEST_LEASE_BACKUP_KEY }}
-      DMG: ${{ inputs.account == 'production' && 'Zaaheen_0.3.4_aarch64.dmg' || 'Zaaheen_0.3.4_aarch64_sandbox.dmg' }}
+      DMG: ${{ inputs.account == 'production' && 'Zaaheen_0.3.5_aarch64.dmg' || 'Zaaheen_0.3.5_aarch64_sandbox.dmg' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

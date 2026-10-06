@@ -71,7 +71,7 @@ export const GET: APIRoute = () => {
     '',
     `- Current version: ${RELEASE.version} (${RELEASE.stage.toLowerCase()}), for ${win.arch} Windows (tested on ${win.tested}) and for Macs with an ${mac.arch} (tested on ${mac.tested}).`,
     RELEASE.available
-      ? `- Download: Windows ${win.url} (${win.size}); Mac ${mac.url} (${mac.size}), a disk image: drag ${SITE.name} into Applications and open it from there.`
+      ? `- Download: Windows ${win.url} (${win.size}, SHA-256 ${win.sha256}); Mac ${mac.url} (${mac.size}, SHA-256 ${mac.sha256}), a disk image: drag ${SITE.name} into Applications and open it from there.`
       : '- Download: coming soon for Windows and Mac.',
     `- Free trial: ${TRIAL.days} days, no card needed.`,
     `- Tested with: ${verifiedAppList()}. Other apps that support MCP should work the same way.`,

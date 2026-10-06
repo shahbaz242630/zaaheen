@@ -87,4 +87,5 @@ pub use relay::{
 };
 pub use server::{
     DeleteToolParams, SearchToolParams, StdioServer, UpdateToolParams, WriteToolParams,
+    MAX_SOURCE_AGENT_CHARS,
 };
