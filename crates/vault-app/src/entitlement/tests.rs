@@ -15,7 +15,7 @@ use vault_account::{
 use vault_mcp::{AccountNotice, EntitlementCheck, LockReason, Verdict};
 
 use super::{
-    daily_period, refresh_if_stale, run_routine_refresh, wants_refresh_at_start, AccountAccess,
+    daily_period, routine_refresh, run_routine_refresh, wants_refresh_at_start, AccountAccess,
     AccountCheck, AccountState, Clock, ModeCheck, TRIAL_NOTICE_WITHIN,
 };
 
@@ -740,17 +740,19 @@ fn a_computer_with_no_lease_always_tries_at_start() {
     assert!(wants_refresh_at_start(&AccountState::NoLease));
 }
 
-/// §4 refreshes at start only when stale, so an ordinary start does not
-/// rotate the refresh token.
+/// §8.51 (s89): a lease that LOOKS fresh is refreshed too. "Fresh" is judged
+/// from the clock and `state.json`, which the person at the computer can
+/// rewrite to keep a trial forever; only the server's answer cannot be
+/// forged.
 #[test]
-fn a_fresh_lease_is_not_refreshed_at_start() {
+fn a_lease_that_looks_fresh_is_refreshed_at_start_too() {
     let ok = Entitlement::Entitled {
         payment_failed: false,
     };
-    assert!(!wants_refresh_at_start(&leased(ok, false, HOUR, 20 * DAY)));
+    assert!(wants_refresh_at_start(&leased(ok, false, HOUR, 20 * DAY)));
     assert!(
-        !wants_refresh_at_start(&leased(ok, false, DAY - 1, 3 * DAY)),
-        "just under a day old, exactly three days left: not yet stale"
+        wants_refresh_at_start(&leased(ok, false, 0, 30 * DAY)),
+        "an elapsed of 0 (a rewritten record) still asks the server"
     );
 }
 
@@ -778,7 +780,7 @@ async fn a_stale_lease_gets_one_routine_refresh_and_no_use() {
     };
     let account = FakeAccount::steady(leased(ok, false, 2 * DAY, 20 * DAY));
     let clock = FixedClock::at(1_000);
-    assert!(refresh_if_stale(account.as_ref(), clock.as_ref()).await);
+    assert!(routine_refresh(account.as_ref(), clock.as_ref()).await);
     assert_eq!(account.refreshes(), vec![Trigger::Routine]);
     assert!(
         account.uses().is_empty(),
@@ -787,25 +789,30 @@ async fn a_stale_lease_gets_one_routine_refresh_and_no_use() {
 }
 
 #[tokio::test]
-async fn a_fresh_lease_or_an_unreadable_folder_gets_no_routine_refresh() {
+async fn signed_out_or_an_unreadable_folder_gets_no_routine_refresh() {
     let clock = FixedClock::at(1_000);
+    let signed_out = FakeAccount::steady(AccountState::SignedOut);
+    assert!(!routine_refresh(signed_out.as_ref(), clock.as_ref()).await);
+    assert!(signed_out.refreshes().is_empty());
+
+    // §8.51: a lease that looks fresh is asked about all the same.
     let fresh = FakeAccount::steady(ENTITLED);
-    assert!(!refresh_if_stale(fresh.as_ref(), clock.as_ref()).await);
-    assert!(fresh.refreshes().is_empty());
+    assert!(routine_refresh(fresh.as_ref(), clock.as_ref()).await);
+    assert_eq!(fresh.refreshes(), vec![Trigger::Routine]);
 
     let unreadable = FakeAccount::new(
         vec![StateAnswer::Unreadable],
         OnRefresh::Answer(Arc::new(|| Err(AccountError::Busy))),
     );
-    assert!(!refresh_if_stale(unreadable.as_ref(), clock.as_ref()).await);
+    assert!(!routine_refresh(unreadable.as_ref(), clock.as_ref()).await);
     assert!(unreadable.refreshes().is_empty());
 }
 
-/// The routine as the keeper and the desktop run it: once at start when
-/// stale, then on each daily tick — again only when stale. Tokio's paused
-/// clock, so a day passes in no real time.
+/// The routine as the keeper and the desktop run it: once at start, then on
+/// each daily tick, for a lease that looks stale and one that looks fresh
+/// alike (§8.51). Tokio's paused clock, so a day passes in no real time.
 #[tokio::test(start_paused = true)]
-async fn the_daily_tick_refreshes_a_stale_lease_and_leaves_a_fresh_one_alone() {
+async fn the_daily_tick_refreshes_every_signed_in_lease() {
     let ok = Entitlement::Entitled {
         payment_failed: false,
     };
@@ -828,11 +835,11 @@ async fn the_daily_tick_refreshes_a_stale_lease_and_leaves_a_fresh_one_alone() {
         vec![Trigger::Routine, Trigger::Routine],
         "one refresh at start and one on the daily tick"
     );
-    assert!(
-        fresh.refreshes().is_empty(),
-        "a fresh lease is refreshed neither at start nor on the tick"
+    assert_eq!(
+        fresh.refreshes(),
+        vec![Trigger::Routine, Trigger::Routine],
+        "a lease that looks fresh is asked about at start and on the tick too"
     );
-    assert!(fresh.reads() >= 2, "the tick must have looked");
 }
 
 /// The spread exists so every install does not ask the Worker at the same

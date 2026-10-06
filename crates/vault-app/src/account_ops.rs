@@ -406,20 +406,20 @@ impl AccountOps {
         self.status().await
     }
 
-    /// At desktop open, refresh only when §8.26 §4 says to — *"refresh if
-    /// the lease is older than 24 h or any deadline is within 3 days"* — so
-    /// an ordinary open does not rotate the refresh token. Then once a day
-    /// while the app runs, again only when the lease is stale. Never
-    /// returns; the caller spawns it.
+    /// At desktop open, refresh, then once a day while the app runs, whatever
+    /// the local record says (SIGNIN-DESIGN §8.51, amendment 24, s89: §8.26
+    /// §4's "only when stale" was judged from a record the person at the
+    /// computer can rewrite). Never returns; the caller spawns it.
     ///
     /// Until session 50 the function this replaced had **no production
     /// caller** although §8.37 said it ran; and it refreshed on every open,
     /// which §4 does not ask for (§8.38 retracts both). Since 4d-3 it is the
     /// keeper's routine too, run from one place
     /// ([`crate::entitlement::run_routine_refresh`], §8.40), so the two
-    /// processes cannot drift apart — and because each tick refreshes only a
-    /// stale lease, the one that refreshes first leaves the other nothing to
-    /// do.
+    /// processes cannot drift apart; the once-a-minute limit stops them asking
+    /// at the same moment. Refreshing on every open is back, now for a
+    /// reason §8.38 did not have: the server is the only clock that cannot be
+    /// rewritten (§8.51).
     ///
     /// Holds only the account, never the vault.
     pub async fn refresh_at_open_then_daily(self: Arc<Self>) {
