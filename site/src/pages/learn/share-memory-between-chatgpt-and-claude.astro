@@ -16,7 +16,7 @@ import { TIP_LINE } from '../../data/site';
 // - Anthropic, "Use Claude's chat search and memory"
 //   (support.claude.com/en/articles/11817273): Settings, Memory; each project
 //   has its own memory space.
-// The chart is the session 64 live test (notes HANDOFF_V0.2_PART6_ARCHIVE "Session 64 live test"): 8 cross-app questions, 4 answered unprompted, 3 once told to check Zaaheen, 1 blocked by a Google add-on in Antigravity.
+// The chart is the session 64 live test (notes HANDOFF_V0.2_PART6_ARCHIVE "Session 64 live test"): 8 questions, mostly cross-app (Claude's tea was saved and recalled in Claude; ChatGPT Work and Cursor-after-tidy-up do not record the saving app), 4 answered unprompted, 3 once told to check Zaaheen, 1 blocked by a Google add-on in Antigravity.
 // Zaaheen's own steps are the connect guides' (/docs/connect-chatgpt/,
 // /docs/connect-claude/), which are the app's own words.
 const OUTLINE = [
@@ -130,8 +130,8 @@ const CLAUDE_MEMORY = 'https://support.claude.com/en/articles/11817273-use-claud
 
     <p>We tested a shared memory ourselves. Five AI apps on one Windows computer were connected
        to the same Zaaheen memory, and we asked eight questions about the person, such as their
-       favourite tea, their favourite city and when they like meetings, in a different app from
-       the one that saved the answer.</p>
+       favourite tea, their favourite city and when they like meetings, mostly in a different app
+       from the one that saved the answer.</p>
 
     <BarChart
       id="chart-shared-recall"
