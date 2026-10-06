@@ -231,6 +231,7 @@ const cases = [
   ['Learn article without a chart', edit(LEARN_1, (s) => { const out = s.replace(/<figure class="chart"[\s\S]*?<\/figure>/, '').replace(/<p class="placeholder">[\s\S]*?<\/p>/, ''); if (out === s) throw new Error('audit.test: no chart or chart placeholder'); return out; }), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: a Learn article needs a chart/],
   ['stock phrase in a Learn article', edit(LEARN_1, (s) => s.replace('</main>', '<p>Let us delve into your memory.</p></main>')), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: stock phrase "delve"/],
   ['Learn article without an Article', ldEdit(LEARN_1, (g) => { const i = g.findIndex((n) => n['@type'] === 'Article'); if (i < 0) throw new Error('audit.test: no Article'); g.splice(i, 1); }), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: a guide must carry one Article/],
+  ['Learn article without People also read', edit(LEARN_1, (s) => { const out = s.replace(/<nav class="learn-more" aria-label="People also read">[\s\S]*?<\/nav>/, ''); if (out === s) throw new Error('audit.test: no People also read'); return out; }), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: a Learn article needs a People also read list/],
   ['Learn article linked only from /learn/', (d) => {
     const url = '/learn/share-memory-between-chatgpt-and-claude/';
     let removed = 0;
