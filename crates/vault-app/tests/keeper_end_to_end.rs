@@ -691,7 +691,7 @@ async fn erasure_waits_out_and_reports_a_maintenance_run() {
 #[test]
 fn the_tool_contract_is_pinned_to_the_wire_version() {
     // Wire 6 (session 89): `memory_read` says `source_agent` is not
-    // verified; recorded from CI's first run of this branch. Wire 5 was
+    // verified; recorded 2026-10-06 on CI (Linux and macOS agree). Wire 5 was
     // 5ca1913b1cd3750439e3e4862fb4551140b03bca0cb1432ac02abfd53a564bd3,
     // recorded 2026-10-03 (session 83: the instructions end with where setup
     // help and fixes live), computed on CI (Linux and macOS agree) under
@@ -703,7 +703,7 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     // 64bafc664287b3e09449bb4c093e38bfa87b287bbb769ce86e14967363a7d836 (CI,
     // Linux and macOS, ADR-SEC-021 D4c); wire 1 was
     // 2e062fb5bc6adb1a62b37ca9c33adb51dbfd2f59249e501d7fa6dfb9871309be.
-    const PINNED: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+    const PINNED: &str = "36c2ad4654001bfd296da020bdd6510684e22a4f43c290ab4daff712ab7263dc";
 
     let server = StdioServer::new(Arc::new(NoVaultAdapter), Vec::new());
     let instructions = server.get_info().instructions.unwrap_or_default();
