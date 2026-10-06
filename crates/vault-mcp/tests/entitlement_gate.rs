@@ -1171,6 +1171,9 @@ async fn memory_reads_description_explains_the_account_warnings() {
         .unwrap_or_else(|| panic!("memory_read is listed: {tools}"));
     let description = read["description"].as_str().unwrap_or_default();
     for needle in [
+        // Security audit s89: the saving app names itself; agents must not
+        // read the label as proof of what the user said.
+        "`source_agent` is the name the saving app gave itself, not verified",
         "SUBSCRIPTION_",
         "not about the facts",
         "never changes `status`",

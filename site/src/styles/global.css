@@ -538,3 +538,5 @@ em{font-weight:500;color:var(--ink)}
 .skip{position:absolute;left:12px;top:-60px;z-index:100;padding:10px 16px;background:var(--ink);color:#fff;border-radius:8px;text-decoration:none}
 .skip:focus{top:12px}
 .docs-section .dl{margin:16px 0 18px}
+/* Download fingerprints (security audit s89): 64 characters must wrap on a phone. */
+code.hash{font-family:var(--mono);font-size:13px;word-break:break-all}

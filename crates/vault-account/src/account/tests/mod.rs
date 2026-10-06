@@ -16,7 +16,7 @@ use zeroize::Zeroizing;
 
 use super::*;
 use crate::config::AccountConfig;
-use crate::entitlement::{Denial, Entitlement, DAY};
+use crate::entitlement::{stale_at_start, Denial, Entitlement, DAY};
 use crate::files::{LEASE_FILE, LOCK_FILE, MARKER_FILE, STATE_FILE};
 use crate::lease::LeaseState;
 use crate::oauth::RefreshToken;
@@ -751,6 +751,26 @@ async fn use_is_recorded_in_server_time_and_writes_are_throttled() {
     let later = world.dir.read_state();
     assert_eq!(later.floor, T0 + 2 * HOUR + 90);
     assert_eq!(later.last_active_anchor, T0 + 2 * HOUR);
+}
+
+/// Security audit s89, F-02: use after `state.json` was deleted must not
+/// re-anchor the record at the current clock, or the refresh at start that
+/// an unanchored record asks for would be hidden by the next served call.
+#[tokio::test]
+async fn use_never_anchors_a_deleted_record_to_the_lease() {
+    let world = World::signed_in().await;
+    std::fs::remove_file(world.tmp.path().join(STATE_FILE)).unwrap();
+    world.account.record_use(T0 + 2 * HOUR).await.unwrap();
+    let after = world.dir.read_state();
+    assert_eq!(after.lease_issued_at, 0, "use adopted an unknown lease");
+    assert_eq!(after.floor, 0);
+    match world.account.status(T0 + 2 * HOUR).await.unwrap() {
+        Status::Leased { assessment, .. } => {
+            assert!(!assessment.anchored);
+            assert!(stale_at_start(&assessment));
+        }
+        _ => panic!("expected a leased status"),
+    }
 }
 
 #[tokio::test]

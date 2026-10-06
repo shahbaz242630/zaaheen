@@ -54,6 +54,16 @@ const OUTLINE = [
         <li><strong>Your Mac may ask whether Zaaheen can use your keychain.</strong> That is where
             the key to your memories is kept. Choose <em>Always Allow</em>.</li>
       </ul>
+      {RELEASE.available && <>
+        <p><strong>To check your download,</strong> compare its fingerprint (SHA-256) with the one
+           below. If they differ, delete the file and download it again from this site.</p>
+        <ul>
+          <li><strong>Windows</strong> ({win.file}): <code class="hash">{win.sha256}</code>. In
+              PowerShell, run <code>Get-FileHash "$HOME\Downloads\{win.file}"</code>.</li>
+          <li><strong>Mac</strong> ({mac.file}): <code class="hash">{mac.sha256}</code>. In
+              Terminal, run <code>shasum -a 256 ~/Downloads/{mac.file}</code>.</li>
+        </ul>
+      </>}
     </Row>
 
     <Row level={2} id="set-up" title="Set up" where="Begin set up">

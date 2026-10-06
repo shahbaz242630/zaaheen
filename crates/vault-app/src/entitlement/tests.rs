@@ -35,6 +35,7 @@ const fn leased(
             entitlement,
             elapsed,
             remaining,
+            anchored: true,
         },
         trial,
     }
