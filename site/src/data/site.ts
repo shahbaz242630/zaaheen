@@ -180,7 +180,8 @@ export const FAQ: readonly Faq[] = [
   {
     q: 'How do I switch between ChatGPT and Claude without losing context?',
     a: "Connect both to Zaaheen. What you tell either app goes into one memory on your computer, so the other can recall it after you switch. Each app's own built-in memory can't be imported in one click yet, so ask the app you've been using to save what matters to Zaaheen.",
-    link: { href: '/docs/#connecting', text: 'How to connect your AI apps' },
+    // The full answer is the Learn article (s91).
+    link: { href: '/learn/share-memory-between-chatgpt-and-claude/', text: 'How to share memory between ChatGPT and Claude' },
   },
   {
     q: 'What is an MCP memory server?',
@@ -226,6 +227,8 @@ export const COACHING = {
 export const NAV = [
   { href: '/products/', label: 'Products' },
   { href: '/docs/', label: 'Documents' },
+  // Learn, next to Documents (s91 plan, founder: "yes partner start with five articles").
+  { href: '/learn/', label: 'Learn' },
   { href: '/knowledge-centre/', label: 'Knowledge Centre' },
   { href: '/pricing/', label: 'Pricing' },
 ] as const;
@@ -504,7 +507,55 @@ export const PAGES: PageEntry[] = [
       `Zaaheen pricing: ${TRIAL.days} days free with no card, then ${PLANS.monthly} or ${PLANS.yearly}. How Zaaheen compares with other AI memory tools and ChatGPT and Claude memory.`,
     sources: ['src/pages/pricing.astro', 'src/data/site.ts', 'src/data/pricing.ts'],
   },
+  // Learn (founder, session 90 idea, plan approved s91: "yes partner start with
+  // five articles"): answers to what people search for, first-hand and
+  // fact-checked, each with an animation and a chart (founder rule, s91). Every
+  // article is in LEARN too, which the hub and scripts/audit.mjs read.
+  {
+    path: '/learn/',
+    crumb: 'Learn',
+    title: 'Learn: AI memory across Claude, ChatGPT and Cursor · Zaaheen',
+    description:
+      'Plain answers about AI memory: how Claude, ChatGPT, Claude Code and Cursor remember you, and how to keep one memory across all of them.',
+    sources: ['src/pages/learn/index.astro', 'src/data/site.ts'],
+  },
+  {
+    path: '/learn/share-memory-between-chatgpt-and-claude/',
+    crumb: 'Share memory between ChatGPT and Claude',
+    heading: 'How to share memory between ChatGPT and Claude',
+    title: 'How to share memory between ChatGPT and Claude',
+    description:
+      "ChatGPT and Claude each keep their own memory and can't read each other's. Three ways to carry what they know about you from one to the other.",
+    sources: ['src/pages/learn/share-memory-between-chatgpt-and-claude.astro', 'src/layouts/Learn.astro'],
+  },
 ];
+
+// The Learn articles, newest last, for the /learn/ hub and the "People also
+// read" list under each article (founder, s91: "give the link of related article
+// at the bottom.. like people also read"). `related`: the articles closest to
+// this one, best first; the list tops up with the newest others to three.
+// scripts/audit.mjs requires each article to be linked from at least one page
+// besides the hub, to carry a chart and an animation, and, once there are two
+// or more, to list others under "People also read".
+export type LearnArticle = { path: string; summary: string; related: readonly string[] };
+export const LEARN: readonly LearnArticle[] = [
+  {
+    path: '/learn/share-memory-between-chatgpt-and-claude/',
+    summary:
+      "They can't read each other's memory. Copy it across, use Claude's import, or give both apps one shared memory.",
+    related: [],
+  },
+];
+
+/** "People also read" under an article: its related ones first, then the newest others, three at most. */
+export const alsoRead = (path: string): LearnArticle[] => {
+  const self = LEARN.find((a) => a.path === path);
+  if (!self) throw new Error(`No LEARN entry for ${path}`);
+  for (const r of self.related) if (!LEARN.some((a) => a.path === r)) throw new Error(`${path} relates to ${r}, which is not in LEARN`);
+  const picked = self.related.map((r) => LEARN.find((a) => a.path === r) as LearnArticle);
+  const rest = [...LEARN].reverse().filter((a) => a.path !== path && !self.related.includes(a.path));
+  return [...picked, ...rest].slice(0, 3);
+};
 
 // The policies, each on its own address (founder, session 67), in the order the
 // Documents menu lists them. The footer (components/Footer.astro) links each,
