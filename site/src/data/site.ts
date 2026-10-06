@@ -181,7 +181,8 @@ export const FAQ: readonly Faq[] = [
   {
     q: 'Can I use one memory across Claude Code, Cursor and Codex?',
     a: 'Yes. Connect each of them to Zaaheen once, and they all read from and save to the same memory on your computer. A preference you tell Claude Code is there when you open Cursor or Codex.',
-    link: { href: '/docs/#connecting', text: 'How to connect your AI apps' },
+    // The full answer is the Learn article (s91).
+    link: { href: '/learn/one-memory-across-claude-code-cursor-and-codex/', text: 'One memory across Claude Code, Cursor and Codex' },
   },
   {
     q: 'How do I switch between ChatGPT and Claude without losing context?',
@@ -543,6 +544,15 @@ export const PAGES: PageEntry[] = [
       "Yes, within one project on one computer. What CLAUDE.md and Claude Code's auto memory keep, what loads each session, and what they don't carry.",
     sources: ['src/pages/learn/does-claude-code-remember-between-sessions.astro', 'src/layouts/Learn.astro'],
   },
+  {
+    path: '/learn/one-memory-across-claude-code-cursor-and-codex/',
+    crumb: 'One memory across Claude Code, Cursor and Codex',
+    heading: 'How to keep one memory across Claude Code, Cursor and Codex',
+    title: 'One memory across Claude Code, Cursor and Codex · Zaaheen',
+    description:
+      "Claude Code, Cursor and Codex each keep their own memory. Share project rules with one AGENTS.md, and what's true about you with one shared memory.",
+    sources: ['src/pages/learn/one-memory-across-claude-code-cursor-and-codex.astro', 'src/layouts/Learn.astro'],
+  },
 ];
 
 // The Learn articles, newest last, for the /learn/ hub and the "People also
@@ -564,7 +574,13 @@ export const LEARN: readonly LearnArticle[] = [
     path: '/learn/does-claude-code-remember-between-sessions/',
     summary:
       'Yes, within one project on one computer. What CLAUDE.md and auto memory keep, what loads each session, and what they leave behind.',
-    related: ['/learn/share-memory-between-chatgpt-and-claude/'],
+    related: ['/learn/one-memory-across-claude-code-cursor-and-codex/', '/learn/share-memory-between-chatgpt-and-claude/'],
+  },
+  {
+    path: '/learn/one-memory-across-claude-code-cursor-and-codex/',
+    summary:
+      'Each keeps its own memory. Share project rules through one AGENTS.md, and what they know about you through one shared memory.',
+    related: ['/learn/does-claude-code-remember-between-sessions/', '/learn/share-memory-between-chatgpt-and-claude/'],
   },
 ];
 
