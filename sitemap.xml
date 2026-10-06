@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://zaaheen.com/</loc>
-    <lastmod>2026-10-06T17:22:29Z</lastmod>
+    <lastmod>2026-10-06T17:46:40Z</lastmod>
   </url>
   <url>
     <loc>https://zaaheen.com/products/</loc>
@@ -110,14 +110,18 @@
   </url>
   <url>
     <loc>https://zaaheen.com/learn/</loc>
-    <lastmod>2026-10-06T17:22:29Z</lastmod>
+    <lastmod>2026-10-06T17:46:40Z</lastmod>
   </url>
   <url>
     <loc>https://zaaheen.com/learn/share-memory-between-chatgpt-and-claude/</loc>
-    <lastmod>2026-10-06T17:22:29Z</lastmod>
+    <lastmod>2026-10-06T17:46:40Z</lastmod>
   </url>
   <url>
     <loc>https://zaaheen.com/learn/does-claude-code-remember-between-sessions/</loc>
-    <lastmod>2026-10-06T17:22:29Z</lastmod>
+    <lastmod>2026-10-06T17:46:40Z</lastmod>
+  </url>
+  <url>
+    <loc>https://zaaheen.com/learn/one-memory-across-claude-code-cursor-and-codex/</loc>
+    <lastmod>2026-10-06T17:46:40Z</lastmod>
   </url>
 </urlset>
