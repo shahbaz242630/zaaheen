@@ -7,9 +7,21 @@ Zaaheen is a desktop app that gives AI assistants one private, persistent memory
 - Current version: 0.3.4 (beta), for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
 - Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.4_x64.msi (148 MB); Mac https://dl.zaaheen.com/Zaaheen_0.3.4_aarch64.dmg (154 MB), a disk image: drag Zaaheen into Applications and open it from there.
 - Free trial: 30 days, no card needed.
-- Tested with: Claude, Cursor and ChatGPT. Other apps that support MCP should work the same way.
+- Price after the trial: $5 a month or $48 a year (US dollars, plus VAT or sales tax where it applies). Both plans include everything. Sold through our reseller Paddle.com.
+- Cancel any time in the app: Settings, then Account, then "Cancel subscription". A payment is refunded in full if asked within 14 days of it, once per person.
+- Tested with: Claude, Cursor, ChatGPT, Claude Code, Codex and Antigravity. Other apps that support MCP should work the same way.
 - Delete everything: one button destroys the encryption key and the files, leaving what remains on disk unreadable.
 - Linux and phones: not available yet.
+
+## What Zaaheen gives a connected AI app
+
+Zaaheen runs a local MCP server with five tools:
+
+- memory_read: the main tool. Ask one question in plain words and get the matching facts about the person, or a clear "nothing stored" answer.
+- memory_search: browse stored memories by free text, best matches first.
+- memory_write: save one fact about the person.
+- memory_update: replace a stored memory with a corrected one.
+- memory_delete: forget a memory, when the person asks.
 
 ## Helping someone connect Zaaheen
 
@@ -115,8 +127,8 @@ Please follow both steps. If you skip one, your app may not use Zaaheen.
 
 ## Pages
 
-- [Zaaheen: a private memory for your AI assistants](https://zaaheen.com/): Zaaheen gives Claude, Cursor, ChatGPT and other AI apps one shared memory about you, encrypted on your own computer. For Windows and Mac, 30 days free.
-- [Products: the memory app and AI coaching · Zaaheen](https://zaaheen.com/products/): The products Zaaheen makes, starting with a private, encrypted memory that your AI assistants share on your own computer.
+- [Zaaheen: one private memory for Claude, ChatGPT and Cursor](https://zaaheen.com/): Zaaheen gives Claude, Cursor, ChatGPT and other AI apps one shared memory about you, encrypted on your own computer. For Windows and Mac, 30 days free.
+- [Products: a private memory for your AI apps · Zaaheen](https://zaaheen.com/products/): The products Zaaheen makes, starting with a private, encrypted memory that your AI assistants share on your own computer.
 - [Help and guides for the memory app · Zaaheen](https://zaaheen.com/docs/): Guides for Zaaheen products: connecting Claude, Cursor and other AI apps, keeping your data safe, and fixing common problems.
 - [Knowledge Centre: AI coaching sessions · Zaaheen](https://zaaheen.com/knowledge-centre/): Learn to work with AI properly: private 1-to-1 AI coaching sessions from Zaaheen, built around a real task and booked online.
 - [Privacy Policy · Zaaheen](https://zaaheen.com/privacy/): How Zaaheen handles your data: your memories stay encrypted on your own computer and never reach us. What your account holds, and your rights.
@@ -130,15 +142,15 @@ Please follow both steps. If you skip one, your app may not use Zaaheen.
 - [Booking and Refund Policy · Zaaheen Knowledge Centre](https://zaaheen.com/knowledge-centre/booking-and-refunds/): How coaching bookings work: move your session free up to 24 hours before, no refund for a change of mind or a missed session, and when we always refund.
 - [Contact the Knowledge Centre · Zaaheen Knowledge Centre](https://zaaheen.com/knowledge-centre/contact/): How to reach the Zaaheen Knowledge Centre about a coaching session or booking, and what to include so we can help the first time.
 - [Coaching Privacy Notice · Zaaheen Knowledge Centre](https://zaaheen.com/knowledge-centre/privacy/): What Zaaheen collects when you book coaching, why, who helps us run it, how long we keep it, and your rights over your data.
-- [Install and set up Zaaheen on Windows or Mac · Zaaheen](https://zaaheen.com/docs/getting-started/): Install Zaaheen on Windows or Mac, create your account, choose where your memories live and connect your first AI app. Setting up takes about three minutes.
-- [Connect Claude Desktop to Zaaheen · Zaaheen](https://zaaheen.com/docs/connect-claude/): Give the Claude app on your computer a private memory it shares with your other AI apps: one click in Zaaheen, then Install in Claude.
-- [Connect Claude Code to Zaaheen · Zaaheen](https://zaaheen.com/docs/connect-claude-code/): Give Claude Code a memory your other AI apps share: run one command in a terminal, and Zaaheen is there in every Claude Code project.
-- [Connect Cursor to Zaaheen · Zaaheen](https://zaaheen.com/docs/connect-cursor/): Give Cursor a memory that your other AI apps share: one click in Zaaheen, then Install in Cursor. How to check it worked, and the setting by hand.
-- [Connect ChatGPT to Zaaheen · Zaaheen](https://zaaheen.com/docs/connect-chatgpt/): Connect the ChatGPT app for your computer to Zaaheen in Settings, Plugins, MCP, use it in a Work or Codex chat, and make ChatGPT check it.
-- [Connect Codex to Zaaheen · Zaaheen](https://zaaheen.com/docs/connect-codex/): Give OpenAI's Codex a memory your other AI apps share: add Zaaheen's setting to config.toml, restart Codex, and check /mcp shows it connected.
-- [Connect Antigravity to Zaaheen · Zaaheen](https://zaaheen.com/docs/connect-antigravity/): Give Google's Antigravity a memory your other AI apps share: paste Zaaheen's setting into mcp_config.json, restart, and check it shows connected.
-- [Connect other AI apps to Zaaheen with MCP · Zaaheen](https://zaaheen.com/docs/connect-other-apps/): Zaaheen works with any AI app that supports MCP. Which apps have their own guide, the setting to give any other app, and how to check it connected.
-- [Zaaheen troubleshooting: fix common problems · Zaaheen](https://zaaheen.com/docs/troubleshooting/): What to do when an AI app doesn't use your Zaaheen memory, isn't listed as connected, or ChatGPT can't see it, and how to send us a record.
-- [Zaaheen release notes: what changed in each version · Zaaheen](https://zaaheen.com/docs/release-notes/): What is new and what was fixed in each version of the Zaaheen memory app for Windows and Mac, newest first, and how to update to the latest version.
+- [Install and set up Zaaheen on Windows or Mac](https://zaaheen.com/docs/getting-started/): Install Zaaheen on Windows or Mac, create your account, choose where your memories live and connect your first AI app. Setting up takes about three minutes.
+- [Connect Claude Desktop to Zaaheen: shared AI memory](https://zaaheen.com/docs/connect-claude/): Give the Claude app on your computer a private memory it shares with your other AI apps: one click in Zaaheen, then Install in Claude.
+- [Connect Claude Code to Zaaheen: memory across sessions](https://zaaheen.com/docs/connect-claude-code/): Give Claude Code a memory your other AI apps share: run one command in a terminal, and Zaaheen is there in every Claude Code project.
+- [Connect Cursor to Zaaheen: memory across sessions](https://zaaheen.com/docs/connect-cursor/): Give Cursor a memory that your other AI apps share: one click in Zaaheen, then Install in Cursor. How to check it worked, and the setting by hand.
+- [Connect ChatGPT to Zaaheen: shared AI memory](https://zaaheen.com/docs/connect-chatgpt/): Connect the ChatGPT app for your computer to Zaaheen in Settings, Plugins, MCP, use it in a Work or Codex chat, and make ChatGPT check it.
+- [Connect Codex to Zaaheen: shared AI memory](https://zaaheen.com/docs/connect-codex/): Give OpenAI's Codex a memory your other AI apps share: add Zaaheen's setting to config.toml, restart Codex, and check /mcp shows it connected.
+- [Connect Antigravity to Zaaheen: shared AI memory](https://zaaheen.com/docs/connect-antigravity/): Give Google's Antigravity a memory your other AI apps share: paste Zaaheen's setting into mcp_config.json, restart, and check it shows connected.
+- [Connect other AI apps to Zaaheen with MCP](https://zaaheen.com/docs/connect-other-apps/): Zaaheen works with any AI app that supports MCP. Which apps have their own guide, the setting to give any other app, and how to check it connected.
+- [Zaaheen troubleshooting: fix common problems](https://zaaheen.com/docs/troubleshooting/): What to do when an AI app doesn't use your Zaaheen memory, isn't listed as connected, or ChatGPT can't see it, and how to send us a record.
+- [Zaaheen release notes: what changed in each version](https://zaaheen.com/docs/release-notes/): What is new and what was fixed in each version of the Zaaheen memory app for Windows and Mac, newest first, and how to update to the latest version.
 - [Contact us · Zaaheen](https://zaaheen.com/docs/contact/): Where to find answers about the Zaaheen memory app, how to email us, and what to include so we can help the first time.
 - [Pricing: $5 a month after 30 days free · Zaaheen](https://zaaheen.com/pricing/): Zaaheen pricing: 30 days free with no card, then $5 a month or $48 a year. How Zaaheen compares with other AI memory tools and ChatGPT and Claude memory.
