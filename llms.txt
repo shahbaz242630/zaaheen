@@ -4,8 +4,8 @@
 
 Zaaheen is a desktop app that gives AI assistants one private, persistent memory about the person using them. Memories are stored and encrypted on that person's own computer and are never uploaded. The account is only for signing in and the subscription; it never holds the memories.
 
-- Current version: 0.3.3 (beta), for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
-- Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.3_x64.msi (148 MB); Mac https://dl.zaaheen.com/Zaaheen_0.3.3_aarch64.dmg (155 MB), a disk image: drag Zaaheen into Applications and open it from there.
+- Current version: 0.3.4 (beta), for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
+- Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.4_x64.msi (148 MB); Mac https://dl.zaaheen.com/Zaaheen_0.3.4_aarch64.dmg (154 MB), a disk image: drag Zaaheen into Applications and open it from there.
 - Free trial: 30 days, no card needed.
 - Tested with: Claude, Cursor and ChatGPT. Other apps that support MCP should work the same way.
 - Delete everything: one button destroys the encryption key and the files, leaving what remains on disk unreadable.
@@ -97,15 +97,8 @@ Please follow both steps. If you skip one, your app may not use Zaaheen.
 
 ## Release notes
 
-- Latest: 0.3.3, 2026-10-05. Cancel your subscription from the app, tidy-up switched on from the start, and fixes to closing Zaaheen and to setting up again after deleting an account. (0.3.2 was a test version and was never offered for download.)
-- New in 0.3.3: Cancel subscription in Settings, then Account, for paid plans. It also names the other ways to cancel: the Account page on zaaheen.com, and the cancel link in any email about your subscription.
-- New in 0.3.3: Setup now has "Keep my vault tidy automatically" switched on, so Zaaheen tidies your memories every day at 3 am. "Not now" is still one click away.
-- New in 0.3.3: After paying, Zaaheen checks again as soon as you come back to its window, and "Not now" ends the wait if you closed the checkout without paying.
-- New in 0.3.3: A subscription you start or cancel on the website, or an account you delete there, shows in the app when you open Settings or come back to its window.
-- New in 0.3.3: Settings shows the version plainly, for example "Zaaheen 0.3.3".
-- Fixed in 0.3.3: Close Zaaheen did nothing on the lock screen, after Delete everything, and after Delete my account. It now closes the app.
-- Fixed in 0.3.3: After Delete my account, signing in again skipped setup, so the nightly tidy-up was not set up again. Zaaheen now starts like a new install.
-- Fixed in 0.3.3: The last screen of Delete my account now says plainly that all the memories on this computer are deleted, and Done takes you back to the welcome screen.
+- Latest: 0.3.4, 2026-10-06. A fix to setting up again after deleting an account.
+- Fixed in 0.3.4: After Delete my account, setting up again without closing Zaaheen left your AI apps unable to reach it until the app was reopened. They now connect straight away.
 - Every release, newest first: https://zaaheen.com/docs/release-notes/.
 
 ## Cancelling
