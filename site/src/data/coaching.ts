@@ -37,7 +37,7 @@ export const STAGES = [
 export const DELIVERY = {
   durationMinutes: 90,
   platform: 'Microsoft Teams',
-  availability: 'Evenings, Monday to Thursday, plus selected weekend slots',
+  availability: 'Every evening, seven days a week, starting at 7pm or 9pm Dubai time',
   timezoneLabel: 'Gulf Standard Time (UTC+4)',
 } as const;
 
