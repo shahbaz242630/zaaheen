@@ -45,9 +45,10 @@ const lede = `Each coaching session reserves ${DELIVERY.durationMinutes} minutes
   <ul slot="summary">
     <li><strong>You pay the full price, in UAE dirhams (AED), when you book.</strong></li>
     <li><strong>No refund if you change your mind, cannot attend or miss your session.</strong></li>
-    <li><strong>To move your session, email us at least 24 hours before it starts.</strong> You can
-        move it free to any open time within 90 days. Less than 24 hours before, it cannot be
-        moved.</li>
+    <li><strong>To move your session, use the Reschedule link in your confirmation email, or
+        <a href={COACHING.manageUrl}>Manage my booking</a> on our website, at least 24 hours
+        before it starts.</strong> You can move it <strong>once</strong>, free, to any open time
+        within 90 days. Less than 24 hours before, it cannot be moved.</li>
     <li><strong>If you have not joined within 15 minutes of the start, the session counts as
         used.</strong></li>
     <li><strong>If we cancel, or cannot run the session, you choose a full refund or a new
@@ -80,11 +81,13 @@ const lede = `Each coaching session reserves ${DELIVERY.durationMinutes} minutes
     <h2 class="docs-title">Changes and missed sessions</h2>
 
     <Row id="moving" title={topic('moving')} where="24 hours or more before">
-      <p>If you email us at <a href={mail}>{COACHING.email}</a> at least 24 hours before your
-         session starts, we move it free to any open time you choose within 90 days of the
-         original date. You can do this more than once, as long as each request is at least 24
-         hours before the session it moves. If we cannot offer you any time within those 90
-         days, we refund you in full.</p>
+      <p>At least 24 hours before your session starts, you can move it once, free, to any open
+         time within 90 days of the original date. Use the Reschedule link in your confirmation
+         email, or <a href={COACHING.manageUrl}>Manage my booking</a> on our website if you no
+         longer have that email. <strong>Each booking can be moved once; after that, the new time
+         is final.</strong> If we cannot offer you any time within those 90 days, we refund you
+         in full.</p>
+      <p>If we move or cancel your session, that does not count as your move.</p>
       <p>Moving a session is the way to change your plans. It is not exchanged for money.</p>
     </Row>
 
@@ -172,7 +175,9 @@ const lede = `Each coaching session reserves ${DELIVERY.durationMinutes} minutes
     </Row>
 
     <Row id="contact" title={topic('contact')} where="Email">
-      <p>To move a session, cancel or ask about a refund: <a href={mail}>{COACHING.email}</a>.
+      <p>To move a session: the Reschedule link in your confirmation email, or
+         <a href={COACHING.manageUrl}>Manage my booking</a>. To cancel or ask about a refund:
+         <a href={mail}>{COACHING.email}</a>.
          {SITE.name} coaching is run by {COMPANY.legalName} ({COMPANY.licence}).</p>
     </Row>
   </section>

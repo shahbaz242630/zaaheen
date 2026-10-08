@@ -225,6 +225,9 @@ export const COACHING = {
   // site's links led to a host that does not resolve).
   bookingOpen: false,
   bookingUrl: 'https://coaching.zaaheen.com/training',
+  // Manage my booking: with the emailed link it opens the booking; without
+  // one it asks for the email address and sends a fresh link (s93).
+  manageUrl: 'https://coaching.zaaheen.com/training/book/manage',
   // The Knowledge Centre mailbox: coaching bookings (founder, 2026-09-25).
   email: 'knowledgecentre@zaaheen.com',
 } as const;
@@ -383,7 +386,7 @@ export const PAGES: PageEntry[] = [
     crumb: 'Booking and Refund Policy',
     title: 'Booking and Refund Policy · Zaaheen Knowledge Centre',
     description:
-      'How coaching bookings work: move your session free up to 24 hours before, no refund for a change of mind or a missed session, and when we always refund.',
+      'How coaching bookings work: move your session once, free, up to 24 hours before, no refund for a change of mind or a missed session, and when we always refund.',
     sources: ['src/pages/knowledge-centre/booking-and-refunds.astro', 'src/layouts/Policy.astro', 'src/data/site.ts', 'src/data/coaching.ts'],
   },
   {
