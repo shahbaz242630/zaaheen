@@ -234,9 +234,10 @@ export const COACHING = {
 export const NAV = [
   { href: '/products/', label: 'Products' },
   { href: '/docs/', label: 'Documents' },
-  // Learn, next to Documents (s91 plan, founder: "yes partner start with five articles").
-  { href: '/learn/', label: 'Learn' },
   { href: '/knowledge-centre/', label: 'Knowledge Centre' },
+  // Learn (s91 plan); after Knowledge Centre since s94 (founder: "move learn tab
+  // in header after knowledge center").
+  { href: '/learn/', label: 'Learn' },
   { href: '/pricing/', label: 'Pricing' },
 ] as const;
 
