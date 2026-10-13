@@ -1,0 +1,129 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../data/site';
+
+// Learn comparison page 4 (s94). Rules: see ai-memory-apps-compared.astro and
+// data/pricing.ts. Facts read on 2026-10-13:
+// - supermemory.ai: "Works with" ChatGPT, Claude, Cursor, Hermes, MCP, Claude
+//   Code; "Build with supermemory"; deploy in your data center, VPC or laptop;
+//   "SOC 2 certified, HIPAA compliant and GDPR aligned".
+// - supermemory.ai/pricing: Free $0 with $5 credits a month, Pro $19 a month
+//   ($20 credits), Max $100, Scale $399; self-hosted on Scale and Enterprise; no
+//   statement on storage location or encryption.
+// - supermemory.ai/docs/supermemory-mcp/introduction: remote MCP server
+//   https://mcp.supermemory.ai/mcp, OAuth sign-in, "no API key is required".
+// - GitHub supermemoryai/supermemory: MIT, 31.2k stars; "I use AI tools":
+//   plugins for Claude Code, Cursor, Codex, OpenCode; local version via
+//   `npx supermemory local` (or a curl install), data in ~/.supermemory.
+// No price chart: Supermemory's paid plans are priced for developers (same need
+// rule, as on the Pricing page). Chart: the 2026-06-05 Cursor test, as in
+// one-memory-across-claude-code-cursor-and-codex.
+const CHECKED = '13 October 2026';
+const OUTLINE = [
+  { id: 'what', title: 'What Supermemory is' },
+  { id: 'differ', title: 'Where Zaaheen differs' },
+  { id: 'table', title: 'Side by side' },
+  { id: 'better', title: 'Where Supermemory is the better choice' },
+  { id: 'limits', title: 'Where Zaaheen falls short' },
+];
+const SM_HOME = 'https://supermemory.ai/';
+const SM_PRICING = 'https://supermemory.ai/pricing';
+const SM_MCP = 'https://supermemory.ai/docs/supermemory-mcp/introduction';
+const SM_GITHUB = 'https://github.com/supermemoryai/supermemory';
+---
+<Learn
+  path="/learn/supermemory-alternative/"
+  lede="Supermemory is a memory engine for AI agents, mostly built for developers, with a hosted service and a free local version you start from a terminal. If you want one memory for ChatGPT, Claude and Cursor that installs like a normal app and stays encrypted on your own computer, Zaaheen is built for that instead."
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>What Supermemory is</h2>
+    <p>Supermemory gives AI apps and agents a long-term memory. Its home page lists ChatGPT, Claude,
+       Cursor and Claude Code among the tools it works with, and its main offer is for teams building
+       with it (<a href={SM_HOME}>Supermemory's site</a>). It says it is SOC 2 certified.</p>
+    <p>There are two ways to use it. The hosted service: you add its server, mcp.supermemory.ai, to
+       your app and sign in, with no key to copy (<a href={SM_MCP}>its setup page</a>). The free plan
+       includes $5 of credits a month and Pro is $19 a month (<a href={SM_PRICING}>its pricing</a>).
+       Or the local version: Supermemory is open source, and one terminal command starts it on your
+       computer, with your memory in a folder there (<a href={SM_GITHUB}>its GitHub page</a>).</p>
+  </section>
+
+  <section id="differ">
+    <h2>Where Zaaheen differs</h2>
+    <ul>
+      <li><strong>Setup without a terminal.</strong> Zaaheen is a normal installer for Windows and
+          Mac. You connect each AI app from its Agents tab, and there are no commands to run.</li>
+      <li><strong>Encrypted on your computer.</strong> Zaaheen encrypts your memories on your own
+          computer, and our servers never receive them. Supermemory's pages we read don't describe
+          encryption for its local version.</li>
+      <li><strong>Made for people, not products.</strong> Supermemory's paid plans are written for
+          developers building with memory. Zaaheen is one plan for one person: ${PRICES.monthly} a
+          month or ${PRICES.yearly} a year after {TRIAL.days} days free.</li>
+    </ul>
+
+    <MemoryFlow
+      id="flow-supermemory"
+      from="ChatGPT"
+      to="Cursor"
+      fact="Allergic to peanuts"
+      others={['Claude', 'Codex']}
+      caption="Something you tell ChatGPT is saved once to the encrypted memory on your computer, and Cursor and your other apps can recall it later."
+    />
+  </section>
+
+  <section id="table">
+    <h2>Side by side</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">Supermemory</th><th scope="col">Zaaheen</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Made for</th><td>Mostly developers and teams building with AI memory</td><td>People who use several AI apps</td></tr>
+        <tr><th scope="row">Where memories are kept</th><td>Hosted service, or a local folder with the local version</td><td>Your computer, encrypted</td></tr>
+        <tr><th scope="row">Setup</th><td>Hosted: add a server address and sign in. Local: a terminal command</td><td>An installer, then connect each app</td></tr>
+        <tr><th scope="row">Price</th><td>Free with $5 of credits a month; Pro $19 a month</td><td>{TRIAL.days} days free, then ${PRICES.monthly} a month or ${PRICES.yearly} a year</td></tr>
+        <tr><th scope="row">Open source</th><td>Yes</td><td>No</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">As of {CHECKED}, from Supermemory's own pages, and may change. Check the
+       links above for the latest prices.</p>
+    <p>What matters most in any memory is whether the right answer comes back, and whether the app
+       admits it when the memory doesn't hold one. We asked Cursor five questions about facts another
+       app had saved to a shared Zaaheen memory.</p>
+
+    <BarChart
+      id="chart-supermemory-cursor"
+      title="5 questions to Cursor about facts saved by another app"
+      measure="Questions"
+      max={5}
+      bars={[
+        { label: 'Recalled the fact', value: 3, note: 'of 5' },
+        { label: "Said it didn't know", value: 1, note: 'of 5' },
+        { label: 'Avoided the trick', value: 1, note: 'of 5' },
+      ]}
+      source={{ text: "Zaaheen's own test, 5 June 2026, a development version of Zaaheen on Windows. Didn't know, correctly: a blood type the memory didn't hold. The trick: asked about the person's cat, it said they have a dog." }}
+    />
+  </section>
+
+  <section id="better">
+    <h2>Where Supermemory is the better choice</h2>
+    <p>If you build AI products, Supermemory offers an API, connectors and team plans that Zaaheen
+       doesn't. If you're comfortable in a terminal, its local version is free and open source. And
+       its free hosted plan lets you try a shared memory without paying anything.</p>
+  </section>
+
+  <section id="limits">
+    <h2>Where Zaaheen falls short</h2>
+    <ul>
+      <li>It runs on Windows and on Macs with Apple chips only, with no Linux or phone version.</li>
+      <li>ChatGPT connects through the ChatGPT app for your computer, not in a web browser.</li>
+      <li>Your memory lives on one computer; there is no sync between computers yet.</li>
+      <li>It isn't open source, and after the {TRIAL.days}-day trial there is no free plan.</li>
+    </ul>
+    <p class="learn-note">Supermemory is a name of its owner. We have no link with Supermemory.
+       Facts checked on {CHECKED}; if anything here is wrong or out of date, tell us at
+       <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> and we'll correct it.</p>
+  </section>
+</Learn>

@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { PRICES, RELEASE, TRIAL, pageFor } from '../data/site';
 import { CHECKED_ON, COMPARISON, COMPARISON_SOURCES, PRICING_FAQ } from '../data/pricing';
+import { COMPARE_PAGES } from '../data/site';
 
 // Pricing (founder, session 67: Paddle's domain review asks for "pricing
 // details or a pricing page"). One product, two ways to pay; the facts match
@@ -93,6 +94,10 @@ const INCLUDED = [
          can change, so check them before you buy:
          {COMPARISON_SOURCES.map((src, i) => (
            <>{i > 0 && ', '}<a href={src.url} target="_blank" rel="noopener noreferrer">{src.name}</a></>
+         ))}.</p>
+      <p class="vs-note">Detailed comparisons:
+         {COMPARE_PAGES.map((c, i) => (
+           <>{i > 0 && ' · '}<a href={c.path}>{c.label}</a></>
          ))}.</p>
     </section>
 

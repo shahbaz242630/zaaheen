@@ -1,0 +1,142 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+import { COMPANY, TIP_LINE } from '../../data/site';
+
+// Learn comparison page 2 (s94). Rules: see ai-memory-apps-compared.astro and
+// data/pricing.ts. Facts read in a browser on 2026-10-13:
+// - OpenAI, "Memory in ChatGPT" (help.openai.com/en/articles/8590148), updated
+//   about 2026-09-20: sources can include past chats, saved memories, custom
+//   instructions, Library files, connected apps such as Gmail; Settings,
+//   Personalization, Memory; memory summary; Sources under replies; reference
+//   chat history off -> scheduled for deletion within 30 days; deleting a chat
+//   does not delete a saved memory made from it; logs of deleted saved memories
+//   kept up to 30 days; personal accounts: may train when "Improve the model for
+//   everyone" is on; varies by plan, region, platform.
+// - Anthropic, "Use Claude's chat search and memory" (support.claude.com/en/
+//   articles/11817273): on by default for Free, Pro, Max (web, Desktop,
+//   Mobile); Team/Enterprise owners decide, off per member until turned on;
+//   saved as topics; each project has its own memory; search past chats on paid
+//   plans; sensitive topics off by default; some things never saved (government
+//   ID numbers, financial account numbers...); Settings, Memory, Topics; import
+//   experimental; encryption at rest.
+// Chart: the 2026-09-26 live test, as in share-memory-between-chatgpt-and-claude.
+const CHECKED = '13 October 2026';
+const OUTLINE = [
+  { id: 'short', title: 'The short answer' },
+  { id: 'chatgpt', title: 'How ChatGPT remembers' },
+  { id: 'claude', title: 'How Claude remembers' },
+  { id: 'table', title: 'Side by side' },
+  { id: 'both', title: 'If you use both' },
+];
+const OPENAI_MEMORY = 'https://help.openai.com/en/articles/8590148-memory-in-chatgpt';
+const CLAUDE_MEMORY = 'https://support.claude.com/en/articles/11817273-use-claude-s-chat-search-and-memory-to-build-on-previous-context';
+---
+<Learn
+  path="/learn/chatgpt-memory-vs-claude-memory/"
+  lede="Both remember you well, and both are free to turn on. ChatGPT draws on more sources, such as past chats, files and connected apps. Claude keeps its memory as topics you can read and edit, with a separate memory for each project. Neither can read the other's, so if you use both, each one only knows half of what you've told them."
+  outline={OUTLINE}
+>
+  <section id="short">
+    <h2>The short answer</h2>
+    <p>If you only use one of them, its own memory is probably all you need, and it costs nothing
+       extra. The differences are in what each one draws on, how much you can see and change, and
+       how they treat sensitive details. Everything below is from OpenAI's and Anthropic's own
+       help pages as they read on {CHECKED}; both say features vary by plan, so yours may differ
+       a little.</p>
+  </section>
+
+  <section id="chatgpt">
+    <h2>How ChatGPT remembers</h2>
+    <p>ChatGPT's memory can draw on several sources: your past chats, saved memories, your custom
+       instructions, files in your Library, and connected apps such as Gmail, depending on your
+       plan and region (<a href={OPENAI_MEMORY}>OpenAI's help page</a>). You find the controls
+       under Settings, Personalization, Memory, where you can see a memory summary and correct
+       it. When ChatGPT uses something it remembers, a Sources list can appear under the reply.</p>
+    <p>A few details worth knowing. Deleting a chat doesn't delete a saved memory that came from
+       it; you remove both. If you turn off "Reference chat history", what it learned from past
+       chats is scheduled for deletion within 30 days. And on personal accounts, OpenAI may use
+       chats and remembered information to improve its models while "Improve the model for
+       everyone" is on, which you can turn off in Data controls.</p>
+  </section>
+
+  <section id="claude">
+    <h2>How Claude remembers</h2>
+    <p>Claude's memory is on by default for Free, Pro and Max on the web, Claude Desktop and the
+       mobile apps. On Team and Enterprise plans the owner decides, and each member turns it on
+       for themselves (<a href={CLAUDE_MEMORY}>Anthropic's help page</a>).</p>
+    <p>Claude saves memory as topics while you chat, and you can read, edit or delete each one
+       under Settings, Memory. Every project has its own separate memory. Searching your past
+       chats needs a paid plan. By default it doesn't keep sensitive subjects such as health,
+       religion or politics unless you choose to include them, and some things, like government
+       ID numbers and financial account numbers, it never saves.</p>
+  </section>
+
+  <section id="table">
+    <h2>Side by side</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">ChatGPT</th><th scope="col">Claude</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Cost</th><td>Included; features vary by plan</td><td>Included on Free, Pro and Max; owner's choice on Team and Enterprise</td></tr>
+        <tr><th scope="row">What it draws on</th><td>Past chats, saved memories, custom instructions, Library files, connected apps</td><td>Topics saved from your chats; past chats by search on paid plans</td></tr>
+        <tr><th scope="row">Seeing and changing it</th><td>Memory summary you can correct, Sources under replies</td><td>A list of topics you can read, edit and delete</td></tr>
+        <tr><th scope="row">Projects</th><td>Project-only memory in some business workspaces</td><td>Each project has its own memory</td></tr>
+        <tr><th scope="row">Sensitive details</th><td>Can appear if you share them</td><td>Left out by default unless you opt in</td></tr>
+        <tr><th scope="row">Where it's kept</th><td>Your OpenAI account</td><td>Your Anthropic account</td></tr>
+        <tr><th scope="row">Shared with the other</th><td>No</td><td>No</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">As of {CHECKED}, from each company's own help page, and may change.
+       Check the links above for the latest.</p>
+  </section>
+
+  <section id="both">
+    <h2>If you use both</h2>
+    <p>This is where the built-in memories run out. Each one lives in its own company's account,
+       so a preference you gave ChatGPT last month means nothing to Claude today. Claude can import
+       from ChatGPT once, which helps if you're moving for good, but anything you tell ChatGPT
+       afterwards stays there.</p>
+    <p>The other way is a memory that sits outside both and that both apps connect to. Zaaheen,
+       which we make, is one: it keeps your memories encrypted on your own computer, and Claude
+       Desktop and the ChatGPT app for your computer save to it and read from it.</p>
+
+    <MemoryFlow
+      id="flow-chatgpt-vs-claude"
+      from="Claude"
+      to="ChatGPT"
+      fact="Starts a new job in May"
+      caption="Tell Claude something once and it is saved to the one memory on your computer, where ChatGPT can find it in a later chat."
+    />
+
+    <p>We tested this. Five AI apps on one Windows computer, ChatGPT and Claude Desktop among them,
+       shared one Zaaheen memory, and we asked eight questions about the person, mostly in a
+       different app from the one that saved the answer.</p>
+
+    <BarChart
+      id="chart-both-recall"
+      title="8 questions about the person, asked across 5 AI apps sharing one memory"
+      measure="Questions"
+      max={8}
+      bars={[
+        { label: 'Answered by itself', value: 4, note: 'of 8' },
+        { label: 'Once told to check', value: 3, note: 'of 8' },
+        { label: 'Blocked by an add-on', value: 1, note: 'of 8' },
+      ]}
+      source={{ text: "Zaaheen's own live test, 26 September 2026, Windows, with Claude Desktop, Cursor, ChatGPT (Work and Codex) and Antigravity. The blocked answer was a Google add-on crashing Antigravity's tool calls before they reached Zaaheen." }}
+    />
+
+    <p>Half the time the app checked the shared memory by itself; otherwise it answered from its
+       own memory first. Adding this line to each app's instructions fixes most of that:
+       "{TIP_LINE}"</p>
+    <p>Two limits to be fair about. ChatGPT reaches Zaaheen only through the ChatGPT app for your
+       computer, not in a web browser or on your phone. And Zaaheen runs on Windows and Macs with
+       Apple chips, with no phone version. If you use one app, stay with its own memory; if
+       you use both every week, a shared one saves you repeating yourself.</p>
+    <p class="learn-note">ChatGPT and Claude are names of their owners, OpenAI and Anthropic. We
+       have no link with either. If anything here is wrong or out of date, tell us at
+       <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> and we'll correct it.</p>
+  </section>
+</Learn>
