@@ -2,7 +2,7 @@
 import Base from './Base.astro';
 import DocsNav from '../components/DocsNav.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
-import { pageFor } from '../data/site';
+import { SITE, pageFor } from '../data/site';
 import { lastModified } from '../lib/lastmod';
 
 // A policy page (founder, session 67): the Documents layout with the
@@ -31,7 +31,9 @@ const updatedLabel = updated
 ---
 <Base page={page} footer={coaching ? 'coaching' : 'app'}>
   <div class="docs">
-    <header class="docs-head">
+    {/* data-source: printed only (CSS ::after), so a printed copy says where it came
+        from without adding page text that would move the "Last updated" date. */}
+    <header class="docs-head" data-source={`${SITE.origin}${path}`}>
       <Breadcrumbs page={page} />
       <h1>{heading}</h1>
       <p>{lede}</p>
