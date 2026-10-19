@@ -220,14 +220,17 @@ export const INDEXNOW_KEY = 'dc7e96914b463f8b38a2ca7309b9a25f';
 // on its own sub-address: two site engines cannot share one host without a
 // router in front of the whole site (founder decision, 2026-09-12).
 export const COACHING = {
-  // false until coaching.zaaheen.com answers: every booking link is left out
-  // and the buttons read "Booking opens soon" (founder, session 75; the live
-  // site's links led to a host that does not resolve).
-  bookingOpen: false,
+  // Open since session 100 (2026-10-19): coaching.zaaheen.com live and a real
+  // payment, refund and all six sessions tested. false leaves every booking
+  // link out and the buttons read "Booking opens soon" (founder, session 75).
+  bookingOpen: true,
   bookingUrl: 'https://coaching.zaaheen.com/training',
   // Manage my booking: with the emailed link it opens the booking; without
   // one it asks for the email address and sends a fresh link (s93).
   manageUrl: 'https://coaching.zaaheen.com/training/book/manage',
+  // The online "withdraw from contract" function, which UK and EU law asks to
+  // be easy to find on every coaching page (legal report 6.5).
+  withdrawUrl: 'https://coaching.zaaheen.com/training/book/withdraw',
   // The Knowledge Centre mailbox: coaching bookings (founder, 2026-09-25).
   email: 'knowledgecentre@zaaheen.com',
 } as const;
