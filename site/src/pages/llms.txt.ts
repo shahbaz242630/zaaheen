@@ -132,6 +132,12 @@ export const GET: APIRoute = () => {
     '',
     `- ${SITE.name} is the trading name of ${COMPANY.legalName} (${COMPANY.licence}).`,
     `- Support: ${COMPANY.email}. Coaching bookings: ${COACHING.email}.`,
+    ...(COACHING.bookingOpen
+      ? [
+          `- Private 1-to-1 AI coaching is booked and paid online at ${COACHING.bookingUrl}.`,
+          `- UK and EU customers can withdraw within 14 days at ${COACHING.withdrawUrl}.`,
+        ]
+      : []),
     '',
     '## Pages',
     '',
