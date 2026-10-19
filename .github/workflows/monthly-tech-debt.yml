@@ -136,6 +136,38 @@ jobs:
           } > "$REPORT"
           cat "$REPORT"
 
+      # The account pages serve a vendored copy of Clerk's browser script
+      # (site/account/scripts/clerk-pin.js), outside package.json, so neither
+      # Dependabot nor npm audit can see it (security audit s101 W-05 / O-07).
+      # Asks GitHub's advisory database about the pinned version directly.
+      - name: Vendored clerk-js advisories
+        id: clerk
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          CLERK_VER=$(grep -E "^\s*version: '" site/account/scripts/clerk-pin.js | head -1 | awk -F"'" '{print $2}')
+          if [ -z "$CLERK_VER" ]; then
+            echo "could not read the pinned clerk-js version" >&2
+            exit 1
+          fi
+          gh api -X GET advisories -f ecosystem=npm -f affects="@clerk/clerk-js@$CLERK_VER" \
+            --jq '.[] | "- \(.ghsa_id) (\(.severity)): \(.summary)"' > clerk-advisories.txt
+          {
+            echo "## Vendored clerk-js (site/account/scripts/clerk-pin.js)"
+            echo
+            echo "- Pinned: \`@clerk/clerk-js@$CLERK_VER\`"
+            if [ -s clerk-advisories.txt ]; then
+              echo "- :warning: **Advisories affect the pinned version:**"
+              cat clerk-advisories.txt
+              echo "- **Act:** move to a fixed version with \`site/scripts/vendor-clerk.mjs\` (instructions at the top of clerk-pin.js)."
+            else
+              echo "- :white_check_mark: no GitHub advisory affects this version."
+            fi
+          } > clerk-report.md
+          cat clerk-report.md
+          if [ -s clerk-advisories.txt ]; then echo "clerk_findings=1" >> "$GITHUB_OUTPUT"; else echo "clerk_findings=0" >> "$GITHUB_OUTPUT"; fi
+
       # Open a GitHub issue with the combined report. Creates the labels
       # if they don't exist yet (idempotent — no error if already present).
       # Always creates an issue (even all-clean) so there's a visible trail
@@ -147,6 +179,7 @@ jobs:
             const fs = require('fs');
             const audit = fs.readFileSync('audit-output.txt', 'utf8');
             const pins = fs.readFileSync('version-pin-report.md', 'utf8');
+            const clerk = fs.readFileSync('clerk-report.md', 'utf8');
             const date = new Date().toISOString().slice(0, 10);
 
             const auditExit = '${{ steps.audit.outputs.audit_exit }}';
@@ -187,6 +220,8 @@ jobs:
               '```',
               '',
               pins,
+              '',
+              clerk,
               '',
               '---',
               '',

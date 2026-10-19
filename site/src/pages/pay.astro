@@ -28,6 +28,12 @@ const page: PageEntry = {
     <p id="pay-status" aria-live="polite">This page opens the checkout you start from the Zaaheen app.
        Open the Zaaheen app and choose Subscribe.</p>
     <button type="button" id="pay-reopen" class="cta" hidden>Open the checkout again</button>
+    {/* Security audit s101 W-06: a checkout link is tied to the account that
+        started it, so a link someone else sends you pays for their account. */}
+    <p class="pay-warning"><strong>Only pay here for your own account.</strong> Use this page only
+       for a checkout you started yourself in the Zaaheen app, or from a card update email about your
+       own subscription. If someone else sent you this link, do not pay: the payment would go to
+       their account, not yours.</p>
     <p class="fine">Payments are processed by Paddle.com, our reseller and Merchant of Record.
        Your card details go straight to Paddle and never reach Zaaheen.</p>
   </section>
