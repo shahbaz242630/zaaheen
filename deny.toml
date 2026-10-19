@@ -83,6 +83,22 @@ ignore = [
     "RUSTSEC-2025-0098", # unic-ucd-version
     "RUSTSEC-2025-0100", # unic-ucd-ident
     "RUSTSEC-2025-0134", # rustls-pemfile
+
+    # -- zip 6.0.0: archive EXTRACTION flaws (triaged 2026-10-19, s100) -------
+    # All three are about unpacking an untrusted archive: `ZipArchive::extract`
+    # and `ZipStreamReader::extract` writing through symlinks, outside the
+    # target, or keeping SUID/SGID bits. Fixed only in zip >= 9.0.0.
+    # Two users, neither extracts untrusted input:
+    #   - vault-app WRITES one zip (the Claude Desktop .mcpb bundle,
+    #     connect.rs); it never calls extract (its tests only read entries).
+    #   - libduckdb-sys uses zip as a BUILD dependency to unpack its own
+    #     bundled sources on the build machine; it requires zip "6", so we
+    #     cannot move to 9 until duckdb does.
+    # Resolved when duckdb's build moves to zip >= 9: then bump vault-app's pin
+    # and drop these. Re-evaluate at once if we ever extract a user's zip.
+    "RUSTSEC-2026-0367", # zip -- SUID/SGID bits kept on extract
+    "RUSTSEC-2026-0368", # zip -- extract creates symlinks outside the target
+    "RUSTSEC-2026-0369", # zip -- extract applies permissions through symlinks
 ]
 
 [licenses]
