@@ -1,0 +1,117 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../data/site';
+
+// Learn comparison page 5 (s94). Rules: see ai-memory-apps-compared.astro and
+// data/pricing.ts. Facts read on memoryplugin.com on 2026-10-13: Core $89 a year,
+// Pro $180 a year, 7-day trial, 14-day refund, no monthly amount shown in the
+// page text; Core keeps chat history to the last 500 conversations, Pro adds a
+// knowledge graph (early beta), summaries, insights, shared buckets; "21+ AI
+// tools" incl. ChatGPT, Claude, Gemini, Grok, Perplexity, Cursor, Claude Code,
+// Codex; browser extension, a Custom GPT (works in ChatGPT's iOS and Android
+// apps), an MCP server for Claude Desktop and Claude Code; "Encrypted in transit
+// and at rest"; "never sold, and never used to train models"; storage location
+// not stated. Same need as Zaaheen (an everyday user's memory across AI apps),
+// so the price chart compares them, as the Pricing page does.
+const CHECKED = '13 October 2026';
+const OUTLINE = [
+  { id: 'what', title: 'What MemoryPlugin is' },
+  { id: 'differ', title: 'Where Zaaheen differs' },
+  { id: 'price', title: 'What a year costs' },
+  { id: 'better', title: 'Where MemoryPlugin is the better choice' },
+  { id: 'limits', title: 'Where Zaaheen falls short' },
+];
+const MP = 'https://www.memoryplugin.com/';
+---
+<Learn
+  path="/learn/memoryplugin-alternative/"
+  lede={`MemoryPlugin gives more than 20 AI tools one memory, kept by its own service, from $89 a year. Zaaheen does a similar job for the AI apps on your computer, with your memories encrypted on that computer instead, for $${PRICES.yearly} a year. MemoryPlugin reaches further, including ChatGPT on the web and your phone; Zaaheen keeps your memories closer.`}
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>What MemoryPlugin is</h2>
+    <p>MemoryPlugin connects a long list of AI tools to one memory, "21+ AI tools" in its own words,
+       among them ChatGPT, Claude, Gemini, Grok, Perplexity, Cursor, Claude Code and Codex
+       (<a href={MP}>MemoryPlugin's site</a>). It gets there several ways: a browser extension for
+       AI websites, a custom GPT that also works in ChatGPT's phone apps, and an MCP server for
+       Claude Desktop and Claude Code.</p>
+    <p>Its service keeps your memories, and the site says they are "Encrypted in transit and at
+       rest" and never sold or used to train models. It doesn't say where they are stored. Core
+       costs $89 a year and keeps your last 500 conversations of chat history; Pro is $180 a year
+       and adds features such as a knowledge graph and shared buckets. Both come with a 7-day
+       trial.</p>
+  </section>
+
+  <section id="differ">
+    <h2>Where Zaaheen differs</h2>
+    <ul>
+      <li><strong>Where your memories are kept.</strong> With Zaaheen they never leave your
+          computer: they are encrypted there, and our servers handle only sign-in and your
+          subscription.</li>
+      <li><strong>Price.</strong> ${PRICES.yearly} a year or ${PRICES.monthly} a month, after
+          {TRIAL.days} days free with no card.</li>
+      <li><strong>How apps connect.</strong> Zaaheen connects through MCP to the apps on your
+          computer: Claude Desktop, Claude Code, Cursor, the ChatGPT app, Codex and others. There is
+          no browser extension.</li>
+    </ul>
+
+    <MemoryFlow
+      id="flow-memoryplugin"
+      from="Claude"
+      to="ChatGPT"
+      fact="Prefers meetings after 2pm"
+      others={['Cursor', 'Codex']}
+      caption="A preference you mention to Claude is saved once to the memory on your computer, and the ChatGPT app reads it from there."
+    />
+  </section>
+
+  <section id="price">
+    <h2>What a year costs</h2>
+    <BarChart
+      id="chart-memoryplugin-year"
+      title="One year for one person, in US dollars"
+      measure="US dollars a year"
+      bars={[
+        { label: 'Zaaheen', value: PRICES.yearly, note: 'yearly plan' },
+        { label: 'MemoryPlugin Core', value: 89, note: 'yearly plan' },
+        { label: 'MemoryPlugin Pro', value: 180, note: 'yearly plan' },
+      ]}
+      source={{ text: `MemoryPlugin's own website and ours, prices as of ${CHECKED} and may change. MemoryPlugin shows these as reduced prices next to higher ones struck through.` }}
+    />
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">MemoryPlugin</th><th scope="col">Zaaheen</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Where memories are kept</th><td>Its service, "Encrypted in transit and at rest"</td><td>Your computer, encrypted</td></tr>
+        <tr><th scope="row">AI tools</th><td>"21+", including AI websites and ChatGPT on phones</td><td>Apps on your computer that support MCP</td></tr>
+        <tr><th scope="row">Trial</th><td>7 days</td><td>{TRIAL.days} days, no card</td></tr>
+        <tr><th scope="row">Where it runs</th><td>Wherever its browser extensions, custom GPT or MCP server work</td><td>Windows, and Macs with Apple chips</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">As of {CHECKED}, from MemoryPlugin's own website, and may change. Check
+       <a href={MP}>their site</a> for the latest prices.</p>
+  </section>
+
+  <section id="better">
+    <h2>Where MemoryPlugin is the better choice</h2>
+    <p>If you use AI mostly in a web browser, on your phone, or in tools like Gemini and Perplexity,
+       MemoryPlugin reaches places Zaaheen can't. Its Pro plan also lets you share memory with a
+       team.</p>
+  </section>
+
+  <section id="limits">
+    <h2>Where Zaaheen falls short</h2>
+    <ul>
+      <li>No browser extension, so ChatGPT and Claude in a web browser can't use it.</li>
+      <li>No phone version, and on computers only Windows and Macs with Apple chips.</li>
+      <li>Your memory lives on one computer; there is no sync between computers yet.</li>
+      <li>After the {TRIAL.days}-day trial there is no free plan.</li>
+    </ul>
+    <p class="learn-note">MemoryPlugin is a name of its owner. We have no link with MemoryPlugin.
+       Facts checked on {CHECKED}; if anything here is wrong or out of date, tell us at
+       <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> and we'll correct it.</p>
+  </section>
+</Learn>

@@ -145,3 +145,23 @@ LANCE_MEM_POOL_SIZE = { value = "268435456", force = true }
 # See ADR-038 Layer 3 (build-time jobs cap) for the sibling build-time
 # constraint that this entry mirrors at test-runtime.
 RUST_TEST_THREADS = { value = "4", force = true }
+
+# CMAKE_DISABLE_FIND_PACKAGE_OpenSSL — llama.cpp must never look for OpenSSL.
+#
+# Why this exists: llama.cpp's vendored cpp-httplib (built as part of its
+# `common` library, which llama-cpp-sys-2 turns on) links whatever OpenSSL
+# CMake finds, for HTTPS model downloads we never use (models arrive through
+# our own download code). On 2026-10-16 GitHub's macos-latest image began
+# shipping Homebrew OpenSSL 4.0.3, whose `X509_get_subject_name` returns
+# `const X509_NAME *`; httplib.cpp:12574 does not compile against it, so
+# every macOS build failed (PR #154). With find_package(OpenSSL) disabled,
+# httplib's CMake prints "OpenSSL not found, HTTPS support disabled" and
+# builds without it: the state Windows builds were already in (no OpenSSL
+# there), and the state the shipped Mac app already had (the release build
+# refuses any binary linking Homebrew libraries, release-build.yml ~309).
+#
+# llama-cpp-sys-2's build.rs forwards every CMAKE_* environment variable to
+# CMake, and LLAMA_OPENSSL itself is not forwardable, which is why this is
+# CMake's own switch rather than llama.cpp's option. Drop it only if a
+# llama-cpp-sys-2 release stops building cpp-httplib with OpenSSL.
+CMAKE_DISABLE_FIND_PACKAGE_OpenSSL = { value = "TRUE", force = true }

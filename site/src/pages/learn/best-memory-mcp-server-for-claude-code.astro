@@ -1,0 +1,148 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../data/site';
+
+// Learn comparison page 6 (s94). Rules: see ai-memory-apps-compared.astro and
+// data/pricing.ts. A roundup: no ranking, no "best" claim for Zaaheen; the free
+// options are shown at $0. Facts read on 2026-10-13:
+// - Anthropic's reference server (github.com/modelcontextprotocol/servers,
+//   src/memory): "A basic implementation of persistent memory using a local
+//   knowledge graph"; npx @modelcontextprotocol/server-memory in the app's
+//   config, or Docker; memory.jsonl (MEMORY_FILE_PATH); MIT; no encryption
+//   mentioned.
+// - mcp-memory-service (github.com/doobidoo/mcp-memory-service): pip install
+//   mcp-memory-service; SQLite ("local, fast, single-user"), Cloudflare, Hybrid,
+//   Milvus; names Claude Code, Cursor, Codex CLI, Claude Desktop, ChatGPT
+//   (Developer Mode); Apache-2.0; about 2.0k stars; no encryption-at-rest claim.
+// - Basic Memory (basicmemory.com, docs quickstart-local): local $0, open
+//   source, plain Markdown; Python 3.12 or higher, `uv tool install
+//   basic-memory` or Homebrew on Mac; Cloud from $15 a month.
+// - Mem0 MCP (docs.mem0.ai/platform/mem0-mcp): hosted, memories in your Mem0
+//   account, Hobby plan free.
+// - Zaaheen: /docs/connect-claude-code/ (one `claude mcp add` command copied
+//   from the Agents tab).
+const CHECKED = '13 October 2026';
+const OUTLINE = [
+  { id: 'what', title: 'What a memory server adds' },
+  { id: 'options', title: 'The options' },
+  { id: 'table', title: 'Side by side' },
+  { id: 'cost', title: 'What a year costs' },
+  { id: 'choose', title: 'How to choose' },
+];
+const REF = 'https://github.com/modelcontextprotocol/servers/tree/main/src/memory';
+const MMS = 'https://github.com/doobidoo/mcp-memory-service';
+const BASIC = 'https://basicmemory.com/';
+const BASIC_QS = 'https://docs.basicmemory.com/start-here/quickstart-local/';
+const MEM0_MCP = 'https://docs.mem0.ai/platform/mem0-mcp';
+const CC_MEMORY = 'https://code.claude.com/docs/en/memory';
+---
+<Learn
+  path="/learn/best-memory-mcp-server-for-claude-code/"
+  lede="There is no single best one; it depends on what you want the memory for. For a free, simple memory just for Claude Code, Anthropic's own reference server or mcp-memory-service will do. For notes you can read yourself, Basic Memory. For one encrypted memory that Claude Code shares with Cursor, ChatGPT and Claude Desktop, with no Python or config files, that's what we built Zaaheen for."
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>What a memory server adds to Claude Code</h2>
+    <p>Claude Code already remembers within a project: CLAUDE.md, which you write, and auto memory,
+       which it writes, both kept on your computer for that one repository
+       (<a href={CC_MEMORY}>Anthropic's docs</a>). A memory server adds a memory that Claude Code
+       can search and save to across all your projects, and, depending on the server, one that other
+       AI apps can use too.</p>
+  </section>
+
+  <section id="options">
+    <h2>The options</h2>
+
+    <h3>Anthropic's reference memory server</h3>
+    <p>Described in its own words as "A basic implementation of persistent memory using a local
+       knowledge graph". It is free and MIT licensed. You add one npx command to your app's
+       settings, or run it with Docker, and it stores everything in a file called memory.jsonl
+       (<a href={REF}>its GitHub page</a>). Its page doesn't mention encryption.</p>
+
+    <h3>mcp-memory-service</h3>
+    <p>A free, open-source memory server you install with pip. It can store memories locally in
+       SQLite or in Cloudflare and other backends, and names Claude Code, Cursor, Codex and Claude
+       Desktop among the apps it works with (<a href={MMS}>its GitHub page</a>). It has many
+       options, which suits people who like to configure their tools.</p>
+
+    <h3>Basic Memory</h3>
+    <p>Writes memories as plain Markdown notes you can open and edit. The local version is free and
+       needs Python 3.12 or higher, installed with uv or, on a Mac, Homebrew
+       (<a href={BASIC_QS}>its quickstart</a>). A hosted Cloud version starts at $15 a month
+       (<a href={BASIC}>Basic Memory's site</a>).</p>
+
+    <h3>Mem0</h3>
+    <p>A hosted memory: its MCP server runs on Mem0's side and your memories live in your Mem0
+       account, with a free Hobby plan (<a href={MEM0_MCP}>Mem0's docs</a>). Good if you want the
+       memory online rather than on one computer.</p>
+
+    <h3>Zaaheen</h3>
+    <p>Ours. A Windows and Mac app that keeps one memory encrypted on your computer. For Claude
+       Code you copy one command from Zaaheen's Agents tab and run it once; after that it is there
+       in every project (<a href="/docs/connect-claude-code/">step by step</a>). The same memory
+       is shared with Cursor, Claude Desktop, the ChatGPT app, Codex and other apps.</p>
+
+    <MemoryFlow
+      id="flow-claude-code"
+      from="Claude Code"
+      to="Claude"
+      fact="Deploys on Fridays only"
+      others={['Cursor', 'ChatGPT']}
+      caption="What Claude Code saves in one project is in the memory on your computer, where Claude Desktop and your other apps can recall it."
+    />
+  </section>
+
+  <section id="table">
+    <h2>Side by side</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">Setup</th><th scope="col">Where memories are kept</th><th scope="col">Encryption on your computer</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Reference server</th><td>npx in a settings file, or Docker</td><td>A memory.jsonl file</td><td>Not mentioned</td></tr>
+        <tr><th scope="row">mcp-memory-service</th><td>pip install</td><td>SQLite on your computer, or a cloud backend</td><td>Not mentioned</td></tr>
+        <tr><th scope="row">Basic Memory (local)</th><td>Python 3.12+, uv or Homebrew</td><td>Markdown files on your computer</td><td>Not mentioned</td></tr>
+        <tr><th scope="row">Mem0 (MCP)</th><td>Mem0 account and a setup command</td><td>Your Mem0 account, online</td><td>Not on your computer</td></tr>
+        <tr><th scope="row">Zaaheen</th><td>An installer, then one command for Claude Code</td><td>Your computer</td><td>Yes</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">As of {CHECKED}, from each project's own pages, and may change. "Not
+       mentioned" means their page doesn't say; check the links above for the latest.</p>
+  </section>
+
+  <section id="cost">
+    <h2>What a year costs</h2>
+    <BarChart
+      id="chart-claude-code-servers-year"
+      title="One year of a memory for Claude Code, one person, in US dollars"
+      measure="US dollars a year"
+      max={60}
+      bars={[
+        { label: 'Reference server', value: 0, note: 'free' },
+        { label: 'mcp-memory-service', value: 0, note: 'free' },
+        { label: 'Basic Memory (local)', value: 0, note: 'free' },
+        { label: 'Zaaheen', value: PRICES.yearly, note: 'yearly plan' },
+      ]}
+      source={{ text: `Each project's own pages and ours, as of ${CHECKED}. Mem0 is left out because its plans are priced for developers building apps.` }}
+    />
+    <p>The free options are free. What you pay for with Zaaheen is no setup beyond one command,
+       encryption on your computer, and one memory your other AI apps share.</p>
+  </section>
+
+  <section id="choose">
+    <h2>How to choose</h2>
+    <p>If you only use Claude Code and like setting things up, start with one of the free servers.
+       If you want to read and edit your memory as notes, use Basic Memory. If you want the memory
+       online, look at Mem0. If you also use Cursor, Claude Desktop or ChatGPT and want them all to
+       share what Claude Code learns, encrypted on your own computer, try Zaaheen free for
+       {TRIAL.days} days.</p>
+    <p>Where Zaaheen falls short: Windows and Macs with Apple chips only, no Linux; one computer
+       with no sync yet; not open source; no free plan after the trial.</p>
+    <p class="learn-note">Claude Code, Mem0 and Basic Memory are names of their owners, and the
+       open-source servers belong to their authors. We have no link with any of them. Facts checked
+       on {CHECKED}; if anything here is wrong or out of date, tell us at
+       <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> and we'll correct it.</p>
+  </section>
+</Learn>

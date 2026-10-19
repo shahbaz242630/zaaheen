@@ -11,10 +11,19 @@ import { COACHING, COACHING_POLICIES, COMPANY, SITE } from '../data/site';
 // - "coaching" on the Knowledge Centre's pages: coaching's own documents
 //   (COACHING_POLICIES, the live ones) and no app policy
 //   (scripts/audit.mjs COACHING_POLICIES and APP_ONLY).
+//
+// "Page last updated" (founder, s94: dates in the footer help with Google): the
+// page's own date from lib/lastmod, which moves only when that page's words
+// change. The footer is outside <main>, so it never feeds the date fingerprint.
 interface Props {
   variant?: 'app' | 'coaching';
+  /** The page's lastModified date (ISO 8601); no line when the page has none. */
+  updated?: string;
 }
-const { variant = 'app' } = Astro.props;
+const { variant = 'app', updated } = Astro.props;
+const updatedLabel = updated
+  ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  : undefined;
 const coaching = variant === 'coaching';
 const year = new Date().getFullYear();
 
@@ -81,6 +90,7 @@ const email = coaching ? COACHING.email : COMPANY.email;
     </div>
     <div class="foot-bottom">
       <p>© {year} {COMPANY.legalName}. All rights reserved.</p>
+      {updated && <p data-page-updated>Page last updated <time datetime={updated}>{updatedLabel}</time></p>}
       <p>{COMPANY.licence} · <a href={`mailto:${email}`}>{email}</a></p>
     </div>
   </div>

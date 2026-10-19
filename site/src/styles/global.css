@@ -556,6 +556,8 @@ code.hash{font-family:var(--mono);font-size:13px;word-break:break-all}
 .learn-table{width:100%;border-collapse:collapse;font-size:15px;margin:18px 0}
 .learn-table th,.learn-table td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
 .learn-table thead th{font:600 13px var(--mono);color:var(--faint)}
+/* A wide table scrolls inside itself on a phone, as .vs-wrap does on Pricing (s94). */
+@media (max-width:600px){.learn-table{display:block;overflow-x:auto}}
 .learn-cta{margin:56px 0 0;padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--card);
   display:flex;flex-direction:column;align-items:flex-start;gap:14px}
 .learn-cta p{margin:0}

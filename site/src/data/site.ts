@@ -237,9 +237,10 @@ export const COACHING = {
 export const NAV = [
   { href: '/products/', label: 'Products' },
   { href: '/docs/', label: 'Documents' },
-  // Learn, next to Documents (s91 plan, founder: "yes partner start with five articles").
-  { href: '/learn/', label: 'Learn' },
   { href: '/knowledge-centre/', label: 'Knowledge Centre' },
+  // Learn (s91 plan); after Knowledge Centre since s94 (founder: "move learn tab
+  // in header after knowledge center").
+  { href: '/learn/', label: 'Learn' },
   { href: '/pricing/', label: 'Pricing' },
 ] as const;
 
@@ -574,6 +575,71 @@ export const PAGES: PageEntry[] = [
       'Bring your ChatGPT memory, custom instructions and old chats to Claude: the steps, how long each takes, and how to never move them again.',
     sources: ['src/pages/learn/switch-from-chatgpt-to-claude.astro', 'src/layouts/Learn.astro'],
   },
+  // Comparison pages (s94, founder: pages naming competitors, facts only; rules
+  // in data/pricing.ts and the page's own header comment).
+  {
+    path: '/learn/ai-memory-apps-compared/',
+    crumb: 'AI memory apps compared',
+    heading: 'AI memory apps compared: which ones work across ChatGPT, Claude and Cursor',
+    title: 'AI memory apps compared: Supermemory, Mem0 and more · Zaaheen',
+    description:
+      'Apps that give ChatGPT, Claude and Cursor one shared memory, compared on where memories are kept, setup and price, from each company\'s own site.',
+    sources: ['src/pages/learn/ai-memory-apps-compared.astro', 'src/layouts/Learn.astro'],
+  },
+  {
+    path: '/learn/chatgpt-memory-vs-claude-memory/',
+    crumb: 'ChatGPT memory vs Claude memory',
+    heading: 'ChatGPT memory vs Claude memory: how each one remembers you',
+    title: 'ChatGPT memory vs Claude memory, side by side · Zaaheen',
+    description:
+      'How ChatGPT and Claude each remember you, what you can see and change, how they treat sensitive details, and what to do if you use both.',
+    sources: ['src/pages/learn/chatgpt-memory-vs-claude-memory.astro', 'src/layouts/Learn.astro'],
+  },
+  {
+    path: '/learn/mem0-alternative/',
+    crumb: 'Mem0 alternative',
+    heading: 'A Mem0 alternative for people who just use AI apps',
+    title: 'Mem0 alternative: one private memory, no coding · Zaaheen',
+    description:
+      'Mem0 is memory for developers, kept in your Mem0 account. How Zaaheen differs, where Mem0 is the better choice, and where Zaaheen falls short.',
+    sources: ['src/pages/learn/mem0-alternative.astro', 'src/layouts/Learn.astro'],
+  },
+  {
+    path: '/learn/supermemory-alternative/',
+    crumb: 'Supermemory alternative',
+    heading: 'A Supermemory alternative that installs like a normal app',
+    title: 'Supermemory alternative: encrypted, no terminal · Zaaheen',
+    description:
+      'Supermemory is a memory engine mostly for developers. How Zaaheen differs, where Supermemory is the better choice, and where Zaaheen falls short.',
+    sources: ['src/pages/learn/supermemory-alternative.astro', 'src/layouts/Learn.astro'],
+  },
+  {
+    path: '/learn/memoryplugin-alternative/',
+    crumb: 'MemoryPlugin alternative',
+    heading: 'A MemoryPlugin alternative that keeps your memories on your computer',
+    title: 'MemoryPlugin alternative: memories on your computer · Zaaheen',
+    description:
+      'MemoryPlugin keeps one memory for 21+ AI tools on its service. How Zaaheen compares on storage, apps and price, and where each one is better.',
+    sources: ['src/pages/learn/memoryplugin-alternative.astro', 'src/layouts/Learn.astro'],
+  },
+  {
+    path: '/learn/best-memory-mcp-server-for-claude-code/',
+    crumb: 'Memory servers for Claude Code',
+    heading: 'Which memory MCP server should you use with Claude Code?',
+    title: 'Best memory MCP server for Claude Code? The options · Zaaheen',
+    description:
+      'Anthropic\'s reference server, mcp-memory-service, Basic Memory, Mem0 and Zaaheen compared for Claude Code: setup, where memories live, cost.',
+    sources: ['src/pages/learn/best-memory-mcp-server-for-claude-code.astro', 'src/layouts/Learn.astro'],
+  },
+  {
+    path: '/learn/obsidian-vs-ai-memory-app/',
+    crumb: 'Obsidian vs a memory app',
+    heading: 'Obsidian or a memory app for your AI?',
+    title: 'Obsidian as AI memory vs a memory app · Zaaheen',
+    description:
+      'Obsidian is notes you write; a memory app is written by your AI apps as you talk. What each is good at, what they cost, and using both.',
+    sources: ['src/pages/learn/obsidian-vs-ai-memory-app.astro', 'src/layouts/Learn.astro'],
+  },
 ];
 
 // The Learn articles, newest last, for the /learn/ hub and the "People also
@@ -615,7 +681,55 @@ export const LEARN: readonly LearnArticle[] = [
       'Bring your ChatGPT memory, instructions and old chats to Claude, how long each step takes, and how to never move them again.',
     related: ['/learn/share-memory-between-chatgpt-and-claude/', '/learn/ai-memory-tool-or-notes-file/'],
   },
+  {
+    path: '/learn/ai-memory-apps-compared/',
+    summary:
+      'Five apps that give your AI apps one shared memory, side by side: where memories are kept, which apps they reach, setup and price.',
+    related: ['/learn/share-memory-between-chatgpt-and-claude/', '/learn/ai-memory-tool-or-notes-file/'],
+  },
+  {
+    path: '/learn/chatgpt-memory-vs-claude-memory/',
+    summary: 'What each one draws on, what you can see and change, sensitive details, and what to do if you use both.',
+    related: ['/learn/share-memory-between-chatgpt-and-claude/', '/learn/switch-from-chatgpt-to-claude/'],
+  },
+  {
+    path: '/learn/mem0-alternative/',
+    summary: 'Mem0 is built for developers and keeps memories in your Mem0 account. When an app on your own computer suits you better.',
+    related: ['/learn/ai-memory-apps-compared/', '/learn/best-memory-mcp-server-for-claude-code/'],
+  },
+  {
+    path: '/learn/supermemory-alternative/',
+    summary: 'Supermemory is a memory engine mostly for developers. When an encrypted app with no terminal suits you better.',
+    related: ['/learn/ai-memory-apps-compared/', '/learn/mem0-alternative/'],
+  },
+  {
+    path: '/learn/memoryplugin-alternative/',
+    summary: 'MemoryPlugin reaches 21+ AI tools from its own service. When keeping memories on your computer matters more.',
+    related: ['/learn/ai-memory-apps-compared/', '/learn/share-memory-between-chatgpt-and-claude/'],
+  },
+  {
+    path: '/learn/best-memory-mcp-server-for-claude-code/',
+    summary: 'The free servers, Basic Memory, Mem0 and Zaaheen for Claude Code: setup, where memories live, and cost.',
+    related: ['/learn/does-claude-code-remember-between-sessions/', '/learn/one-memory-across-claude-code-cursor-and-codex/'],
+  },
+  {
+    path: '/learn/obsidian-vs-ai-memory-app/',
+    summary: 'Notes you write versus a memory your AI apps write as you talk. What each is good at, the cost, and using both.',
+    related: ['/learn/ai-memory-tool-or-notes-file/', '/learn/ai-memory-apps-compared/'],
+  },
 ];
+
+// The comparison pages (s94), listed under the Pricing page's comparison table,
+// which also links each one from outside /learn/ (scripts/audit.mjs).
+export const COMPARE_PAGES = [
+  { path: '/learn/ai-memory-apps-compared/', label: 'AI memory apps compared' },
+  { path: '/learn/chatgpt-memory-vs-claude-memory/', label: 'ChatGPT memory vs Claude memory' },
+  { path: '/learn/mem0-alternative/', label: 'Mem0' },
+  { path: '/learn/supermemory-alternative/', label: 'Supermemory' },
+  { path: '/learn/memoryplugin-alternative/', label: 'MemoryPlugin' },
+  { path: '/learn/best-memory-mcp-server-for-claude-code/', label: 'Memory servers for Claude Code' },
+  { path: '/learn/obsidian-vs-ai-memory-app/', label: 'Obsidian' },
+] as const;
 
 /** "People also read" under an article: its related ones first, then the newest others, three at most. */
 export const alsoRead = (path: string): LearnArticle[] => {
