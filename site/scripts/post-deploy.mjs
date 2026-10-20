@@ -2,7 +2,11 @@
 // way crawlers see it, then tell IndexNow (Bing, and through Bing, Copilot and
 // ChatGPT search) which pages changed.
 //
-//   node scripts/post-deploy.mjs --sha <commit> [--changed <file>] [--wait 600] [--dry-run]
+//   node scripts/post-deploy.mjs --sha <commit> [--changed <file>] [--wait 600] [--dry-run] [--no-indexnow]
+//
+// --no-indexnow: check the live site and stop before telling any search engine.
+// Used while the site is not yet meant to be indexed (SITE_LIVE unset), so the
+// checks run on every publish without starting indexing (audit s104 WEB-1).
 //
 // --changed: newline-separated dist paths that changed in this deploy.
 // Exit 1 if the live site is wrong. An IndexNow failure only warns: a search
@@ -23,6 +27,7 @@ const SHA = opt('sha', '');
 const CHANGED = opt('changed', '');
 const WAIT_S = Number(opt('wait', '600'));
 const DRY = args.includes('--dry-run');
+const NO_INDEXNOW = args.includes('--no-indexnow');
 if (!SHA) {
   console.error('post-deploy: --sha is required');
   process.exit(1);
@@ -128,6 +133,11 @@ if (problems.length) {
   console.error(`\npost-deploy: ${problems.length} problem(s) on the live site:`);
   for (const p of problems) console.error(`  - ${p}`);
   process.exit(1);
+}
+
+if (NO_INDEXNOW) {
+  console.log('\npost-deploy: live site checked; IndexNow not told (the site is not to be indexed yet).');
+  process.exit(0);
 }
 
 // 3. IndexNow: only pages whose HTML changed, and only pages in the sitemap.

@@ -171,14 +171,23 @@ jobs:
           echo "Published $(wc -l < "$GITHUB_WORKSPACE/changed.txt") changed file(s)."
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        if: steps.publish.outputs.pushed == 'true' && vars.SITE_LIVE == 'true'
+        if: steps.publish.outputs.pushed == 'true'
         with:
           node-version: 22
       - name: Verify the live site, then notify IndexNow
-        # SITE_LIVE is a repository variable, set to true once Hostinger serves
-        # zaaheen.com. Until then there is no live site to check.
-        if: steps.publish.outputs.pushed == 'true' && vars.SITE_LIVE == 'true'
-        run: node site/scripts/post-deploy.mjs --sha "$GITHUB_SHA" --changed changed.txt --wait 600
+        # Every publish is checked: headers, crawlers, redirects (audit s104
+        # WEB-1: gated on SITE_LIVE, the checks had never run while the site
+        # was live and taking payments). SITE_LIVE now decides only whether
+        # IndexNow is told, which is what starts indexing (founder s100: not yet).
+        if: steps.publish.outputs.pushed == 'true'
+        env:
+          SITE_LIVE: ${{ vars.SITE_LIVE }}
+        run: |
+          if [ "$SITE_LIVE" = "true" ]; then
+            node site/scripts/post-deploy.mjs --sha "$GITHUB_SHA" --changed changed.txt --wait 600
+          else
+            node site/scripts/post-deploy.mjs --sha "$GITHUB_SHA" --wait 600 --no-indexnow
+          fi
 
   account-build:
     name: Build and audit account.zaaheen.com (production settings)
@@ -272,13 +281,14 @@ jobs:
           echo "Published account.zaaheen.com from ${GITHUB_SHA}."
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        if: steps.publish.outputs.pushed == 'true' && vars.ACCOUNT_LIVE == 'true'
+        if: steps.publish.outputs.pushed == 'true'
         with:
           node-version: 22
       - name: Verify the live account pages and the Clerk instance
-        # ACCOUNT_LIVE is a repository variable, set to true once Hostinger
-        # serves account.zaaheen.com. Our own script, no npm packages, no secret:
-        # the served build, its headers exactly as its .htaccess sets them, and
-        # the production instance's D4/D9 invariants (AUTH-PAGES-DESIGN D9).
-        if: steps.publish.outputs.pushed == 'true' && vars.ACCOUNT_LIVE == 'true'
+        # Every publish (audit s104 WEB-1: the ACCOUNT_LIVE gate was never set,
+        # so this had never run; the account pages are live and nothing here
+        # touches indexing). Our own script, no npm packages, no secret: the
+        # served build, its headers exactly as its .htaccess sets them, and the
+        # production instance's D4/D9 invariants (AUTH-PAGES-DESIGN D9).
+        if: steps.publish.outputs.pushed == 'true'
         run: node site/scripts/post-deploy-account.mjs --sha "$GITHUB_SHA" --htaccess dist/.htaccess --wait 600
