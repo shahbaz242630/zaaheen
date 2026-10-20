@@ -28,11 +28,9 @@ tokenizers = { workspace = true }
 sha2 = { workspace = true }
 async-trait = { workspace = true }
 tokio = { workspace = true }
-thiserror = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-tokio-test = { workspace = true }
 tempfile = { workspace = true }
 # Parse the A7 labelled fixture (read_quality_eval.json) in the conformal
 # reranker-floor calibration harness (reranker_fun_diagnostic.rs). Test-only.

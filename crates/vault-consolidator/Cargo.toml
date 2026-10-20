@@ -34,9 +34,6 @@ vault-llm = { path = "../vault-llm" }
 tokio = { workspace = true }
 async-trait = { workspace = true }
 
-# Error handling per BRD §0.2 / §2.4. anyhow stays out of library code.
-thiserror = { workspace = true }
-
 # Timestamps for the `since: Option<DateTime<Utc>>` forward-compat parameter
 # (T0.2.5 wires actual checkpoint values; T0.2.2 passes None for full-scan).
 chrono = { workspace = true }
@@ -74,11 +71,6 @@ vault-llm = { path = "../vault-llm", features = ["test-utils"] }
 # integration test (T0.2.0 pattern: build StorageBackend against a tempdir).
 tempfile = { workspace = true }
 
-# anyhow allowed in example binaries per BRD §2.4 (library code uses
-# thiserror + VaultConsolidatorError). The fixture-build binary at
-# examples/build_clustering_fixture.rs uses anyhow's `Context` trait for
-# stage-by-stage error reporting (mirror of vault-llm's spike-2 binary).
-anyhow = { workspace = true }
 
 # Logging in tests.
 tracing-test = { workspace = true }

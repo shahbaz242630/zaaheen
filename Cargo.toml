@@ -169,10 +169,10 @@ tokenizers = { version = "=0.20.4", default-features = false, features = ["onig"
 # Maintained by Marcus Dunn at utilityai/llama-cpp-rs (active as of 2026-04-30).
 llama-cpp-2 = "=0.1.146"
 
-# Sync (BRD §4.4) — yrs caret-pinned; exact-pin at T0.2.x (sync-engine first use).
-# dryoc consumed today as dev-dependency in vault-sync (dryoc spike); reqwest will
-# be exact-pinned-on-first-use too — declared but not yet consumed.
-yrs = "0.21"
+# Sync (BRD §4.4) — yrs (the CRDT) removed 2026-10-20 (unused-dependency audit):
+# sync is deferred until there are paying users; re-add it from BRD §4.4 at the
+# sync engine's first use. dryoc consumed today as dev-dependency in vault-sync
+# (dryoc spike).
 dryoc = "=0.7.2"
 reqwest = { version = "=0.12.28", features = ["json", "rustls-tls", "stream"] }
 
@@ -206,12 +206,10 @@ reqwest = { version = "=0.12.28", features = ["json", "rustls-tls", "stream"] }
 rmcp = "=3.4.1"
 
 # CLI (T0.1.6 Phase C1b — vault-cli operator binary). Exact-pinned per
-# BRD §2.9 from Cargo.lock at first build. The two deps are tightly
-# scoped: `clap` parses subcommands, `rpassword` reads the SQLCipher
-# passphrase without echo. No env-var auth path (per Phase C plan
-# smaller-item-(a)).
+# BRD §2.9 from Cargo.lock at first build. `clap` parses subcommands.
+# (`rpassword`'s passphrase prompt went at T0.2.0 Phase 3; its leftover entry
+# here was removed 2026-10-20, unused-dependency audit.)
 clap = { version = "=4.6.1", features = ["derive"] }
-rpassword = "=7.5.1"
 
 # Tauri (BRD §4.6) — exact-pinned at T0.1.11 Phase 3 (vault-tauri lib→bin conversion).
 # Spike 1 (web-research methodology, T0.1.11 plan-paragraph v4): tauri 2.11.0 released
@@ -278,8 +276,6 @@ sha2 = "=0.10.9"
 # Test deps (BRD §4.7)
 proptest = "=1.11.0"
 tokio-test = "=0.4.5"
-# mockall — caret pin; exact-pin when first wired into a crate's [dev-dependencies].
-mockall = "0.13"
 tempfile = "=3.27.0"
 # tracing-test (T0.1.8 Phase 3) — captures `tracing` events emitted during a
 # `#[traced_test]`-annotated test so we can assert specific log lines fire.
