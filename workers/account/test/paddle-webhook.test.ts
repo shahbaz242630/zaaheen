@@ -68,6 +68,10 @@ interface World {
   userGone?: boolean;
   subscriptions?: unknown[] | "down";
   writeFails?: boolean;
+  /** GET /subscriptions/{id}: the one subscription (default: the active one), null for 404, or down. */
+  subscription?: Record<string, unknown> | null | "down";
+  /** Status Paddle answers a cancel with (default 200). */
+  cancelStatus?: number;
 }
 
 function world(w: World) {
@@ -82,6 +86,14 @@ function world(w: World) {
       if (w.writeFails) return json(500, {});
       writes.push(JSON.parse(req.body));
       return json(200, { id: USER });
+    }
+    if (origin === "https://sandbox-api.paddle.com" && /^\/subscriptions\/sub_[a-z0-9]+\/cancel$/.test(pathname) && req.method === "POST") {
+      return w.cancelStatus === undefined ? json(200, { data: { status: "canceled" } }) : json(w.cancelStatus, {});
+    }
+    if (origin === "https://sandbox-api.paddle.com" && /^\/subscriptions\/sub_[a-z0-9]+$/.test(pathname) && req.method === "GET") {
+      if (w.subscription === "down") return json(502, {});
+      if (w.subscription === null) return json(404, {});
+      return json(200, { data: w.subscription ?? activeSub() });
     }
     if (origin === "https://sandbox-api.paddle.com" && pathname === "/subscriptions") {
       if (w.subscriptions === "down") return json(502, {});
@@ -266,5 +278,112 @@ describe("the request itself", () => {
     const { response, seen } = await call({}, body, await signature(body));
     expect(response.status).toBe(413);
     expect(seen).toHaveLength(0);
+  });
+});
+
+/*
+  Audit s104 PDL-1: a chargeback ends the subscription. Paddle records it as
+  an adjustment naming the subscription and does not say it cancels it, so it
+  renewed and invited a second chargeback. Cancelled here; Paddle's own
+  subscription.canceled then ends access through the branch above.
+*/
+describe("an adjustment", () => {
+  const SUB = "sub_01eeeeeeeeeeeeeeeeeeeeeeee";
+  const adjustment = (over: Record<string, unknown> = {}) =>
+    event("adjustment.created", {
+      id: "adj_01aaaaaaaaaaaaaaaaaaaaaaaa",
+      action: "chargeback",
+      status: "approved",
+      transaction_id: "txn_01aaaaaaaaaaaaaaaaaaaaaaaa",
+      subscription_id: SUB,
+      customer_id: CUSTOMER,
+      ...over,
+    });
+  const cancels = (seen: Seen[]) => seen.filter((r) => r.method === "POST" && r.url.pathname.endsWith("/cancel")).map((r) => r.url.pathname);
+
+  it("for a chargeback cancels our live subscription at once", async () => {
+    const body = adjustment();
+    const { response, seen, writes } = await call({}, body, await signature(body));
+    expect(response.status).toBe(200);
+    expect(seen[0]?.url.pathname).toBe(`/subscriptions/${SUB}`);
+    expect(cancels(seen)).toEqual([`/subscriptions/${SUB}/cancel`]);
+    expect(JSON.parse(seen.find((r) => r.method === "POST")?.body ?? "")).toEqual({ effective_from: "immediately" });
+    // Access ends through Paddle's own subscription.canceled, not here.
+    expect(writes).toEqual([]);
+  });
+
+  it("does the same for an early dispute alert, and on the update that approves it", async () => {
+    for (const [type, over] of [
+      ["adjustment.created", { action: "chargeback_warning" }],
+      ["adjustment.updated", { action: "chargeback", status: "approved" }],
+    ] as const) {
+      const body = event(type, JSON.parse(adjustment(over)).data);
+      const { seen } = await call({}, body, await signature(body));
+      expect(cancels(seen), type).toHaveLength(1);
+    }
+  });
+
+  it("leaves refunds, credits, won disputes, and rejected or reversed adjustments alone", async () => {
+    for (const over of [
+      { action: "refund" },
+      { action: "credit" },
+      { action: "chargeback_reverse" },
+      { action: "chargeback_warning_reverse" },
+      { status: "rejected" },
+      { status: "reversed" },
+    ]) {
+      const body = adjustment(over);
+      const { response, seen } = await call({}, body, await signature(body));
+      expect(response.status, JSON.stringify(over)).toBe(200);
+      expect(seen, JSON.stringify(over)).toEqual([]);
+    }
+  });
+
+  it("cancels nothing that is not ours, already cancelled, gone, or unnamed", async () => {
+    const other = { ...activeSub(), items: [{ price: { product_id: "pro_01zzzzzzzzzzzzzzzzzzzzzzzz" } }] };
+    for (const w of [{ subscription: other }, { subscription: { ...activeSub(), status: "canceled" } }, { subscription: null }] as World[]) {
+      const body = adjustment();
+      const { response, seen } = await call(w, body, await signature(body));
+      expect(response.status).toBe(200);
+      expect(cancels(seen)).toEqual([]);
+    }
+    const unnamed = adjustment({ subscription_id: null });
+    const { seen } = await call({}, unnamed, await signature(unnamed));
+    expect(seen).toEqual([]);
+  });
+
+  it("cancels a paused subscription too", async () => {
+    const body = adjustment();
+    const { seen } = await call({ subscription: { ...activeSub(), status: "paused" } }, body, await signature(body));
+    expect(cancels(seen)).toHaveLength(1);
+  });
+
+  it("answers 503 for a subscription whose items cannot be read, rather than calling it not ours", async () => {
+    const body = adjustment();
+    const { response, seen } = await call({ subscription: { ...activeSub(), items: null } }, body, await signature(body));
+    expect(response.status).toBe(503);
+    expect(cancels(seen)).toEqual([]);
+  });
+
+  it("lost a cancel race: 503, and the retry finds it cancelled and answers 200", async () => {
+    const body = adjustment();
+    expect((await call({ cancelStatus: 400 }, body, await signature(body))).response.status).toBe(503);
+    const retry = await call({ subscription: { ...activeSub(), status: "canceled" } }, body, await signature(body));
+    expect(retry.response.status).toBe(200);
+    expect(cancels(retry.seen)).toEqual([]);
+  });
+
+  it("answers 503 while Paddle cannot be asked, so Paddle sends it again", async () => {
+    const body = adjustment();
+    const { response, seen } = await call({ subscription: "down" }, body, await signature(body));
+    expect(response.status).toBe(503);
+    expect(cancels(seen)).toEqual([]);
+  });
+
+  it("is refused without a valid signature", async () => {
+    const body = adjustment();
+    const { response, seen } = await call({}, body, "ts=1;h1=00");
+    expect(response.status).toBe(401);
+    expect(seen).toEqual([]);
   });
 });

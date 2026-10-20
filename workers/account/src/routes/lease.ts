@@ -20,7 +20,7 @@ import { parseRecord } from "../record";
 import { OFFLINE_DAYS } from "../time";
 import { TrialError, firstTrialStart } from "../trials";
 import { UpstreamError } from "../upstream";
-import { type RouteDeps, authenticate, log, readJsonObject } from "./common";
+import { type RouteDeps, authenticate, log, readJsonObject, errorDetail } from "./common";
 
 export type { RouteDeps } from "./common";
 
@@ -64,7 +64,7 @@ export async function handleLease(request: Request, config: Config, deps: RouteD
           throw e;
         }
       },
-      fetchSubscriptions: (customerId) => paddle.listSubscriptions(customerId),
+      fetchSubscriptions: (customerId) => paddle.listSubscriptions(customerId, auth.sub),
       writeRecord: (patch) => clerk.mergeRecord(auth.sub, patch),
     });
     if (decision.kind === "unavailable") return errorResponse(503, "unavailable");
@@ -87,7 +87,7 @@ export async function handleLease(request: Request, config: Config, deps: RouteD
       config.latestAppVersion === undefined ? { lease } : { lease, latest_version: config.latestAppVersion },
     );
   } catch (e) {
-    log("lease", e instanceof UpstreamError ? "upstream_error" : "unexpected_error", e instanceof Error ? e.message : undefined);
+    log("lease", e instanceof UpstreamError ? "upstream_error" : "unexpected_error", errorDetail(e));
     return errorResponse(503, "unavailable");
   }
 }

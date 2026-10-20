@@ -6,7 +6,9 @@ import type { Config } from "../config";
 import { errorResponse, readCapped } from "../http";
 import { looksLikeJwt, verifySessionToken } from "../session";
 import type { TrialStore } from "../trials";
-import type { Fetch } from "../upstream";
+import { BillingError } from "../billing";
+import { TrialError } from "../trials";
+import { type Fetch, UpstreamError } from "../upstream";
 
 export interface RouteDeps {
   fetch: Fetch;
@@ -14,6 +16,17 @@ export interface RouteDeps {
   now(): number;
   /** The TRIALS namespace (ACCOUNT-DELETION-DESIGN D8); only /v1/lease reads it. */
   trials?: TrialStore | undefined;
+}
+
+/**
+ * What a failure may say in a log line (audit s104 API-6, s101 W-08). Our own
+ * errors carry our own fixed wording, so their message is kept; any other
+ * error may carry a value from a request or a reply (an email, a token), so
+ * only its kind is logged.
+ */
+export function errorDetail(e: unknown): string | undefined {
+  if (e instanceof UpstreamError || e instanceof BillingError || e instanceof TrialError) return e.message;
+  return e instanceof Error ? e.name : undefined;
 }
 
 /** The request body as a JSON object, or `null` (too big, not JSON, not an object). */

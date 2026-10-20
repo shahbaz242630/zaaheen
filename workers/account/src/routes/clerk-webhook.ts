@@ -5,6 +5,9 @@
 //   custom_data.clerk_user_id, cancel immediately. Failure -> 5xx (Svix
 //   retries). Runbook backup.
 //
+// Amended (audit s104 API-1, SIGNIN-DESIGN.md §8.52): any price of our
+// product, kept in code, not our two current price IDs.
+//
 // §1: the user.deleted payload is only {id, object, deleted}, and Clerk has
 // already deleted the user (and our record with it), so matching on the
 // subscriptions' custom_data is the only link left. A buyer can set that
@@ -17,13 +20,14 @@
 // and the dashboard reads only that copy." Only exactly true is copied; the
 // absence of the copy means no consent.
 
+import { hasOurProduct } from "../billing";
 import type { Config } from "../config";
 import { errorResponse, jsonResponse, readCapped } from "../http";
 import { ClerkClient } from "../clerk";
 import { PaddleClient } from "../paddle";
 import { verifySvixSignature } from "../signatures";
 import { UpstreamError, isObject } from "../upstream";
-import { type RouteDeps, log } from "./common";
+import { type RouteDeps, log, errorDetail } from "./common";
 
 const MAX_BODY_BYTES = 64 * 1024;
 const USER_ID = /^user_[A-Za-z0-9]{1,64}$/;
@@ -63,9 +67,10 @@ export async function handleClerkWebhook(request: Request, config: Config, deps:
 
   const paddle = new PaddleClient(config.paddle, deps.fetch);
   try {
-    const prices = [config.paddle.prices.monthly, config.paddle.prices.annual];
-    const theirs = (await paddle.listOurSubscriptions(prices, LIVE_STATUSES)).filter(
-      (s) => isObject(s) && isObject(s["custom_data"]) && s["custom_data"]["clerk_user_id"] === userId,
+    // Any price of our product, as access counts it (audit s104 API-1).
+    const live = await paddle.listSubscriptionsByStatus(LIVE_STATUSES);
+    const theirs = live.filter(
+      (s) => hasOurProduct(s, config.paddle.productId) && isObject(s) && isObject(s["custom_data"]) && s["custom_data"]["clerk_user_id"] === userId,
     );
     for (const s of theirs) {
       const id = isObject(s) ? s["id"] : undefined;
@@ -74,7 +79,7 @@ export async function handleClerkWebhook(request: Request, config: Config, deps:
     log("clerk_webhook", "user_deleted", `cancelled ${theirs.length}`);
     return jsonResponse(200, { ok: true });
   } catch (e) {
-    log("clerk_webhook", e instanceof UpstreamError ? "upstream_error" : "unexpected_error", e instanceof Error ? e.message : undefined);
+    log("clerk_webhook", e instanceof UpstreamError ? "upstream_error" : "unexpected_error", errorDetail(e));
     return errorResponse(503, "unavailable");
   }
 }
@@ -92,7 +97,7 @@ async function copyConsent(data: unknown, config: Config, deps: RouteDeps): Prom
     });
     return done(written ? "marketing_consent_copied" : "user_gone");
   } catch (e) {
-    log("clerk_webhook", e instanceof UpstreamError ? "upstream_error" : "unexpected_error", e instanceof Error ? e.message : undefined);
+    log("clerk_webhook", e instanceof UpstreamError ? "upstream_error" : "unexpected_error", errorDetail(e));
     return errorResponse(503, "unavailable");
   }
 }

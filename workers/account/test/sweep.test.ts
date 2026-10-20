@@ -113,9 +113,18 @@ describe("the daily sweep", () => {
   it("lists one page of our active and past-due subscriptions", async () => {
     const { seen } = await run({ page: [] });
     expect(seen).toHaveLength(1);
-    expect(seen[0]?.url.searchParams.get("price_id")).toBe(`${MONTHLY},${ANNUAL}`);
+    // Every live subscription, kept to our product in code (audit s104 API-1).
+    expect(seen[0]?.url.searchParams.has("price_id")).toBe(false);
     expect(seen[0]?.url.searchParams.get("status")).toBe("active,past_due");
     expect(seen[0]?.url.searchParams.get("per_page")).toBe("200");
+  });
+
+  it("sees a subscription on an old price of our product, and never another product's", async () => {
+    const other = { ...sub(2, T + HOUR), items: [{ price: { id: "pri_01pppppppppppppppppppppppp", product_id: "pro_01zzzzzzzzzzzzzzzzzzzzzzzz" } }] };
+    const old = { ...sub(1, T + HOUR), items: [{ price: { id: "pri_01oooooooooooooooooooooooo", product_id: PRODUCT } }] };
+    const { result, writes } = await run({ page: [old, other] });
+    expect(result).toMatchObject({ candidates: 1 });
+    expect(writes.map((x) => x.user)).toEqual([user(1)]);
   });
 
   it("re-derives only subscriptions whose period ends within 48 hours either side", async () => {
