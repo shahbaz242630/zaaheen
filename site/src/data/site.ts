@@ -206,7 +206,7 @@ export const FAQ: readonly Faq[] = [
   },
   {
     q: 'What does tidying up do?',
-    a: 'It merges near-duplicate memories, settles facts that contradict each other in favour of the newer one, and moves memories you never use out of everyday recall. It never deletes a memory. It is off until you turn it on in Settings, and the first time it makes a one-time download of about 2.5 GB.',
+    a: 'It merges near-duplicate memories, settles facts that contradict each other in favour of the newer one, and moves memories you never use out of everyday recall. It never deletes a memory. Setup turns it on, every day at 3 am, unless you choose Not now, and you can change or turn it off under Consolidation. What it needs, about 2.5 GB, downloads once during setup.',
   },
   {
     q: 'Who makes Zaaheen?',

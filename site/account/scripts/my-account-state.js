@@ -44,7 +44,7 @@ export function planView(plan) {
   const view = (line, paying) => ({ line, plans: !paying, manage: paying, cancel: false });
   switch (plan.state) {
     case 'not_started':
-      return view('Your 30-day free trial starts when you first open the Zaaheen app.', false);
+      return view('Your 30-day free trial starts the first time you sign in from the Zaaheen app.', false);
     case 'trial': {
       const d = plan.days_left;
       if (!Number.isInteger(d) || d < 0) return null;

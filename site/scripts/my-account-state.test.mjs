@@ -32,7 +32,7 @@ test('the way back from Google is one fixed marker', () => {
 
 test('each plan says what the app says and offers the right buttons', () => {
   assert.deepEqual(planView({ state: 'not_started' }), {
-    line: 'Your 30-day free trial starts when you first open the Zaaheen app.', plans: true, manage: false, cancel: false,
+    line: 'Your 30-day free trial starts the first time you sign in from the Zaaheen app.', plans: true, manage: false, cancel: false,
   });
   assert.deepEqual(planView({ state: 'trial', days_left: 20 }), { line: 'Free trial, 20 days left', plans: true, manage: false, cancel: false });
   assert.equal(planView({ state: 'trial', days_left: 1 }).line, 'Free trial, 1 day left');
