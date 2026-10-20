@@ -28,23 +28,11 @@ version = 2
 # advisory fails the build from now on. Revisit whenever `lance` or `tauri` is
 # upgraded -- both chains below move only when they do.
 ignore = [
-    # -- gtk-rs GTK3 bindings, unmaintained upstream ------------------------
-    # Reach us through tauri -> wry on LINUX ONLY. We ship Windows (ADR-091),
-    # so none of this is in the binary any user runs. RustSec reports "no safe
-    # upgrade is available" for all ten: GTK3 bindings are done, and the
-    # ecosystem's answer is GTK4, which Tauri v2 does not use.
-    # Resolved when Tauri moves off gtk-rs, or when we ship a Linux build and
-    # must re-evaluate properly.
-    "RUSTSEC-2024-0411", # gdkwayland-sys
-    "RUSTSEC-2024-0412", # gdk
-    "RUSTSEC-2024-0413", # atk
-    "RUSTSEC-2024-0414", # gdkx11-sys
-    "RUSTSEC-2024-0415", # gtk
-    "RUSTSEC-2024-0416", # atk-sys
-    "RUSTSEC-2024-0417", # gdkx11
-    "RUSTSEC-2024-0418", # gdk-sys
-    "RUSTSEC-2024-0419", # gtk3-macros
-    "RUSTSEC-2024-0420", # gtk-sys
+    # (The ten gtk-rs GTK3 "unmaintained" ignores, RUSTSEC-2024-0411..0420,
+    # were removed in audit s104 SUP-10: cargo-deny reported them as matching
+    # nothing, and an unused ignore can hide the advisory if it returns. The
+    # crates are still in the lock, Linux-only through tauri -> wry; if they
+    # are reported again, triage them afresh here.)
 
     # -- cloud object-store signing path ------------------------------------
     # All three arrive via the SAME chain:

@@ -6906,7 +6906,7 @@ DEALINGS IN THE SOFTWARE.
 ------------------------------------------------------------------------------
 MIT License (MIT)
 Used by:
-  chacha20 0.10.0 <https://github.com/RustCrypto/stream-ciphers>
+  chacha20 0.10.2 <https://github.com/RustCrypto/stream-ciphers>
 
 Copyright (c) 2019-2026 The RustCrypto Project Developers
 

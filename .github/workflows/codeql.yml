@@ -25,6 +25,11 @@ concurrency:
   group: codeql-${{ github.ref }}
   cancel-in-progress: true
 
+# Read-only unless a job asks for more (audit s104 SUP-10): written here so a
+# repository settings change can never widen what these jobs may do.
+permissions:
+  contents: read
+
 jobs:
   # Website-only pull requests skip the Rust analysis (founder, session 63).
   # Same rule as ci.yml's `changes` job (.github/scripts/app-changed.sh, proven
