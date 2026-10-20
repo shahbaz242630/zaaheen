@@ -8,7 +8,7 @@ import '../styles/global.css';
 import Logo from '../components/Logo.astro';
 import Footer from '../components/Footer.astro';
 import { SITE, NAV, ACCOUNT, RELEASE, absolute, type PageEntry } from '../data/site';
-import { firstPublished, lastModified } from '../lib/lastmod';
+import { lastModified, publishedDate } from '../lib/lastmod';
 import { graphFor } from '../lib/seo';
 
 interface Props {
@@ -22,7 +22,7 @@ interface Props {
 const { page, noindex = false, footer = 'app' } = Astro.props;
 const canonical = absolute(page.path);
 const modified = lastModified(page.path);
-const published = page.heading ? firstPublished(page.sources) : undefined;
+const published = page.heading ? publishedDate(page.sources, modified) : undefined;
 const jsonLd = noindex ? null : graphFor(page, modified, published);
 // Guides are articles to link previews as well as to search (SEO audit, session 90).
 const isArticle = Boolean(page.heading && !page.contact);

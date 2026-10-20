@@ -466,6 +466,20 @@ if (files.includes('sitemap.xml')) {
   }
 }
 
+// --- A page is never published after it last changed (SEO audit s105) -------------
+// Both pairs a search engine reads: the article meta tags and the JSON-LD dates.
+for (const rel of htmlFiles) {
+  const html = read(rel);
+  const meta = (p) => html.match(new RegExp(`<meta property="article:${p}" content="([^"]+)"`))?.[1];
+  const pairs = [[meta('published_time'), meta('modified_time')]];
+  for (const m of all(html, /"datePublished":"([^"]+)"[^}]*?"dateModified":"([^"]+)"/g)) pairs.push([m[1], m[2]]);
+  for (const [published, modified] of pairs) {
+    if (published && modified && Date.parse(published) > Date.parse(modified)) {
+      fail(rel, `published ${published} is later than modified ${modified}`);
+    }
+  }
+}
+
 // --- Listed pages' dates follow their words (scripts/page-dates.mjs) -------------
 // A page whose text changed since its recorded date, or a listed page with no
 // date, would tell search engines something false; so would a sitemap date that

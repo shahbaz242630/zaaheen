@@ -15,7 +15,18 @@ export function lastModified(path: string): string | undefined {
   return (dates as Record<string, { date: string } | undefined>)[path]?.date;
 }
 
-// When a page was first published: the commit that added its own page file
+// When a page was first published: the commit that added its own page file,
+// but never later than when its words last changed (`modified`). A new page is
+// stamped (npm run stamp) before its commit, so the commit date alone made
+// eight Learn pages "published" hours after they were "modified" (SEO audit
+// s105); scripts/audit.mjs now refuses that order.
+export function publishedDate(sources: string[], modified: string | undefined): string | undefined {
+  const committed = firstPublished(sources);
+  if (!committed || !modified) return committed;
+  return Date.parse(committed) > Date.parse(modified) ? modified : committed;
+}
+
+// When a page's own file was added: the commit that added its own page file
 // (the first source), as ISO 8601. Undefined before that file is committed.
 // Needs full history: CI checks out with fetch-depth 0.
 export function firstPublished(sources: string[]): string | undefined {

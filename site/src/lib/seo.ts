@@ -81,8 +81,9 @@ export function graphFor(page: PageEntry, modified?: string, published?: string)
       name: SITE.name,
       description: SITE.summary,
       applicationCategory: 'UtilitiesApplication',
-      // Both systems, as the pages say (the Mac: Apple chip only).
-      operatingSystem: 'Windows 11, macOS',
+      // Both systems, as the pages say (RELEASE.windows / RELEASE.mac): the Mac
+      // is Apple chip only, so plain "macOS" claimed Intel Macs too (SEO audit s105).
+      operatingSystem: `${RELEASE.windows.tested} (${RELEASE.windows.arch}), macOS on ${RELEASE.mac.arch}`,
       softwareVersion: RELEASE.version,
       // Nothing to download or buy until the app is on sale (RELEASE.available).
       // schema.org's downloadUrl takes several URLs: one per system. No
