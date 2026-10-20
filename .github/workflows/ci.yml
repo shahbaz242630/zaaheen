@@ -75,6 +75,11 @@ env:
   # upstream lance-format/lance#1983 + #3601.
   LANCE_MEM_POOL_SIZE: "268435456"
 
+# Read-only unless a job asks for more (audit s104 SUP-10): written here so a
+# repository settings change can never widen what these jobs may do.
+permissions:
+  contents: read
+
 jobs:
   fmt:
     name: cargo fmt
