@@ -17,7 +17,6 @@ const API: Record<PaddleEnvironment, string> = {
   live: "https://api.paddle.com",
 };
 const CUSTOMER_ID = /^ctm_[a-z0-9]{26}$/;
-const PRICE_ID = /^pri_[a-z0-9]{26}$/;
 const SUBSCRIPTION_ID = /^sub_[a-z0-9]{26}$/;
 /** One customer's subscriptions: a handful at most. */
 const MAX_PAGES = 5;
@@ -39,21 +38,31 @@ export class PaddleClient {
     private readonly fetch: Fetch,
   ) {}
 
-  /** Every subscription of this customer, as Paddle returned them. */
-  async listSubscriptions(customerId: string): Promise<unknown[]> {
+  /**
+   * This customer's subscriptions that this user bought, as Paddle returned
+   * them. A Paddle customer is one email; a Clerk user who takes over an email
+   * another user gave up would otherwise inherit that user's paid access
+   * (audit s104 PDL-2). Our checkout puts the buyer's id on every subscription
+   * (`createTransaction`), so only those count.
+   */
+  async listSubscriptions(customerId: string, clerkUserId: string): Promise<unknown[]> {
     const what = "paddle list subscriptions";
     if (!CUSTOMER_ID.test(customerId)) throw new UpstreamError(`${what}: bad customer id`);
-    return this.listAll(what, `${this.base()}/subscriptions?customer_id=${customerId}&per_page=200`, MAX_PAGES);
+    const all = await this.listAll(what, `${this.base()}/subscriptions?customer_id=${customerId}&per_page=200`, MAX_PAGES);
+    return all.filter((s) => isObject(s) && isObject(s["custom_data"]) && s["custom_data"]["clerk_user_id"] === clerkUserId);
   }
 
   /**
-   * Every subscription on one of `priceIds` whose status is one of
-   * `statuses`, across customers (for `/clerk/webhook`, §5). Up to
-   * MAX_PAGES_ALL pages of 200.
+   * Every subscription whose status is one of `statuses`, across customers
+   * (for `/clerk/webhook`, §5). Up to MAX_PAGES_ALL pages of 200. Callers keep
+   * our product's in code (`hasOurProduct`): Paddle filters by price,
+   * not product, and a price filter missed every price but the current two,
+   * while access counts any price of the product (audit s104 API-1). This
+   * Paddle account sells only the app.
    */
-  async listOurSubscriptions(priceIds: readonly string[], statuses: readonly string[]): Promise<unknown[]> {
-    const what = "paddle list our subscriptions";
-    return this.listAll(what, this.ourSubscriptionsUrl(what, priceIds, statuses), MAX_PAGES_ALL);
+  async listSubscriptionsByStatus(statuses: readonly string[]): Promise<unknown[]> {
+    const what = "paddle list subscriptions by status";
+    return this.listAll(what, this.byStatusUrl(what, statuses), MAX_PAGES_ALL);
   }
 
   /**
@@ -61,16 +70,31 @@ export class PaddleClient {
    * "each run handles one page"). A sweep may see a partial list; a
    * derivation never does.
    */
-  async listOurSubscriptionsFirstPage(priceIds: readonly string[], statuses: readonly string[]): Promise<unknown[]> {
-    const what = "paddle list our subscriptions (first page)";
-    return this.listAll(what, this.ourSubscriptionsUrl(what, priceIds, statuses), 1, { partialOk: true });
+  async listSubscriptionsByStatusFirstPage(statuses: readonly string[]): Promise<unknown[]> {
+    const what = "paddle list subscriptions by status (first page)";
+    return this.listAll(what, this.byStatusUrl(what, statuses), 1, { partialOk: true });
   }
 
-  private ourSubscriptionsUrl(what: string, priceIds: readonly string[], statuses: readonly string[]): string {
-    if (priceIds.some((id) => !PRICE_ID.test(id)) || statuses.some((s) => !/^[a-z_]+$/.test(s))) {
+  private byStatusUrl(what: string, statuses: readonly string[]): string {
+    if (statuses.length === 0 || statuses.some((s) => !/^[a-z_]+$/.test(s))) {
       throw new UpstreamError(`${what}: bad filter`);
     }
-    return `${this.base()}/subscriptions?price_id=${priceIds.join(",")}&status=${statuses.join(",")}&per_page=200`;
+    return `${this.base()}/subscriptions?status=${statuses.join(",")}&per_page=200`;
+  }
+
+  /** One subscription as Paddle has it now; null when Paddle has no such subscription. */
+  async getSubscription(subscriptionId: string): Promise<Record<string, unknown> | null> {
+    const what = "paddle get subscription";
+    if (!SUBSCRIPTION_ID.test(subscriptionId)) throw new UpstreamError(`${what}: bad subscription id`);
+    const response = await send(this.fetch, what, `${this.base()}/subscriptions/${subscriptionId}`, {
+      method: "GET",
+      headers: { authorization: `Bearer ${this.config.apiKey}` },
+    });
+    if (response.status === 404) return null;
+    if (response.status !== 200) throw new UpstreamError(`${what}: status ${response.status}`);
+    const body = await readJson(what, response);
+    if (!isObject(body) || !isObject(body["data"])) throw new UpstreamError(`${what}: unexpected body`);
+    return body["data"];
   }
 
   /** Cancel a subscription at once (`effective_from: immediately`). */

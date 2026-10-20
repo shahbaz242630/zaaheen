@@ -165,6 +165,7 @@ describe("a good request", () => {
     const subscriptions = [
       {
         status: "active",
+        custom_data: { clerk_user_id: USER },
         items: [{ price: { product_id: PRODUCT } }],
         current_billing_period: { starts_at: new Date(T * 1000).toISOString(), ends_at: new Date((T + 30 * DAY) * 1000).toISOString() },
         scheduled_change: null,

@@ -46,6 +46,7 @@ function sub(id: string, status: string, opts: { productId?: string; ending?: bo
   return {
     id,
     status,
+    custom_data: { clerk_user_id: USER },
     items: [{ price: { product_id: opts.productId ?? PRODUCT } }],
     current_billing_period: { starts_at: "2027-01-01T00:00:00Z", ends_at: "2027-02-01T00:00:00Z" },
     scheduled_change: opts.ending ? { action: "cancel", effective_at: "2027-02-01T00:00:00Z" } : null,

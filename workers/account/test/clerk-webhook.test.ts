@@ -34,8 +34,11 @@ const config: Config = {
   killSwitch: false,
 };
 
-function sub(id: string, userId: string | null, status = "active"): unknown {
-  return { id, status, customer_id: "ctm_01h8441jn5pcwrfhwh78jqt8hk", custom_data: userId === null ? null : { clerk_user_id: userId } };
+const PRODUCT = "pro_01aaaaaaaaaaaaaaaaaaaaaaaa";
+
+/** A subscription: ours unless another product is named, on the monthly price unless another is. */
+function sub(id: string, userId: string | null, status = "active", price: { id: string; product_id: string } = { id: MONTHLY, product_id: PRODUCT }): unknown {
+  return { id, status, customer_id: "ctm_01h8441jn5pcwrfhwh78jqt8hk", custom_data: userId === null ? null : { clerk_user_id: userId }, items: [{ price }] };
 }
 
 function event(type = "user.deleted", id: string = DELETED): string {
@@ -105,12 +108,28 @@ describe("a genuine user.deleted", () => {
     const { response, seen } = await call({ pages }, body, await signed(body));
     expect(response.status).toBe(200);
     const list = seen[0];
-    expect(list?.url.searchParams.get("price_id")).toBe(`${MONTHLY},${ANNUAL}`);
+    // Every live subscription, kept to our product in code: a price filter missed old prices (audit s104 API-1).
+    expect(list?.url.searchParams.has("price_id")).toBe(false);
     expect(list?.url.searchParams.get("status")).toBe("active,past_due,paused");
     expect(cancels(seen)).toEqual(["sub_01bbbbbbbbbbbbbbbbbbbbbbbb", "sub_01cccccccccccccccccccccccc"]);
     const cancel = seen.find((r) => r.url.pathname.endsWith("/cancel"));
     expect(cancel?.method).toBe("POST");
     expect(JSON.parse(cancel?.body ?? "")).toEqual({ effective_from: "immediately" });
+  });
+
+  /*
+    Audit s104 API-1: access counts any price of our product, but deletion
+    looked only at the two current prices, so after a price change a deleted
+    account on an old price kept being billed.
+  */
+  it("cancels a subscription on an old price of our product, never another product's", async () => {
+    const old = { id: "pri_01oooooooooooooooooooooooo", product_id: PRODUCT };
+    const other = { id: "pri_01pppppppppppppppppppppppp", product_id: "pro_01zzzzzzzzzzzzzzzzzzzzzzzz" };
+    const pages = [[sub("sub_01eeeeeeeeeeeeeeeeeeeeeeee", DELETED, "active", old), sub("sub_01ffffffffffffffffffffffff", DELETED, "active", other)]];
+    const body = event();
+    const { response, seen } = await call({ pages }, body, await signed(body));
+    expect(response.status).toBe(200);
+    expect(cancels(seen)).toEqual(["sub_01eeeeeeeeeeeeeeeeeeeeeeee"]);
   });
 
   it("a user with no subscription: 200, nothing cancelled", async () => {

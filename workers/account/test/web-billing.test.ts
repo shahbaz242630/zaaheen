@@ -64,7 +64,7 @@ function world(metadata: unknown, subscriptions: unknown[]) {
 }
 
 const PAYER = { zaaheen_memory: { paddle_customer_id: CUSTOMER } };
-const ACTIVE = [{ id: SUB, status: "active", items: [{ price: { product_id: PRODUCT } }], scheduled_change: null }];
+const ACTIVE = [{ id: SUB, status: "active", custom_data: { clerk_user_id: USER }, items: [{ price: { product_id: PRODUCT } }], scheduled_change: null }];
 const verifyCalls = (seen: Seen[]) => seen.filter((r) => r.url.pathname.endsWith("/access_tokens/verify"));
 
 describe("with a website session token", () => {

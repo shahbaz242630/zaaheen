@@ -23,7 +23,7 @@
 // Before the first cancel the key must prove it is our instance's (its OAuth
 // application list names our client id); otherwise nothing is cancelled.
 
-import { BillingError, deriveBilling } from "./billing";
+import { BillingError, deriveBilling, hasOurProduct } from "./billing";
 import { ClerkClient } from "./clerk";
 import type { Config } from "./config";
 import { PaddleClient } from "./paddle";
@@ -81,9 +81,13 @@ export async function sweepRenewals(config: Config, deps: RouteDeps): Promise<Sw
   const paddle = new PaddleClient(config.paddle, counted);
   const now = deps.now();
 
-  const prices = [config.paddle.prices.monthly, config.paddle.prices.annual];
-  const page = await paddle.listOurSubscriptionsFirstPage(prices, ["active", "past_due"]);
-  const candidates = inWindow(page, now);
+  // Any price of our product, as access counts it (audit s104 API-1).
+  const statuses = ["active", "past_due"];
+  const page = await paddle.listSubscriptionsByStatusFirstPage(statuses);
+  const candidates = inWindow(
+    page.filter((s) => hasOurProduct(s, config.paddle.productId)),
+    now,
+  );
   const result: SweepResult = { candidates: candidates.length, updated: 0, unchanged: 0, skipped: 0, cancelled: 0, held: 0, failed: 0, left: 0 };
   // Gone accounts are collected first and cancelled after the loop, so the
   // guard can see how many there are before any cancel is sent.
@@ -109,7 +113,7 @@ export async function sweepRenewals(config: Config, deps: RouteDeps): Promise<Sw
         result.skipped += 1;
         continue;
       }
-      const derived = deriveBilling(await paddle.listSubscriptions(c.customerId), config.paddle.productId);
+      const derived = deriveBilling(await paddle.listSubscriptions(c.customerId, c.userId), config.paddle.productId);
       const patch = recordPatch(record, applyDerived(record, derived, now, { live: false }));
       if (patch === null) {
         result.unchanged += 1;

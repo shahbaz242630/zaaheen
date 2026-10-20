@@ -24,7 +24,7 @@ import { PaddleClient } from "../paddle";
 import { applyDerived, parseRecord } from "../record";
 import { DAY } from "../time";
 import { UpstreamError } from "../upstream";
-import { type RouteDeps, authenticateSession, log } from "./common";
+import { type RouteDeps, authenticateSession, log, errorDetail } from "./common";
 
 const SUBSCRIBED = ["active", "past_due"] as const;
 
@@ -47,7 +47,7 @@ export async function handleWebPlan(request: Request, config: Config, deps: Rout
     let ending = false;
     let paying = false;
     if (stored.paddle_customer_id !== undefined) {
-      const subscriptions = await paddle.listSubscriptions(stored.paddle_customer_id);
+      const subscriptions = await paddle.listSubscriptions(stored.paddle_customer_id, auth.sub);
       // A copy for this answer only: nothing is written back.
       record = applyDerived(stored, deriveBilling(subscriptions, config.paddle.productId), now, { live: false });
       const mine = ourCancellable(subscriptions, config.paddle.productId, SUBSCRIBED);
@@ -68,7 +68,7 @@ export async function handleWebPlan(request: Request, config: Config, deps: Rout
     return jsonResponse(200, { state: "ended" });
   } catch (e) {
     const known = e instanceof UpstreamError || e instanceof BillingError;
-    log("web_plan", known ? "upstream_error" : "unexpected_error", e instanceof Error ? e.message : undefined);
+    log("web_plan", known ? "upstream_error" : "unexpected_error", errorDetail(e));
     return errorResponse(503, "unavailable");
   }
 }
