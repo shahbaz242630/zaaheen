@@ -167,6 +167,12 @@ const cases = [
   ['header Account removed', edit('index.html', (s) => s.replace(/<a\b[^>]*\bbar-signin\b[^>]*>[\s\S]*?<\/a>/, '')), /index\.html: header "Account" must link to/],
   ['sign-in forward missing', edit('.htaccess', (s) => s.replace(/^.*account\.zaaheen\.com.*$/gm, '')), /\.htaccess: \/sign-in and \/sign-up must forward to the account origin/],
   ['sign-in forward keeps the query', edit('.htaccess', (s) => s.replace('account.zaaheen.com/sign-$1/?', 'account.zaaheen.com/sign-$1/')), /\.htaccess: \/sign-in and \/sign-up must forward to the account origin/],
+  // Cloudflare's copies of the same rules (ADR-SEC-047).
+  ['Cloudflare headers missing', (d) => fs.rmSync(path.join(d, '_headers')), /_headers: required file is missing/],
+  ['Cloudflare headers edited by hand', edit('_headers', (s) => s.replace("script-src 'self';", "script-src 'self' https://cdn.example.com;")), /_headers: not the translation of the \.htaccess files/],
+  ['Cloudflare pay CSP joined with the site one', edit('_headers', (s) => s.replace('  ! Content-Security-Policy\n', '')), /_headers: not the translation of the \.htaccess files/],
+  ['header directive Cloudflare cannot translate', edit('.htaccess', (s) => s.replace('Header always set X-Content-Type-Options "nosniff"', 'Header always set X-Content-Type-Options "nosniff"\n  Header always unset X-Powered-By')), /\.htaccess: cloudflare-files: no Cloudflare translation/],
+  ['Cloudflare redirect added', edit('_redirects', (s) => `${s}/go https://evil.example/ 302\n`), /_redirects: not the pinned redirects/],
   // The policy pages: each one built, and linked from every page's footer
   // (Paddle's domain review wants them "clearly accessible via navigation").
   ['footer Privacy link removed', footerLink('/privacy/'), /docs\/index\.html: footer must link to the Privacy Policy \(\/privacy\/\)/],

@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expectedOffers, readComparisonDate } from './site-facts.mjs';
 import { readDates, staleDates } from './page-dates.mjs';
+import { siteHeaders, siteRedirects } from './cloudflare-files.mjs';
 
 const ORIGIN = 'https://zaaheen.com';
 const ACCOUNT_ORIGIN = 'https://account.zaaheen.com';
@@ -72,7 +73,7 @@ const read = (rel) => fs.readFileSync(path.join(DIST, rel), 'utf8');
 
 // --- Required files (SEO-HANDOFF section 6) -------------------------------------
 for (const rel of [
-  'index.html', '404.html', 'robots.txt', 'sitemap.xml', 'llms.txt', '.htaccess',
+  'index.html', '404.html', 'robots.txt', 'sitemap.xml', 'llms.txt', '.htaccess', '_headers', '_redirects',
   'favicon.ico', 'favicon.svg', 'favicon-192.png', 'apple-touch-icon.png',
   'icon-192.png', 'icon-512.png', 'manifest.webmanifest', 'og-v3.png', `${INDEXNOW_KEY}.txt`,
   'pay/index.html', 'pay/.htaccess', '.well-known/security.txt',
@@ -181,6 +182,21 @@ if (files.includes('.htaccess')) {
   if (mentions.length !== 1 || mentions[0] !== forward) {
     fail('.htaccess', `/sign-in and /sign-up must forward to the account origin, exactly: ${forward}`);
   }
+  // Cloudflare serves the same rules from _headers and _redirects
+  // (ADR-SEC-047): exactly what scripts/cloudflare-files.mjs makes of the .htaccess files.
+  const pay = files.includes('pay/.htaccess') ? read('pay/.htaccess') : null;
+  let translated = null;
+  try {
+    translated = siteHeaders(read('.htaccess'), pay);
+  } catch (e) {
+    fail('.htaccess', e.message);
+  }
+  if (translated !== null && files.includes('_headers') && read('_headers') !== translated) {
+    fail('_headers', 'not the translation of the .htaccess files (scripts/cloudflare-files.mjs); never edit it by hand');
+  }
+}
+if (files.includes('_redirects') && read('_redirects') !== siteRedirects()) {
+  fail('_redirects', 'not the pinned redirects (scripts/cloudflare-files.mjs)');
 }
 
 if (files.includes(`${INDEXNOW_KEY}.txt`) && read(`${INDEXNOW_KEY}.txt`).trim() !== INDEXNOW_KEY) {

@@ -1,0 +1,21 @@
+// zaaheen.com on Cloudflare: static assets only, no Worker code
+// (ADR-SEC-047, scripts/cloudflare-files.mjs). Published by site.yml's
+// pages-deploy job from the audited build in ../dist; the headers and redirects
+// come from dist/_headers and dist/_redirects. scripts/cloudflare-files.test.mjs
+// checks this file.
+{
+  "$schema": "../../workers/account/node_modules/wrangler/config-schema.json",
+  "name": "zaaheen-site",
+  "compatibility_date": "2026-09-01",
+  // Only the real address serves the site: no workers.dev copy, no preview URLs.
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "zaaheen.com", "custom_domain": true }],
+  "assets": {
+    "directory": "../dist",
+    // /learn -> /learn/ (the canonical form of every page), as the old server did.
+    "html_handling": "auto-trailing-slash",
+    // An unknown address gets 404.html with a real 404, never the home page.
+    "not_found_handling": "404-page"
+  }
+}

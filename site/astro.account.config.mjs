@@ -5,6 +5,7 @@ import { defineConfig } from 'astro/config';
 import { readAccountConfig } from './account/scripts/redirect.js';
 import { accountCsp } from './account/scripts/csp.js';
 import { apiHostFor } from './account/scripts/my-account-state.js';
+import { accountHeaders, accountRedirects } from './scripts/cloudflare-files.mjs';
 
 // account.zaaheen.com: the sign-in, sign-up and Google-return pages
 // (AUTH-PAGES-DESIGN, ADR-109). Same repo and styles as zaaheen.com, its own
@@ -42,7 +43,11 @@ const writeHtaccess = {
       const out = fileURLToPath(dir);
       const template = fs.readFileSync(path.join(here, 'account', 'htaccess.template'), 'utf8');
       if (template.split('{{CSP}}').length !== 2) throw new Error('htaccess.template must hold exactly one {{CSP}}');
-      fs.writeFileSync(path.join(out, '.htaccess'), template.replace('{{CSP}}', accountCsp(config.fapiHost, apiHost)));
+      const htaccess = template.replace('{{CSP}}', accountCsp(config.fapiHost, apiHost));
+      fs.writeFileSync(path.join(out, '.htaccess'), htaccess);
+      // Cloudflare's copies of the same rules (scripts/cloudflare-files.mjs, ADR-SEC-047).
+      fs.writeFileSync(path.join(out, '_headers'), accountHeaders(htaccess));
+      fs.writeFileSync(path.join(out, '_redirects'), accountRedirects());
     },
   },
 };
