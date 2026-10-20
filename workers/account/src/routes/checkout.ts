@@ -24,7 +24,7 @@ import { bearerToken, errorResponse, jsonResponse } from "../http";
 import { PaddleClient } from "../paddle";
 import { parseRecord, recordPatch } from "../record";
 import { UpstreamError } from "../upstream";
-import { type RouteDeps, authenticateBilling, log, readJsonObject } from "./common";
+import { type RouteDeps, authenticateBilling, log, readJsonObject, errorDetail } from "./common";
 
 const MAX_BODY_BYTES = 1024;
 const SUBSCRIBED = ["active", "past_due"] as const;
@@ -49,7 +49,7 @@ export async function handleCheckout(request: Request, config: Config, deps: Rou
 
     // Already subscribed? Decided by a live fetch, never by the record.
     if (record.paddle_customer_id !== undefined) {
-      const subscriptions = await paddle.listSubscriptions(record.paddle_customer_id);
+      const subscriptions = await paddle.listSubscriptions(record.paddle_customer_id, auth.sub);
       const current = ourSubscriptionIds(subscriptions, config.paddle.productId, SUBSCRIBED);
       if (current.length > 0) {
         const url = await paddle.createPortalSession(record.paddle_customer_id, current);
@@ -71,7 +71,7 @@ export async function handleCheckout(request: Request, config: Config, deps: Rou
     return jsonResponse(200, { kind: "checkout", txn });
   } catch (e) {
     const known = e instanceof UpstreamError || e instanceof BillingError;
-    log("checkout", known ? "upstream_error" : "unexpected_error", e instanceof Error ? e.message : undefined);
+    log("checkout", known ? "upstream_error" : "unexpected_error", errorDetail(e));
     return errorResponse(503, "unavailable");
   }
 }

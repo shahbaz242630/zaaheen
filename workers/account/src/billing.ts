@@ -85,6 +85,16 @@ export function ourCancellable(
   return { ending, renewing };
 }
 
+/**
+ * Whether a subscription has an item of our product, at any price (audit
+ * s104 API-1). Never throws: for callers walking every subscription in the
+ * account, where one unreadable entry must not stop the rest.
+ */
+export function hasOurProduct(sub: unknown, productId: string): boolean {
+  if (!isObject(sub) || !Array.isArray(sub["items"])) return false;
+  return sub["items"].some((item) => isObject(item) && isObject(item["price"]) && item["price"]["product_id"] === productId);
+}
+
 function isOurs(sub: unknown, productId: string): sub is Record<string, unknown> {
   if (!isObject(sub)) throw new BillingError("a subscription is not an object");
   const items = sub["items"];

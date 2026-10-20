@@ -16,7 +16,7 @@ import { bearerToken, errorResponse, jsonResponse } from "../http";
 import { PaddleClient } from "../paddle";
 import { parseRecord } from "../record";
 import { UpstreamError } from "../upstream";
-import { type RouteDeps, authenticateBilling, log } from "./common";
+import { type RouteDeps, authenticateBilling, log, errorDetail } from "./common";
 
 const SUBSCRIBED = ["active", "past_due"] as const;
 
@@ -34,7 +34,7 @@ export async function handleCancel(request: Request, config: Config, deps: Route
     for (const w of warnings) log("cancel", "record_warning", w);
 
     if (record.paddle_customer_id === undefined) return jsonResponse(200, { kind: "none" });
-    const subscriptions = await paddle.listSubscriptions(record.paddle_customer_id);
+    const subscriptions = await paddle.listSubscriptions(record.paddle_customer_id, auth.sub);
     const { ending, renewing } = ourCancellable(subscriptions, config.paddle.productId, SUBSCRIBED);
     const first = renewing[0];
     if (first === undefined) return jsonResponse(200, { kind: ending.length > 0 ? "ending" : "none" });
@@ -43,7 +43,7 @@ export async function handleCancel(request: Request, config: Config, deps: Route
     return jsonResponse(200, { kind: "portal", url });
   } catch (e) {
     const known = e instanceof UpstreamError || e instanceof BillingError;
-    log("cancel", known ? "upstream_error" : "unexpected_error", e instanceof Error ? e.message : undefined);
+    log("cancel", known ? "upstream_error" : "unexpected_error", errorDetail(e));
     return errorResponse(503, "unavailable");
   }
 }
