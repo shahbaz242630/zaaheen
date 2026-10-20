@@ -95,7 +95,6 @@ zeroize.workspace = true
 # no longer needed since no test consumes plaintext open.
 vault-storage = { path = "../vault-storage" }
 tokio = { workspace = true }
-tokio-test.workspace = true
 proptest.workspace = true
 tempfile.workspace = true
 # uuid — dev-only at Commit 6 (2026-05-26): tests in

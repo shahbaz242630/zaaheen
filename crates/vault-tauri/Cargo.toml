@@ -47,15 +47,10 @@ tauri-plugin-dialog = { workspace = true }
 vault-core = { path = "../vault-core" }
 vault-app = { path = "../vault-app" }
 vault-storage = { path = "../vault-storage" }
-# Phase 4b: Tauri commands dispatch through Adapter (vault-mcp trait + ToolInvokeDetails / ToolInvokeError) and build RetrievalQuery (vault-retrieval).
+# Phase 4b: Tauri commands dispatch through Adapter (vault-mcp trait + ToolInvokeDetails / ToolInvokeError).
+# vault-retrieval, vault-embedding and vault-llm were listed here too; the code
+# that used them moved behind vault-app (ADR-108), so they arrive through it.
 vault-mcp = { path = "../vault-mcp" }
-vault-retrieval = { path = "../vault-retrieval" }
-# ADR-087 first-run model acquisition (BRD §5.11). `vault-embedding` supplies
-# the pinned reranker SHA-256 constants; `vault-llm` supplies the ADR-043
-# download-and-verify routine that `model_fetch` reuses rather than duplicates.
-# Neither is new transitive weight — both already arrive via vault-app.
-vault-embedding = { path = "../vault-embedding" }
-vault-llm = { path = "../vault-llm" }
 # ADR-092: the cross-platform OS scheduler for automatic maintenance. Depends
 # only on vault-core; the maintenance commands build a ScheduleSpec from it.
 vault-scheduler = { path = "../vault-scheduler" }
