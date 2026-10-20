@@ -13,7 +13,7 @@ import { readAccountConfig } from '../account/scripts/redirect.js';
 import { accountCsp, PRODUCTION_FAPI_HOST } from '../account/scripts/csp.js';
 import { apiHostFor, PRODUCTION_API_HOST } from '../account/scripts/my-account-state.js';
 import { CLERK_JS } from '../account/scripts/clerk-pin.js';
-import { accountHeaders, accountRedirects } from './cloudflare-files.mjs';
+import { accountHeaders, accountRedirects, pageFolders } from './cloudflare-files.mjs';
 
 const args = process.argv.slice(2);
 const RELEASE = args.includes('--release');
@@ -122,7 +122,7 @@ if (files.includes('.htaccess')) {
     fail('_headers', 'not the translation of .htaccess (scripts/cloudflare-files.mjs); never edit it by hand');
   }
 }
-if (files.includes('_redirects') && read('_redirects') !== accountRedirects()) {
+if (files.includes('_redirects') && read('_redirects') !== accountRedirects(pageFolders(files))) {
   fail('_redirects', 'not the pinned redirects (scripts/cloudflare-files.mjs)');
 }
 

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import searchIndex from './src/integrations/search-index.mjs';
-import { siteHeaders, siteRedirects } from './scripts/cloudflare-files.mjs';
+import { builtFiles, pageFolders, siteHeaders, siteRedirects } from './scripts/cloudflare-files.mjs';
 
 // Cloudflare's _headers and _redirects, translated from the built .htaccess
 // files (scripts/cloudflare-files.mjs, ADR-SEC-047). scripts/audit.mjs rebuilds them
@@ -16,7 +16,7 @@ const cloudflareFiles = {
       const pay = path.join(out, 'pay', '.htaccess');
       const root = fs.readFileSync(path.join(out, '.htaccess'), 'utf8');
       fs.writeFileSync(path.join(out, '_headers'), siteHeaders(root, fs.existsSync(pay) ? fs.readFileSync(pay, 'utf8') : null));
-      fs.writeFileSync(path.join(out, '_redirects'), siteRedirects());
+      fs.writeFileSync(path.join(out, '_redirects'), siteRedirects(pageFolders(builtFiles(out))));
     },
   },
 };

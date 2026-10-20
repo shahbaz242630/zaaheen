@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { accountHeaders, accountRedirects, alwaysSet, siteHeaders, siteRedirects } from './cloudflare-files.mjs';
+import { accountHeaders, accountRedirects, alwaysSet, charsetRules, pageFolders, siteHeaders, siteRedirects } from './cloudflare-files.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_HT = fs.readFileSync(path.join(HERE, '..', 'public', '.htaccess'), 'utf8');
@@ -124,9 +124,10 @@ test('the account origin gets exactly its built .htaccess headers', () => {
   assert.equal(got.get('content-security-policy'), "default-src 'self'");
 });
 
+const rules = (text) => text.split('\n').filter((l) => l && !l.startsWith('#'));
+
 test("sign-in and sign-up forward to the account origin, temporarily, with a fixed query that replaces the visitor's", () => {
-  const lines = siteRedirects().split('\n').filter((l) => l && !l.startsWith('#'));
-  assert.deepEqual(lines, [
+  assert.deepEqual(rules(siteRedirects([])), [
     '/sign-in https://account.zaaheen.com/sign-in/?from=website 302',
     '/sign-in/ https://account.zaaheen.com/sign-in/?from=website 302',
     '/sign-up https://account.zaaheen.com/sign-up/?from=website 302',
@@ -135,8 +136,28 @@ test("sign-in and sign-up forward to the account origin, temporarily, with a fix
 });
 
 test("the account origin's front door is sign-in", () => {
-  const lines = accountRedirects().split('\n').filter((l) => l && !l.startsWith('#'));
-  assert.deepEqual(lines, ['/ /sign-in/ 302']);
+  assert.deepEqual(rules(accountRedirects([])), ['/ /sign-in/ 302']);
+});
+
+test('every page gets one permanent hop to its canonical address', () => {
+  const folders = pageFolders(['index.html', 'learn/index.html', 'learn/a-b/index.html', '404.html', 'robots.txt', '_astro/x.js']);
+  assert.deepEqual(folders, ['', 'learn/', 'learn/a-b/']);
+  assert.deepEqual(rules(siteRedirects(folders)).slice(4), [
+    '/index.html / 301',
+    '/learn/index.html /learn/ 301',
+    '/learn /learn/ 301',
+    '/learn/a-b/index.html /learn/a-b/ 301',
+    '/learn/a-b /learn/a-b/ 301',
+  ]);
+  assert.deepEqual(rules(accountRedirects(['sign-in/'])), ['/ /sign-in/ 302', '/sign-in/index.html /sign-in/ 301', '/sign-in /sign-in/ 301']);
+});
+
+test('text files are declared UTF-8, as AddCharset says', () => {
+  const got = effective(parse(siteHeaders(ROOT_HT, PAY_HT)), ['/*', '/*.txt']);
+  assert.equal(got.get('content-type'), 'text/plain; charset=utf-8');
+  assert.equal(effective(parse(siteHeaders(ROOT_HT, PAY_HT)), ['/*', '/*.xml']).get('content-type'), 'application/xml; charset=utf-8');
+  assert.deepEqual(charsetRules('AddCharset UTF-8 .txt'), ['/*.txt', '  ! Content-Type', '  Content-Type: text/plain; charset=utf-8']);
+  assert.throws(() => charsetRules('AddCharset UTF-8 .json'), /no Cloudflare translation/);
 });
 
 /** JSONC to JSON: drops `//` comments outside strings (the files have no block comments). */

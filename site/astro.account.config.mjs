@@ -5,7 +5,7 @@ import { defineConfig } from 'astro/config';
 import { readAccountConfig } from './account/scripts/redirect.js';
 import { accountCsp } from './account/scripts/csp.js';
 import { apiHostFor } from './account/scripts/my-account-state.js';
-import { accountHeaders, accountRedirects } from './scripts/cloudflare-files.mjs';
+import { accountHeaders, accountRedirects, builtFiles, pageFolders } from './scripts/cloudflare-files.mjs';
 
 // account.zaaheen.com: the sign-in, sign-up and Google-return pages
 // (AUTH-PAGES-DESIGN, ADR-109). Same repo and styles as zaaheen.com, its own
@@ -47,7 +47,7 @@ const writeHtaccess = {
       fs.writeFileSync(path.join(out, '.htaccess'), htaccess);
       // Cloudflare's copies of the same rules (scripts/cloudflare-files.mjs, ADR-SEC-047).
       fs.writeFileSync(path.join(out, '_headers'), accountHeaders(htaccess));
-      fs.writeFileSync(path.join(out, '_redirects'), accountRedirects());
+      fs.writeFileSync(path.join(out, '_redirects'), accountRedirects(pageFolders(builtFiles(out))));
     },
   },
 };

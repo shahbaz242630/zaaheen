@@ -75,6 +75,12 @@ await expect('robots.txt', `${ORIGIN}/robots.txt`, (r, b) =>
 for (const path of ['/sitemap.xml', '/llms.txt', '/favicon.ico', '/favicon-192.png', '/og-v3.png', `/${KEY}.txt`]) {
   await expect(path, `${ORIGIN}${path}`, (r) => (r.status !== 200 ? `HTTP ${r.status}` : ''));
 }
+// llms.txt carries non-ASCII text: without a charset, nosniff browsers show "Â·".
+await expect('llms.txt is declared UTF-8', `${ORIGIN}/llms.txt`, (r) =>
+  r.status !== 200 ? `HTTP ${r.status}` : !/charset=utf-8/i.test(r.headers.get('content-type') ?? '') ? `Content-Type ${r.headers.get('content-type')}` : '');
+await expect('a page without its slash moves there permanently', `${ORIGIN}/learn`, (r) =>
+  ![301, 308].includes(r.status) ? `HTTP ${r.status}, expected 301`
+    : new URL(r.headers.get('location') ?? '', ORIGIN).href !== `${ORIGIN}/learn/` ? `Location ${r.headers.get('location')}` : '');
 await expect('missing page is a real 404', `${ORIGIN}/no-such-page-${Date.now()}/`, (r) =>
   r.status !== 404 ? `HTTP ${r.status}, expected 404` : '');
 await expect('www redirects to the apex', 'https://www.zaaheen.com/', (r) =>

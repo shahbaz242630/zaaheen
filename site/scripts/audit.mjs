@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expectedOffers, readComparisonDate } from './site-facts.mjs';
 import { readDates, staleDates } from './page-dates.mjs';
-import { siteHeaders, siteRedirects } from './cloudflare-files.mjs';
+import { pageFolders, siteHeaders, siteRedirects } from './cloudflare-files.mjs';
 
 const ORIGIN = 'https://zaaheen.com';
 const ACCOUNT_ORIGIN = 'https://account.zaaheen.com';
@@ -195,7 +195,7 @@ if (files.includes('.htaccess')) {
     fail('_headers', 'not the translation of the .htaccess files (scripts/cloudflare-files.mjs); never edit it by hand');
   }
 }
-if (files.includes('_redirects') && read('_redirects') !== siteRedirects()) {
+if (files.includes('_redirects') && read('_redirects') !== siteRedirects(pageFolders(files))) {
   fail('_redirects', 'not the pinned redirects (scripts/cloudflare-files.mjs)');
 }
 

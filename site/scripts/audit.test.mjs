@@ -173,6 +173,8 @@ const cases = [
   ['Cloudflare pay CSP joined with the site one', edit('_headers', (s) => s.replace('  ! Content-Security-Policy\n', '')), /_headers: not the translation of the \.htaccess files/],
   ['header directive Cloudflare cannot translate', edit('.htaccess', (s) => s.replace('Header always set X-Content-Type-Options "nosniff"', 'Header always set X-Content-Type-Options "nosniff"\n  Header always unset X-Powered-By')), /\.htaccess: cloudflare-files: no Cloudflare translation/],
   ['Cloudflare redirect added', edit('_redirects', (s) => `${s}/go https://evil.example/ 302\n`), /_redirects: not the pinned redirects/],
+  ['Cloudflare 301 for a page missing', edit('_redirects', (s) => s.replace('/learn /learn/ 301\n', '')), /_redirects: not the pinned redirects/],
+  ['text files not declared UTF-8 on Cloudflare', edit('_headers', (s) => s.replace('Content-Type: text/plain; charset=utf-8', 'Content-Type: text/plain')), /_headers: not the translation/],
   // The policy pages: each one built, and linked from every page's footer
   // (Paddle's domain review wants them "clearly accessible via navigation").
   ['footer Privacy link removed', footerLink('/privacy/'), /docs\/index\.html: footer must link to the Privacy Policy \(\/privacy\/\)/],
