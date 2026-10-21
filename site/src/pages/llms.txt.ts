@@ -69,7 +69,7 @@ export const GET: APIRoute = () => {
       'Memories are stored and encrypted on that person\'s own computer and are never uploaded. ' +
       'The account is only for signing in and the subscription; it never holds the memories.',
     '',
-    `- Current version: ${RELEASE.version} (${RELEASE.stage.toLowerCase()}), for ${win.arch} Windows (tested on ${win.tested}) and for Macs with an ${mac.arch} (tested on ${mac.tested}).`,
+    `- Current version: ${RELEASE.version}, for ${win.arch} Windows (tested on ${win.tested}) and for Macs with an ${mac.arch} (tested on ${mac.tested}).`,
     RELEASE.available
       ? `- Download: Windows ${win.url} (${win.size}, SHA-256 ${win.sha256}); Mac ${mac.url} (${mac.size}, SHA-256 ${mac.sha256}), a disk image: drag ${SITE.name} into Applications and open it from there.`
       : '- Download: coming soon for Windows and Mac.',
