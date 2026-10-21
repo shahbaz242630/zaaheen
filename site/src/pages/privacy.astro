@@ -206,9 +206,10 @@ const topic = (id: string) =>
     <Row id="zaaheen-com" title={topic('zaaheen-com')} where="No cookies">
       <p>zaaheen.com sets no cookies and uses no analytics, advertising or tracking. Because
          we don't track you across websites, there is nothing for a browser's "Do Not Track"
-         signal to switch off. The site is hosted by Hostinger and delivered through
-         Cloudflare, whose servers see your IP address and keep standard server logs for
-         security, under their own policies.</p>
+         signal to switch off. The site is hosted and delivered by Cloudflare. Hostinger keeps a
+         backup copy that serves the site only if we switch back to it. Whichever is serving
+         the site sees your IP address and keeps standard server logs for security, under its
+         own policies.</p>
       <p>The payment page opens Paddle's checkout, which runs under Paddle's own privacy
          policy and may set its own cookies to complete your payment.</p>
     </Row>
@@ -237,10 +238,10 @@ const topic = (id: string) =>
               <td>Your name, email address, how you sign in, and your account record</td></tr>
           <tr><td>Paddle</td><td>Our reseller: payments, tax and invoices (its own data controller)</td>
               <td>Your email address, payment details, country and billing history</td></tr>
-          <tr><td>Cloudflare</td><td>Runs our account service, delivers our websites, and the bot check at sign-up</td>
+          <tr><td>Cloudflare</td><td>Runs our account service, hosts and delivers our websites, and the bot check at sign-up</td>
               <td>Your IP address and the requests the app and your browser send</td></tr>
-          <tr><td>Hostinger</td><td>Hosts our websites</td>
-              <td>Your IP address, in standard server logs</td></tr>
+          <tr><td>Hostinger</td><td>Keeps a backup copy of our websites, used only if we switch back to it</td>
+              <td>Your IP address, in standard server logs, only while it serves the site</td></tr>
           <tr><td>Microsoft</td><td>Our email</td>
               <td>Emails you send us, and our replies</td></tr>
           <tr><td>Google</td><td>Only if you sign in with Google</td>
