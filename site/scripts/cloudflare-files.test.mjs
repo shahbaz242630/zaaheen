@@ -88,7 +88,7 @@ test('/pay gets its own CSP and COOP alone, never joined with the site-wide ones
   const got = effective(rules, ['/*', '/pay/*']);
   const want = new Map([...lower(alwaysSet(ROOT_HT)), ...lower(alwaysSet(PAY_HT))]);
   for (const [name, value] of want) assert.equal(got.get(name), value, name);
-  assert.match(got.get('content-security-policy'), /https:\/\/cdn\.paddle\.com/);
+  assert.ok(got.get('content-security-policy').split(/[\s;]+/).includes('https://cdn.paddle.com'), 'pay CSP allows Paddle');
   assert.equal(got.get('content-security-policy').split('default-src').length, 2, 'one policy, not two joined');
   assert.equal(got.get('x-robots-tag'), 'noindex');
 });
