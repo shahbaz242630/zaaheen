@@ -40,6 +40,10 @@ const cases = [
   ['CSP unset afterwards', htaccess((s) => s.replace(/(Header always set Cache-Control[^\n]*\n)/, '$1  Header always unset Content-Security-Policy\n')), /not the pinned template/],
   ['headers switched off', htaccess((s) => s.replace('<IfModule mod_headers.c>', '<IfModule mod_nothing.c>')), /not the pinned template/],
   ['rewrite rule added', htaccess((s) => s.replace('RewriteEngine On', 'RewriteEngine On\n  RewriteRule ^x$ https://evil.example/ [R=302,L]')), /not the pinned template/],
+  // Cloudflare's copies of the same rules (ADR-SEC-047).
+  ['Cloudflare headers missing', (d) => fs.rmSync(path.join(d, '_headers')), /_headers: required file is missing/],
+  ['Cloudflare headers loosened by hand', edit('_headers', (s) => s.replace('X-Frame-Options: DENY', 'X-Frame-Options: SAMEORIGIN')), /_headers: not the translation of \.htaccess/],
+  ['Cloudflare redirect added', edit('_redirects', (s) => `${s}/go https://evil.example/ 302\n`), /_redirects: not the pinned redirects/],
   // The Trusted Types policy file (S1-1).
   ['tt.js loosened', edit('tt.js', (s) => s.replace('if (url === BOT_CHECK) return url;', 'return url;')), /tt\.js is not the pinned policy/],
   ['tt.js not first', signIn((s) => s.replace('<script src="/tt.js"></script>', '').replace('</head>', '<script src="/tt.js"></script></head>')), /tt\.js must be the first script/],

@@ -1,0 +1,19 @@
+// account.zaaheen.com on Cloudflare: static assets only, no Worker code
+// (ADR-SEC-047, scripts/cloudflare-files.mjs). Published by site.yml's
+// account-pages-deploy job from the audited production build in
+// ../dist-account; its one policy comes from dist-account/_headers.
+// scripts/cloudflare-files.test.mjs checks this file.
+{
+  "$schema": "../../workers/account/node_modules/wrangler/config-schema.json",
+  "name": "zaaheen-account",
+  "compatibility_date": "2026-09-01",
+  // Only the real address serves the pages: no workers.dev copy, no preview URLs.
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "account.zaaheen.com", "custom_domain": true }],
+  "assets": {
+    "directory": "../dist-account",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}

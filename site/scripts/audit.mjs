@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expectedOffers, readComparisonDate } from './site-facts.mjs';
 import { readDates, staleDates } from './page-dates.mjs';
+import { pageFolders, siteHeaders, siteRedirects } from './cloudflare-files.mjs';
 
 const ORIGIN = 'https://zaaheen.com';
 const ACCOUNT_ORIGIN = 'https://account.zaaheen.com';
@@ -72,7 +73,7 @@ const read = (rel) => fs.readFileSync(path.join(DIST, rel), 'utf8');
 
 // --- Required files (SEO-HANDOFF section 6) -------------------------------------
 for (const rel of [
-  'index.html', '404.html', 'robots.txt', 'sitemap.xml', 'llms.txt', '.htaccess',
+  'index.html', '404.html', 'robots.txt', 'sitemap.xml', 'llms.txt', '.htaccess', '_headers', '_redirects',
   'favicon.ico', 'favicon.svg', 'favicon-192.png', 'apple-touch-icon.png',
   'icon-192.png', 'icon-512.png', 'manifest.webmanifest', 'og-v3.png', `${INDEXNOW_KEY}.txt`,
   'pay/index.html', 'pay/.htaccess', '.well-known/security.txt',
@@ -181,6 +182,21 @@ if (files.includes('.htaccess')) {
   if (mentions.length !== 1 || mentions[0] !== forward) {
     fail('.htaccess', `/sign-in and /sign-up must forward to the account origin, exactly: ${forward}`);
   }
+  // Cloudflare serves the same rules from _headers and _redirects
+  // (ADR-SEC-047): exactly what scripts/cloudflare-files.mjs makes of the .htaccess files.
+  const pay = files.includes('pay/.htaccess') ? read('pay/.htaccess') : null;
+  let translated = null;
+  try {
+    translated = siteHeaders(read('.htaccess'), pay);
+  } catch (e) {
+    fail('.htaccess', e.message);
+  }
+  if (translated !== null && files.includes('_headers') && read('_headers') !== translated) {
+    fail('_headers', 'not the translation of the .htaccess files (scripts/cloudflare-files.mjs); never edit it by hand');
+  }
+}
+if (files.includes('_redirects') && read('_redirects') !== siteRedirects(pageFolders(files))) {
+  fail('_redirects', 'not the pinned redirects (scripts/cloudflare-files.mjs)');
 }
 
 if (files.includes(`${INDEXNOW_KEY}.txt`) && read(`${INDEXNOW_KEY}.txt`).trim() !== INDEXNOW_KEY) {
@@ -447,6 +463,20 @@ if (files.includes('sitemap.xml')) {
   for (const m of all(read('sitemap.xml'), /<lastmod>([^<]+)<\/lastmod>/g)) {
     if (Number.isNaN(Date.parse(m[1]))) fail('sitemap.xml', `unparseable lastmod ${m[1]}`);
     else if (Date.parse(m[1]) > Date.now() + 60_000) fail('sitemap.xml', `lastmod in the future: ${m[1]}`);
+  }
+}
+
+// --- A page is never published after it last changed (SEO audit s105) -------------
+// Both pairs a search engine reads: the article meta tags and the JSON-LD dates.
+for (const rel of htmlFiles) {
+  const html = read(rel);
+  const meta = (p) => html.match(new RegExp(`<meta property="article:${p}" content="([^"]+)"`))?.[1];
+  const pairs = [[meta('published_time'), meta('modified_time')]];
+  for (const m of all(html, /"datePublished":"([^"]+)"[^}]*?"dateModified":"([^"]+)"/g)) pairs.push([m[1], m[2]]);
+  for (const [published, modified] of pairs) {
+    if (published && modified && Date.parse(published) > Date.parse(modified)) {
+      fail(rel, `published ${published} is later than modified ${modified}`);
+    }
   }
 }
 

@@ -34,7 +34,7 @@ const problems = [];
 const get = (url, init = {}) =>
   fetch(url, { redirect: 'manual', headers: { 'Cache-Control': 'no-cache' }, ...init });
 
-// 1. Wait for Hostinger to pull the account-deploy branch and serve this build.
+// 1. Wait for the host (Cloudflare, or Hostinger pulling account-deploy) to serve this build.
 const deadline = Date.now() + WAIT_S * 1000;
 let live = '';
 for (;;) {
@@ -47,7 +47,7 @@ for (;;) {
   if (live === SHA) break;
   if (Date.now() > deadline) {
     console.error(`post-deploy-account: account.zaaheen.com still serves "${live}" after ${WAIT_S}s, expected ${SHA}.`);
-    console.error('Check hPanel > Git for the account site: the deployment log, and that auto-deployment is on for account-deploy.');
+    console.error('Check the publish job in the Site workflow (Cloudflare), or hPanel > Git for the account-deploy branch (Hostinger).');
     process.exit(1);
   }
   await new Promise((r) => setTimeout(r, 10_000));
@@ -84,7 +84,7 @@ if (ORIGIN === ACCOUNT_ORIGIN) {
     ![301, 308].includes(r.status) ? `HTTP ${r.status}, expected 301`
       : !String(r.headers.get('location')).startsWith(`${ORIGIN}/`) ? `Location ${r.headers.get('location')}` : '');
 }
-for (const path of ['/.htaccess', '/.git/HEAD']) {
+for (const path of ['/.htaccess', '/.git/HEAD', '/_headers', '/_redirects']) {
   await expect(`${path} is not served`, `${ORIGIN}${path}`, (r) =>
     r.status === 200 ? `HTTP 200: ${path} is publicly readable` : '');
 }

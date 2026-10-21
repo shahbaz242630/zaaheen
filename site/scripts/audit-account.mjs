@@ -13,6 +13,7 @@ import { readAccountConfig } from '../account/scripts/redirect.js';
 import { accountCsp, PRODUCTION_FAPI_HOST } from '../account/scripts/csp.js';
 import { apiHostFor, PRODUCTION_API_HOST } from '../account/scripts/my-account-state.js';
 import { CLERK_JS } from '../account/scripts/clerk-pin.js';
+import { accountHeaders, accountRedirects, pageFolders } from './cloudflare-files.mjs';
 
 const args = process.argv.slice(2);
 const RELEASE = args.includes('--release');
@@ -47,7 +48,7 @@ const read = (rel) => fs.readFileSync(path.join(DIST, rel), 'utf8');
 const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
 
 // --- Required and forbidden files -------------------------------------------------
-for (const rel of [...PAGES, '404.html', '.htaccess', 'tt.js', 'robots.txt', `clerk/${CLERK_JS.file}`]) {
+for (const rel of [...PAGES, '404.html', '.htaccess', '_headers', '_redirects', 'tt.js', 'robots.txt', `clerk/${CLERK_JS.file}`]) {
   if (!files.includes(rel)) fail(rel, 'required file is missing from the build');
 }
 for (const rel of ['sitemap.xml', 'llms.txt']) {
@@ -109,6 +110,20 @@ if (files.includes('.htaccess')) {
     const got = header(name);
     if (got.length !== 1 || got[0] !== value) fail('.htaccess', `missing or wrong header: ${label}`);
   }
+  // Cloudflare serves the same rules from _headers and _redirects
+  // (ADR-SEC-047): exactly what scripts/cloudflare-files.mjs makes of this .htaccess.
+  let translated = null;
+  try {
+    translated = accountHeaders(conf);
+  } catch (e) {
+    fail('.htaccess', e.message);
+  }
+  if (translated !== null && files.includes('_headers') && read('_headers') !== translated) {
+    fail('_headers', 'not the translation of .htaccess (scripts/cloudflare-files.mjs); never edit it by hand');
+  }
+}
+if (files.includes('_redirects') && read('_redirects') !== accountRedirects(pageFolders(files))) {
+  fail('_redirects', 'not the pinned redirects (scripts/cloudflare-files.mjs)');
 }
 
 // --- tt.js and Clerk's file (S1-1, D3, S2-1) ----------------------------------------

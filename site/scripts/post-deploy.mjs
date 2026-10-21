@@ -32,7 +32,7 @@ const problems = [];
 const get = (url, init = {}) =>
   fetch(url, { redirect: 'manual', headers: { 'Cache-Control': 'no-cache' }, ...init });
 
-// 1. Wait for Hostinger to pull the site-deploy branch and serve this build.
+// 1. Wait for the host (Cloudflare, or Hostinger pulling site-deploy) to serve this build.
 const deadline = Date.now() + WAIT_S * 1000;
 let live = '';
 for (;;) {
@@ -46,7 +46,7 @@ for (;;) {
   if (live === SHA) break;
   if (Date.now() > deadline) {
     console.error(`post-deploy: zaaheen.com still serves "${live}" after ${WAIT_S}s, expected ${SHA}.`);
-    console.error('Check hPanel > Git: the deployment log, and that auto-deployment is on for site-deploy.');
+    console.error('Check the publish job in the Site workflow (Cloudflare), or hPanel > Git for the site-deploy branch (Hostinger).');
     process.exit(1);
   }
   await new Promise((r) => setTimeout(r, 10_000));
@@ -75,6 +75,12 @@ await expect('robots.txt', `${ORIGIN}/robots.txt`, (r, b) =>
 for (const path of ['/sitemap.xml', '/llms.txt', '/favicon.ico', '/favicon-192.png', '/og-v3.png', `/${KEY}.txt`]) {
   await expect(path, `${ORIGIN}${path}`, (r) => (r.status !== 200 ? `HTTP ${r.status}` : ''));
 }
+// llms.txt carries non-ASCII text: without a charset, nosniff browsers show "Â·".
+await expect('llms.txt is declared UTF-8', `${ORIGIN}/llms.txt`, (r) =>
+  r.status !== 200 ? `HTTP ${r.status}` : !/charset=utf-8/i.test(r.headers.get('content-type') ?? '') ? `Content-Type ${r.headers.get('content-type')}` : '');
+await expect('a page without its slash moves there permanently', `${ORIGIN}/learn`, (r) =>
+  ![301, 308].includes(r.status) ? `HTTP ${r.status}, expected 301`
+    : new URL(r.headers.get('location') ?? '', ORIGIN).href !== `${ORIGIN}/learn/` ? `Location ${r.headers.get('location')}` : '');
 await expect('missing page is a real 404', `${ORIGIN}/no-such-page-${Date.now()}/`, (r) =>
   r.status !== 404 ? `HTTP ${r.status}, expected 404` : '');
 await expect('www redirects to the apex', 'https://www.zaaheen.com/', (r) =>
@@ -83,10 +89,22 @@ await expect('www redirects to the apex', 'https://www.zaaheen.com/', (r) =>
 await expect('http redirects to https', 'http://zaaheen.com/', (r) =>
   ![301, 308].includes(r.status) ? `HTTP ${r.status}, expected 301`
     : !String(r.headers.get('location')).startsWith(`${ORIGIN}/`) ? `Location ${r.headers.get('location')}` : '');
+// AUTH-PAGES-DESIGN D1: /sign-in and /sign-up forward to the account origin and
+// never carry the visitor's query there (Cloudflare appends it unless the
+// target has its own: scripts/cloudflare-files.mjs).
+for (const page of ['in', 'up']) {
+  await expect(`/sign-${page} forwards without the visitor's query`, `${ORIGIN}/sign-${page}?redirect_url=https%3A%2F%2Fevil.example%2F`, (r) => {
+    if (r.status !== 302) return `HTTP ${r.status}, expected 302`;
+    const to = new URL(r.headers.get('location') ?? '', ORIGIN);
+    if (to.origin !== 'https://account.zaaheen.com' || to.pathname !== `/sign-${page}/`) return `Location ${to.href}`;
+    return to.searchParams.has('redirect_url') ? `the visitor's redirect_url was carried: ${to.href}` : '';
+  });
+}
 await expect('repository metadata is not served', `${ORIGIN}/.git/HEAD`, (r) =>
   r.status === 200 ? 'HTTP 200: .git is publicly readable' : '');
-// Nuclei's htaccess-config check (session 72): the server config itself must never be downloadable.
-for (const path of ['/.htaccess', '/pay/.htaccess']) {
+// Nuclei's htaccess-config check (session 72): the server config itself must
+// never be downloadable, on either host (Cloudflare's files: ADR-SEC-047).
+for (const path of ['/.htaccess', '/pay/.htaccess', '/_headers', '/_redirects']) {
   await expect(`${path} is not served`, `${ORIGIN}${path}`, (r) =>
     r.status === 200 ? `HTTP 200: ${path} is publicly readable` : '');
 }

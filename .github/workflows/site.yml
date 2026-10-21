@@ -19,6 +19,21 @@ name: Site
 # production settings in repository variables CLERK_PUBLISHABLE_KEY (pk_live_)
 # and ZAAHEEN_CLIENT_ID. zaaheen.com links to it from every header, so it is
 # never published while ACCOUNT_PUBLISH is off.
+#
+# Cloudflare (session 105, ADR-SEC-047): Hostinger's shared servers answer 429
+# to OpenAI's and Meta's crawlers by name and cannot be told otherwise, so both
+# sites are served by Cloudflare as static assets (Workers zaaheen-site and
+# zaaheen-account, configs in site/cloudflare/). With repository variable
+# CLOUDFLARE_PUBLISH 'true', the cloudflare-deploy and account-cloudflare-deploy
+# jobs publish the SAME audited artifacts there, after the Hostinger jobs, which
+# keep running: Hostinger stays a current fallback until it is retired. The live
+# checks then run after the Cloudflare publish instead. Cloudflare reads
+# _headers and _redirects, made from the .htaccess files at build time
+# (scripts/cloudflare-files.mjs); each host gets only its own files. Needs
+# secret CLOUDFLARE_SITES_TOKEN in the main-only environment cloudflare-sites
+# (Cloudflare's Edit Cloudflare Workers template, this account and zone only)
+# and variable CLOUDFLARE_ACCOUNT_ID. Both jobs wait for the Hostinger jobs while
+# both hosts are published; drop those needs when Hostinger is retired.
 
 on:
   pull_request:
@@ -131,6 +146,10 @@ jobs:
         run: |
           set -euo pipefail
           test -f dist/.htaccess || { echo "::error::.htaccess missing from the artifact"; exit 1; }
+          # Cloudflare's files mean nothing to Hostinger, which would serve them as pages.
+          rm -f dist/_headers dist/_redirects
+          # The Cloudflare job reads the changed pages from here (IndexNow), even when nothing changed.
+          : > "$GITHUB_WORKSPACE/changed.txt"
           # While the app is not on sale (no installer link on the home page,
           # RELEASE.available false in site/src/data/site.ts), /pay is not
           # published: its checkout has no live payment settings yet. The
@@ -176,14 +195,94 @@ jobs:
           echo "pushed=true" >> "$GITHUB_OUTPUT"
           echo "Published $(wc -l < "$GITHUB_WORKSPACE/changed.txt") changed file(s)."
 
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: vars.CLOUDFLARE_PUBLISH == 'true'
+        with:
+          name: site-changed
+          path: changed.txt
+          if-no-files-found: error
+          retention-days: 7
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        if: steps.publish.outputs.pushed == 'true' && vars.SITE_LIVE == 'true'
+        if: steps.publish.outputs.pushed == 'true' && vars.SITE_LIVE == 'true' && vars.CLOUDFLARE_PUBLISH != 'true'
         with:
           node-version: 22
       - name: Verify the live site, then notify IndexNow
         # SITE_LIVE is a repository variable, set to true once Hostinger serves
-        # zaaheen.com. Until then there is no live site to check.
-        if: steps.publish.outputs.pushed == 'true' && vars.SITE_LIVE == 'true'
+        # zaaheen.com. Until then there is no live site to check. With
+        # CLOUDFLARE_PUBLISH on, the live site is Cloudflare and cloudflare-deploy checks it.
+        if: steps.publish.outputs.pushed == 'true' && vars.SITE_LIVE == 'true' && vars.CLOUDFLARE_PUBLISH != 'true'
+        run: node site/scripts/post-deploy.mjs --sha "$GITHUB_SHA" --changed changed.txt --wait 600
+
+  cloudflare-deploy:
+    name: Publish zaaheen.com to Cloudflare
+    # After the Hostinger publish, so it can reuse that job's list of changed
+    # pages for IndexNow and both copies always carry the same build.
+    needs: [build, deploy]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.SITE_PUBLISH == 'true' && vars.CLOUDFLARE_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The token lives in this environment, which only main can use: a workflow
+    # pushed on any other branch cannot read it (independent review, s105).
+    environment: cloudflare-sites
+    # Read-only to GitHub. The only credential is the Cloudflare token.
+    permissions:
+      contents: read
+    concurrency:
+      group: cloudflare-site
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # site/scripts + site/public: the live checks. site/cloudflare: the
+          # wrangler config. workers/account: the exact, reviewed wrangler
+          # version and its lockfile (Dependabot keeps it current).
+          sparse-checkout: |
+            site/scripts
+            site/public
+            site/cloudflare
+            workers/account
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.19.0'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: site-dist
+          path: site/dist
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: site-changed
+          path: .
+      - name: Prepare the build for Cloudflare
+        working-directory: site
+        run: |
+          set -euo pipefail
+          test -f dist/_headers || { echo "::error::_headers missing from the artifact"; exit 1; }
+          test -f dist/_redirects || { echo "::error::_redirects missing from the artifact"; exit 1; }
+          # Same rule as the Hostinger publish: no /pay while the app is not on sale.
+          if ! grep -Eq '[[:space:]]href="https://dl\.zaaheen\.com/' dist/index.html; then
+            rm -rf dist/pay
+            echo "App not on sale yet: /pay left out of the published site."
+          fi
+          # Hostinger's server files mean nothing to Cloudflare, which would serve them.
+          find dist -name .htaccess -delete
+          echo "$GITHUB_SHA" > dist/build.txt
+      # npm 11 (Node 24) runs no dependency install scripts by default; said
+      # again here, since this job holds a deploy credential.
+      - name: Install wrangler from the account Worker's lockfile
+        working-directory: workers/account
+        run: npm ci --ignore-scripts --no-fund --no-audit
+      - name: Publish to Cloudflare
+        working-directory: workers/account
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_SITES_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --no-install wrangler deploy --config "$GITHUB_WORKSPACE/site/cloudflare/site.jsonc" --message "zaaheen.com from $GITHUB_SHA"
+      - name: Verify the live site, then notify IndexNow
+        # SITE_LIVE: zaaheen.com is served (now by Cloudflare). The changed list is
+        # empty when the Hostinger copy was already identical: nothing to ping.
+        if: vars.SITE_LIVE == 'true'
         run: node site/scripts/post-deploy.mjs --sha "$GITHUB_SHA" --changed changed.txt --wait 600
 
   account-build:
@@ -258,6 +357,8 @@ jobs:
         run: |
           set -euo pipefail
           test -f dist/.htaccess || { echo "::error::.htaccess (the origin's CSP) missing from the artifact"; exit 1; }
+          # Cloudflare's files mean nothing to Hostinger, which would serve them as pages.
+          rm -f dist/_headers dist/_redirects
           echo "$GITHUB_SHA" > dist/build.txt
 
           remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
@@ -284,7 +385,7 @@ jobs:
           echo "Published account.zaaheen.com from ${GITHUB_SHA}."
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        if: steps.publish.outputs.pushed == 'true' && vars.ACCOUNT_LIVE == 'true'
+        if: steps.publish.outputs.pushed == 'true' && vars.ACCOUNT_LIVE == 'true' && vars.CLOUDFLARE_PUBLISH != 'true'
         with:
           node-version: 22
       - name: Verify the live account pages and the Clerk instance
@@ -292,5 +393,58 @@ jobs:
         # serves account.zaaheen.com. Our own script, no npm packages, no secret:
         # the served build, its headers exactly as its .htaccess sets them, and
         # the production instance's D4/D9 invariants (AUTH-PAGES-DESIGN D9).
-        if: steps.publish.outputs.pushed == 'true' && vars.ACCOUNT_LIVE == 'true'
+        # With CLOUDFLARE_PUBLISH on, account-cloudflare-deploy checks Cloudflare instead.
+        if: steps.publish.outputs.pushed == 'true' && vars.ACCOUNT_LIVE == 'true' && vars.CLOUDFLARE_PUBLISH != 'true'
         run: node site/scripts/post-deploy-account.mjs --sha "$GITHUB_SHA" --htaccess dist/.htaccess --wait 600
+
+  account-cloudflare-deploy:
+    name: Publish account.zaaheen.com to Cloudflare
+    # After the Hostinger publish, so both copies always carry the same build.
+    needs: [account-build, account-deploy]
+    # account-build is already main-only; said again so an edit there cannot open this.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.ACCOUNT_PUBLISH == 'true' && vars.CLOUDFLARE_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare-sites
+    permissions:
+      contents: read
+    concurrency:
+      group: cloudflare-account
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            site/scripts
+            site/cloudflare
+            workers/account
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.19.0'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: account-dist
+          path: site/dist-account
+      - name: Prepare the build for Cloudflare
+        working-directory: site
+        run: |
+          set -euo pipefail
+          test -f dist-account/_headers || { echo "::error::_headers (the origin's CSP) missing from the artifact"; exit 1; }
+          test -f dist-account/_redirects || { echo "::error::_redirects missing from the artifact"; exit 1; }
+          # The live check compares the served headers with the built .htaccess
+          # (the same rules as _headers); kept outside what is published.
+          mv dist-account/.htaccess "$RUNNER_TEMP/account.htaccess"
+          echo "$GITHUB_SHA" > dist-account/build.txt
+      - name: Install wrangler from the account Worker's lockfile
+        working-directory: workers/account
+        run: npm ci --ignore-scripts --no-fund --no-audit
+      - name: Publish to Cloudflare
+        working-directory: workers/account
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_SITES_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --no-install wrangler deploy --config "$GITHUB_WORKSPACE/site/cloudflare/account.jsonc" --message "account.zaaheen.com from $GITHUB_SHA"
+      - name: Verify the live account pages and the Clerk instance
+        if: vars.ACCOUNT_LIVE == 'true'
+        run: node site/scripts/post-deploy-account.mjs --sha "$GITHUB_SHA" --htaccess "$RUNNER_TEMP/account.htaccess" --wait 600

@@ -167,6 +167,14 @@ const cases = [
   ['header Account removed', edit('index.html', (s) => s.replace(/<a\b[^>]*\bbar-signin\b[^>]*>[\s\S]*?<\/a>/, '')), /index\.html: header "Account" must link to/],
   ['sign-in forward missing', edit('.htaccess', (s) => s.replace(/^.*account\.zaaheen\.com.*$/gm, '')), /\.htaccess: \/sign-in and \/sign-up must forward to the account origin/],
   ['sign-in forward keeps the query', edit('.htaccess', (s) => s.replace('account.zaaheen.com/sign-$1/?', 'account.zaaheen.com/sign-$1/')), /\.htaccess: \/sign-in and \/sign-up must forward to the account origin/],
+  // Cloudflare's copies of the same rules (ADR-SEC-047).
+  ['Cloudflare headers missing', (d) => fs.rmSync(path.join(d, '_headers')), /_headers: required file is missing/],
+  ['Cloudflare headers edited by hand', edit('_headers', (s) => s.replace("script-src 'self';", "script-src 'self' https://cdn.example.com;")), /_headers: not the translation of the \.htaccess files/],
+  ['Cloudflare pay CSP joined with the site one', edit('_headers', (s) => s.replace('  ! Content-Security-Policy\n', '')), /_headers: not the translation of the \.htaccess files/],
+  ['header directive Cloudflare cannot translate', edit('.htaccess', (s) => s.replace('Header always set X-Content-Type-Options "nosniff"', 'Header always set X-Content-Type-Options "nosniff"\n  Header always unset X-Powered-By')), /\.htaccess: cloudflare-files: no Cloudflare translation/],
+  ['Cloudflare redirect added', edit('_redirects', (s) => `${s}/go https://evil.example/ 302\n`), /_redirects: not the pinned redirects/],
+  ['Cloudflare 301 for a page missing', edit('_redirects', (s) => s.replace('/learn /learn/ 301\n', '')), /_redirects: not the pinned redirects/],
+  ['text files not declared UTF-8 on Cloudflare', edit('_headers', (s) => s.replace('Content-Type: text/plain; charset=utf-8', 'Content-Type: text/plain')), /_headers: not the translation/],
   // The policy pages: each one built, and linked from every page's footer
   // (Paddle's domain review wants them "clearly accessible via navigation").
   ['footer Privacy link removed', footerLink('/privacy/'), /docs\/index\.html: footer must link to the Privacy Policy \(\/privacy\/\)/],
@@ -229,6 +237,9 @@ const cases = [
   // and a link from outside /learn/. Each edit throws if it changed nothing.
   ['Learn article without an animation', edit(LEARN_1, (s) => { const out = s.replace(/<figure class="flow"[\s\S]*?<\/figure>/, ''); if (out === s) throw new Error('audit.test: no animation'); return out; }), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: a Learn article needs an animation/],
   ['Learn article without a chart', edit(LEARN_1, (s) => { const out = s.replace(/<figure class="chart"[\s\S]*?<\/figure>/, '').replace(/<p class="placeholder">[\s\S]*?<\/p>/, ''); if (out === s) throw new Error('audit.test: no chart or chart placeholder'); return out; }), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: a Learn article needs a chart/],
+  // The off-sale copy (audit-test-off-sale.mjs) is outside git history, so it
+  // has no published date of its own: the case adds one, after the modified one.
+  ['Learn article published after it changed', edit(LEARN_1, (s) => s.replace(/<meta property="article:published_time"[^>]*>/, '').replace('</head>', '<meta property="article:published_time" content="2099-01-01T00:00:00Z"></head>')), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: published 2099-01-01T00:00:00Z is later than modified/],
   ['stock phrase in a Learn article', edit(LEARN_1, (s) => s.replace('</main>', '<p>Let us delve into your memory.</p></main>')), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: stock phrase "delve"/],
   ['Learn article without an Article', ldEdit(LEARN_1, (g) => { const i = g.findIndex((n) => n['@type'] === 'Article'); if (i < 0) throw new Error('audit.test: no Article'); g.splice(i, 1); }), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: a guide must carry one Article/],
   ['Learn article without People also read', edit(LEARN_1, (s) => { const out = s.replace(/<nav class="learn-more" aria-label="People also read">[\s\S]*?<\/nav>/, ''); if (out === s) throw new Error('audit.test: no People also read'); return out; }), /learn\/share-memory-between-chatgpt-and-claude\/index\.html: a Learn article needs a People also read list/],
