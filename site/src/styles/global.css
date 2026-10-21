@@ -127,6 +127,9 @@ a{color:inherit}
 .prow-name{display:flex;align-items:center;gap:10px}
 .prow-add{margin-top:8px;border:1px dashed var(--border);border-radius:10px;padding:12px 14px;
   display:flex;justify-content:space-between;gap:12px;font-size:14px;color:var(--muted)}
+/* The Agents tab lists seven apps plus "+ Connect" inside the same fixed window. */
+.pane.is-apps .prow{padding:4px 0;font-size:14px}
+.pane.is-apps .prow-add{margin-top:6px;padding:8px 14px;font-size:13.5px}
 .is-fade .is-in{animation:zIn .4s ease-out both}
 .is-fade .d1{animation-delay:.08s}.is-fade .d2{animation-delay:.16s}.is-fade .d3{animation-delay:.24s}
 .sweep-wrap{margin-top:18px;display:flex;flex-direction:column;gap:8px}
@@ -391,7 +394,7 @@ a.card:hover{border-color:var(--sage)}
 .bk-dots{display:flex;gap:6px;justify-content:center}
 .bk-dots span{width:6px;height:6px;border-radius:3px;background:var(--border);transition:width .3s,background .3s}
 .bk-dots span.is-on{width:22px;background:var(--ink)}
-.is-fade .d4{animation-delay:.28s}.is-fade .d5{animation-delay:.35s}
+.is-fade .d4{animation-delay:.28s}.is-fade .d5{animation-delay:.35s}.is-fade .d6{animation-delay:.42s}
 
 /* ---------- unwritten copy (components/Placeholder.astro) ---------- */
 p.placeholder{border:1px dashed var(--border);border-radius:10px;padding:14px 18px;

@@ -53,7 +53,6 @@ export const RELEASE = {
   // sale"). Set true in the same change that uploads the installer.
   available: true,
   version: '0.3.5',
-  stage: 'Beta',
   windows: {
     // The name .github/workflows/release-build.yml gives the production installer.
     file: 'Zaaheen_0.3.5_x64.msi',
@@ -101,8 +100,9 @@ export const PICTURED_APPS = VERIFIED_APPS.slice(0, 3);
 
 // The home page's animated app window only (founder, session 61: "keep hermes
 // and openclaw .. we will test them shortly"). A picture, never a written
-// claim: move an app to VERIFIED_APPS after its live test.
-export const DEMO_APPS = [...PICTURED_APPS, 'Hermes', 'OpenClaw'] as const;
+// claim: move an app to VERIFIED_APPS after its live test. Claude Code and Codex
+// joined in session 106 (founder: "add codex and claude code as well").
+export const DEMO_APPS = [...PICTURED_APPS, 'Claude Code', 'Codex', 'Hermes', 'OpenClaw'] as const;
 
 /** "Claude, Cursor and ChatGPT": the verified apps as one English list. */
 export const verifiedAppList = (): string =>

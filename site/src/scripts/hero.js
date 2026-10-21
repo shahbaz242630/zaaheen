@@ -117,7 +117,7 @@ if (demo && !reduced.matches) {
       : settingsPane();
     // A new tab fades in whole; a change within a tab (a memory arriving, the
     // next app lighting up) keeps the pane and only its own rows animate.
-    const cls = ['pane', tab === 'Memories' ? '' : 'is-list', tabChanged ? 'is-fade' : ''].filter(Boolean).join(' ');
+    const cls = ['pane', tab === 'Memories' ? '' : 'is-list', tab === 'Agents' ? 'is-apps' : '', tabChanged ? 'is-fade' : ''].filter(Boolean).join(' ');
     pane.replaceChildren(el('div', cls, null, body));
   };
 
