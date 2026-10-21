@@ -280,10 +280,12 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --no-install wrangler deploy --config "$GITHUB_WORKSPACE/site/cloudflare/site.jsonc" --message "zaaheen.com from $GITHUB_SHA"
       - name: Verify the live site, then notify IndexNow
-        # SITE_LIVE: zaaheen.com is served (now by Cloudflare). The changed list is
-        # empty when the Hostinger copy was already identical: nothing to ping.
-        if: vars.SITE_LIVE == 'true'
-        run: node site/scripts/post-deploy.mjs --sha "$GITHUB_SHA" --changed changed.txt --wait 600
+        # Cloudflare serves zaaheen.com (since s106), so every publish is checked
+        # live and a broken site fails this run. SITE_LIVE gates only the IndexNow
+        # ping (the founder's indexing hold): until it is 'true' the check runs with
+        # --dry-run. The changed list is empty when the Hostinger copy was already
+        # identical: nothing to ping.
+        run: node site/scripts/post-deploy.mjs --sha "$GITHUB_SHA" --changed changed.txt --wait 600 ${{ vars.SITE_LIVE != 'true' && '--dry-run' || '' }}
 
   account-build:
     name: Build and audit account.zaaheen.com (production settings)
@@ -446,5 +448,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --no-install wrangler deploy --config "$GITHUB_WORKSPACE/site/cloudflare/account.jsonc" --message "account.zaaheen.com from $GITHUB_SHA"
       - name: Verify the live account pages and the Clerk instance
-        if: vars.ACCOUNT_LIVE == 'true'
+        # Cloudflare serves account.zaaheen.com (since s106): always checked. This
+        # check pings nothing, so it needs no ACCOUNT_LIVE switch.
         run: node site/scripts/post-deploy-account.mjs --sha "$GITHUB_SHA" --htaccess "$RUNNER_TEMP/account.htaccess" --wait 600
