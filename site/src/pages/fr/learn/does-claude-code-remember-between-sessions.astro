@@ -1,0 +1,115 @@
+---
+// Learn article 2 in French (ADR-113): the English article's structure with its
+// words translated. Facts, sources and the chart's numbers are the English
+// page's (src/pages/learn/does-claude-code-remember-between-sessions.astro).
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { localize } from '../../../i18n/locales';
+
+const L = (href: string) => localize(href, 'fr');
+const OUTLINE = [
+  { id: 'what', title: 'Ce dont Claude Code se souvient' },
+  { id: 'loads', title: 'Ce qui se charge à chaque session' },
+  { id: 'limits', title: "Ce qu'il ne transporte pas" },
+  { id: 'across', title: "D'un projet et d'une application à l'autre" },
+];
+const DOCS = 'https://code.claude.com/docs/en/memory';
+---
+<Learn
+  path="/fr/learn/does-claude-code-remember-between-sessions/"
+  lede="Oui, au sein d'un même projet sur un même ordinateur. Claude Code démarre chaque session avec un contexte vierge, puis charge deux types de notes : les fichiers CLAUDE.md que vous écrivez et l'auto memory qu'il écrit lui-même. Ni l'un ni l'autre ne vous suit dans le dossier de mémoire d'un autre projet, sur un autre ordinateur ou dans une autre application d'IA."
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>Ce dont Claude Code se souvient</h2>
+    <p>La documentation d'Anthropic (<a href={DOCS}>How Claude remembers your project</a>) décrit
+       deux façons dont les connaissances passent d'une session à la suivante :</p>
+    <ul>
+      <li><strong>Les fichiers CLAUDE.md</strong> sont des instructions que vous écrivez : comment
+          compiler le projet, les règles à suivre, ce qu'il faut éviter. Ils peuvent se trouver dans
+          le projet, dans votre dossier utilisateur ou être définis par votre organisation, et tous
+          ceux qui s'appliquent sont chargés au début de chaque session.</li>
+      <li><strong>L'auto memory</strong>, ce sont des notes que Claude Code écrit pour lui-même
+          pendant que vous travaillez : vos corrections, vos préférences et ce qu'il a appris sur le
+          projet. Quand vous dites « retiens que les tests ont besoin d'une base de données locale »,
+          c'est là que ça va.</li>
+    </ul>
+    <p>Ce sont dans les deux cas de simples fichiers texte que vous pouvez ouvrir et modifier. Dans
+       une session, <code>/memory</code> les liste, les ouvre et active ou désactive l'auto
+       memory.</p>
+  </section>
+
+  <section id="loads">
+    <h2>Ce qui se charge au début de chaque session</h2>
+    <p>L'auto memory vit dans un dossier propre à chaque projet,
+       <code>~/.claude/projects/&lt;project&gt;/memory/</code>, avec un fichier appelé MEMORY.md qui
+       sert d'index. Seules les 200 premières lignes ou les 25 Ko premiers de cet index, selon la
+       limite atteinte en premier, sont chargés au démarrage d'une session. Les notes détaillées se
+       trouvent dans des fichiers thématiques séparés, que Claude Code ouvre quand il en a
+       besoin.</p>
+    <p>Nous développons Zaaheen avec Claude Code tous les jours, alors nous avons mesuré la mémoire
+       de notre propre projet après cinq mois de sessions :</p>
+
+    <BarChart
+      id="chart-claude-code-memory"
+      title="La mémoire Claude Code d'un projet après cinq mois : conservée et chargée au départ"
+      measure="Kilo-octets"
+      max={500}
+      bars={[
+        { label: 'Tous les fichiers', value: 494, note: 'Ko' },
+        { label: 'Chargé au départ', value: 19, note: 'Ko' },
+        { label: 'Limite au départ', value: 25, note: 'Ko' },
+      ]}
+      source={{ text: "Le projet de Zaaheen, mesuré le 6 octobre 2026 : 182 fichiers de mémoire conservés depuis le 28 avril 2026 ; un index MEMORY.md de 155 lignes. La limite vient de la documentation Claude Code d'Anthropic.", href: DOCS }}
+    />
+
+    <p>Claude Code se souvient donc bien, mais l'essentiel de ce qu'il sait est consulté à la
+       demande plutôt que lu à chaque fois. Garder l'index court, avec une ligne par souvenir,
+       permet de garder l'important sous les yeux. Anthropic conseille de garder chaque CLAUDE.md
+       sous les 200 lignes pour la même raison.</p>
+  </section>
+
+  <section id="limits">
+    <h2>Ce qu'il ne transporte pas</h2>
+    <p>La documentation est claire sur les limites :</p>
+    <ul>
+      <li><strong>Un dossier de mémoire par projet.</strong> Tous les worktrees d'un même dépôt le
+          partagent, mais un autre dépôt a le sien, donc ce que Claude Code a appris sur vous dans un
+          projet n'est pas dans le suivant.</li>
+      <li><strong>Un seul ordinateur.</strong> L'auto memory est locale à la machine et n'est pas
+          partagée entre machines ou environnements cloud.</li>
+      <li><strong>Une seule application.</strong> Cursor, Codex, ChatGPT et Claude Desktop ne lisent
+          pas le dossier de mémoire de Claude Code.</li>
+    </ul>
+    <p>Pour les règles du projet, c'est exactement ce qu'il faut : elles appartiennent au projet.
+       Pour les informations sur vous, comme la façon dont vous aimez les réponses, les outils que
+       vous préférez ou ce sur quoi vous travaillez ce mois-ci, cela veut dire les répéter à chaque
+       projet et à chaque application.</p>
+  </section>
+
+  <section id="across">
+    <h2>Se souvenir de vous d'un projet et d'une application à l'autre</h2>
+    <p>Une mémoire qui vit en dehors de Claude Code comble ce manque. Claude Code peut se connecter
+       à des outils grâce à MCP, la façon standard dont les applications d'IA se branchent sur des
+       outils et des données. Il peut donc enregistrer des informations sur vous dans une mémoire
+       que chaque projet, et vos autres applications d'IA, peuvent lire.</p>
+
+    <MemoryFlow
+      id="flow-claude-code-cursor"
+      from="Claude Code"
+      to="Cursor"
+      fact="Préfère TypeScript strict"
+      others={['Codex', 'ChatGPT']}
+      caption="Une préférence que Claude Code apprend dans un projet est enregistrée une fois, sur votre ordinateur. Cursor, Codex et ChatGPT peuvent la retrouver dans n'importe quel projet."
+    />
+
+    <p>Zaaheen est une mémoire de ce type, pour Windows et Mac. Vous connectez Claude Code une seule
+       fois, avec une commande depuis l'onglet Agents de Zaaheen, et elle est ensuite disponible dans
+       tous vos projets Claude Code (<a href={L('/docs/connect-claude-code/')}>pas à pas</a>). Vos
+       souvenirs restent chiffrés sur votre propre ordinateur.</p>
+    <p>Une bonne répartition : les règles du projet dans CLAUDE.md, ce que Claude Code apprend sur
+       le projet dans l'auto memory, et ce qui est vrai à votre sujet dans une mémoire partagée que
+       toutes les applications lisent.</p>
+  </section>
+</Learn>

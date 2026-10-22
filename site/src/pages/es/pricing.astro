@@ -1,0 +1,295 @@
+---
+// Pricing in Spanish (ADR-113): the English page's structure with its words
+// translated. The comparison's facts are the English page's (data/pricing.ts),
+// in Spanish; other companies' own words stay in quotes, as they wrote them.
+import Base from '../../layouts/Base.astro';
+import { PRICES, RELEASE, TRIAL, pageFor, verifiedAppList, VERIFIED_APPS } from '../../data/site';
+import { CHECKED_ON, COMPARISON, COMPARISON_SOURCES, PRICING_FAQ } from '../../data/pricing';
+import { COMPARE_PAGES } from '../../data/site';
+import { localize } from '../../i18n/locales';
+import { formatDate } from '../../i18n/ui';
+
+const page = pageFor('/es/pricing/');
+const L = (href: string) => localize(href, 'es');
+const saving = PRICES.monthly * 12 - PRICES.yearly;
+const monthly = `${PRICES.monthly} USD al mes`;
+const yearly = `${PRICES.yearly} USD al año`;
+const checkedOn = formatDate(CHECKED_ON, 'es');
+const apps = verifiedAppList().replace(/ and /, ' y ');
+const appsThen = VERIFIED_APPS.join(', ');
+
+const INCLUDED = [
+  'Todos los recuerdos que quieras, guardados y cifrados en tu propia computadora',
+  'Todas las apps de IA que conectes: Claude, ChatGPT, Cursor y más',
+  'Limpieza en tu computadora, diaria o semanal, cuando tú elijas',
+  'Download my memories en cualquier momento, incluso después de dejar de pagar',
+  'Borrarlo todo en un solo paso, para siempre',
+  'Ayuda por correo de las personas que lo crean',
+];
+
+// The comparison rows, in data/pricing.ts's order (names unchanged).
+const COMPARISON_ES = [
+  {
+    kind: 'Memoria para todas tus apps de IA',
+    price: `${monthly} o ${yearly}. ${TRIAL.days} días gratis, sin tarjeta`,
+    where: 'Tu computadora',
+    encrypted: 'Sí, en tu computadora. Nuestros servidores nunca reciben tus recuerdos',
+    training: 'No',
+    apps: `Sí: ${appsThen} y otras apps compatibles con MCP`,
+  },
+  {
+    kind: 'Plan Core',
+    price: '15 USD al mes o 89 USD al año',
+    where: 'Sus servidores',
+    encrypted: 'Sí, en tránsito y en reposo, no de extremo a extremo',
+    training: 'No',
+    apps: 'Sí: "21+ AI tools"',
+  },
+  {
+    kind: 'Plan Pro',
+    price: '18,99 USD al mes',
+    where: 'Tu computadora',
+    encrypted: 'No lo indica',
+    training: 'No',
+    apps: 'Sí: "every MCP-ready AI tool"',
+  },
+  {
+    kind: 'App de notas con IA, plan Plus',
+    price: '9 USD al mes (hay plan gratis)',
+    where: 'Sus servidores',
+    encrypted: 'Sí, en reposo y en tránsito, no de extremo a extremo',
+    training: 'No',
+    apps: 'Sí, con el conector propio de Mem',
+  },
+  {
+    kind: 'App de notas',
+    price: 'App gratis. Sync 5 USD al mes o 48 USD al año',
+    where: 'Tu computadora. Sync copia las notas a sus servidores',
+    encrypted: 'Sync: sí, de extremo a extremo',
+    training: 'No lo indica',
+    apps: 'Solo con plugins hechos por la comunidad',
+  },
+  {
+    kind: 'Integrada en ChatGPT',
+    price: 'Incluida; el plan gratis tiene "limited memory"',
+    where: 'Sus servidores',
+    encrypted: 'Sí, en reposo y en tránsito',
+    training: 'Sí, salvo que lo desactives',
+    apps: 'Integrada en ChatGPT',
+  },
+  {
+    kind: 'Integrada en Claude',
+    price: 'Incluida, incluso en el plan gratis',
+    where: 'Sus servidores',
+    encrypted: 'Sí, en reposo y en tránsito',
+    training: 'Solo si lo permites',
+    apps: 'Integrada en Claude',
+  },
+];
+if (COMPARISON_ES.length !== COMPARISON.length) throw new Error('es/pricing: the comparison rows no longer match data/pricing.ts');
+const ROWS = COMPARISON.map((c, i) => ({ ...c, ...COMPARISON_ES[i] }));
+
+const SOURCE_NAMES: Record<string, string> = {
+  'ChatGPT memory': 'memoria de ChatGPT',
+  'Claude pricing': 'precios de Claude',
+  'Claude training policy': 'política de entrenamiento de Claude',
+};
+
+const COMPARE_LABELS: Record<string, string> = {
+  '/learn/ai-memory-apps-compared/': 'Apps de memoria para IA comparadas',
+  '/learn/chatgpt-memory-vs-claude-memory/': 'Memoria de ChatGPT frente a memoria de Claude',
+  '/learn/mem0-alternative/': 'Mem0',
+  '/learn/supermemory-alternative/': 'Supermemory',
+  '/learn/memoryplugin-alternative/': 'MemoryPlugin',
+  '/learn/best-memory-mcp-server-for-claude-code/': 'Servidores de memoria para Claude Code',
+  '/learn/obsidian-vs-ai-memory-app/': 'Obsidian',
+};
+const COMPARE = COMPARE_PAGES.map((c) => {
+  const label = COMPARE_LABELS[c.path];
+  if (!label) throw new Error(`es/pricing: no Spanish label for ${c.path}`);
+  return { path: c.path, label };
+});
+
+const FAQ: { q: string; a: string; link?: { href: string; text: string } }[] = [
+  {
+    q: '¿Qué es Zaaheen?',
+    a: `Zaaheen es una memoria privada para tus apps de IA. Funciona en tu PC con Windows o en tu Mac y da a ${appsThen} y otras apps de IA una única memoria compartida sobre ti, para que dejes de repetirte. Tus recuerdos se quedan en tu propia computadora, cifrados.`,
+  },
+  {
+    q: '¿Cuánto cuesta Zaaheen?',
+    a: `Zaaheen cuesta ${monthly} o ${yearly}, más el IVA o el impuesto sobre las ventas donde corresponda. Los dos planes lo incluyen todo. Empiezas con una prueba gratis de ${TRIAL.days} días.`,
+  },
+  {
+    q: '¿Necesito una tarjeta para la prueba gratis de Zaaheen?',
+    a: `No. La prueba de ${TRIAL.days} días de Zaaheen no pide tarjeta, así que no se cobra nada cuando termina. Zaaheen simplemente te pide que te suscribas.`,
+  },
+  {
+    q: 'ChatGPT y Claude ya tienen memoria. ¿Para qué necesito Zaaheen?',
+    a: 'La memoria integrada de cada app pertenece a esa app. Lo que ChatGPT aprende sobre ti se queda en ChatGPT, y lo que aprende Claude se queda en Claude. Zaaheen es una sola memoria que comparten todas tus apps de IA conectadas: guarda algo en Claude, y Cursor o ChatGPT también podrán usarlo. Puedes seguir usando la memoria propia de cada app junto a Zaaheen.',
+  },
+  {
+    q: '¿Pueden ChatGPT y Claude compartir la misma memoria?',
+    a: 'Sí, con Zaaheen. Conecta las dos apps a Zaaheen y leerán y guardarán en la misma memoria de tu computadora.',
+    link: { href: L('/learn/share-memory-between-chatgpt-and-claude/'), text: 'Cómo compartir memoria entre ChatGPT y Claude' },
+  },
+  {
+    q: '¿En qué se diferencia Zaaheen de MemoryPlugin, Pieces, Mem o Supermemory?',
+    a: `Zaaheen guarda tus recuerdos en tu propia computadora, cifrados, y nuestros servidores nunca los reciben. MemoryPlugin y Mem guardan los tuyos en sus servidores. Pieces también guarda los recuerdos en tu computadora; su plan Pro cuesta 18,99 USD al mes y su prueba pide tarjeta. Zaaheen cuesta menos que MemoryPlugin Core o Pieces Pro, y su prueba no pide tarjeta. El plan de pago de Supermemory está pensado para desarrolladores que crean con memoria para IA, así que no está en la tabla. La tabla de arriba tiene los detalles de los demás, comprobados en el sitio web de cada empresa el ${checkedOn}.`,
+    link: { href: L('/learn/ai-memory-apps-compared/'), text: 'Apps de memoria para IA comparadas' },
+  },
+  {
+    q: '¿Zaaheen es como Obsidian?',
+    a: 'Obsidian es una app de notas: tú escribes y organizas las notas, y las apps de IA solo llegan a ellas con plugins hechos por la comunidad. Zaaheen está hecho para tus apps de IA: guardan lo que aprenden sobre ti y lo encuentran solas, en todas las apps que conectes. Los dos guardan tus datos en tu propia computadora.',
+  },
+  {
+    q: '¿Zaaheen usa mis recuerdos para entrenar IA?',
+    a: 'No. Zaaheen nunca recibe tus recuerdos, así que no puede usarlos para entrenar nada. Las apps de IA que conectas tienen su propia configuración de entrenamiento, que controlas en cada app.',
+  },
+  {
+    q: '¿El equipo de Zaaheen puede leer mis recuerdos?',
+    a: 'No. Tus recuerdos se guardan y se cifran en tu propia computadora, y la clave también se queda allí. Zaaheen nunca los sube, así que no tenemos ninguna copia que leer. Las apps de IA que conectas pueden enviar recuerdos a sus creadores como parte de tus conversaciones, según las políticas de privacidad de esas apps.',
+  },
+  {
+    q: '¿Qué apps de IA funcionan con Zaaheen?',
+    a: `Hemos probado Zaaheen con ${apps}. También funciona con otras apps de IA compatibles con MCP, la forma estándar en que las apps de IA se conectan a herramientas. La app de Zaaheen te muestra cómo conectar cada una.`,
+  },
+  {
+    q: '¿Mis apps de IA usarán Zaaheen de verdad?',
+    a: 'Algunas apps, como Cursor, consultan Zaaheen por su cuenta cuando preguntas algo sobre ti. Otras, como Claude y ChatGPT, suelen mirar primero en su propia memoria, así que la app de Zaaheen te da para ellas un consejo de una línea que hace que también consulten Zaaheen.',
+  },
+  {
+    q: '¿Puedo pasar a Zaaheen mis recuerdos de ChatGPT o Claude?',
+    a: 'Todavía no hay importación con un clic. Cuando una app está conectada, puedes pedirle que guarde en Zaaheen lo importante, y así todas las demás apps conectadas podrán usarlo.',
+    link: { href: L('/learn/switch-from-chatgpt-to-claude/'), text: 'Pasar de ChatGPT a Claude sin empezar de cero' },
+  },
+  {
+    q: '¿Zaaheen funciona en Mac o en mi teléfono?',
+    a: 'En Mac, sí: Zaaheen funciona en Macs con chip de Apple (M1 o posterior), probado en macOS 26. También funciona en Windows, probado en Windows 11. Todavía no hay app para teléfono.',
+  },
+  {
+    q: '¿Puedo cancelar Zaaheen en cualquier momento?',
+    a: 'Sí. Cancela en la app, en Settings, luego Account y luego Cancel subscription, y mantienes el acceso hasta el final del periodo que pagaste. Si lo pides dentro de los 14 días siguientes a un pago, te lo devolvemos completo, una vez por persona.',
+  },
+  {
+    q: '¿Qué pasa con mis recuerdos si dejo de pagar Zaaheen?',
+    a: 'No se borra nada. Tus recuerdos se quedan en tu computadora y Download my memories sigue funcionando, así que siempre puedes llevártelos. Zaaheen deja de atender a tus apps de IA hasta que vuelvas a suscribirte.',
+  },
+  {
+    q: '¿Por qué no tener simplemente un archivo de notas para mi IA?',
+    a: 'Un archivo de notas funciona bien para una app y un proyecto, y un archivo como AGENTS.md es el lugar adecuado para las reglas de un proyecto. Zaaheen es para lo que es cierto sobre ti: tus apps de IA guardan lo que aprenden sobre ti sobre la marcha, encuentran el recuerdo adecuado cuando importa y lo comparten en todas las apps que conectes.',
+    link: { href: L('/learn/ai-memory-tool-or-notes-file/'), text: '¿Una herramienta de memoria o un archivo de notas?' },
+  },
+];
+if (FAQ.length !== PRICING_FAQ.length) throw new Error('es/pricing: the FAQ no longer matches data/pricing.ts');
+---
+<Base page={page}>
+  <div class="pricing">
+    <header class="pricing-head">
+      <p class="eyebrow">Empieza con {TRIAL.days} días gratis, sin tarjeta</p>
+      <h1>Precios de Zaaheen: un solo plan, todo incluido.</h1>
+      <p class="lede">Zaaheen da a todas tus apps de IA una memoria privada, guardada en tu propia computadora.
+         Pruébalo gratis durante {TRIAL.days} días y luego elige cómo quieres pagar.</p>
+    </header>
+
+    <div class="plans">
+      <section class="plan" aria-labelledby="plan-monthly">
+        <h2 id="plan-monthly">Mensual</h2>
+        <p class="plan-price"><span class="plan-amount">{PRICES.monthly} USD</span> al mes</p>
+        <p class="plan-tax">Más IVA o impuesto sobre las ventas donde corresponda.</p>
+        <p class="plan-note">Se renueva cada mes hasta que canceles.</p>
+        {RELEASE.available
+          ? <a class="cta" href={L('/docs/subscribe/')}>Cómo suscribirte</a>
+          : <span class="cta cta-soon">Muy pronto para Windows y Mac</span>}
+      </section>
+      <section class="plan plan-best" aria-labelledby="plan-yearly">
+        <p class="plan-tag">Ahorra {saving} USD al año</p>
+        <h2 id="plan-yearly">Anual</h2>
+        <p class="plan-price"><span class="plan-amount">{PRICES.yearly} USD</span> al año</p>
+        <p class="plan-tax">Más IVA o impuesto sobre las ventas donde corresponda.</p>
+        <p class="plan-note">Se renueva cada año hasta que canceles.</p>
+        {RELEASE.available
+          ? <a class="cta" href={L('/docs/subscribe/')}>Cómo suscribirte</a>
+          : <span class="cta cta-soon">Muy pronto para Windows y Mac</span>}
+      </section>
+    </div>
+
+    <section class="pricing-included" aria-labelledby="included">
+      <h2 id="included">Qué incluyen los dos planes</h2>
+      <ul>
+        {INCLUDED.map((item) => <li>{item}</li>)}
+      </ul>
+    </section>
+
+    <section class="pricing-compare" aria-labelledby="compare">
+      <h2 id="compare">Cómo se compara Zaaheen</h2>
+      <p class="pricing-compare-lede">Otros productos de memoria para IA, y la memoria integrada en las propias
+         apps de IA, comparados en lo que importa a la hora de elegir uno.</p>
+      <div class="vs-wrap">
+        <table class="vs">
+          <thead>
+            <tr>
+              <th scope="col">Producto</th>
+              <th scope="col">Precio para una persona</th>
+              <th scope="col">Dónde se guardan tus recuerdos</th>
+              <th scope="col">Cifrado</th>
+              <th scope="col">Se usa para entrenar IA</th>
+              <th scope="col">Funciona en todas tus apps de IA</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ROWS.map((c, i) => (
+              <tr class={i === 0 ? 'vs-us' : undefined}>
+                <th scope="row">{c.name} <span class="vs-plan">{c.kind}</span></th>
+                <td>{c.price}</td>
+                <td class="vs-where">{c.where}</td>
+                <td>{c.encrypted}</td>
+                <td>{c.training}</td>
+                <td>{c.apps}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="vs-note">Los precios y funciones de otras empresas están tomados de sus propios sitios web
+         y páginas de privacidad el {checkedOn}, en dólares estadounidenses antes de impuestos, con sus propias
+         palabras entre comillas, en inglés. "No lo indica" significa que las páginas de la empresa no lo dicen.
+         Sus precios y políticas pueden cambiar, así que compruébalos antes de comprar:
+         {COMPARISON_SOURCES.map((src, i) => (
+           <>{i > 0 && ', '}<a href={src.url} target="_blank" rel="noopener noreferrer">{SOURCE_NAMES[src.name] ?? src.name}</a></>
+         ))}.</p>
+      <p class="vs-note">Comparaciones detalladas:
+         {COMPARE.map((c, i) => (
+           <>{i > 0 && ' · '}<a href={L(c.path)}>{c.label}</a></>
+         ))}.</p>
+    </section>
+
+    <section class="pricing-small" aria-labelledby="small-print">
+      <h2 id="small-print">La letra pequeña, en palabras sencillas</h2>
+      <ul>
+        <li>Tu prueba de {TRIAL.days} días no pide tarjeta, así que no se cobra nada cuando termina. Zaaheen
+            simplemente te pide que te suscribas.</li>
+        <li>Los precios están en dólares estadounidenses, más el IVA o el impuesto sobre las ventas donde
+            corresponda, que cobra nuestro revendedor Paddle. Ves el total exacto antes de pagar.</li>
+        <li>Tu plan se renueva automáticamente hasta que canceles. Cancela cuando quieras en la app, en la
+            página <em>Account</em> del sitio web o con el enlace de cancelación de cualquier correo de Paddle,
+            y mantienes el acceso hasta el final del periodo que pagaste.</li>
+        <li>Pídelo dentro de los 14 días siguientes a un pago y te lo devolvemos completo, una vez por persona.
+            Consulta la <a href="/refunds/">Política de reembolsos (en inglés)</a> y los <a
+            href="/terms/">Términos del servicio (en inglés)</a>.</li>
+        <li>Los pagos los gestiona Paddle.com, nuestro revendedor y Merchant of Record.</li>
+      </ul>
+    </section>
+
+    <section class="pricing-faq" aria-labelledby="pricing-faq">
+      <h2 id="pricing-faq">Preguntas sobre Zaaheen</h2>
+      <div class="faq-list">
+        {FAQ.map((f) => (
+          <details class="faq-item">
+            <summary>{f.q}</summary>
+            <p>{f.a}{f.link && <> <a href={f.link.href}>{f.link.text}</a>.</>}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+  </div>
+</Base>

@@ -1,0 +1,44 @@
+---
+import Base from '../../layouts/Base.astro';
+import Logo from '../../components/Logo.astro';
+import { PRICES, RELEASE, TRIAL, pageFor } from '../../data/site';
+import { localize } from '../../i18n/locales';
+
+// Products in French (ADR-113): the English page's words translated.
+const page = pageFor('/fr/products/');
+const L = (href: string) => localize(href, 'fr');
+const monthly = `${PRICES.monthly} USD par mois`;
+const yearly = `${PRICES.yearly} USD par an`;
+---
+<Base page={page}>
+  <section class="page">
+    <h1>Produits</h1>
+    <p>Zaaheen est une entreprise de Dubaï qui crée des logiciels pour les personnes qui utilisent l’IA tous les jours. Notre premier produit donne à vos applications d’IA une
+       mémoire privée qui reste sur votre propre ordinateur.</p>
+
+    <div class="cards">
+      <a class="card" href={L('/')}>
+        <div class="card-brand"><Logo size={40} /><h2>Zaaheen</h2></div>
+        <p>Une mémoire privée pour vos assistants d’IA. Vos applications d’IA partagent une seule mémoire
+           à votre sujet, enregistrée et chiffrée sur votre propre ordinateur.</p>
+        <span class="card-link">Découvrir l’application de mémoire</span>
+      </a>
+    </div>
+
+    <h2>Ce que fait l’application de mémoire</h2>
+    <ul class="facts">
+      <li><strong>Une seule mémoire pour toutes vos applications d’IA.</strong> Dites quelque chose une fois à
+          Claude, et Cursor ou ChatGPT pourront s’en souvenir.
+          <a href={L('/docs/#connecting')}>Comment connecter vos applications d’IA</a></li>
+      <li><strong>Elle reste sur votre ordinateur.</strong> Vos souvenirs sont enregistrés et chiffrés sur
+          votre appareil, et ne sont jamais envoyés en ligne.
+          <a href="/ai-and-your-data/">Ce que nous pouvons voir et ne pas voir (en anglais)</a></li>
+      <li><strong>Vous gardez la main.</strong> Voyez chaque souvenir, oubliez celui que vous voulez,
+          téléchargez-les tous ou supprimez tout en une étape.
+          <a href={L('/docs/#memories')}>Prendre soin de vos souvenirs</a></li>
+      <li><strong>Pour Windows et Mac.</strong> {RELEASE.windows.tested} (64 bits), ou un Mac avec puce
+          Apple (M1 ou plus récent). {TRIAL.days} jours gratuits, puis {monthly} ou {yearly}.
+          <a href={L('/pricing/')}>Tarifs</a></li>
+    </ul>
+  </section>
+</Base>

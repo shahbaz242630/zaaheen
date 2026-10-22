@@ -1,0 +1,106 @@
+---
+// Learn article 3 in French (ADR-113): the English article's structure with its
+// words translated. Facts, sources and the chart's numbers are the English
+// page's (src/pages/learn/one-memory-across-claude-code-cursor-and-codex.astro).
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { localize } from '../../../i18n/locales';
+
+const L = (href: string) => localize(href, 'fr');
+const OUTLINE = [
+  { id: 'each', title: 'Ce que chacun conserve' },
+  { id: 'rules', title: 'Règles du projet : un seul AGENTS.md' },
+  { id: 'you', title: 'Ce qu’ils savent de vous' },
+  { id: 'test', title: 'Notre test' },
+];
+const CLAUDE_DOCS = 'https://code.claude.com/docs/en/memory';
+const CURSOR_DOCS = 'https://cursor.com/docs/rules';
+const CODEX_DOCS = 'https://learn.chatgpt.com/docs/customization/memories?surface=app';
+---
+<Learn
+  path="/fr/learn/one-memory-across-claude-code-cursor-and-codex/"
+  lede="Claude Code, Cursor et Codex ont chacun leur propre mémoire, et aucun ne lit celle des autres. Mettez les règles du projet dans un seul fichier AGENTS.md, que les trois savent lire, et gardez ce qui est vrai à votre sujet dans une mémoire partagée à laquelle les trois se connectent."
+  outline={OUTLINE}
+>
+  <section id="each">
+    <h2>Ce que chacun conserve</h2>
+    <p>D'après la documentation de chaque entreprise :</p>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col">Application</th><th scope="col">Sa propre mémoire</th><th scope="col">Partagée avec les autres ?</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Claude Code</th><td>Les fichiers CLAUDE.md que vous écrivez, plus l'auto memory qu'il écrit, dans un dossier par projet sur votre ordinateur (<a href={CLAUDE_DOCS}>Anthropic</a>)</td><td>Non</td></tr>
+        <tr><th scope="row">Cursor</th><td>Les règles de projet dans <code>.cursor/rules</code>, les règles utilisateur pour tous vos projets, et AGENTS.md (<a href={CURSOR_DOCS}>Cursor</a>)</td><td>Non</td></tr>
+        <tr><th scope="row">Codex</th><td>AGENTS.md, plus des souvenirs qu'il peut écrire dans <code>~/.codex/memories/</code>, désactivés tant que vous ne les activez pas (<a href={CODEX_DOCS}>OpenAI</a>)</td><td>Non, pas même avec ChatGPT</td></tr>
+      </tbody>
+    </table>
+    <p>Une préférence que vous apprenez à Claude Code le lundi est donc nouvelle pour Cursor le
+       mardi et pour Codex le mercredi. Les développeurs qui passent de l'un à l'autre finissent par
+       répéter trois fois les mêmes choses, ou par tenir trois fichiers à jour à la main.</p>
+  </section>
+
+  <section id="rules">
+    <h2>Règles du projet : un seul AGENTS.md pour les trois</h2>
+    <p>Pour les règles qui concernent le projet lui-même, comme la façon de le compiler, de lancer
+       les tests et les conventions à suivre, il existe désormais une réponse simple : AGENTS.md.
+       Cursor le lit comme l'un de ses types de règles. OpenAI conseille d'y mettre les consignes que
+       Codex doit toujours suivre. Et Claude Code le lit comme les instructions du projet quand le
+       projet n'a pas de CLAUDE.md (à partir de la version 2.1.277).</p>
+    <p>Un seul fichier dans le dépôt, versionné avec le code, et les trois outils partent des mêmes
+       règles. Si vous avez déjà un CLAUDE.md, la documentation d'Anthropic explique comment le faire
+       pointer vers AGENTS.md pour que les deux ne se contredisent jamais.</p>
+  </section>
+
+  <section id="you">
+    <h2>Ce qu’ils savent de vous : une mémoire partagée</h2>
+    <p>AGENTS.md n'est pas le bon endroit pour les informations sur vous. Elles ne font pas partie
+       du projet, elles changent, et elles concernent tous les projets, pas un seul. C'est là
+       qu'intervient une mémoire partagée : une mémoire en dehors des trois outils, à laquelle
+       chacun se connecte grâce à MCP, la façon standard dont les applications d'IA se branchent sur
+       des outils et des données.</p>
+
+    <MemoryFlow
+      id="flow-codex-cursor"
+      from="Codex"
+      to="Cursor"
+      fact="Préfère pnpm à npm"
+      others={['Claude Code']}
+      caption="Une préférence que vous indiquez à Codex est enregistrée une fois, sur votre ordinateur. Cursor et Claude Code la retrouvent à leur prochaine session, dans n'importe quel projet."
+    />
+
+    <p>Zaaheen est une mémoire de ce type, pour Windows et Mac, conservée chiffrée sur votre propre
+       ordinateur. Chaque outil se connecte une seule fois : Claude Code avec une commande, Cursor
+       avec un lien d'installation, et Codex avec quelques lignes dans son fichier de réglages
+       (<a href={L('/docs/connect-claude-code/')}>Claude Code</a>, <a href={L('/docs/connect-cursor/')}>Cursor</a>,
+       <a href={L('/docs/connect-codex/')}>Codex</a>). Ensuite, ce que l'un d'eux enregistre sur vous,
+       les autres peuvent le retrouver.</p>
+  </section>
+
+  <section id="test">
+    <h2>Notre test</h2>
+    <p>Nous avons essayé avec Cursor, qui lisait une mémoire partagée contenant environ 15
+       informations sur une personne, enregistrées auparavant par une autre application. Les
+       questions étaient du genre que l'on pose vraiment, et deux étaient conçues pour le piéger :
+       l'une portait sur quelque chose que la mémoire ne contenait pas, l'autre était une question
+       piège.</p>
+
+    <BarChart
+      id="chart-cursor-recall"
+      title="5 questions à Cursor sur des informations enregistrées par une autre application"
+      measure="Questions"
+      max={5}
+      bars={[
+        { label: "S'en est souvenu", value: 3, note: 'sur 5' },
+        { label: 'A dit ne pas savoir', value: 1, note: 'sur 5' },
+        { label: 'A évité le piège', value: 1, note: 'sur 5' },
+      ]}
+      source={{ text: "Test de Zaaheen, 5 juin 2026, une version de développement de Zaaheen sur Windows. Retrouvés : l'instrument dont joue la personne, son animal et ce qu'elle collectionne. Ne savait pas, à juste titre : son groupe sanguin, que la mémoire ne contenait pas. Le piège : interrogé sur son chat, il a répondu qu'elle avait un chien." }}
+    />
+
+    <p>Les cinq réponses étaient justes, y compris les deux où la bonne réponse était « non ». Pour
+       une mémoire, ce deuxième point compte autant que le premier : une application qui invente une
+       réponse est pire qu'une application qui dit qu'elle ne sait pas.</p>
+  </section>
+</Learn>

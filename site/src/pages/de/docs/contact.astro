@@ -1,0 +1,53 @@
+---
+// Contact us in German (ADR-113): the answers first, then the address.
+import Guide from '../../../layouts/Guide.astro';
+import Row from '../../../components/Row.astro';
+import CopyBox from '../../../components/CopyBox.astro';
+import { COMPANY } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+
+const L = (href: string) => localize(href, 'de');
+const OUTLINE = [
+  { id: 'answers', title: 'Die meisten Antworten stehen schon hier' },
+  { id: 'email', title: 'Schreib uns eine E-Mail' },
+  { id: 'include', title: 'Was du mitschicken solltest' },
+];
+---
+<Guide
+  path="/de/docs/contact/"
+  lede={`Die meisten Fragen beantworten unsere Anleitungen und die Seite zur Fehlerbehebung. Ist deine nicht dabei, schreib uns an ${COMPANY.email}.`}
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="answers" title="Die meisten Antworten stehen schon hier" where="Dokumente">
+      <ul>
+        <li><a href={L('/docs/troubleshooting/')}>Fehlerbehebung</a>: Fehlermeldungen und ihre Lösungen, und
+            was zu tun ist, wenn eine KI-App Zaaheen nicht nutzt.</li>
+        <li><a href={L('/docs/getting-started/')}>Erste Schritte</a>: Zaaheen installieren und deine erste
+            KI-App verbinden.</li>
+        <li><a href={L('/pricing/')}>Preise</a> und die <a href="/refunds/">Erstattungsrichtlinie (auf
+            Englisch)</a>: deine Testphase, dein Abo und Erstattungen.</li>
+      </ul>
+      <p>Auch deine KI-App kann nachschlagen: Bitte sie, in der Hilfe von Zaaheen unter
+         <a href="/llms.txt">zaaheen.com/llms.txt</a> (auf Englisch) nachzusehen.</p>
+    </Row>
+
+    <Row level={2} id="email" title="Schreib uns eine E-Mail" where="Jede Frage">
+      <p>Schreib uns an <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>. Öffnet der Link dein
+         E-Mail-Programm nicht, kopiere die Adresse:</p>
+      <CopyBox text={COMPANY.email} />
+    </Row>
+
+    <Row level={2} id="include" title="Was du mitschicken solltest" where="Damit wir gleich beim ersten Mal helfen können">
+      <ul>
+        <li>Windows oder Mac.</li>
+        <li>Welche KI-App du genutzt hast.</li>
+        <li>Den genauen Wortlaut jeder Fehlermeldung.</li>
+        <li>Bei einem Problem in der App ihr Aktivitätsprotokoll: Wähle in Settings <em>Save activity
+            record…</em> und häng die Datei an. Es zeigt uns die App-Version und was passiert ist, und es
+            enthält keine deiner Erinnerungen.</li>
+      </ul>
+      <p>Schick uns nie dein Passwort oder einen Anmeldecode. Wir fragen nie danach.</p>
+    </Row>
+  </section>
+</Guide>

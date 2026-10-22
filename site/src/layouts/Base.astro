@@ -10,6 +10,8 @@ import Footer from '../components/Footer.astro';
 import { SITE, NAV, ACCOUNT, RELEASE, absolute, type PageEntry } from '../data/site';
 import { lastModified, publishedDate } from '../lib/lastmod';
 import { graphFor } from '../lib/seo';
+import { LANGS, LOCALES, alternatesOf, langOf, localize, switchTo } from '../i18n/locales';
+import { t } from '../i18n/ui';
 
 interface Props {
   page: PageEntry;
@@ -26,15 +28,23 @@ const published = page.heading ? publishedDate(page.sources, modified) : undefin
 const jsonLd = noindex ? null : graphFor(page, modified, published);
 // Guides are articles to link previews as well as to search (SEO audit, session 90).
 const isArticle = Boolean(page.heading && !page.contact);
+// The page's language and its other language versions (ADR-113 D1, D4). A
+// translated page and its English original name each other, plus x-default.
+const lang = langOf(page.path);
+const locale = LOCALES[lang];
+const alternates = noindex ? [] : alternatesOf(page.path);
+const L = (href: string) => localize(href, lang);
 ---
 <!doctype html>
-<html lang={SITE.lang}>
+<html lang={locale.htmlLang}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{page.title}</title>
 <meta name="description" content={page.description}>
 {noindex ? <meta name="robots" content="noindex"> : <link rel="canonical" href={canonical}>}
+{alternates.map((a) => <link rel="alternate" hreflang={LOCALES[a.lang].hreflang} href={absolute(a.path)}>)}
+{alternates.length > 0 && <link rel="alternate" hreflang="x-default" href={absolute(alternates[0].path)}>}
 {/* Full-length snippets and large image previews in search and AI answers; restricts nothing (SEO-HANDOFF §1 step 4). */}
 {!noindex && <meta name="robots" content="max-snippet:-1, max-image-preview:large">}
 <meta name="theme-color" content={SITE.themeColor}>
@@ -47,7 +57,8 @@ const isArticle = Boolean(page.heading && !page.contact);
 {isArticle && published && <meta property="article:published_time" content={published}>}
 {isArticle && modified && <meta property="article:modified_time" content={modified}>}
 <meta property="og:site_name" content={SITE.name}>
-<meta property="og:locale" content={SITE.locale}>
+<meta property="og:locale" content={locale.ogLocale}>
+{alternates.filter((a) => a.lang !== lang).map((a) => <meta property="og:locale:alternate" content={LOCALES[a.lang].ogLocale}>)}
 <meta property="og:title" content={page.title}>
 <meta property="og:description" content={page.description}>
 <meta property="og:url" content={canonical}>
@@ -59,17 +70,34 @@ const isArticle = Boolean(page.heading && !page.contact);
 {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
 </head>
 <body>
-<a class="skip" href="#main">Skip to content</a>
+<a class="skip" href="#main">{t(lang, 'Skip to content')}</a>
 
 <header class="site-head">
   <div class="bar">
-    <a class="brand" href="/" aria-label={`${SITE.name} home`}>
-      <Logo size={48} />
-      <span>{SITE.name}</span>
-    </a>
-    <nav aria-label="Main">
+    <div class="bar-left">
+      <!-- The language menu (ADR-113 D5): each language's link goes to this
+           same page in that language, or that language's home page when this
+           page is English-only. Plain <details>: no script, nothing remembered. -->
+      <details class="lang-menu" data-lang-menu>
+        <summary aria-label={t(lang, 'Language: {name}', { name: locale.name })}>
+          <svg class="lang-globe" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1.5 8h13M8 1.5c2 2.2 2 10.8 0 13M8 1.5c-2 2.2-2 10.8 0 13" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          <span>{locale.short}</span>
+        </summary>
+        <ul>
+          {LANGS.map((l) => (
+            <li><a href={switchTo(page.path, l)} hreflang={LOCALES[l].hreflang} lang={LOCALES[l].htmlLang}
+                   aria-current={l === lang ? 'true' : undefined}>{LOCALES[l].name}</a></li>
+          ))}
+        </ul>
+      </details>
+      <a class="brand" href={L('/')} aria-label={t(lang, '{name} home', { name: SITE.name })}>
+        <Logo size={48} />
+        <span>{SITE.name}</span>
+      </a>
+    </div>
+    <nav aria-label={t(lang, 'Main')}>
       {NAV.map((item) => (
-        <a href={item.href} aria-current={page.path === item.href ? 'page' : undefined}>{item.label}</a>
+        <a href={L(item.href)} aria-current={page.path === L(item.href) ? 'page' : undefined}>{t(lang, item.label)}</a>
       ))}
     </nav>
     <!-- Our own account pages on account.zaaheen.com (AUTH-PAGES-DESIGN D1).
@@ -78,10 +106,10 @@ const isArticle = Boolean(page.heading && !page.contact);
          account page, which signs in first when needed (AUTH-PAGES-DESIGN
          S85-1, founder s85: the app's Account tab on the website). -->
     <div class="bar-actions">
-      <a class="bar-signin" href={ACCOUNT.page}>Account</a>
+      <a class="bar-signin" href={ACCOUNT.page}>{t(lang, 'Account')}</a>
       {RELEASE.available
-        ? <a class="bar-start" href={ACCOUNT.signUp}>Get started</a>
-        : <span class="bar-start bar-soon"><span class="bar-soon-long">Coming soon for Windows and Mac</span><span class="bar-soon-short">Coming soon</span></span>}
+        ? <a class="bar-start" href={ACCOUNT.signUp}>{t(lang, 'Get started')}</a>
+        : <span class="bar-start bar-soon"><span class="bar-soon-long">{t(lang, 'Coming soon for Windows and Mac')}</span><span class="bar-soon-short">{t(lang, 'Coming soon')}</span></span>}
     </div>
   </div>
 </header>

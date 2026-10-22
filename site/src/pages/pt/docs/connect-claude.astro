@@ -1,0 +1,20 @@
+---
+// The Claude Desktop connect guide in Brazilian Portuguese (ADR-113). The steps come from
+// the desktop app's own wording, translated in src/i18n/ui/pt.ts.
+import Guide from '../../../layouts/Guide.astro';
+import ConnectSteps from '../../../components/ConnectSteps.astro';
+import { connectOutline } from '../../../data/app-words';
+import { t } from '../../../i18n/ui';
+
+const NAME = 'Claude Desktop';
+const OUTLINE = connectOutline(NAME).map((o) => ({ ...o, title: t('pt', o.title) }));
+---
+<Guide
+  path="/pt/docs/connect-claude/"
+  lede="No Zaaheen, abra a aba Agents, escolha + Connect an AI app, depois Claude Desktop e Save the extension, e instale a extensão no Claude. Depois adicione uma linha às instruções do Claude para que ele use o Zaaheen. Funciona no Chat e no Cowork do Claude."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <ConnectSteps name={NAME} where="Claude › Settings" />
+  </section>
+</Guide>

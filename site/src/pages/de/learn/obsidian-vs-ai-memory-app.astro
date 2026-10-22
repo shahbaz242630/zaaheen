@@ -1,0 +1,113 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../../data/site';
+
+// Learn comparison page 7 in German (ADR-113): the English page's structure,
+// sources and facts with its words translated; the sources are in the English
+// page's header comment. Quotes from Obsidian's site are translated faithfully.
+const CHECKED = '13. Oktober 2026';
+const OUTLINE = [
+  { id: 'short', title: 'Die kurze Antwort' },
+  { id: 'obsidian', title: 'Obsidian als KI-Gedächtnis' },
+  { id: 'app', title: 'Eine Gedächtnis-App' },
+  { id: 'cost', title: 'Was ein Jahr kostet' },
+  { id: 'both', title: 'Beides nutzen' },
+];
+const OBSIDIAN = 'https://obsidian.md/pricing';
+const BASIC = 'https://basicmemory.com/';
+---
+<Learn
+  path="/de/learn/obsidian-vs-ai-memory-app/"
+  lede="Obsidian ist eine Notiz-App, und zwar eine sehr gute: Deine Notizen sind Dateien auf deinem Computer, die du schreibst und liest. In eine Gedächtnis-App schreiben deine KI-Apps, während du mit ihnen sprichst, und durchsuchen sie später. Nimm Obsidian, wenn du das Wissen selbst aufschreiben willst; nimm eine Gedächtnis-App, wenn deine KI-Apps sich an dich erinnern sollen, ohne dass du Notizen führst."
+  outline={OUTLINE}
+>
+  <section id="short">
+    <h2>Die kurze Antwort</h2>
+    <p>Obsidian wird auf zwei Arten als KI-Gedächtnis genutzt: Notizen in einen Chat einfügen oder den
+       Vault über ein Community-Plugin oder ein Werkzeug wie Basic Memory mit einer KI-App verbinden. Das
+       funktioniert, und viele mögen es, weil jede Erinnerung eine Notiz ist, die sie öffnen und
+       korrigieren können. Der Preis dafür: Du pflegst die Notizen selbst, und KI-Apps damit zu
+       verbinden braucht etwas Einrichtung.</p>
+  </section>
+
+  <section id="obsidian">
+    <h2>Obsidian als KI-Gedächtnis</h2>
+    <p>Obsidian ist für die private Nutzung kostenlos, nach eigenen Worten „Free without limits“ (kostenlos ohne Einschränkungen). Die Synchronisierung zwischen Geräten kostet 4 USD pro Monat bei jährlicher
+       Abrechnung, und Obsidian sagt, synchronisierte Notizen seien mit AES-256-Ende-zu-Ende-Verschlüsselung
+       geschützt, „preventing us from reading it“ (sodass wir sie nicht lesen können) (<a href={OBSIDIAN}>Preise von Obsidian</a>). Es
+       läuft auch auf dem Handy.</p>
+    <p>Obsidian selbst verbindet sich nicht mit KI-Apps. Damit Claude oder Cursor deinen Vault lesen und
+       beschreiben können, fügst du ein Community-Plugin hinzu oder ein separates Werkzeug wie Basic
+       Memory, das kostenlos und Open Source ist und einfaches Markdown schreibt, das Obsidian öffnen
+       kann (<a href={BASIC}>Website von Basic Memory</a>). Dieses Werkzeug braucht Python und etwas
+       Einrichtung.</p>
+  </section>
+
+  <section id="app">
+    <h2>Eine Gedächtnis-App</h2>
+    <p>Eine Gedächtnis-App ist dafür gebaut, dass die KI sie nutzt. Deine Apps speichern beim Reden kurze
+       Fakten, etwa eine Vorliebe, eine Frist oder den Namen einer Person, und schlagen sie später nach,
+       ohne dass jemand sie bitten muss, eine Notiz zu öffnen. Zaaheen, das wir machen, bewahrt dieses
+       Gedächtnis verschlüsselt auf deinem Computer auf und teilt es zwischen Claude Desktop, Claude
+       Code, Cursor, der ChatGPT-App, Codex und anderen Apps. Du kannst deine Erinnerungen in der App
+       sehen und löschen, aber du schreibst sie nicht als Notizen.</p>
+
+    <MemoryFlow
+      id="flow-obsidian"
+      from="ChatGPT"
+      to="Claude Code"
+      fact="Projektfrist: 30. Nov."
+      others={['Cursor']}
+      caption="Eine Gedächtnis-App speichert einen Fakt aus einem Chat von selbst, ohne dass du eine Notiz schreibst, und deine anderen KI-Apps finden ihn später dort."
+    />
+
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">Obsidian (mit einem KI-Plugin)</th><th scope="col">Zaaheen</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Wer das Gedächtnis schreibt</th><td>Vor allem du; die KI kann über ein Plugin Notizen hinzufügen</td><td>Deine KI-Apps, während du mit ihnen sprichst</td></tr>
+        <tr><th scope="row">Als Notizen lesbar?</th><td>Ja, jede Notiz ist eine Datei</td><td>Du siehst und löschst Erinnerungen in der App; nicht als Dateien</td></tr>
+        <tr><th scope="row">KI-Apps</th><td>Über Community-Plugins oder Werkzeuge wie Basic Memory</td><td>Eingebaut, über den Tab <em>Agents</em></td></tr>
+        <tr><th scope="row">Verschlüsselung</th><td>Ende-zu-Ende bei Obsidian Sync</td><td>Auf deinem Computer</td></tr>
+        <tr><th scope="row">Handys</th><td>Ja</td><td>Nein</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">Stand {CHECKED}, von den Websites von Obsidian und Basic Memory, Änderungen
+       möglich. Den aktuellen Stand findest du über die Links oben.</p>
+  </section>
+
+  <section id="cost">
+    <h2>Was ein Jahr kostet</h2>
+    <BarChart
+      id="chart-obsidian-year"
+      title="Ein Jahr für eine Person, in US-Dollar"
+      measure="US-Dollar pro Jahr"
+      max={60}
+      bars={[
+        { label: 'Obsidian', value: 0, note: 'privat kostenlos' },
+        { label: 'Basic Memory (lokal)', value: 0, note: 'kostenlos' },
+        { label: 'Obsidian mit Sync', value: 48, note: '4 USD/Monat, jährlich' },
+        { label: 'Zaaheen', value: PRICES.yearly, note: 'Jahrestarif' },
+      ]}
+      source={{ text: `Website des jeweiligen Unternehmens und unsere, Preise mit Stand ${CHECKED}, Änderungen möglich.` }}
+    />
+  </section>
+
+  <section id="both">
+    <h2>Beides nutzen</h2>
+    <p>Die beiden konkurrieren weniger, als es aussieht. Viele bewahren ihre Notizen und Dokumente in
+       Obsidian auf und überlassen einer Gedächtnis-App die kleinen, persönlichen Fakten, nach denen ihre
+       KI-Apps immer wieder fragen. Wenn du gern Notizen schreibst und sie auf dem Handy haben willst,
+       reicht dir Obsidian allein vielleicht völlig. Wenn deine KI-Apps sich einfach an dich erinnern
+       sollen, teste Zaaheen {TRIAL.days} Tage kostenlos.</p>
+    <p>Wo Zaaheen nicht mithält: keine Handy-Version; nur Windows und Macs mit Apple-Chips; ein Computer,
+       noch ohne Synchronisierung; deine Erinnerungen sind keine Dateien, die du von Hand bearbeiten
+       kannst.</p>
+    <p class="learn-note">Obsidian und Basic Memory sind Namen ihrer Inhaber. Wir haben keine Verbindung
+       zu einem der beiden. Fakten geprüft am {CHECKED}; wenn hier etwas falsch oder veraltet ist,
+       schreib uns an <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>, und wir korrigieren es.</p>
+  </section>
+</Learn>

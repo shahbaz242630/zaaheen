@@ -1,0 +1,303 @@
+---
+// The home page in German (ADR-113): the English page's structure with its
+// words translated. The pictures of the app (the demo window, its buttons)
+// stay in English, as the app shows them. Translated from the English page
+// whose fingerprint src/i18n/translated-from.json records.
+import Base from '../../layouts/Base.astro';
+import Download from '../../components/Download.astro';
+import { COMPANY, DEMO_APPS, PICTURED_APPS, PRICES, RELEASE, TRIAL, pageFor, verifiedAppList } from '../../data/site';
+import { localize } from '../../i18n/locales';
+
+const page = pageFor('/de/');
+const L = (href: string) => localize(href, 'de');
+const apps = verifiedAppList().replace(/ and /, ' und ');
+const monthly = `${PRICES.monthly} USD pro Monat`;
+const yearly = `${PRICES.yearly} USD pro Jahr`;
+
+const PROMISES = [
+  { key: 'local', text: 'Bleibt auf deinem Computer' },
+  { key: 'trial', text: `${TRIAL.days} Tage kostenlos testen, ohne Karte` },
+  { key: 'delete', text: 'Alles in einem Schritt löschen' },
+];
+
+// The demo window is a picture of the app, which is in English.
+const SAID_ONCE_APP = 'Prefers short answers in plain English';
+const START = [
+  { type: 'fact', text: SAID_ONCE_APP, when: '2 days ago' },
+  { type: 'how-to', text: 'Book meetings after 10am, never on Fridays', when: 'last week' },
+];
+const SAID_ONCE = 'Mag kurze Antworten in einfacher Sprache';
+const MEMORIES = [
+  { type: 'Fakt', text: SAID_ONCE },
+  { type: 'Anleitung', text: 'Termine nach 10 Uhr legen, nie freitags' },
+];
+
+const FAQ: { q: string; a: string; link?: { href: string; text: string } }[] = [
+  {
+    q: 'Was macht Zaaheen?',
+    a: `Zaaheen gibt deinen KI-Apps ein gemeinsames Gedächtnis über dich. Erzähl ${apps} etwas einmal, und jede App, die du verbindest, kann sich später daran erinnern. Zaaheen läuft auf deinem Windows-PC oder Mac und speichert deine Erinnerungen dort, verschlüsselt.`,
+  },
+  {
+    q: 'Warum Zaaheen und nicht ein anderes KI-Gedächtnis-Tool?',
+    a: `Zaaheen verbindet drei Dinge. Deine Erinnerungen bleiben verschlüsselt auf deinem eigenen Computer, und unsere Server bekommen sie nie. Ein einziges Gedächtnis funktioniert in all deinen verbundenen KI-Apps, statt eines eigenen in jeder App. Und du behältst die Kontrolle: Du siehst jede Erinnerung, vergisst jede einzelne, lädst alle herunter oder löschst alles in einem Schritt. Zaaheen kostet ${monthly} oder ${yearly} nach einer kostenlosen Testphase von ${TRIAL.days} Tagen ohne Karte. Unsere Preisseite vergleicht es mit anderen Gedächtnis-Tools, geprüft auf der Website der jeweiligen Firma.`,
+    link: { href: L('/pricing/#compare'), text: 'Zaaheen mit anderen Gedächtnis-Tools vergleichen' },
+  },
+  {
+    q: 'Wo speichert Zaaheen meine Erinnerungen?',
+    a: 'Auf deinem eigenen Computer, verschlüsselt, und sie werden nie hochgeladen. Du kannst sie in Settings mit Move my memories in einen anderen Ordner oder auf ein anderes Laufwerk verschieben.',
+  },
+  {
+    q: 'Kann ich sehen und löschen, was meine KI-Apps über mich wissen?',
+    a: 'Ja. Jede Erinnerung steht in der Zaaheen-App, wo du sie durchsuchen oder jede einzelne vergessen kannst. Delete everything in Settings vernichtet den Schlüssel und die Gedächtnis-Dateien in einem Schritt.',
+  },
+  {
+    q: 'Brauche ich ein Konto, um Zaaheen zu nutzen?',
+    a: `Ja. Beim ersten Öffnen der App erstellst du ein Konto oder meldest dich an, und diese erste Anmeldung in der App startet deine kostenlose Testphase von ${TRIAL.days} Tagen. Das Konto kümmert sich um die Anmeldung und dein Abo. Deine Erinnerungen speichert es nie.`,
+  },
+  {
+    q: 'Muss ich wissen, was MCP ist?',
+    a: `Nein. MCP ist der übliche Weg, über den KI-Apps sich mit Tools verbinden, und die Zaaheen-App verbindet ${apps} für dich. Für andere KI-Apps, die MCP unterstützen, zeigt die Dokumente-Seite, wie es geht.`,
+    link: { href: L('/docs/#connecting'), text: 'So verbindest du deine KI-Apps' },
+  },
+  {
+    q: 'Erinnert sich Claude Code zwischen Sitzungen?',
+    a: 'Claude Code speichert Notizen für jedes Projekt in Dateien wie CLAUDE.md. Verbinde es einmal mit Zaaheen, mit einem einzigen Befehl, und es kann auch speichern, was es über dich und deine Arbeitsweise lernt, und sich in jeder späteren Sitzung und in jedem Projekt daran erinnern. Deine anderen verbundenen KI-Apps teilen dieselben Erinnerungen.',
+    link: { href: L('/learn/does-claude-code-remember-between-sessions/'), text: 'Erinnert sich Claude Code zwischen Sitzungen?' },
+  },
+  {
+    q: 'Erinnert sich Cursor zwischen Chats an mich?',
+    a: 'Ja, sobald Cursor mit Zaaheen verbunden ist. Es kann beim Arbeiten speichern, was es über dich lernt, und das in jedem späteren Chat oder Projekt nachschlagen. Cursor schaut von selbst in Zaaheen nach, wenn du etwas über dich fragst.',
+    link: { href: L('/docs/connect-cursor/'), text: 'Cursor verbinden' },
+  },
+  {
+    q: 'Kann ich ein Gedächtnis für Claude Code, Cursor und Codex nutzen?',
+    a: 'Ja. Verbinde jedes davon einmal mit Zaaheen, dann lesen und speichern alle im selben Gedächtnis auf deinem Computer. Eine Vorliebe, die du Claude Code erzählst, ist da, wenn du Cursor oder Codex öffnest.',
+    link: { href: L('/learn/one-memory-across-claude-code-cursor-and-codex/'), text: 'Ein Gedächtnis für Claude Code, Cursor und Codex' },
+  },
+  {
+    q: 'Wie wechsle ich zwischen ChatGPT und Claude, ohne den Kontext zu verlieren?',
+    a: 'Verbinde beide mit Zaaheen. Was du einer der beiden Apps erzählst, landet in einem Gedächtnis auf deinem Computer, also kann sich die andere nach dem Wechsel daran erinnern. Das eingebaute Gedächtnis der Apps lässt sich noch nicht mit einem Klick übernehmen, also bitte die App, die du bisher genutzt hast, das Wichtige in Zaaheen zu speichern.',
+    link: { href: L('/learn/share-memory-between-chatgpt-and-claude/'), text: 'So teilen ChatGPT und Claude ein Gedächtnis' },
+  },
+  {
+    q: 'Was ist ein MCP-Gedächtnis-Server?',
+    a: 'MCP ist der übliche Weg, über den KI-Apps sich mit Tools verbinden. Ein Gedächtnis-Server ist ein Tool, das KI-Apps einen Ort gibt, an dem sie Fakten über dich speichern und später nachschlagen können. Zaaheen ist so einer: Es läuft auf deinem eigenen Computer und lässt verbundene Apps Erinnerungen lesen, durchsuchen, speichern, korrigieren und vergessen.',
+    link: { href: L('/docs/#connecting'), text: 'So verbindest du deine KI-Apps' },
+  },
+  {
+    q: 'Funktioniert ChatGPT mit Zaaheen?',
+    a: 'Ja, die ChatGPT-App für deinen Computer. Füge Zaaheen in den Einstellungen von ChatGPT unter Plugins und dann MCP hinzu und nutze es in einem Work- oder Codex-Chat. Der Chat-Modus von ChatGPT und ChatGPT im Webbrowser können sich nicht mit Apps auf deinem Computer verbinden.',
+    link: { href: L('/docs/connect-chatgpt/'), text: 'ChatGPT verbinden' },
+  },
+  {
+    q: 'Nutzt Zaaheen selbst KI?',
+    a: 'Ja, drei kleine KI-Modelle, die auf deinem eigenen Computer laufen: eines versteht Bedeutungen, eines sortiert die Ergebnisse und eines räumt auf. Einmal heruntergeladen arbeiten sie offline, und deine Erinnerungen laufen nie über einen Online-KI-Dienst. Zaaheen gibt deinen KI-Apps die passenden Erinnerungen so, wie sie gespeichert sind, und die App, die du nutzt, schreibt die Antwort.',
+  },
+  {
+    q: 'Was macht das Aufräumen?',
+    a: 'Es fasst fast doppelte Erinnerungen zusammen, klärt Fakten, die sich widersprechen, zugunsten des neueren und nimmt Erinnerungen, die du nie nutzt, aus dem täglichen Abruf heraus. Es löscht nie eine Erinnerung. Die Einrichtung schaltet es ein, jeden Tag um 3 Uhr nachts, außer du wählst Not now, und du kannst es unter Consolidation ändern oder ausschalten. Was es braucht, etwa 2,5 GB, wird einmal bei der Einrichtung heruntergeladen.',
+  },
+  {
+    q: 'Wer macht Zaaheen?',
+    a: `Zaaheen kommt von ${COMPANY.legalName}, einem in Dubai lizenzierten Unternehmen. Wir bauen Software für Menschen, die jeden Tag KI nutzen, und dieses private Gedächtnis für deine KI-Apps ist unser erstes Produkt. Du erreichst uns unter ${COMPANY.email}.`,
+  },
+];
+---
+<Base page={page}>
+  <section class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">Ein privates Gedächtnis für deine KI-Apps</p>
+      <h1>Ein Gedächtnis für alle deine KI-Apps.</h1>
+      <p class="lede">Erzähl einer KI-App etwas einmal, und jede App, die du verbindest, erinnert sich daran.
+         Deine Erinnerungen liegen sicher auf deinem eigenen Computer, verschlüsselt, und du entscheidest,
+         welche Apps sie lesen dürfen.</p>
+      <div class="cta-row">
+        <Download />
+        <span class="cta-meta">Version {RELEASE.version}</span>
+      </div>
+      <p class="cta-note">Für {RELEASE.windows.tested} (64-Bit) oder einen Mac mit Apple-Chip (M1 oder
+         neuer). {TRIAL.days} Tage kostenlos, danach {monthly}. <a href={L('/pricing/')}>Preise ansehen</a></p>
+      <p class="cta-note">Die App ist auf Englisch.</p>
+    </div>
+
+    <!-- A picture of the app, animated by scripts/hero.js. Decorative and in
+         English, as the app is; every claim it makes is also in the text. -->
+    <div class="demo" id="hero-demo" data-apps={DEMO_APPS.join(',')}>
+      <div class="win" aria-hidden="true">
+        <div class="win-bar">
+          <span class="win-dot"></span><span class="win-dot"></span><span class="win-dot"></span>
+          <span class="win-title" id="demo-title">Zaaheen · Memories</span>
+        </div>
+        <div class="win-body">
+          <div class="win-side" id="demo-tabs">
+            <div class="win-tab is-on" data-tab="Memories">Memories</div>
+            <div class="win-tab" data-tab="Agents">Agents</div>
+            <div class="win-tab" data-tab="Consolidation">Consolidation</div>
+            <div class="win-tab" data-tab="Settings">Settings</div>
+          </div>
+          <div class="win-pane" id="demo-pane">
+            <div class="pane">
+              <div class="pane-title">Recently remembered</div>
+              {START.map((m) => (
+                <div class="mrow">
+                  <span class="mrow-ty">{m.type}</span>
+                  <span class="mrow-tx">{m.text}</span>
+                  <span class="mrow-wh">{m.when}</span>
+                </div>
+              ))}
+              <div class="pane-foot"><span class="mono-note">2 memories · encrypted on this computer</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ul class="demo-chips">
+        {PROMISES.map((p) => (
+          <li class="demo-chip" data-promise={p.key}><span class="chip-dot"></span>{p.text}</li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <section class="problem">
+    <div class="wrap">
+      <div class="section-head is-centred">
+        <p class="eyebrow">Das Problem</p>
+        <h2>Jede KI-App fängt bei null an. Du erklärst dich immer wieder neu.</h2>
+      </div>
+      <div class="compare">
+        <div class="compare-card is-before">
+          <div class="compare-head">
+            <h3>Ohne Zaaheen</h3>
+            <span class="mono-note">{PICTURED_APPS.length} Apps · {PICTURED_APPS.length} getrennte Gedächtnisse</span>
+          </div>
+          <div class="app-trio">
+            {PICTURED_APPS.map((a) => (
+              <div class="app-card">
+                <div class="app-name">{a}</div>
+                <div class="app-quote">"Ich mag kurze Antworten in einfacher Sprache…"</div>
+              </div>
+            ))}
+          </div>
+          <p class="compare-note">Jede App führt ihre eigenen Notizen über dich, irgendwo, wo du sie nicht siehst,
+             und sie reden nicht miteinander.</p>
+        </div>
+        <div class="compare-card is-after">
+          <div class="compare-head">
+            <h3>Mit Zaaheen</h3>
+            <span class="mono-note is-sage">{PICTURED_APPS.length} Apps · 1 Gedächtnis</span>
+          </div>
+          <div class="shared">
+            <div class="app-trio">
+              {PICTURED_APPS.map((a) => <div class="app-tile">{a}</div>)}
+            </div>
+            <div class="shared-line"></div>
+            <div class="shared-memory">
+              <div class="shared-text">{SAID_ONCE}</div>
+              <div class="mono-note is-sage">ein Gedächtnis · auf deinem Computer</div>
+            </div>
+          </div>
+          <p class="compare-note">Sag es einmal. Jede App, die du verbindest, liest dasselbe Gedächtnis,
+             gespeichert auf deinem eigenen Computer.</p>
+        </div>
+      </div>
+    </div>
+    <div class="strip">
+      <div class="strip-row">
+        <div class="strip-item">
+          <h3>Es bleibt auf deinem Computer</h3>
+          <p>Gespeichert und verschlüsselt auf deinem Gerät, nie hochgeladen.
+             <a href="/ai-and-your-data/">Was wir sehen können und was nicht (auf Englisch)</a></p>
+        </div>
+        <div class="strip-item">
+          <h3>Deine KI-Apps teilen es</h3>
+          <p>Verbinde {apps} einmal. Andere Apps, die MCP unterstützen, sollten genauso funktionieren.
+             <a href={L('/docs/#connecting')}>So verbindest du jede App</a></p>
+        </div>
+        <div class="strip-item">
+          <h3>Du kannst alles löschen</h3>
+          <p>Ein Klick vernichtet den Schlüssel und die Dateien.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="how">
+    <div class="wrap">
+      <div class="how-head">
+        <div class="section-head">
+          <p class="eyebrow">So funktioniert es</p>
+          <h2>Einmal einrichten. Danach erinnert sich jede App.</h2>
+        </div>
+        <Download small />
+
+      </div>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-text">
+            <span class="step-no">01</span>
+            <h3>Installieren und anmelden</h3>
+            <p>Lade die App für Windows oder Mac herunter und erstelle darin ein Konto oder melde dich an.
+               Deine kostenlose Testphase von {TRIAL.days} Tagen beginnt, wenn du dich zum ersten Mal in der
+               Zaaheen-App anmeldest, und du brauchst keine Karte. Dein Konto speichert nie deine Erinnerungen.
+               <a href={L('/docs/getting-started/')}>Anleitung zu Installation und Einrichtung</a></p>
+          </div>
+          <div class="snippet">
+            <div class="snippet-title">Create your Zaaheen account, or sign in.</div>
+            <div class="snippet-pills"><span class="pill-dark">Create an account</span><span class="pill-dark">Sign in</span></div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-text">
+            <span class="step-no">02</span>
+            <h3>Verbinde deine KI-Apps</h3>
+            <p>Verbinde {apps} einmal aus der App heraus. Andere Apps, die MCP unterstützen, sollten
+               genauso funktionieren.</p>
+          </div>
+          <div class="snippet snippet-list">
+            {PICTURED_APPS.map((a, i) => (
+              <div class={i < 2 ? 'srow' : 'srow is-off'}>
+                <span class="srow-name"><span class="chip-dot"></span>{a}</span>
+                <span class="mono-note">{i < 2 ? 'connected' : '+ connect'}</span>
+              </div>
+            ))}
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-text">
+            <span class="step-no">03</span>
+            <h3>Deine verbundenen KI-Apps erinnern sich</h3>
+            <p>Was du einer App erzählst, können die anderen abrufen. Jede Erinnerung steht in der
+               App, wo du sie durchsuchen oder vergessen kannst.</p>
+          </div>
+          <div class="snippet snippet-mems">
+            {MEMORIES.map((m) => (
+              <div class="mrow is-card">
+                <span class="mrow-ty">{m.type}</span>
+                <span class="mrow-tx">{m.text}</span>
+              </div>
+            ))}
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="faq" class="faq">
+    <div class="wrap">
+      <div class="section-head is-centred">
+        <p class="eyebrow">Häufige Fragen</p>
+        <h2>Was Menschen über Zaaheen fragen.</h2>
+      </div>
+      <div class="faq-list">
+        {FAQ.map((f) => (
+          <details class="faq-item">
+            <summary>{f.q}</summary>
+            <p>{f.a}{f.link && <> <a href={f.link.href}>{f.link.text}</a>.</>}</p>
+          </details>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <script src="../../scripts/hero.js"></script>
+</Base>

@@ -1,0 +1,102 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+
+// Learn article 4 in Portuguese (ADR-113): the English page's structure with
+// its words translated. Sources and measurements as in the English page's
+// header comment.
+const OUTLINE = [
+  { id: 'enough', title: 'Quando um arquivo basta' },
+  { id: 'short', title: 'Onde um arquivo não dá conta' },
+  { id: 'ours', title: 'Nossos próprios arquivos' },
+  { id: 'both', title: 'Use os dois' },
+];
+const CLAUDE_DOCS = 'https://code.claude.com/docs/en/memory';
+---
+<Learn
+  path="/pt/learn/ai-memory-tool-or-notes-file/"
+  lede="Para um projeto em uma ferramenta de programação, um arquivo de anotações como CLAUDE.md ou AGENTS.md costuma ser tudo de que você precisa. Ele deixa de bastar quando você usa vários apps de IA, quando os fatos são sobre você e não sobre o projeto, ou quando o arquivo cresce além do que o app lê no início."
+  outline={OUTLINE}
+>
+  <section id="enough">
+    <h2>Quando um arquivo de anotações basta</h2>
+    <p>Muitos desenvolvedores dizem que um simples arquivo de anotações é toda a memória de que uma
+       IA precisa, e para algumas tarefas eles têm razão. Um arquivo é grátis, você consegue ler cada
+       palavra dele, ele fica no projeto junto com o código e nada acontece com ele que você não
+       tenha escrito.</p>
+    <p>Um arquivo é a ferramenta certa quando:</p>
+    <ul>
+      <li>Você usa um app de IA, quase sempre em um projeto.</li>
+      <li>O que ele precisa saber é sobre o projeto: como compilar, como testar, o que evitar.</li>
+      <li>Você mesmo o mantém curto e atualizado.</li>
+    </ul>
+    <p>O Claude Code lê o CLAUDE.md, o Cursor lê as regras dele, e os três, Claude Code, Cursor e
+       Codex, conseguem ler um AGENTS.md. Para regras do projeto, um AGENTS.md versionado junto com o
+       código é difícil de superar.</p>
+  </section>
+
+  <section id="short">
+    <h2>Onde um arquivo não dá conta</h2>
+    <ul>
+      <li><strong>Cada app lê um arquivo diferente, ou nenhum.</strong> Os apps de conversa do
+          ChatGPT e do Claude não leem os arquivos de anotações das suas ferramentas de programação;
+          a memória deles fica na conta de cada empresa.</li>
+      <li><strong>Fatos sobre você não pertencem a um projeto só.</strong> Como você gosta das
+          respostas, as ferramentas que prefere, no que está trabalhando este mês: coloque isso no
+          arquivo de um repositório e o próximo projeto não terá nada disso.</li>
+      <li><strong>Alguém precisa escrever.</strong> Um arquivo só sabe o que você, ou o app,
+          lembrou de adicionar, e manter os arquivos de três apps sincronizados é uma tarefa que
+          acaba ficando para trás.</li>
+      <li><strong>Só uma parte é lida no início.</strong> A Anthropic sugere manter cada CLAUDE.md
+          abaixo de 200 linhas e carrega só as primeiras 200 linhas ou 25KB do índice de memória do
+          Claude Code quando uma sessão começa (<a href={CLAUDE_DOCS}>documentação da Anthropic</a>).
+          Além disso, um arquivo mais longo custa mais e é menos seguido.</li>
+    </ul>
+  </section>
+
+  <section id="ours">
+    <h2>Nossos próprios arquivos, depois de cinco meses</h2>
+    <p>Construímos o Zaaheen com o Claude Code e mantemos os dois tipos de anotação, então contamos
+       as nossas:</p>
+
+    <BarChart
+      id="chart-notes-lines"
+      title="Nossas anotações do Claude Code após cinco meses, em linhas, comparadas à orientação de 200 linhas"
+      measure="Linhas"
+      max={200}
+      bars={[
+        { label: 'Nosso CLAUDE.md', value: 147, note: 'linhas' },
+        { label: 'Nosso índice de memória', value: 155, note: 'linhas' },
+        { label: 'Orientação da Anthropic', value: 200, note: 'linhas' },
+      ]}
+      source={{ text: 'Projeto do próprio Zaaheen, medido em 6 de outubro de 2026. O número de 200 linhas vem da documentação do Claude Code da Anthropic.', href: CLAUDE_DOCS }}
+    />
+
+    <p>Os dois estão perto do limite, e só ficam abaixo dele porque os enxugamos: uma linha por
+       memória, detalhes movidos para arquivos separados, entradas antigas fundidas ou removidas. Um
+       arquivo de anotações funciona, mas dá trabalho de manutenção.</p>
+  </section>
+
+  <section id="both">
+    <h2>Use os dois, para coisas diferentes</h2>
+    <p>A questão não é bem arquivo ou ferramenta. Mantenha as regras do projeto em um arquivo junto
+       com o código. Mantenha o que é verdade sobre você em uma memória que todos os apps de IA
+       alcançam, para que isso fique fora dos arquivos do projeto e você nunca precise escrever três
+       vezes.</p>
+
+    <MemoryFlow
+      id="flow-notes-shared"
+      from="ChatGPT"
+      to="Claude Code"
+      fact="Respostas sem jargão"
+      others={['Cursor', 'Claude']}
+      caption="Uma preferência sobre você, contada uma vez ao ChatGPT, é salva em uma memória no seu computador. O Claude Code, o Cursor e o Claude a recuperam sem nenhum arquivo para manter sincronizado."
+    />
+
+    <p>O Zaaheen é uma memória desse tipo, para Windows e Mac: seus apps de IA salvam o que aprendem
+       sobre você enquanto trabalham e encontram de novo quando importa, e suas memórias ficam
+       criptografadas no seu próprio computador. Você vê cada memória no app e pode esquecer
+       qualquer uma.</p>
+  </section>
+</Learn>

@@ -1,4 +1,5 @@
 import { SITE, RELEASE, COMPANY, PRICES, absolute, breadcrumbsFor, type PageEntry } from '../data/site';
+import { LOCALES, englishPath, langOf } from '../i18n/locales';
 
 // A subscription plan as a schema.org Offer: the price per billing period.
 const plan = (name: string, price: number, billingDuration: 'P1M' | 'P1Y') => ({
@@ -24,6 +25,8 @@ export function graphFor(page: PageEntry, modified?: string, published?: string)
   const website = `${SITE.origin}/#website`;
   const app = `${SITE.origin}/#app`;
   const url = absolute(page.path);
+  // The page's own language (ADR-113 D4); the WebSite itself is English.
+  const inLanguage = LOCALES[langOf(page.path)].htmlLang;
 
   const graph: Record<string, unknown>[] = [
     {
@@ -66,10 +69,10 @@ export function graphFor(page: PageEntry, modified?: string, published?: string)
       name: page.title,
       description: page.description,
       isPartOf: { '@id': website },
-      inLanguage: SITE.lang,
+      inLanguage,
       // The Pricing page is about the app too: its prices are the app's offers
       // (SEO audit, session 90).
-      ...(page.path === '/' || page.path === '/pricing/' ? { about: { '@id': app } } : {}),
+      ...(englishPath(page.path) === '/' || englishPath(page.path) === '/pricing/' ? { about: { '@id': app } } : {}),
       ...(modified ? { dateModified: modified } : {}),
     },
   ];
@@ -108,7 +111,7 @@ export function graphFor(page: PageEntry, modified?: string, published?: string)
       '@id': `${url}#article`,
       headline: page.heading,
       description: page.description,
-      inLanguage: SITE.lang,
+      inLanguage,
       mainEntityOfPage: { '@id': `${url}#webpage` },
       image: absolute(SITE.ogImage),
       author: { '@id': org },

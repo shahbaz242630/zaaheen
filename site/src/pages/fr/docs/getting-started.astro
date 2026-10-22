@@ -1,0 +1,108 @@
+---
+// Getting started in French (ADR-113): install and first launch, with the
+// app's own labels in English, as the app shows them.
+import Guide from '../../../layouts/Guide.astro';
+import Row from '../../../components/Row.astro';
+import Download from '../../../components/Download.astro';
+import { RELEASE, TRIAL } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+
+const L = (href: string) => localize(href, 'fr');
+const win = RELEASE.windows;
+const mac = RELEASE.mac;
+const OUTLINE = [
+  { id: 'before', title: 'Avant de commencer' },
+  { id: 'install', title: 'Installer' },
+  { id: 'set-up', title: 'Configurer' },
+  { id: 'next', title: 'Et ensuite' },
+];
+---
+<Guide
+  path="/fr/docs/getting-started/"
+  lede={`Téléchargez Zaaheen pour Windows ou Mac et installez-le, puis choisissez Begin set up. La configuration prend environ trois minutes : vous vous connectez depuis l’application, ce qui lance votre essai gratuit de ${TRIAL.days} jours (sans carte), vous choisissez où garder vos souvenirs et vous connectez votre première application d’IA. L’application est en anglais.`}
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="before" title="Avant de commencer" where="Windows ou Mac">
+      {!RELEASE.available && <p><strong>Zaaheen pour Windows et Mac arrive bientôt.</strong> Ces
+         étapes décrivent son fonctionnement dès que vous pourrez le télécharger.</p>}
+      <p>Zaaheen {RELEASE.version} est disponible pour Windows 64 bits, testé sur {win.tested}, et pour
+         les Mac avec puce Apple, M1 ou plus récent, testé sur {mac.tested}. Il n’est pas encore disponible
+         pour Linux ni pour les téléphones.</p>
+      <Download small />
+    </Row>
+
+    <Row level={2} id="install" title="Installer" where="Windows ou Mac">
+      <p><strong>Sous Windows,</strong> ouvrez le programme d’installation que vous avez téléchargé. Jusqu’à
+         trois questions peuvent s’afficher en chemin, et c’est normal :</p>
+      <ul>
+        <li><strong>Microsoft Edge indique que le fichier « isn't commonly downloaded ».</strong> Le
+            programme d’installation est récent, Edge ne l’a donc pas encore vu souvent. Choisissez les trois
+            points à côté du téléchargement, puis <em>Keep</em>, <em>Show more</em> et <em>Keep
+            anyway</em>. Chrome ne pose pas la question.</li>
+        <li><strong>Windows indique que l’éditeur est inconnu.</strong> Le programme d’installation n’est
+            pas encore signé ; la signature viendra plus tard. Choisissez <em>More info</em>, puis
+            <em>Run anyway</em>.</li>
+        <li><strong>Windows demande l’autorisation d’administrateur.</strong> Zaaheen s’installe pour tous
+            les utilisateurs de l’ordinateur, Windows le demande donc une fois. Il n’a pas besoin des droits
+            d’administrateur pour fonctionner ensuite.</li>
+      </ul>
+      <p><strong>Sur un Mac,</strong> ouvrez l’image disque que vous avez téléchargée, faites glisser
+         Zaaheen dans le dossier Applications, puis ouvrez Zaaheen depuis Applications. Zaaheen ne
+         fonctionne que depuis cet endroit.</p>
+      <ul>
+        <li><strong>Votre Mac demande s’il faut ouvrir une application téléchargée sur internet.</strong> Il
+            indique le nom du développeur. L’application Mac est signée et vérifiée par Apple. Choisissez
+            <em>Open</em>.</li>
+        <li><strong>Votre Mac peut demander si Zaaheen a le droit d’utiliser votre trousseau.</strong> C’est
+            là qu’est gardée la clé de vos souvenirs. Choisissez <em>Always Allow</em>.</li>
+      </ul>
+      {RELEASE.available && <>
+        <p><strong>Pour vérifier votre téléchargement,</strong> comparez son empreinte (SHA-256) avec celle
+           ci-dessous. Si elles diffèrent, supprimez le fichier et téléchargez-le à nouveau depuis ce site.</p>
+        <ul>
+          <li><strong>Windows</strong> ({win.file}) : <code class="hash">{win.sha256}</code>. Dans
+              PowerShell, exécutez <code>Get-FileHash "$HOME\Downloads\{win.file}"</code>.</li>
+          <li><strong>Mac</strong> ({mac.file}) : <code class="hash">{mac.sha256}</code>. Dans
+              Terminal, exécutez <code>shasum -a 256 ~/Downloads/{mac.file}</code>.</li>
+        </ul>
+      </>}
+    </Row>
+
+    <Row level={2} id="set-up" title="Configurer" where="Begin set up">
+      <p>Ouvrez Zaaheen et choisissez <em>Begin set up</em>. L’application vous guide en cinq étapes :</p>
+      <ol>
+        <li><strong>Votre compte.</strong> Choisissez <em>Create an account</em> ou <em>Sign in</em>. Votre
+            navigateur web s’ouvre. Votre essai gratuit de {TRIAL.days} jours commence la première fois que
+            vous vous connectez depuis l’application Zaaheen, et aucune carte n’est demandée. Vous connecter
+            ne nous transmet jamais vos souvenirs.</li>
+        <li><strong>Où garder vos souvenirs.</strong> L’emplacement habituel convient à la plupart des gens.
+            Vous pourrez le changer plus tard depuis Settings, avec <em>Move my memories…</em>.</li>
+        <li><strong>Votre première application d’IA.</strong> Choisissez l’application que vous utilisez et
+            suivez les étapes, ou choisissez <em>I'll connect one later</em>.</li>
+        <li><strong>Votre premier souvenir.</strong> Dites à Zaaheen quelque chose que vos applications d’IA
+            devraient savoir sur vous, puis choisissez <em>Keep this memory</em>, ou <em>Skip for now</em>.</li>
+        <li><strong>Le rangement.</strong> Zaaheen range votre mémoire de lui-même chaque nuit, sauf si vous
+            choisissez <em>Not now</em>, puis <em>Finish setup</em>.</li>
+      </ol>
+      <p>La première fois, Zaaheen télécharge aussi ce dont il a besoin pour rechercher dans vos souvenirs.
+         Il le fait en arrière-plan, et vous pouvez utiliser Zaaheen pendant ce temps.</p>
+    </Row>
+
+    <Row level={2} id="next" title="Et ensuite" where="Agents">
+      <p>Connectez les applications d’IA que vous utilisez, chacune une fois, depuis l’onglet
+         <em>Agents</em> :</p>
+      <ul>
+        <li><a href={L('/docs/connect-claude/')}>Connecter Claude Desktop</a></li>
+        <li><a href={L('/docs/connect-claude-code/')}>Connecter Claude Code</a></li>
+        <li><a href={L('/docs/connect-cursor/')}>Connecter Cursor</a></li>
+        <li><a href={L('/docs/connect-chatgpt/')}>Connecter ChatGPT</a></li>
+        <li><a href={L('/docs/connect-codex/')}>Connecter Codex</a></li>
+        <li><a href={L('/docs/connect-antigravity/')}>Connecter Antigravity</a></li>
+        <li><a href={L('/docs/connect-other-apps/')}>Connecter d’autres applications d’IA</a></li>
+      </ul>
+      <p>Si quelque chose ne fonctionne pas comme décrit, consultez <a href={L('/docs/troubleshooting/')}>Résoudre
+         les problèmes courants</a>.</p>
+    </Row>
+  </section>
+</Guide>

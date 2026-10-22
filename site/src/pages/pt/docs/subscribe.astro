@@ -1,0 +1,78 @@
+---
+// How to subscribe, in Brazilian Portuguese (ADR-113): the English guide's
+// structure with its words translated. The plan buttons keep the words the
+// app and the Account page show, in English.
+import Guide from '../../../layouts/Guide.astro';
+import Row from '../../../components/Row.astro';
+import Download from '../../../components/Download.astro';
+import { ACCOUNT, PLANS, PRICES, TRIAL } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+
+const L = (href: string) => localize(href, 'pt');
+const monthly = `US$ ${PRICES.monthly} por mês`;
+const yearly = `US$ ${PRICES.yearly} por ano`;
+// The buttons, as the app shows them.
+const yearlyButton = `${PLANS.yearly} (save $${PRICES.monthly * 12 - PRICES.yearly})`;
+const OUTLINE = [
+  { id: 'account', title: '1. Crie sua conta' },
+  { id: 'download', title: '2. Baixe o Zaaheen' },
+  { id: 'trial', title: '3. Entre pelo app' },
+  { id: 'in-the-app', title: '4. Assine pelo app' },
+  { id: 'on-the-website', title: 'Ou assine pelo site' },
+  { id: 'manage', title: 'Mude ou cancele seu plano' },
+];
+---
+<Guide
+  path="/pt/docs/subscribe/"
+  lede={`Crie sua conta, baixe o Zaaheen e entre pelo app: seu teste grátis de ${TRIAL.days} dias começa, sem cartão. Assine quando quiser, por ${monthly} ou ${yearly}, pelo app ou pela sua página Account. Uma assinatura vale para a sua conta em todos os computadores em que você entrar.`}
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="account" title="1. Crie sua conta" where="Seu navegador">
+      <p><a href={ACCOUNT.signUp}>Crie sua conta do Zaaheen</a> com seu e-mail ou com o Google. Enviamos um código
+         para o seu e-mail para confirmar que é você. Já tem uma conta? <a href={ACCOUNT.signIn}>Entre</a>.</p>    </Row>
+
+    <Row level={2} id="download" title="2. Baixe o Zaaheen" where="Windows ou Mac">
+      <p>Baixe o app para o seu computador e instale. O guia <a href={L('/docs/getting-started/')}>Primeiros
+         passos</a> mostra a instalação passo a passo.</p>
+      <Download small />
+    </Row>
+
+    <Row level={2} id="trial" title="3. Entre pelo app" where="Zaaheen">
+      <p>Abra o Zaaheen e escolha <em>Begin set up</em>, depois entre com o mesmo e-mail ou a mesma conta do Google.
+         Seu teste grátis de {TRIAL.days} dias começa na primeira vez que você entra pelo app. Não precisa de
+         cartão, e tudo funciona durante o teste.</p>
+    </Row>
+
+    <Row level={2} id="in-the-app" title="4. Assine pelo app" where="Settings › Account">
+      <p>Assine quando quiser, durante o teste ou depois dele:</p>
+      <ol>
+        <li>No Zaaheen, abra <strong>Settings</strong> e depois <strong>Account</strong>.</li>
+        <li>Em <strong>Subscribe</strong>, escolha <strong>{PLANS.monthly}</strong> ou
+            <strong>{yearlyButton}</strong>.</li>
+        <li>O pagamento abre no seu navegador, na nossa página de pagamento segura. Os impostos são somados no
+            pagamento quando se aplicam.</li>
+        <li>Termine de pagar no navegador e volte para o Zaaheen. Ele verifica o pagamento sozinho
+            e mostra seu plano como assinado assim que o pagamento é confirmado, geralmente em menos de um
+            minuto. Você também pode escolher <em>I've paid</em> para verificar na hora.</li>
+      </ol>
+      <p>Nos últimos sete dias do teste, a tela inicial também mostra um botão <em>Subscribe</em>.
+         Se o teste terminar antes, nada é apagado: o Zaaheen pede que você assine, e suas memórias
+         continuam no seu computador.</p>
+    </Row>
+
+    <Row level={2} id="on-the-website" title="Ou assine pelo site" where="Página Account">
+      <p>Prefere pagar primeiro? Abra sua <a href={ACCOUNT.page}>página Account</a>, entre e, em
+         <strong>Subscribe</strong>, escolha <strong>{PLANS.monthly}</strong> ou
+         <strong>{yearlyButton}</strong>. O pagamento abre na mesma página de pagamento segura. Sua assinatura
+         pertence à sua conta, então o app a reconhece quando você entra com o mesmo e-mail.</p>
+    </Row>
+
+    <Row level={2} id="manage" title="Mude ou cancele seu plano" where="App ou página Account">
+      <p>Use <strong>Manage subscription</strong> para mudar de plano ou atualizar seu cartão, e
+         <strong>Cancel subscription</strong> para encerrar. Os dois estão no app, em Settings, Account, e
+         na sua <a href={ACCOUNT.page}>página Account</a>. Depois que você cancela, o Zaaheen continua funcionando até o
+         fim do período que você já pagou. Para reembolsos, veja a <a href="/refunds/">Política de Reembolso (em inglês)</a>.</p>
+    </Row>
+  </section>
+</Guide>

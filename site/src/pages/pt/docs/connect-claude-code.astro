@@ -1,0 +1,29 @@
+---
+// The Claude Code connect guide in Brazilian Portuguese (ADR-113). The steps
+// come from the desktop app's own wording, translated in src/i18n/ui/pt.ts.
+import Guide from '../../../layouts/Guide.astro';
+import Row from '../../../components/Row.astro';
+import ConnectSteps from '../../../components/ConnectSteps.astro';
+import { connectOutline } from '../../../data/app-words';
+import { t } from '../../../i18n/ui';
+
+const NAME = 'Claude Code';
+const OUTLINE = [
+  ...connectOutline(NAME).map((o) => ({ ...o, title: t('pt', o.title) })),
+  { id: 'using', title: 'Como usar' },
+];
+---
+<Guide
+  path="/pt/docs/connect-claude-code/"
+  lede="Em um terminal, rode um único comando da aba Agents do Zaaheen. O Zaaheen fica disponível em todos os projetos do Claude Code."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <ConnectSteps name={NAME} where="Terminal" />
+
+    <Row level={2} id="using" title="Como usar" where="Claude Code">
+      <p>Pergunte ao Claude Code sobre você, suas preferências ou seu trabalho, ou peça que ele consulte
+         sua memória do Zaaheen. O que ele salvar ali, seus outros apps de IA conectados também podem usar.</p>
+    </Row>
+  </section>
+</Guide>

@@ -22,6 +22,9 @@ if (fact.length > 28) throw new Error(`flow ${id}: the fact "${fact}" is too lon
 const extra = others.slice(0, 3);
 const height = extra.length ? 300 : 224;
 const chipX = (i: number) => 320 + (i - (extra.length - 1) / 2) * 150;
+import { langOf } from '../../i18n/locales';
+import { t } from '../../i18n/ui';
+const lang = langOf(Astro.url.pathname);
 ---
 <figure class="flow" id={id}>
   <svg viewBox={`0 0 640 ${height}`} role="img" aria-labelledby={`${id}-cap`} class="flow-svg">
@@ -36,7 +39,7 @@ const chipX = (i: number) => 320 + (i - (extra.length - 1) / 2) * 150;
     <g class="flow-hub">
       <rect x="230" y="86" width="180" height="84" rx="14" />
       <text x="320" y="122" text-anchor="middle" class="flow-hub-name">Zaaheen</text>
-      <text x="320" y="146" text-anchor="middle" class="flow-hub-note">on your computer</text>
+      <text x="320" y="146" text-anchor="middle" class="flow-hub-note">{t(lang, 'on your computer')}</text>
     </g>
     <g class="flow-app">
       <rect x="470" y="100" width="150" height="56" rx="12" />
@@ -51,7 +54,7 @@ const chipX = (i: number) => 320 + (i - (extra.length - 1) / 2) * 150;
 
     <g class="flow-saved">
       <rect x="255" y="182" width="130" height="28" rx="8" />
-      <text x="320" y="201" text-anchor="middle">Saved once</text>
+      <text x="320" y="201" text-anchor="middle">{t(lang, 'Saved once')}</text>
     </g>
     <g class="flow-card">
       <rect x="245" y="34" width="150" height="32" rx="8" />

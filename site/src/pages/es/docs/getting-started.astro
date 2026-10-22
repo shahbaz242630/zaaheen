@@ -1,0 +1,105 @@
+---
+// Getting started in Spanish (ADR-113): the English guide's structure with its
+// words translated. The app's own labels stay in English, as the app shows them.
+import Guide from '../../../layouts/Guide.astro';
+import Row from '../../../components/Row.astro';
+import Download from '../../../components/Download.astro';
+import { RELEASE, TRIAL } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+
+const L = (href: string) => localize(href, 'es');
+const win = RELEASE.windows;
+const mac = RELEASE.mac;
+const OUTLINE = [
+  { id: 'before', title: 'Antes de empezar' },
+  { id: 'install', title: 'Instalar' },
+  { id: 'set-up', title: 'Configurar' },
+  { id: 'next', title: 'Qué hacer después' },
+];
+---
+<Guide
+  path="/es/docs/getting-started/"
+  lede={`Descarga Zaaheen para Windows o Mac e instálalo, y luego elige Begin set up. La configuración tarda unos tres minutos: inicias sesión desde la app, lo que empieza tu prueba gratis de ${TRIAL.days} días (sin tarjeta), eliges dónde se guardan tus recuerdos y conectas tu primera app de IA. La app está en inglés.`}
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="before" title="Antes de empezar" where="Windows o Mac">
+      {!RELEASE.available && <p><strong>Zaaheen para Windows y Mac llegará muy pronto.</strong> Estos
+         pasos explican cómo funciona cuando puedas descargarlo.</p>}
+      <p>Zaaheen {RELEASE.version} es para Windows de 64 bits, probado
+         en {win.tested}, y para Macs con chip de Apple, M1 o posterior, probado en {mac.tested}.
+         Todavía no está disponible para Linux ni para teléfonos.</p>
+      <Download small />
+    </Row>
+
+    <Row level={2} id="install" title="Instalar" where="Windows o Mac">
+      <p><strong>En Windows,</strong> abre el instalador que descargaste. Puede que veas hasta tres
+         preguntas por el camino, y todas son normales:</p>
+      <ul>
+        <li><strong>Microsoft Edge dice que el archivo "isn't commonly downloaded".</strong> El instalador es
+            nuevo, así que Edge no lo ha visto muchas veces. Elige los tres puntos junto a la descarga, y luego
+            <em>Keep</em>, <em>Show more</em> y <em>Keep anyway</em>. Chrome no lo pregunta.</li>
+        <li><strong>Windows dice que el editor es desconocido.</strong> El instalador todavía no tiene
+            firma de código; la firma llegará más adelante. Elige
+            <em>More info</em> y luego <em>Run anyway</em>.</li>
+        <li><strong>Windows pide permiso de administrador.</strong> Zaaheen se instala para todas las personas
+            que usan la computadora, así que Windows lo pregunta una vez. Después no necesita permisos de administrador
+            para funcionar.</li>
+      </ul>
+      <p><strong>En un Mac,</strong> abre la imagen de disco que descargaste, arrastra Zaaheen a la
+         carpeta Applications y luego abre Zaaheen desde Applications. Zaaheen solo funciona desde allí.</p>
+      <ul>
+        <li><strong>Tu Mac pregunta si quieres abrir una app descargada de internet.</strong>
+            Muestra el nombre del desarrollador. La app para Mac está firmada y revisada por Apple. Elige
+            <em>Open</em>.</li>
+        <li><strong>Tu Mac puede preguntar si Zaaheen puede usar tu llavero (keychain).</strong> Ahí es donde
+            se guarda la clave de tus recuerdos. Elige <em>Always Allow</em>.</li>
+      </ul>
+      {RELEASE.available && <>
+        <p><strong>Para comprobar tu descarga,</strong> compara su huella (SHA-256) con la que aparece
+           abajo. Si no coinciden, borra el archivo y vuelve a descargarlo desde este sitio.</p>
+        <ul>
+          <li><strong>Windows</strong> ({win.file}): <code class="hash">{win.sha256}</code>. En
+              PowerShell, ejecuta <code>Get-FileHash "$HOME\Downloads\{win.file}"</code>.</li>
+          <li><strong>Mac</strong> ({mac.file}): <code class="hash">{mac.sha256}</code>. En
+              Terminal, ejecuta <code>shasum -a 256 ~/Downloads/{mac.file}</code>.</li>
+        </ul>
+      </>}
+    </Row>
+
+    <Row level={2} id="set-up" title="Configurar" where="Begin set up">
+      <p>Abre Zaaheen y elige <em>Begin set up</em>. Te guía en cinco pasos:</p>
+      <ol>
+        <li><strong>Tu cuenta.</strong> Elige <em>Create an account</em> o <em>Sign in</em>. Se
+            abre tu navegador web. Tu prueba gratis de {TRIAL.days} días empieza la primera vez que inicias
+            sesión desde la app de Zaaheen, y no necesitas tarjeta. Iniciar sesión nunca nos comparte tus
+            recuerdos.</li>
+        <li><strong>Dónde guardar tus recuerdos.</strong> El lugar habitual le va bien a la mayoría. Puedes
+            cambiarlo más tarde desde Settings con <em>Move my memories…</em>.</li>
+        <li><strong>Tu primera app de IA.</strong> Elige la app que usas y sigue los pasos, o elige
+            <em>I'll connect one later</em>.</li>
+        <li><strong>Tu primer recuerdo.</strong> Cuéntale a Zaaheen algo que tus apps de IA deberían saber sobre
+            ti, y luego elige <em>Keep this memory</em>, o <em>Skip for now</em>.</li>
+        <li><strong>Limpieza.</strong> Zaaheen ordena tu memoria por su cuenta cada noche, salvo que
+            elijas <em>Not now</em>; luego elige <em>Finish setup</em>.</li>
+      </ol>
+      <p>La primera vez, Zaaheen también descarga lo que necesita para buscar en tus recuerdos. Lo hace
+         en segundo plano, y puedes usar Zaaheen mientras termina.</p>
+    </Row>
+
+    <Row level={2} id="next" title="Qué hacer después" where="Agents">
+      <p>Conecta las apps de IA que usas, cada una una sola vez, desde la pestaña <em>Agents</em>:</p>
+      <ul>
+        <li><a href={L('/docs/connect-claude/')}>Conectar Claude Desktop</a></li>
+        <li><a href={L('/docs/connect-claude-code/')}>Conectar Claude Code</a></li>
+        <li><a href={L('/docs/connect-cursor/')}>Conectar Cursor</a></li>
+        <li><a href={L('/docs/connect-chatgpt/')}>Conectar ChatGPT</a></li>
+        <li><a href={L('/docs/connect-codex/')}>Conectar Codex</a></li>
+        <li><a href={L('/docs/connect-antigravity/')}>Conectar Antigravity</a></li>
+        <li><a href={L('/docs/connect-other-apps/')}>Conectar otras apps de IA</a></li>
+      </ul>
+      <p>Si algo no funciona como se describe, consulta <a href={L('/docs/troubleshooting/')}>Solución de
+         problemas</a>.</p>
+    </Row>
+  </section>
+</Guide>

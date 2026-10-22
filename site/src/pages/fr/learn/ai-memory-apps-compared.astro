@@ -1,0 +1,195 @@
+---
+// Learn comparison page 1 in French (ADR-113): the English article's structure
+// with its words translated. Every fact, price and date is the English page's
+// (src/pages/learn/ai-memory-apps-compared.astro, whose header lists the
+// sources and the comparison rules). Quotes from other companies' sites are
+// translated faithfully.
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../../data/site';
+
+const CHECKED = '13 octobre 2026';
+const monthly = `${PRICES.monthly} USD par mois`;
+const yearly = `${PRICES.yearly} USD par an`;
+const OUTLINE = [
+  { id: 'what', title: 'Ce qu’il faut comparer' },
+  { id: 'table', title: 'Les applications côte à côte' },
+  { id: 'apps', title: 'Chaque application en bref' },
+  { id: 'price', title: 'Ce que coûte une année' },
+  { id: 'limits', title: 'Les limites de Zaaheen' },
+  { id: 'choose', title: 'Laquelle choisir' },
+];
+const MEMORYPLUGIN = 'https://www.memoryplugin.com/';
+const HJARNI = 'https://hjarni.com/';
+const BASIC = 'https://basicmemory.com/';
+const BASIC_DOCS = 'https://docs.basicmemory.com/';
+const SUPERMEMORY = 'https://supermemory.ai/pricing';
+const SUPERMEMORY_MCP = 'https://supermemory.ai/docs/supermemory-mcp/introduction';
+const SUPERMEMORY_GITHUB = 'https://github.com/supermemoryai/supermemory';
+const MEM0 = 'https://mem0.ai/pricing';
+const MEM0_MCP = 'https://docs.mem0.ai/platform/mem0-mcp';
+---
+<Learn
+  path="/fr/learn/ai-memory-apps-compared/"
+  lede="Plusieurs applications donnent désormais à ChatGPT, Claude et Cursor une mémoire qu'ils partagent tous. La plus grande différence entre elles est l'endroit où vos souvenirs sont conservés : sur les serveurs de l'entreprise, ou sur votre propre ordinateur. Ensuite, tout dépend des applications d'IA que vous utilisez, de la mise en place que vous êtes prêt à faire, et du prix."
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>Ce qu’il faut comparer</h2>
+    <p>ChatGPT et Claude ont chacun leur propre mémoire, et ils ne la partagent pas. Une application
+       de mémoire se place en dehors des deux et se connecte à chacun, en général grâce à MCP, la
+       façon standard dont les applications d'IA se branchent sur des outils. Dites quelque chose à
+       une application et les autres pourront le retrouver plus tard.</p>
+    <p>Nous avons examiné cinq applications qui font cela, et nous en faisons une : lisez donc ceci
+       en gardant cela en tête. Chaque information sur les autres vient de leur propre site web, en
+       lien ci-dessous, telle que nous l'avons trouvée le {CHECKED}. Quatre questions permettent de
+       les départager rapidement :</p>
+    <ul>
+      <li><strong>Où vos souvenirs sont-ils conservés ?</strong> Sur les serveurs de l'entreprise,
+          ou sur votre ordinateur.</li>
+      <li><strong>Quelles applications d'IA atteint-elle ?</strong> Certaines couvrent ChatGPT dans
+          un navigateur web et sur votre téléphone, d'autres seulement les applications de votre
+          ordinateur.</li>
+      <li><strong>Quelle mise en place ?</strong> Un installateur classique, une connexion à un
+          compte, ou des commandes tapées dans un terminal.</li>
+      <li><strong>Combien coûte-t-elle une fois la partie gratuite terminée ?</strong></li>
+    </ul>
+  </section>
+
+  <section id="table">
+    <h2>Les applications côte à côte</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col">Application</th><th scope="col">Où les souvenirs sont conservés</th><th scope="col">Prix</th><th scope="col">Conçue pour</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Zaaheen</th><td>Votre ordinateur, chiffrés. Nos serveurs ne les reçoivent jamais</td><td>{TRIAL.days} jours gratuits, sans carte, puis {monthly} ou {yearly}</td><td>Les utilisateurs de tous les jours de plusieurs applications d'IA</td></tr>
+        <tr><th scope="row">MemoryPlugin</th><td>Son service ; le site indique « Encrypted in transit and at rest » (chiffré en transit et au repos)</td><td>Core 89 USD par an, Pro 180 USD par an, essai de 7 jours</td><td>Les utilisateurs de tous les jours, de nombreux sites d'IA</td></tr>
+        <tr><th scope="row">Hjarni</th><td>« EU-hosted (Hetzner) », « Encrypted in transit &amp; at rest » (hébergé dans l'UE, chiffré en transit et au repos)</td><td>Gratuit jusqu'à 25 notes, Pro 12 USD par mois</td><td>Les utilisateurs de tous les jours et les équipes</td></tr>
+        <tr><th scope="row">Basic Memory</th><td>Local : des fichiers Markdown sur votre ordinateur. Cloud : son service</td><td>Local gratuit, Cloud à partir de 15 USD par mois</td><td>Les personnes qui aiment des notes qu'elles peuvent lire et modifier</td></tr>
+        <tr><th scope="row">Supermemory</th><td>Son service par défaut ; une version locale gratuite, installée avec une commande dans un terminal, les garde sur votre ordinateur</td><td>Gratuit avec 5 USD de crédits par mois, Pro 19 USD par mois</td><td>Surtout les développeurs qui construisent avec une mémoire d'IA</td></tr>
+        <tr><th scope="row">Mem0</th><td>Son serveur MCP : votre compte Mem0, « not on your computer » (pas sur votre ordinateur). Les développeurs peuvent aussi faire tourner Mem0 eux-mêmes</td><td>Offre Hobby gratuite, Starter 19 USD par mois</td><td>Les développeurs qui créent des applications d'IA</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">Prix et informations au {CHECKED}, d'après le site web de chaque
+       entreprise ; ils peuvent changer. Consultez les liens ci-dessous pour les prix les plus
+       récents.</p>
+  </section>
+
+  <section id="apps">
+    <h2>Chaque application en bref</h2>
+
+    <h3>MemoryPlugin</h3>
+    <p>MemoryPlugin fonctionne avec une longue liste d'applications d'IA, « 21+ AI tools » (21 outils d'IA ou plus) selon ses propres termes, dont ChatGPT, Claude, Gemini, Perplexity, Cursor et Claude
+       Code. Vos souvenirs sont conservés par son service ; son site indique qu'ils sont chiffrés
+       en transit et au repos, sans dire où ils sont stockés. Core coûte 89 USD par an après un
+       essai de 7 jours (<a href={MEMORYPLUGIN}>site de MemoryPlugin</a>). Sa portée sur les sites
+       d'IA est plus large que la nôtre.</p>
+
+    <h3>Hjarni</h3>
+    <p>Hjarni figure dans les annuaires d'applications de ChatGPT et de Claude et fonctionne avec
+       Cursor, Claude Code et d'autres applications MCP. Il indique être hébergé dans l'UE chez
+       Hetzner, chiffré en transit et au repos. Il propose une offre gratuite jusqu'à 25 notes, puis
+       Pro coûte 12 USD par mois, avec deux mois offerts en facturation annuelle
+       (<a href={HJARNI}>site de Hjarni</a>). Si vous voulez essayer une mémoire partagée sans rien
+       payer, cette offre gratuite est un bon point de départ.</p>
+
+    <h3>Basic Memory</h3>
+    <p>Basic Memory écrit ce que vos applications d'IA apprennent sous forme de simples notes
+       Markdown, que vous pouvez ouvrir et modifier vous-même, dans Obsidian par exemple. La version
+       locale est gratuite et open source, et son site indique « Your files never leave your computer » (vos fichiers ne quittent jamais votre ordinateur) ; vous l'installez en suivant son guide de démarrage rapide. Une version
+       Cloud démarre à 15 USD par mois après un essai de 7 jours et ne demande aucune installation
+       (<a href={BASIC}>site de Basic Memory</a>, <a href={BASIC_DOCS}>sa documentation</a>). Si
+       vous voulez lire votre mémoire sous forme de notes, elle est faite pour ça.</p>
+
+    <h3>Supermemory</h3>
+    <p>Supermemory est un service de mémoire avec des plugins pour Claude Code et Cursor. Vous
+       ajoutez son serveur, mcp.supermemory.ai, à votre application et vous vous connectez, sans clé
+       à copier (<a href={SUPERMEMORY_MCP}>sa page d'installation</a>). L'offre gratuite inclut
+       5 USD de crédits par mois, et Pro coûte 19 USD par mois (<a href={SUPERMEMORY}>tarifs de
+       Supermemory</a>). Il est open source, et une version locale gratuite, lancée avec une commande
+       dans un terminal, garde votre mémoire dans un dossier sur votre ordinateur
+       (<a href={SUPERMEMORY_GITHUB}>sa page GitHub</a>). La plupart de ses offres s'adressent aux
+       développeurs qui construisent avec une mémoire d'IA.</p>
+
+    <h3>Mem0</h3>
+    <p>Mem0 est une mémoire que les développeurs intègrent à leurs propres applications d'IA, avec
+       une offre Hobby gratuite et Starter à 19 USD par mois (<a href={MEM0}>tarifs de Mem0</a>). Son
+       serveur MCP connecte aussi directement Claude, Cursor et Codex, et sa documentation précise
+       que les souvenirs « live in your Mem0 account, not on your computer » (vivent dans votre compte Mem0, pas sur votre ordinateur)
+       (<a href={MEM0_MCP}>documentation de Mem0</a>). Pour un développeur qui crée une application,
+       c'est un choix solide.</p>
+
+    <h3>Zaaheen</h3>
+    <p>Zaaheen est la nôtre : une application pour Windows et Mac qui garde une mémoire unique pour
+       vos applications d'IA, chiffrée sur votre propre ordinateur, où nos serveurs ne la reçoivent
+       jamais. Elle se connecte à Claude Desktop, Claude Code, Cursor, l'application ChatGPT pour
+       votre ordinateur, Codex et d'autres applications MCP, et s'installe comme n'importe quel
+       autre programme.</p>
+
+    <MemoryFlow
+      id="flow-compare"
+      from="Cursor"
+      to="ChatGPT"
+      fact="Écrit en anglais britannique"
+      others={['Claude', 'Codex']}
+      caption="Avec une mémoire conservée sur votre ordinateur, une préférence que vous donnez à Cursor y est enregistrée une fois, et ChatGPT et vos autres applications connectées la lisent au même endroit."
+    />
+  </section>
+
+  <section id="price">
+    <h2>Ce que coûte une année</h2>
+    <p>Pour une personne, sur la première offre payante de chaque application conçue pour les
+       utilisateurs de tous les jours, en payant à l'année :</p>
+
+    <BarChart
+      id="chart-year-cost"
+      title="Un an sur la première offre payante, une personne, en dollars américains"
+      measure="Dollars américains par an"
+      bars={[
+        { label: 'Zaaheen', value: PRICES.yearly, note: 'offre annuelle' },
+        { label: 'MemoryPlugin Core', value: 89, note: 'offre annuelle' },
+        { label: 'Hjarni Pro', value: 120, note: 'facturation annuelle' },
+        { label: 'Basic Memory Cloud', value: 180, note: '12 mois' },
+      ]}
+      source={{ text: `Le site web de chaque entreprise, prix au ${CHECKED}, susceptibles de changer. Supermemory et Mem0 ne figurent pas ici car leurs offres sont tarifées pour les développeurs. Hjarni et Basic Memory ont aussi des options gratuites, décrites plus haut.` }}
+    />
+
+    <p>Le prix ne dit pas tout. Une offre gratuite qui couvre vos besoins vaut mieux que n'importe
+       quelle offre payante, et les notes gratuites de Hjarni comme la version locale gratuite de
+       Basic Memory sont de vraies options.</p>
+  </section>
+
+  <section id="limits">
+    <h2>Les limites de Zaaheen</h2>
+    <p>Une comparaison honnête doit aussi dire ceci :</p>
+    <ul>
+      <li>Elle fonctionne sur Windows et sur les Mac à puce Apple. Il n'existe pas de version Linux
+          ni pour téléphone.</li>
+      <li>ChatGPT se connecte via l'application ChatGPT pour votre ordinateur. ChatGPT dans un
+          navigateur web ou sur votre téléphone ne peut pas l'atteindre. MemoryPlugin couvre les
+          deux, et Hjarni figure dans l'annuaire d'applications de ChatGPT lui-même.</li>
+      <li>Votre mémoire vit sur un seul ordinateur. Il n'y a pas encore de synchronisation entre
+          ordinateurs.</li>
+      <li>Après l'essai gratuit de {TRIAL.days} jours, il n'y a pas d'offre gratuite.</li>
+      <li>Certaines applications ont aussi besoin d'une ligne ajoutée à leurs instructions pour
+          consulter la mémoire partagée d'elles-mêmes.</li>
+    </ul>
+  </section>
+
+  <section id="choose">
+    <h2>Laquelle choisir</h2>
+    <p>Si vous voulez que vos souvenirs restent sur votre propre ordinateur, et que vous utilisez
+       ChatGPT, Claude ou Cursor en tant qu'applications sur Windows ou sur un Mac, c'est pour cela
+       que nous avons créé Zaaheen. Si vous utilisez surtout l'IA dans un navigateur web ou sur votre
+       téléphone, MemoryPlugin ou Hjarni atteindront davantage d'endroits où vous l'utilisez. Si vous
+       voulez des notes que vous pouvez lire et modifier à la main, essayez Basic Memory. Et si vous
+       êtes un développeur qui intègre une mémoire à votre propre produit, regardez Mem0 et
+       Supermemory.</p>
+    <p class="learn-note">MemoryPlugin, Hjarni, Basic Memory, Supermemory et Mem0 sont des noms qui
+       appartiennent à leurs propriétaires. Nous n'avons aucun lien avec eux. Informations vérifiées
+       le {CHECKED} ; si quelque chose ici est faux ou dépassé, écrivez-nous à
+       <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> et nous le corrigerons.</p>
+  </section>
+</Learn>

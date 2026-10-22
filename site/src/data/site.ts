@@ -2,6 +2,9 @@
 // sitemap, in llms.txt or in structured data. Change a fact here, never inline.
 // Every claim must be true of the build a visitor actually downloads.
 import { appWords } from './app-words';
+import { LOCALES, TRANSLATED, TRANSLATIONS, englishPath, langOf, localize } from '../i18n/locales';
+import { PAGE_META } from '../i18n/pages';
+import { t } from '../i18n/ui';
 
 export const SITE = {
   name: 'Zaaheen',
@@ -819,8 +822,42 @@ export const DOCS_SECTIONS = [
   { id: 'support', title: 'Help' },
 ] as const;
 
+/**
+ * Every translated page (ADR-113 D3): its English page's entry, under the
+ * language's folder, with the translated title, description, heading and crumb
+ * from src/i18n/pages/<lang>.ts. Its own page file is the English one's under
+ * src/pages/<lang>/. A missing translated field fails the build.
+ */
+const TRANSLATED_PAGES: PageEntry[] = TRANSLATIONS.flatMap((lang) =>
+  TRANSLATED.map((en): PageEntry => {
+    const base = PAGES.find((p) => p.path === en);
+    if (!base) throw new Error(`i18n: ${en} is in TRANSLATED but has no PAGES entry`);
+    const meta = PAGE_META[lang][en];
+    if (!meta) throw new Error(`i18n: no ${lang} title and description for ${en} in src/i18n/pages/${lang}.ts`);
+    const need = (field: 'heading' | 'crumb'): string | undefined => {
+      if (!base[field]) return undefined;
+      const value = meta[field];
+      if (!value) throw new Error(`i18n: ${en} needs a ${lang} ${field} in src/i18n/pages/${lang}.ts`);
+      return value;
+    };
+    return {
+      ...base,
+      path: `${LOCALES[lang].prefix}${en}`,
+      title: meta.title,
+      description: meta.description,
+      heading: need('heading'),
+      crumb: need('crumb'),
+      parent: base.parent ? localize(base.parent, lang) : undefined,
+      sources: [base.sources[0].replace(/^src\/pages\//, `src/pages/${lang}/`), ...base.sources.slice(1)],
+    };
+  }),
+);
+
+/** Every listed page in every language: the sitemap's set. */
+export const ALL_PAGES: readonly PageEntry[] = [...PAGES, ...TRANSLATED_PAGES];
+
 export const pageFor = (path: string): PageEntry => {
-  const page = PAGES.find((p) => p.path === path);
+  const page = ALL_PAGES.find((p) => p.path === path);
   if (!page) throw new Error(`No PAGES entry for ${path}`);
   return page;
 };
@@ -837,10 +874,13 @@ export const absolute = (path: string): string => new URL(path, SITE.origin).hre
  * match, and a trail on every nested and policy page.
  */
 export const breadcrumbsFor = (page: PageEntry): { name: string; path: string }[] => {
+  // A translated page's trail is its English page's, in its language: worked
+  // out on the English path, then each step taken to the same language.
+  const lang = langOf(page.path);
   const up = (p: PageEntry): string | undefined => {
     if (p.parent) return p.parent;
-    const segments = p.path.split('/').filter(Boolean);
-    return segments.length >= 2 ? `/${segments.slice(0, -1).join('/')}/` : undefined;
+    const segments = englishPath(p.path).split('/').filter(Boolean);
+    return segments.length >= 2 ? localize(`/${segments.slice(0, -1).join('/')}/`, lang) : undefined;
   };
   if (!up(page)) return [];
   const chain: PageEntry[] = [];
@@ -849,7 +889,7 @@ export const breadcrumbsFor = (page: PageEntry): { name: string; path: string }[
     chain.unshift(p);
   }
   return [
-    { name: 'Home', path: '/' },
+    { name: t(lang, 'Home'), path: localize('/', lang) },
     ...chain.map((p) => {
       if (!p.crumb) throw new Error(`PAGES entry ${p.path} needs a crumb: it is in a breadcrumb trail`);
       return { name: p.crumb, path: p.path };

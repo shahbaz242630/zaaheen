@@ -1,0 +1,110 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { localize } from '../../../i18n/locales';
+
+// Learn article 2 in German (ADR-113): the English article's structure and
+// sources with its words translated. File names, paths and commands stay as
+// Claude Code shows them.
+const L = (href: string) => localize(href, 'de');
+const OUTLINE = [
+  { id: 'what', title: 'Was Claude Code sich merkt' },
+  { id: 'loads', title: 'Was jede Sitzung lädt' },
+  { id: 'limits', title: 'Was es nicht mitnimmt' },
+  { id: 'across', title: 'Über Projekte und Apps hinweg' },
+];
+const DOCS = 'https://code.claude.com/docs/en/memory';
+---
+<Learn
+  path="/de/learn/does-claude-code-remember-between-sessions/"
+  lede="Ja, innerhalb eines Projekts auf einem Computer. Claude Code beginnt jede Sitzung mit einem frischen Kontext und lädt dann zwei Arten von Notizen: die CLAUDE.md-Dateien, die du schreibst, und die Auto Memory, die es selbst schreibt. Keine davon folgt dir in den Gedächtnisordner eines anderen Projekts, auf einen anderen Computer oder in eine andere KI-App."
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>Was Claude Code sich merkt</h2>
+    <p>Die Dokumentation von Anthropic (<a href={DOCS}>How Claude remembers your project</a>) beschreibt
+       zwei Wege, auf denen Wissen von einer Sitzung zur nächsten kommt:</p>
+    <ul>
+      <li><strong>CLAUDE.md-Dateien</strong> sind Anweisungen, die du schreibst: wie das Projekt
+          gebaut wird, welche Regeln gelten, was zu vermeiden ist. Sie können im Projekt liegen, in
+          deinem Benutzerordner oder von deiner Organisation vorgegeben sein, und jede, die zutrifft,
+          wird zu Beginn jeder Sitzung geladen.</li>
+      <li><strong>Auto Memory</strong> sind Notizen, die Claude Code beim Arbeiten für sich selbst
+          schreibt: deine Korrekturen, deine Vorlieben und was es über das Projekt gelernt hat. Wenn
+          du sagst „merk dir, dass die Tests eine lokale Datenbank brauchen“, landet das hier.</li>
+    </ul>
+    <p>Beides sind einfache Textdateien, die du öffnen und bearbeiten kannst. In einer Sitzung listet
+       <code>/memory</code> sie auf, öffnet sie und schaltet Auto Memory ein oder aus.</p>
+  </section>
+
+  <section id="loads">
+    <h2>Was zu Beginn jeder Sitzung geladen wird</h2>
+    <p>Auto Memory liegt in einem Ordner pro Projekt,
+       <code>~/.claude/projects/&lt;project&gt;/memory/</code>, mit einer Datei namens MEMORY.md als
+       Inhaltsverzeichnis. Nur die ersten 200 Zeilen oder 25 KB dieses Verzeichnisses, je nachdem, was
+       zuerst erreicht ist, werden beim Start einer Sitzung geladen. Die ausführlichen Notizen stehen in
+       separaten Themendateien, die Claude Code öffnet, wenn es sie braucht.</p>
+    <p>Wir bauen Zaaheen jeden Tag mit Claude Code, also haben wir das Gedächtnis unseres eigenen
+       Projekts nach fünf Monaten Sitzungen gemessen:</p>
+
+    <BarChart
+      id="chart-claude-code-memory"
+      title="Das Claude-Code-Gedächtnis eines Projekts nach fünf Monaten: gespeichert und beim Start geladen"
+      measure="Kilobyte"
+      max={500}
+      bars={[
+        { label: 'Alle Gedächtnisdateien', value: 494, note: 'KB' },
+        { label: 'Beim Start geladen', value: 19, note: 'KB' },
+        { label: 'Grenze beim Start', value: 25, note: 'KB' },
+      ]}
+      source={{ text: 'Das eigene Projekt von Zaaheen, gemessen am 6. Oktober 2026: 182 Gedächtnisdateien, gesammelt seit dem 28. April 2026; ein MEMORY.md-Verzeichnis mit 155 Zeilen. Die Grenze stammt aus der Claude-Code-Dokumentation von Anthropic.', href: DOCS }}
+    />
+
+    <p>Claude Code erinnert sich also, aber das meiste, was es weiß, wird bei Bedarf nachgeschlagen
+       statt jedes Mal gelesen. Ein kurzes Verzeichnis mit einer Zeile pro Erinnerung sorgt dafür, dass
+       das Wichtige im Blick bleibt. Aus demselben Grund empfiehlt Anthropic, jede CLAUDE.md unter
+       200 Zeilen zu halten.</p>
+  </section>
+
+  <section id="limits">
+    <h2>Was es nicht mitnimmt</h2>
+    <p>Die Dokumentation ist bei den Grenzen eindeutig:</p>
+    <ul>
+      <li><strong>Ein Gedächtnisordner pro Projekt.</strong> Alle Worktrees eines Repositorys teilen
+          ihn, aber ein anderes Repository hat seinen eigenen. Was Claude Code in einem Projekt über
+          dich gelernt hat, ist im nächsten also nicht da.</li>
+      <li><strong>Ein Computer.</strong> Auto Memory ist lokal auf dem Gerät und wird nicht zwischen
+          Geräten oder Cloud-Umgebungen geteilt.</li>
+      <li><strong>Eine App.</strong> Cursor, Codex, ChatGPT und Claude Desktop lesen den
+          Gedächtnisordner von Claude Code nicht.</li>
+    </ul>
+    <p>Für Projektregeln ist das genau richtig: Sie gehören zum Projekt. Für Fakten über dich, etwa
+       wie du Antworten magst, welche Werkzeuge du bevorzugst oder woran du diesen Monat arbeitest,
+       heißt es aber, es jedem Projekt und jeder App neu zu erzählen.</p>
+  </section>
+
+  <section id="across">
+    <h2>Über Projekte und Apps hinweg an dich erinnern</h2>
+    <p>Ein Gedächtnis außerhalb von Claude Code schließt diese Lücke. Claude Code kann sich über MCP
+       mit Werkzeugen verbinden, dem Standardweg, über den KI-Apps an Werkzeuge und Daten andocken.
+       So kann es Fakten über dich in einem Gedächtnis speichern, das jedes Projekt und deine anderen
+       KI-Apps lesen können.</p>
+
+    <MemoryFlow
+      id="flow-claude-code-cursor"
+      from="Claude Code"
+      to="Cursor"
+      fact="Mag TypeScript strict"
+      others={['Codex', 'ChatGPT']}
+      caption="Eine Vorliebe, die Claude Code in einem Projekt lernt, wird einmal gespeichert, auf deinem Computer. Cursor, Codex und ChatGPT können sie in jedem Projekt abrufen."
+    />
+
+    <p>Zaaheen ist so ein Gedächtnis, für Windows und Mac. Du verbindest Claude Code einmal, mit einem
+       Befehl aus dem Tab <em>Agents</em> in Zaaheen, und danach ist es in jedem Claude-Code-Projekt
+       verfügbar (<a href={L('/docs/connect-claude-code/')}>Schritt für Schritt</a>). Deine
+       Erinnerungen bleiben verschlüsselt auf deinem eigenen Computer.</p>
+    <p>Eine gute Aufteilung: Projektregeln in CLAUDE.md, Auto Memory für das, was Claude Code über
+       das Projekt lernt, und was über dich gilt in einem gemeinsamen Gedächtnis, das jede App liest.</p>
+  </section>
+</Learn>
