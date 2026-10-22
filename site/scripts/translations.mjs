@@ -88,9 +88,11 @@ export function translationProblems(dist, { langs, pages } = readLocales(), reco
       } else if (rec.own !== fingerprint(html)) {
         problems.push([url, 'its words changed since they were recorded: run npm run translations -- --write']);
       }
+      // The page's hreflang alternates, by a fixed pattern; compared as strings.
+      const alternates = new Set([...html.matchAll(/<link rel="alternate" hreflang="[^"]+" href="([^"]+)">/g)].map((m) => m[1]));
       for (const l of ['en', ...langs]) {
         const href = `${ORIGIN}${l === 'en' ? en : `/${l}${en}`}`;
-        if (!html.includes(`href="${href}"`) || !new RegExp(`<link rel="alternate" hreflang="[^"]+" href="${href.replace(/[.?*+^$()[\]{}|\\]/g, '\\$&')}">`).test(html)) {
+        if (!alternates.has(href)) {
           problems.push([url, `does not name its ${l} version (${href}) in a hreflang alternate`]);
         }
       }

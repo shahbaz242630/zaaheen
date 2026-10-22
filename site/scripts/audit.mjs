@@ -594,7 +594,11 @@ const AI_TELLS = /\b(?:delve[sd]?|delving|tapestry|in today's (?:fast-paced|digi
     // (its label is in the page's language).
     if (learnPages.length > 1) {
       const also = (main.match(/<nav class="learn-more" aria-label="[^"]*">([\s\S]*?)<\/nav>/) || [])[1] || '';
-      if (!new RegExp(`href="/${learnRoot}[^"]+/"`).test(also)) fail(rel, 'a Learn article needs a People also read list linking other articles in its language');
+      // Plain prefix match on the links, no pattern built from a path.
+      const others = all(also, /\shref="([^"]*)"/gi).map((m) => m[1]);
+      if (!others.some((h) => h.startsWith(`/${learnRoot}`) && h.length > learnRoot.length + 1 && h.endsWith('/'))) {
+        fail(rel, 'a Learn article needs a People also read list linking other articles in its language');
+      }
     }
   }
 }
