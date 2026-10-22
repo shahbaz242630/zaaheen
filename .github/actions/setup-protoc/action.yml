@@ -1,0 +1,43 @@
+name: Set up protoc 23.4
+description: >-
+  Installs protoc 23.4 (needed by lancedb's prost-build dependencies) from the
+  protobuf release page, checked against a pinned SHA-256, and puts it on PATH.
+
+# Replaces arduino/setup-protoc (session 109). That action always walks the
+# GitHub API's protobuf release list to resolve a version, and on 2026-10-22
+# the API began returning an empty page 2 about half the time, so the walk
+# stopped before reaching 23.x and every build job failed at random with
+# "unable to get latest version". This fetches the one release asset directly
+# (no API) and refuses anything whose hash differs. 23.4 is what the action
+# resolved "23.x" to. Hashes computed s109 from the v23.4 release assets.
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        case "${RUNNER_OS}-${RUNNER_ARCH}" in
+          Linux-X64)   asset=linux-x86_64; sum=0502f286ac9ed860b629a7965a14527b1f2dd131e4283fa23c2d7f184672aa9a ;;
+          macOS-ARM64) asset=osx-aarch_64; sum=8c7afae8626b6811e7b5897d16d940c2dbf50b1e135ed958a01db6566bdda726 ;;
+          macOS-X64)   asset=osx-x86_64;   sum=07e5fdcf1b0708d3367dc5e6eb8d135de7e407d75316c93155cfd8ab362eec80 ;;
+          Windows-X64) asset=win64;        sum=a309c39442fb75f0db343cb22c111a00f91cdf0767f332e170644b9378e2bcc6 ;;
+          *) echo "::error::no pinned protoc for ${RUNNER_OS}-${RUNNER_ARCH}"; exit 1 ;;
+        esac
+        dir="${RUNNER_TEMP}/protoc-23.4"
+        zip="${RUNNER_TEMP}/protoc-23.4-${asset}.zip"
+        curl -fsSL --retry 5 --retry-all-errors -o "$zip" \
+          "https://github.com/protocolbuffers/protobuf/releases/download/v23.4/protoc-23.4-${asset}.zip"
+        if command -v sha256sum >/dev/null; then got=$(sha256sum "$zip" | cut -d' ' -f1); else got=$(shasum -a 256 "$zip" | cut -d' ' -f1); fi
+        if [ "$got" != "$sum" ]; then
+          echo "::error::protoc download hash mismatch: got $got, want $sum"; exit 1
+        fi
+        mkdir -p "$dir"
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          7z x -y -o"$dir" "$zip" >/dev/null
+          cygpath -w "$dir/bin" >> "$GITHUB_PATH"
+        else
+          unzip -q -o "$zip" -d "$dir"
+          echo "$dir/bin" >> "$GITHUB_PATH"
+        fi
+        "$dir/bin/protoc" --version

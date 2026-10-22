@@ -283,9 +283,7 @@ jobs:
       # protoc is required by lancedb's transitive deps (lance-encoding,
       # lance-file via prost-build) since T0.1.4. Local Windows installs
       # protoc via winget per ADR-011; CI installs it here.
-      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./.github/actions/setup-protoc
       # LLVM/libclang for llama-cpp-sys-2's bindgen step (T0.2.1 spike-2,
       # 2026-05-13). Each OS uses its native package manager with robust
       # post-install path discovery per iteration 2 clarification 4 (the
@@ -572,9 +570,7 @@ jobs:
             libglib2.0-dev \
             libgtk-3-dev
       # See clippy job above — protoc needed by lancedb transitive deps.
-      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./.github/actions/setup-protoc
       # See clippy job above for LLVM/libclang rationale + per-OS robust
       # path-derivation discussion. Must be in BOTH jobs because GHA matrix
       # runners don't share state across jobs (same pattern as protoc +
@@ -828,9 +824,7 @@ jobs:
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./.github/actions/setup-protoc
       - name: Install LLVM via chocolatey
         shell: pwsh
         run: choco install llvm -y --no-progress
