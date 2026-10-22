@@ -28,7 +28,10 @@ runs:
         zip="${RUNNER_TEMP}/protoc-23.4-${asset}.zip"
         curl -fsSL --retry 5 --retry-all-errors -o "$zip" \
           "https://github.com/protocolbuffers/protobuf/releases/download/v23.4/protoc-23.4-${asset}.zip"
-        if command -v sha256sum >/dev/null; then got=$(sha256sum "$zip" | cut -d' ' -f1); else got=$(shasum -a 256 "$zip" | cut -d' ' -f1); fi
+        # Hash from stdin: Git Bash's sha256sum prefixes the line with "\" when
+        # the path holds a backslash (RUNNER_TEMP on Windows), breaking the match.
+        if command -v sha256sum >/dev/null; then got=$(sha256sum < "$zip"); else got=$(shasum -a 256 < "$zip"); fi
+        got=${got%% *}
         if [ "$got" != "$sum" ]; then
           echo "::error::protoc download hash mismatch: got $got, want $sum"; exit 1
         fi
