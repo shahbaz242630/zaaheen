@@ -1,0 +1,77 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import Row from '../../components/Row.astro';
+import Download from '../../components/Download.astro';
+import { ACCOUNT, PLANS, PRICES, TRIAL } from '../../data/site';
+
+// How to subscribe (founder, session 107): the Pricing page's plan buttons
+// open this page, which walks through the existing flow (account, download,
+// trial, then Subscribe in the app or on the website Account page) instead of
+// a new checkout. Button words as the app and the Account page show them:
+// crates/vault-tauri/dist/index.html (Settings, Account, Subscribe) and
+// site/account/pages/account.astro.
+const yearlyButton = `${PLANS.yearly} (save $${PRICES.monthly * 12 - PRICES.yearly})`;
+const OUTLINE = [
+  { id: 'account', title: '1. Create your account' },
+  { id: 'download', title: '2. Download Zaaheen' },
+  { id: 'trial', title: '3. Sign in from the app' },
+  { id: 'in-the-app', title: '4. Subscribe in the app' },
+  { id: 'on-the-website', title: 'Or subscribe on the website' },
+  { id: 'manage', title: 'Change or cancel your plan' },
+];
+---
+<Guide
+  path="/docs/subscribe/"
+  lede={`Create your account, download Zaaheen and sign in from the app: your ${TRIAL.days}-day free trial starts, with no card. Subscribe whenever you are ready, for ${PLANS.monthly} or ${PLANS.yearly}, in the app or on your Account page. One subscription covers your account on every computer you sign in on.`}
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="account" title="1. Create your account" where="Your browser">
+      <p><a href={ACCOUNT.signUp}>Create your Zaaheen account</a> with your email or Google. We send a code
+         to your email to confirm it's you. Already have an account? <a href={ACCOUNT.signIn}>Sign in</a>.</p>
+    </Row>
+
+    <Row level={2} id="download" title="2. Download Zaaheen" where="Windows or Mac">
+      <p>Download the app for your computer and install it. The <a href="/docs/getting-started/">Getting
+         started</a> guide walks through the install.</p>
+      <Download small />
+    </Row>
+
+    <Row level={2} id="trial" title="3. Sign in from the app" where="Zaaheen">
+      <p>Open Zaaheen and choose <em>Begin set up</em>, then sign in with the same email or Google account.
+         Your {TRIAL.days}-day free trial starts the first time you sign in from the app. No card is
+         needed, and everything works during the trial.</p>
+    </Row>
+
+    <Row level={2} id="in-the-app" title="4. Subscribe in the app" where="Settings › Account">
+      <p>Subscribe any time, during your trial or after it:</p>
+      <ol>
+        <li>In Zaaheen, open <strong>Settings</strong>, then <strong>Account</strong>.</li>
+        <li>Under <strong>Subscribe</strong>, choose <strong>{PLANS.monthly}</strong> or
+            <strong>{yearlyButton}</strong>.</li>
+        <li>Payment opens in your browser on our secure checkout. Tax is added at checkout where it
+            applies.</li>
+        <li>Finish paying in your browser, then go back to Zaaheen. It checks for your payment by itself
+            and shows your plan as subscribed as soon as the payment comes through, usually within a
+            minute. You can also choose <em>I've paid</em> to check straight away.</li>
+      </ol>
+      <p>In the last seven days of your trial, the home screen also shows a <em>Subscribe</em> button.
+         If your trial ends first, nothing is deleted: Zaaheen asks you to subscribe, and your memories
+         are still there on your computer.</p>
+    </Row>
+
+    <Row level={2} id="on-the-website" title="Or subscribe on the website" where="Account page">
+      <p>Prefer to pay first? Open your <a href={ACCOUNT.page}>Account page</a>, sign in, and under
+         <strong>Subscribe</strong> choose <strong>{PLANS.monthly}</strong> or
+         <strong>{yearlyButton}</strong>. Payment opens on the same secure checkout. Your subscription
+         belongs to your account, so the app picks it up when you sign in with the same email.</p>
+    </Row>
+
+    <Row level={2} id="manage" title="Change or cancel your plan" where="App or Account page">
+      <p>Use <strong>Manage subscription</strong> to change your plan or update your card, and
+         <strong>Cancel subscription</strong> to stop it. Both are in the app under Settings, Account, and
+         on your <a href={ACCOUNT.page}>Account page</a>. After you cancel, Zaaheen keeps working until the
+         end of the time you've paid for. See the <a href="/refunds/">Refund Policy</a> for refunds.</p>
+    </Row>
+  </section>
+</Guide>

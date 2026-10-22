@@ -467,6 +467,16 @@ export const PAGES: PageEntry[] = [
       "Give OpenAI's Codex a memory your other AI apps share: add Zaaheen's setting to config.toml, restart Codex, and check /mcp shows it connected.",
     sources: ['src/pages/docs/connect-codex.astro', 'src/layouts/Guide.astro'],
   },
+  // The Pricing page's plan buttons open this (founder, session 107).
+  {
+    path: '/docs/subscribe/',
+    crumb: 'How to subscribe',
+    heading: 'How to subscribe to Zaaheen',
+    title: `How to subscribe to Zaaheen: ${PLANS.monthly} or ${PLANS.yearly}`,
+    description:
+      `Create your account, download Zaaheen and start your ${TRIAL.days}-day free trial, then subscribe for ${PLANS.monthly} or ${PLANS.yearly} in the app or on your Account page.`,
+    sources: ['src/pages/docs/subscribe.astro', 'src/layouts/Guide.astro'],
+  },
   {
     path: '/docs/connect-antigravity/',
     crumb: 'Connect Antigravity',
@@ -774,6 +784,7 @@ export const COACHING_POLICIES: readonly { path: string; label: string; live: bo
 // Documents menu lists them. Each has a PAGES entry with a heading.
 export const GUIDES = [
   { path: '/docs/getting-started/', label: 'Getting started' },
+  { path: '/docs/subscribe/', label: 'How to subscribe' },
   { path: '/docs/connect-claude/', label: 'Connect Claude Desktop' },
   { path: '/docs/connect-claude-code/', label: 'Connect Claude Code' },
   { path: '/docs/connect-cursor/', label: 'Connect Cursor' },
