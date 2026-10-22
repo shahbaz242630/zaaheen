@@ -92,6 +92,9 @@
 
 /* 1b: the apps connect one by one (7.5s) */
 .pc-head{margin:0 0 14px}
+/* The card grows to fit every app VERIFIED_APPS names: it was sized for three,
+   so from the fourth row on they were cut off (click-test s107). */
+.pwin-body.is-connect{height:auto}
 .pc-apps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .pc-apps li{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);
   border-radius:10px;padding:14px 16px;font:500 15px var(--sans)}
@@ -106,8 +109,11 @@
 .pc-apps li .chip-dot{animation:pcDot 7.5s infinite}
 .pc-apps li b{animation:pcOn 7.5s infinite}
 .pc-apps li s{animation:pcOff 7.5s infinite}
-.pc-apps .d2,.pc-apps .d2 .chip-dot,.pc-apps .d2 b,.pc-apps .d2 s{animation-delay:1.5s}
-.pc-apps .d3,.pc-apps .d3 .chip-dot,.pc-apps .d3 b,.pc-apps .d3 s{animation-delay:3s}
+.pc-apps .d2,.pc-apps .d2 .chip-dot,.pc-apps .d2 b,.pc-apps .d2 s{animation-delay:1.25s}
+.pc-apps .d3,.pc-apps .d3 .chip-dot,.pc-apps .d3 b,.pc-apps .d3 s{animation-delay:2.5s}
+.pc-apps .d4,.pc-apps .d4 .chip-dot,.pc-apps .d4 b,.pc-apps .d4 s{animation-delay:3.75s}
+.pc-apps .d5,.pc-apps .d5 .chip-dot,.pc-apps .d5 b,.pc-apps .d5 s{animation-delay:5s}
+.pc-apps .d6,.pc-apps .d6 .chip-dot,.pc-apps .d6 b,.pc-apps .d6 s{animation-delay:6.25s}
 @keyframes pcRow{0%,8%{background:var(--card)}12%,20%{background:var(--tint);border-color:var(--tint-line)}30%,100%{background:var(--card)}}
 @keyframes pcDot{0%,10%{background:var(--border)}12%,94%{background:var(--sage)}100%{background:var(--border)}}
 @keyframes pcOn{0%,10%{opacity:0}12%,94%{opacity:1}100%{opacity:0}}

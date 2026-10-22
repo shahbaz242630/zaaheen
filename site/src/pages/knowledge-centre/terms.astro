@@ -20,6 +20,7 @@ const OUTLINE: Outline[] = [
   { id: 'coaching', title: 'The coaching', topics: [
     { id: 'session', title: 'What a session is' },
     { id: 'is-not', title: 'What coaching is not' },
+    { id: 'personal-use', title: 'Personal use, not your employer\'s' },
     { id: 'prerequisites', title: 'Choosing the right session' },
     { id: 'price', title: 'Price and payment' },
     { id: 'changes', title: 'Moving, missing and refunds' },
@@ -53,6 +54,8 @@ const lede = `These terms apply when you book private 1-to-1 AI coaching from th
         {DELIVERY.platform}, built around a real task you bring.</li>
     <li>Coaching is guidance, not a guaranteed result. We are not a school or institute, and we
         issue no certificates or qualifications.</li>
+    <li>Coaching is for personal use: join on your own computer and accounts, not your
+        employer's. Following your employer's rules on AI is your responsibility.</li>
     <li><strong>No refund for a change of mind or a missed session. Move your session once, free,
         if you do it at least 24 hours before.</strong> The <a href={policy}>Booking and Refund Policy</a>
         has the details, including when we always refund.</li>
@@ -99,7 +102,7 @@ const lede = `These terms apply when you book private 1-to-1 AI coaching from th
     </Row>
 
     <Row id="is-not" title={topic('is-not')} where="Please read">
-      <p><strong>Coaching is personal guidance on using AI tools in your own work. We are not a
+      <p><strong>Coaching is personal guidance on using AI tools for your own purposes. We are not a
          school, institute or training provider, and we do not issue certificates,
          qualifications or accreditation.</strong></p>
       <p>We do not promise any result, such as a job, income, a business outcome or a finished
@@ -108,9 +111,20 @@ const lede = `These terms apply when you book private 1-to-1 AI coaching from th
          they produce before you rely on it.</p>
     </Row>
 
+    <Row id="personal-use" title={topic('personal-use')} where="Please read">
+      <p><strong>Coaching is for your personal use. Join on your own personal computer and use
+         your own personal accounts, not a computer, account, system or network your employer
+         gives you.</strong></p>
+      <p>Some employers do not allow AI tools on their equipment, systems or data. Following your
+         employer's rules is your responsibility. We are not responsible for any breach of those
+         rules, or for anything that follows from using your employer's equipment, accounts or
+         information against this advice.</p>
+    </Row>
+
     <Row id="prerequisites" title={topic('prerequisites')} where="Before you book">
-      <p>Some sessions build on earlier ones and list prerequisites on their page. Please check
-         them before you book. If you are not sure which session suits you, email
+      <p>Each session lists its prerequisites on its booking page, such as the computer,
+         subscriptions and apps you need, and earlier sessions it builds on. Please check them
+         before you book: you confirm you have read them when you book. If you are not sure which session suits you, email
          <a href={mail}>{COACHING.email}</a> before booking and we will help you choose.</p>
     </Row>
 
