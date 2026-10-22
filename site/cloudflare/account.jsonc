@@ -3,9 +3,14 @@
 // account-pages-deploy job from the audited production build in
 // ../dist-account; its one policy comes from dist-account/_headers.
 // scripts/cloudflare-files.test.mjs checks this file.
+//
+// Its Worker name must never be the account API's (workers/account,
+// "zaaheen-account"): a publish under the same name REPLACES that Worker,
+// its code, secrets and custom domain. That happened from 2026-10-20 to
+// 10-22 and took api.zaaheen.com down (session 108).
 {
   "$schema": "../../workers/account/node_modules/wrangler/config-schema.json",
-  "name": "zaaheen-account",
+  "name": "zaaheen-account-site",
   "compatibility_date": "2026-09-01",
   // Only the real address serves the pages: no workers.dev copy, no preview URLs.
   "workers_dev": false,

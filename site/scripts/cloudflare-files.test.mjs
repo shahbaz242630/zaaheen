@@ -188,7 +188,7 @@ const config = (name) => parseJsonc(fs.readFileSync(path.join(HERE, '..', 'cloud
 test('each site answers on its own real address only', () => {
   for (const [file, name, host, dir] of [
     ['site.jsonc', 'zaaheen-site', 'zaaheen.com', '../dist'],
-    ['account.jsonc', 'zaaheen-account', 'account.zaaheen.com', '../dist-account'],
+    ['account.jsonc', 'zaaheen-account-site', 'account.zaaheen.com', '../dist-account'],
   ]) {
     const c = config(file);
     assert.equal(c.name, name);
@@ -196,6 +196,28 @@ test('each site answers on its own real address only', () => {
     assert.equal(c.workers_dev, false, `${file}: no workers.dev copy`);
     assert.equal(c.preview_urls, false, `${file}: no preview URLs`);
     assert.equal(c.assets.directory, dir);
+  }
+});
+
+/*
+  Session 108: account.jsonc once used the account API's Worker name, so every
+  website publish replaced the API (code, secrets, api.zaaheen.com). A site
+  Worker may never share a name with any Worker under workers/, in any env.
+*/
+test('no site Worker shares a name with a Worker under workers/', () => {
+  const workersDir = path.join(HERE, '..', '..', 'workers');
+  const taken = new Set();
+  for (const dir of fs.readdirSync(workersDir)) {
+    const file = path.join(workersDir, dir, 'wrangler.jsonc');
+    if (!fs.existsSync(file)) continue;
+    const w = parseJsonc(fs.readFileSync(file, 'utf8'));
+    taken.add(w.name);
+    for (const env of Object.values(w.env ?? {})) if (env.name) taken.add(env.name);
+  }
+  assert.ok(taken.has('zaaheen-account'), 'the account API is found');
+  for (const file of ['site.jsonc', 'account.jsonc']) {
+    const name = config(file).name;
+    assert.ok(!taken.has(name), `${file}: ${name} is a Worker under workers/`);
   }
 });
 
