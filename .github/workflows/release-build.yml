@@ -166,7 +166,7 @@ jobs:
           "name=$name" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "$hash  $name  commit $env:GITHUB_SHA  account ${{ inputs.account || 'sandbox' }}" | Out-File -FilePath "$name.sha256.txt" -Encoding ascii
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Zaaheen-windows-${{ inputs.account || 'sandbox' }}
           path: |
@@ -337,7 +337,7 @@ jobs:
           echo "$DMG  $(du -m "$DMG" | cut -f1) MB  SHA256 $HASH  commit $GITHUB_SHA"
           echo "$HASH  $DMG  commit $GITHUB_SHA  account $ACCOUNT" > "$DMG.sha256.txt"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Zaaheen-mac-${{ inputs.account || 'sandbox' }}
           path: |
