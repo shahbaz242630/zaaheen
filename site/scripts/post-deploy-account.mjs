@@ -14,7 +14,8 @@ import { expectedHeaders, headerProblems } from './live-headers.mjs';
 import { ACCOUNT_ORIGIN, instanceProblems } from './clerk-invariants.mjs';
 
 const FAPI = 'https://clerk.zaaheen.com';
-const PAGES = ['/sign-in/', '/sign-up/', '/sso-callback/', '/delete-account/'];
+// /account/ too (audit s104 WEB-1): the signed-in page every subscriber uses.
+const PAGES = ['/sign-in/', '/sign-up/', '/sso-callback/', '/delete-account/', '/account/'];
 
 const args = process.argv.slice(2);
 const opt = (name, fallback) => {
@@ -108,7 +109,7 @@ try {
   const oauth = await (await fetch(`${FAPI}/.well-known/oauth-authorization-server`)).json();
   const found = instanceProblems(env, oauth);
   if (found.length) problems.push(...found.map((p) => `Clerk instance: ${p}`));
-  else console.log('  ok  Clerk instance (MFA and tasks off, DCR and CIMD off, our paths, self-delete on)');
+  else console.log('  ok  Clerk instance (MFA and tasks off, DCR and CIMD off, our paths, self-delete on, enumeration protection on, Native API off)');
 } catch (e) {
   problems.push(`Clerk instance: ${e.message}`);
 }

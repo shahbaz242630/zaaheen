@@ -18,6 +18,11 @@
 //   accounts.zaaheen.com (D9 production).
 // - Self-delete on: the delete page and the app's Delete my account need it
 //   (ACCOUNT-DELETION-DESIGN).
+// - Enumeration protection on (Strict, audit s101 #18): an unknown email gets
+//   the same answer as a real one, so nobody can test who has an account.
+// - Native API off: we ship no native sign-in, and on it lets any app sign
+//   in to our instance without the browser's origin checks (s101 web audit).
+// Both had drifted before, unnoticed (audit s104 WEB-1).
 
 export const ACCOUNT_ORIGIN = 'https://account.zaaheen.com';
 export const EXPECTED_PATHS = {
@@ -62,6 +67,10 @@ export function instanceProblems(env, oauth) {
   }
 
   if (env?.user_settings?.actions?.delete_self !== true) problems.push('self-delete is off (the delete page needs it)');
+  if (env?.user_settings?.attack_protection?.enumeration_protection?.enabled !== true) {
+    problems.push('enumeration protection is off (anyone can test which emails have an account)');
+  }
+  if (auth.native_settings?.api_enabled !== false) problems.push('the Native API is on (or not reported)');
 
   // DCR and CIMD: both advertise themselves in the OAuth server metadata when on.
   if (!oauth || typeof oauth !== 'object' || !oauth.issuer) {
