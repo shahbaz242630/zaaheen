@@ -9,7 +9,7 @@ const off = { enabled: false, required: false, used_for_first_factor: false, use
 const good = () => ({
   env: {
     display_config: { instance_environment_type: 'production', ...EXPECTED_PATHS },
-    auth_config: { second_factors: [] },
+    auth_config: { second_factors: [], native_settings: { api_enabled: false } },
     user_settings: {
       attributes: {
         email_address: { enabled: true, required: true, used_for_first_factor: true, used_for_second_factor: false },
@@ -20,6 +20,7 @@ const good = () => ({
       },
       sign_up: { mfa: { required: false } },
       actions: { delete_self: true },
+      attack_protection: { enumeration_protection: { enabled: true } },
     },
     organization_settings: { enabled: false, force_organization_selection: false },
   },
@@ -45,6 +46,8 @@ const broken = [
   ['sign-in on the hosted portal', (c) => { c.env.display_config.sign_in_url = 'https://accounts.zaaheen.com/sign-in'; }, /sign_in_url/],
   ['sign-up on the hosted portal', (c) => { c.env.display_config.sign_up_url = 'https://accounts.zaaheen.com/sign-up'; }, /sign_up_url/],
   ['consent moved', (c) => { c.env.display_config.oauth_consent_url = 'https://account.zaaheen.com/oauth-consent'; }, /oauth_consent_url/],
+  ['enumeration protection off', (c) => { c.env.user_settings.attack_protection.enumeration_protection.enabled = false; }, /enumeration protection is off/],
+  ['Native API on', (c) => { c.env.auth_config.native_settings.api_enabled = true; }, /Native API is on/],
   ['self-delete off', (c) => { c.env.user_settings.actions.delete_self = false; }, /self-delete is off/],
   ['DCR on', (c) => { c.oauth.registration_endpoint = 'https://clerk.zaaheen.com/oauth/register'; }, /Dynamic Client Registration/],
   ['CIMD on', (c) => { c.oauth.client_id_metadata_document_supported = true; }, /client ID metadata/],
