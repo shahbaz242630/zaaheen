@@ -23,7 +23,8 @@ name: Site
 # Cloudflare (session 105, ADR-SEC-047): Hostinger's shared servers answer 429
 # to OpenAI's and Meta's crawlers by name and cannot be told otherwise, so both
 # sites are served by Cloudflare as static assets (Workers zaaheen-site and
-# zaaheen-account, configs in site/cloudflare/). With repository variable
+# zaaheen-account-site, configs in site/cloudflare/; never the API's name
+# zaaheen-account, which a publish would replace: session 108). With repository variable
 # CLOUDFLARE_PUBLISH 'true', the cloudflare-deploy and account-cloudflare-deploy
 # jobs publish the SAME audited artifacts there, after the Hostinger jobs, which
 # keep running: Hostinger stays a current fallback until it is retired. The live
