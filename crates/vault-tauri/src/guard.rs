@@ -731,6 +731,7 @@ mod tests {
     fn every_gated_command_asks_before_it_serves() {
         const SOURCES: &[&str] = &[
             include_str!("commands/memory.rs"),
+            include_str!("commands/recently_deleted.rs"),
             include_str!("commands/boundary.rs"),
             include_str!("commands/agent.rs"),
             include_str!("commands/engine.rs"),
