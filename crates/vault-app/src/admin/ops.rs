@@ -16,6 +16,7 @@ use serde_json::{json, Value};
 use vault_core::{Boundary, Memory, MemoryId, MemoryType, NewMemory, VaultError};
 use vault_mcp::{Adapter, ToolInvokeDetails, ToolInvokeError};
 use vault_retrieval::{RetrievalOptions, RetrievalQuery};
+use vault_storage::BinBy;
 
 use super::store::OwnerStore;
 use crate::VaultAdapter;
@@ -32,7 +33,7 @@ pub const MAX_AGENT_NAME_LEN: usize = 64;
 pub const MAX_EXPORT_PAGE: usize = 2_000;
 
 /// A `TauriCommandInvoke` row with no search-specific fields.
-fn row(
+pub(super) fn row(
     tool: &'static str,
     started: Instant,
     result_count: u32,
@@ -164,9 +165,10 @@ pub async fn memory_update(
     let parsed_boundary = Boundary::new(&boundary).map_err(|e| format!("invalid boundary: {e}"))?;
 
     let result = adapter
-        .update(
+        .update_as(
             id,
             desktop_memory(content, parsed_memory_type, parsed_boundary),
+            BinBy::User,
         )
         .await;
     let mut details = row("update_memory", start, u32::from(result.is_ok()), 1);
@@ -182,7 +184,7 @@ pub async fn memory_delete(adapter: &VaultAdapter, id: String) -> Result<(), Str
     let start = Instant::now();
     let id: MemoryId = id.parse().map_err(|e| format!("invalid memory id: {e}"))?;
 
-    let result = adapter.delete(id).await;
+    let result = adapter.delete_as(id, BinBy::User).await;
     let mut details = row("delete_memory", start, u32::from(result.is_ok()), 0);
     details.error = result.as_ref().err().map(ToolInvokeError::from_vault_error);
     let _ = adapter.append_tauri_command_audit(details).await;

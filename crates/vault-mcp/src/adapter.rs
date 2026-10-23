@@ -77,11 +77,18 @@ pub trait Adapter: Send + Sync {
     /// Phase 1 stub takes a full `NewMemory` as the patch payload;
     /// Phase 2 may introduce a `MemoryUpdates` partial-update struct
     /// once the Tauri UI's update-flow design is firmer (T0.1.11).
+    ///
+    /// ADR-114: the replaced wording is kept in Recently deleted; past the
+    /// AI-app hourly limit this returns `VaultError::RateLimited` having
+    /// changed nothing (ADR-SEC-049), which the tool answers readably.
     async fn update(&self, id: MemoryId, new_memory: NewMemory) -> VaultResult<()>;
 
     /// `memory_delete` — delete a memory by id. The caller (`StdioServer`)
     /// has already verified the memory's boundary against the trusted
     /// authorization slice before this is called.
+    ///
+    /// ADR-114: the memory moves to Recently deleted; `RateLimited` as for
+    /// [`Self::update`].
     async fn delete(&self, id: MemoryId) -> VaultResult<()>;
 
     /// Look up the stored boundary of a memory by id, returning `Ok(None)`

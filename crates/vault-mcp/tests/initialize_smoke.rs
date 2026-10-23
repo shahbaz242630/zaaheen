@@ -438,13 +438,15 @@ async fn memory_update_description_contains_canonical_save_contract() {
 
 // ─────────────────────────────────────────────────────────────────────────
 // Test 8: memory_delete tool description carries WHEN-TO-CALL /
-// IRREVERSIBILITY / idempotency guidance (admin ride-along, 2026-05-26)
+// UNDO / idempotency guidance (admin ride-along, 2026-05-26; UNDO replaced
+// IRREVERSIBILITY with Recently deleted, ADR-114, s109)
 // ─────────────────────────────────────────────────────────────────────────
 //
 // Delete is rare and high-blast-radius — the description must teach
 // agents when NOT to call it (consolidator handles dedupe; update
 // handles correction; future invalidate handles stale-but-historical),
-// the irreversibility note, and the idempotency contract.
+// the undo note (Recently deleted, 30 days, the hourly limit), and the
+// idempotency contract.
 #[tokio::test]
 async fn memory_delete_description_contains_when_to_call_guidance() {
     use rmcp::ServiceExt;
@@ -481,7 +483,9 @@ async fn memory_delete_description_contains_when_to_call_guidance() {
     let required_phrases: &[(&str, &str)] = &[
         ("WHEN TO CALL", "when-to-call section header"),
         ("WHEN NOT TO CALL", "when-not-to-call section header"),
-        ("IRREVERSIBILITY", "irreversibility section header"),
+        ("UNDO", "undo section header (ADR-114)"),
+        ("Recently deleted", "where the user restores it"),
+        ("30 memories an hour", "the AI-app limit (ADR-SEC-049)"),
         ("Idempotent", "idempotency contract"),
         ("consolidator", "delete-vs-consolidator boundary guidance"),
         ("memory_update", "delete-vs-update guidance"),

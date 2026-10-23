@@ -57,6 +57,26 @@ pub const ADMIN_TOOLS: &[AdminTool] = &[
         access: Access::Gated,
     },
     AdminTool {
+        name: "admin_bin_list",
+        serves: &["list_recently_deleted"],
+        access: Access::Gated,
+    },
+    AdminTool {
+        name: "admin_bin_restore",
+        serves: &["restore_recently_deleted"],
+        access: Access::Gated,
+    },
+    AdminTool {
+        name: "admin_bin_erase",
+        serves: &["erase_recently_deleted"],
+        access: Access::Gated,
+    },
+    AdminTool {
+        name: "admin_bin_empty",
+        serves: &["empty_recently_deleted"],
+        access: Access::Gated,
+    },
+    AdminTool {
         name: "admin_boundary_list",
         serves: &["list_boundaries"],
         access: Access::Gated,

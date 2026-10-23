@@ -71,6 +71,7 @@ pub mod location;
 pub mod logs;
 pub mod maintenance;
 pub mod memory;
+pub mod recently_deleted;
 pub mod settings;
 pub mod startup;
 

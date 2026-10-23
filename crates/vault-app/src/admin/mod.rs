@@ -12,6 +12,7 @@
 //!   encrypted database, for the lock screen's numbers and the export;
 //! - [`EngineCell`]: the ranking model's one download.
 
+pub mod bin_ops;
 mod engine;
 mod host;
 pub mod ops;

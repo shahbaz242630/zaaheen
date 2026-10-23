@@ -18,6 +18,7 @@ use tokio_util::sync::CancellationToken;
 use vault_core::MemoryId;
 use vault_mcp::{ReadDesk, Verdict, DESK_BUDGET};
 
+use super::bin_ops;
 use super::host::{AdminHost, FullHost};
 use super::ops::{self, DesktopEvent};
 use super::table::{locked_code, Access};
@@ -105,6 +106,18 @@ pub struct IdParams {
 #[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
 pub struct LimitParams {
     pub limit: usize,
+}
+
+#[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
+pub struct BinPageParams {
+    pub limit: usize,
+    #[serde(default)]
+    pub offset: usize,
+}
+
+#[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
+pub struct EntryParams {
+    pub entry_id: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
@@ -289,6 +302,51 @@ impl AdminServer {
             Err(r) => return Ok(r),
         };
         done(ops::memory_list_recent(full.adapter(), p.limit).await)
+    }
+
+    #[tool(description = "Recently deleted, newest first (ADR-114).")]
+    async fn admin_bin_list(
+        &self,
+        Parameters(p): Parameters<BinPageParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let full = match self.gated().await {
+            Ok(full) => full,
+            Err(r) => return Ok(r),
+        };
+        done(bin_ops::bin_list(full.adapter(), p.limit, p.offset).await)
+    }
+
+    #[tool(description = "Put a Recently deleted entry back as the vault's owner.")]
+    async fn admin_bin_restore(
+        &self,
+        Parameters(p): Parameters<EntryParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let full = match self.gated().await {
+            Ok(full) => full,
+            Err(r) => return Ok(r),
+        };
+        done(bin_ops::bin_restore(full.adapter(), p.entry_id).await)
+    }
+
+    #[tool(description = "Erase one Recently deleted entry for good.")]
+    async fn admin_bin_erase(
+        &self,
+        Parameters(p): Parameters<EntryParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let full = match self.gated().await {
+            Ok(full) => full,
+            Err(r) => return Ok(r),
+        };
+        done(bin_ops::bin_erase(full.adapter(), p.entry_id).await)
+    }
+
+    #[tool(description = "Erase every Recently deleted entry for good.")]
+    async fn admin_bin_empty(&self) -> Result<CallToolResult, McpError> {
+        let full = match self.gated().await {
+            Ok(full) => full,
+            Err(r) => return Ok(r),
+        };
+        done(bin_ops::bin_empty(full.adapter()).await)
     }
 
     #[tool(description = "Every registered boundary with its count.")]

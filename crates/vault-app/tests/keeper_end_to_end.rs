@@ -727,7 +727,7 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     let actual = hasher.finalize().to_hex().to_string();
     assert_eq!(
         (WIRE, actual.as_str()),
-        (6, PINNED),
+        (7, PINNED),
         "The MCP tool contract changed. Relays and keepers from different \
          builds must not disagree about it silently: bump WIRE in \
          vault_app::keeper::handshake and set PINNED to {actual}."

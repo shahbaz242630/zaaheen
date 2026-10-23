@@ -276,6 +276,12 @@ pub const GATED_COMMANDS: &[&str] = &[
     "update_memory",
     "delete_memory",
     "list_recent_memories",
+    // Recently deleted (ADR-114): vault data, so past the lock like the
+    // memories themselves.
+    "list_recently_deleted",
+    "restore_recently_deleted",
+    "erase_recently_deleted",
+    "empty_recently_deleted",
     "list_boundaries",
     "create_boundary",
     "list_agents",

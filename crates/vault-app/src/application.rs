@@ -647,6 +647,25 @@ impl Application {
             keyword_index.clone(),
         );
 
+        // 10b. Recently deleted (ADR-114): erase entries past their 30 days
+        //     whenever the vault opens (the keeper idles out and restarts
+        //     often, and the nightly job opens it too). Best-effort: a
+        //     failure leaves them for the next open; the Recently deleted
+        //     screen purges again before it lists.
+        match adapter.purge_recently_deleted().await {
+            Ok(0) => {}
+            Ok(n) => tracing::info!(
+                target: "vault_app::startup",
+                erased = n,
+                "recently deleted: entries past 30 days erased"
+            ),
+            Err(e) => tracing::warn!(
+                target: "vault_app::startup",
+                error = %e,
+                "recently deleted: purge failed; retried at the next open"
+            ),
+        }
+
         // 11. Optional Consolidator (T0.3.x Batch A, 2026-05-26).
         //
         //    When `phi4_model_path` is `Some`, load Phi-4-mini-instruct

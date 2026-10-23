@@ -49,6 +49,29 @@ identifier = "allow-list-recent-memories"
 description = "Allow invoking the list_recent_memories command (newest-first memories for the home list, including agent-written ones)."
 commands.allow = ["list_recent_memories"]
 
+# Recently deleted (ADR-114, session 109): the owner's undo for deletes and
+# edits, kept 30 days. Owner only: AI apps have no tool for any of these.
+
+[[permission]]
+identifier = "allow-list-recently-deleted"
+description = "Allow invoking the list_recently_deleted command (deleted memories and replaced wordings kept for 30 days, newest first, with a page size and offset)."
+commands.allow = ["list_recently_deleted"]
+
+[[permission]]
+identifier = "allow-restore-recently-deleted"
+description = "Allow invoking the restore_recently_deleted command (put one Recently deleted entry back, by its entry id)."
+commands.allow = ["restore_recently_deleted"]
+
+[[permission]]
+identifier = "allow-erase-recently-deleted"
+description = "Allow invoking the erase_recently_deleted command (erase one Recently deleted entry for good, by its entry id)."
+commands.allow = ["erase_recently_deleted"]
+
+[[permission]]
+identifier = "allow-empty-recently-deleted"
+description = "Allow invoking the empty_recently_deleted command (erase every Recently deleted entry for good). Takes no argument."
+commands.allow = ["empty_recently_deleted"]
+
 [[permission]]
 identifier = "allow-list-boundaries"
 description = "Allow invoking the list_boundaries command (registered boundaries with their active-memory counts)."
