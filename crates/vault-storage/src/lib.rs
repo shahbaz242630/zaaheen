@@ -59,7 +59,9 @@ pub use metadata_store::{
     rekey_in_place, verify_sqlcipher_passphrase, MemoryFilter, MetadataStore,
 };
 pub use pending_sync::{PendingSync, PendingSyncEntry};
-pub use recently_deleted::{BinBy, BinEntry, BinKind, APP_CHANGES_PER_HOUR, RECENTLY_DELETED_DAYS};
+pub use recently_deleted::{
+    purge_expired, BinBy, BinEntry, BinKind, APP_CHANGES_PER_HOUR, RECENTLY_DELETED_DAYS,
+};
 pub use report_layout::{
     sealed_report_filename, sealed_report_relative_path, REPORTS_DIRNAME,
     REPORT_LEGACY_PLAINTEXT_SUFFIX, REPORT_SEALED_SUFFIX,

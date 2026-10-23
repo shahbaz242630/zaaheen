@@ -280,6 +280,22 @@ async fn an_entry_past_thirty_days_cannot_be_restored_even_before_the_purge() {
 }
 
 #[tokio::test]
+async fn the_purge_works_on_the_encrypted_database_alone() {
+    // A locked computer opens only vault.db (no vectors, no graph).
+    let (_tmp, b) = backend().await;
+    entry_aged(
+        &b,
+        "expired",
+        BinBy::App,
+        Duration::days(RECENTLY_DELETED_DAYS + 1),
+    )
+    .await;
+    entry_aged(&b, "kept", BinBy::App, Duration::days(1)).await;
+    assert_eq!(purge_expired(b.metadata(), Utc::now()).await.unwrap(), 1);
+    assert_eq!(b.count_recently_deleted().await.unwrap(), 1);
+}
+
+#[tokio::test]
 async fn delete_now_and_empty_erase_for_good() {
     let (_tmp, b) = backend().await;
     for content in ["one", "two", "three"] {

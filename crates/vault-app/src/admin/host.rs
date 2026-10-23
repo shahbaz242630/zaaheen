@@ -82,9 +82,21 @@ impl LockedHost {
         let opened = self
             .store
             .get_or_try_init(|| async {
-                MetadataStore::open_existing(&self.vault_db, self.key.clone())
-                    .await
-                    .map(|m| m.map(LockedStore::new))
+                let opened = MetadataStore::open_existing(&self.vault_db, self.key.clone()).await?;
+                // Recently deleted (ADR-114): a lapsed computer never opens
+                // the full vault, and its deleted memories must still be
+                // erased after 30 days. Best-effort; the next open retries.
+                if let Some(metadata) = &opened {
+                    if let Err(e) = vault_storage::purge_expired(metadata, chrono::Utc::now()).await
+                    {
+                        tracing::warn!(
+                            target: "vault_app::admin",
+                            error = %e,
+                            "recently deleted: purge on a locked computer failed"
+                        );
+                    }
+                }
+                Ok::<_, vault_core::VaultError>(opened.map(LockedStore::new))
             })
             .await?;
         Ok(opened.as_ref().map(|s| s as &dyn OwnerStore))

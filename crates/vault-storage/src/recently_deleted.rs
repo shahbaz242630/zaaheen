@@ -25,7 +25,9 @@ use vault_core::{Memory, VaultError, VaultResult};
 
 use crate::audit::{ActorKind, AuditEventType, PendingAuditEvent};
 use crate::cascading::{tx_enqueue_cascade, Ack, CascadePayloadV1, StorageBackend};
-use crate::metadata_store::{tx_append_audit, tx_get_memory, tx_insert_memory, tx_update_memory};
+use crate::metadata_store::{
+    tx_append_audit, tx_get_memory, tx_insert_memory, tx_update_memory, MetadataStore,
+};
 use crate::retry_queue::CascadeOperation;
 
 /// How long an entry stays in Recently deleted (BRD §11.5.3; founder s109).
@@ -407,25 +409,32 @@ impl StorageBackend {
     }
 
     /// Erase the entries older than [`RECENTLY_DELETED_DAYS`] before `now`.
-    /// Runs when the keeper starts and with the nightly job.
+    /// Runs whenever the vault opens and before the list is shown.
     #[instrument(skip(self))]
     pub async fn purge_recently_deleted(&self, now: DateTime<Utc>) -> VaultResult<usize> {
-        let cutoff = stamp(now - Duration::days(RECENTLY_DELETED_DAYS));
-        self.metadata()
-            .with_transaction(move |tx| {
-                let n = tx
-                    .execute(
-                        "DELETE FROM recently_deleted WHERE at < ?1",
-                        params![cutoff],
-                    )
-                    .map_err(|e| VaultError::Storage(format!("purge recently_deleted: {e}")))?;
-                if n > 0 {
-                    tx_erased_audit(tx, "expired", n)?;
-                }
-                Ok(n)
-            })
-            .await
+        purge_expired(self.metadata(), now).await
     }
+}
+
+/// [`StorageBackend::purge_recently_deleted`] on the encrypted database
+/// alone: a locked computer (trial or subscription ended) opens only that,
+/// and its deleted memories must still be erased after 30 days.
+pub async fn purge_expired(metadata: &MetadataStore, now: DateTime<Utc>) -> VaultResult<usize> {
+    let cutoff = stamp(now - Duration::days(RECENTLY_DELETED_DAYS));
+    metadata
+        .with_transaction(move |tx| {
+            let n = tx
+                .execute(
+                    "DELETE FROM recently_deleted WHERE at < ?1",
+                    params![cutoff],
+                )
+                .map_err(|e| VaultError::Storage(format!("purge recently_deleted: {e}")))?;
+            if n > 0 {
+                tx_erased_audit(tx, "expired", n)?;
+            }
+            Ok(n)
+        })
+        .await
 }
 
 #[cfg(test)]
