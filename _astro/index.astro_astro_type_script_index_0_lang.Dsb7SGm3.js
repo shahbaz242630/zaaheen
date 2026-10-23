@@ -1,0 +1,1 @@
+import"./hero.kfH9RNl-.js";
