@@ -39,6 +39,10 @@ jobs:
     name: Windows installer (${{ inputs.account || 'sandbox' }})
     runs-on: windows-2025
     timeout-minutes: 300
+    # The Apple and production secrets live only in the `release` environment,
+    # which waits for the founder's approval (security audit s101 #19 / s104
+    # SUP-2): a push to a test branch or an edited workflow cannot read them.
+    environment: release
     env:
       # The seven account settings, baked in at compile time (option_env!).
       ZAAHEEN_ACCOUNT_ISSUER: ${{ inputs.account == 'production' && secrets.PROD_ACCOUNT_ISSUER || secrets.MAC_TEST_ACCOUNT_ISSUER }}
@@ -87,7 +91,7 @@ jobs:
       - name: Install LLVM and set LIBCLANG_PATH
         shell: pwsh
         run: |
-          choco install llvm -y --no-progress
+          choco install llvm --version 20.1.8 --allow-downgrade -y --no-progress
           $clang = (Get-Command clang.exe -ErrorAction SilentlyContinue).Source
           if (-not $clang) { $clang = "C:\Program Files\LLVM\bin\clang.exe" }
           "LIBCLANG_PATH=$(Split-Path $clang -Parent)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -105,7 +109,7 @@ jobs:
           Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\${env:VULKAN_VERSION}"
           Add-Content $env:GITHUB_PATH "C:\VulkanSDK\${env:VULKAN_VERSION}\bin"
           Add-Content $env:GITHUB_ENV "CMAKE_TRY_COMPILE_CONFIGURATION=Release"
-          choco install ninja -y --no-progress
+          choco install ninja --version 1.13.2 --allow-downgrade -y --no-progress
           Add-Content $env:GITHUB_ENV "CMAKE_GENERATOR=Ninja"
           # The big D: drive, as CI does.
           Add-Content $env:GITHUB_ENV "CARGO_TARGET_DIR=D:\t"
@@ -130,7 +134,7 @@ jobs:
           ./scripts/gen-licence-notices.ps1 -Check
 
       - name: Build the command-line programs (release)
-        run: cargo build --release -p vault-cli
+        run: cargo build --release --locked -p vault-cli
 
       # installer.wxs names the two programs by the founder's local path (the
       # build this recipe was written for). Put them exactly there, so the
@@ -148,7 +152,7 @@ jobs:
 
       - name: Build the installer (MSI)
         working-directory: crates/vault-tauri
-        run: cargo tauri build
+        run: cargo tauri build -- --locked
 
       - name: Name the installer for what it carries
         id: msi
@@ -177,6 +181,7 @@ jobs:
     name: Mac download (${{ inputs.account || 'sandbox' }})
     runs-on: macos-latest
     timeout-minutes: 240
+    environment: release
     env:
       MACOSX_DEPLOYMENT_TARGET: '13.0'
       # The same seven settings and sandbox copies as the Windows job.
@@ -226,10 +231,18 @@ jobs:
           ./scripts/gen-licence-notices.ps1 -Mac -Check
 
       - name: Build the command-line programs (release)
-        run: cargo build --release -p vault-cli --bins
+        run: cargo build --release --locked -p vault-cli --bins
 
       - name: Install the Tauri CLI (the version the Windows build uses)
         run: cargo install tauri-cli --version 2.11.0 --locked
+
+      # Every compile finishes BEFORE the signing key is unlocked or the
+      # notarisation key written (security audit s104 SUP-1); the signing
+      # step below then only bundles, signs and notarises, and fails if
+      # anything compiles while the keys are out.
+      - name: Compile the desktop app (no signing key yet)
+        working-directory: crates/vault-tauri
+        run: cargo tauri build --config tauri.mac-test.conf.json --no-bundle -- --locked
 
       - name: Import the Developer ID certificate
         env:
@@ -274,8 +287,13 @@ jobs:
           export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
           printf '%s\n' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY_PATH"
           unset APPLE_API_KEY_P8
-          cargo tauri build --config tauri.mac-test.conf.json
+          cargo tauri build --config tauri.mac-test.conf.json -- --locked 2>&1 | tee "$RUNNER_TEMP/tauri-sign.log"
+          status=${PIPESTATUS[0]}
           rm -f "$APPLE_API_KEY_PATH"
+          [ "$status" = 0 ] || exit "$status"
+          if grep -E 'Compiling [A-Za-z0-9_-]+ v[0-9]' "$RUNNER_TEMP/tauri-sign.log"; then
+            echo "ABORTED: code compiled while the signing key was unlocked (SUP-1)"; exit 1
+          fi
 
       - name: Apple accepts the bundle, and the three programs are one app
         run: |

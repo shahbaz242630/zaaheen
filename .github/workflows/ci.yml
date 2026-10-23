@@ -298,7 +298,7 @@ jobs:
       - if: runner.os == 'Windows'
         name: Install LLVM via chocolatey
         shell: pwsh
-        run: choco install llvm -y --no-progress
+        run: choco install llvm --version 20.1.8 --allow-downgrade -y --no-progress
       - if: runner.os == 'Windows'
         name: Set LIBCLANG_PATH via discovered clang location
         shell: pwsh
@@ -371,7 +371,7 @@ jobs:
           # which doesn't propagate per commit 8 falsification). Ninja is
           # preinstalled on windows-2025 runners (ships with Visual Studio
           # Build Tools); choco install line is defensive idempotency.
-          choco install ninja -y --no-progress
+          choco install ninja --version 1.13.2 --allow-downgrade -y --no-progress
           Add-Content $env:GITHUB_ENV "CMAKE_GENERATOR=Ninja"
           # T0.2.3 close commit 12 fix-forward (2026-05-24): shorten
           # `CARGO_TARGET_DIR` to bypass the Windows MAX_PATH=260 limit hit
@@ -581,7 +581,7 @@ jobs:
       - if: runner.os == 'Windows'
         name: Install LLVM via chocolatey
         shell: pwsh
-        run: choco install llvm -y --no-progress
+        run: choco install llvm --version 20.1.8 --allow-downgrade -y --no-progress
       - if: runner.os == 'Windows'
         name: Set LIBCLANG_PATH via discovered clang location
         shell: pwsh
@@ -634,7 +634,7 @@ jobs:
           # which doesn't propagate per commit 8 falsification). Ninja is
           # preinstalled on windows-2025 runners (ships with Visual Studio
           # Build Tools); choco install line is defensive idempotency.
-          choco install ninja -y --no-progress
+          choco install ninja --version 1.13.2 --allow-downgrade -y --no-progress
           Add-Content $env:GITHUB_ENV "CMAKE_GENERATOR=Ninja"
           # T0.2.3 close commit 12 fix-forward (2026-05-24): shorten
           # `CARGO_TARGET_DIR` to bypass the Windows MAX_PATH=260 limit hit
@@ -827,7 +827,7 @@ jobs:
       - uses: ./.github/actions/setup-protoc
       - name: Install LLVM via chocolatey
         shell: pwsh
-        run: choco install llvm -y --no-progress
+        run: choco install llvm --version 20.1.8 --allow-downgrade -y --no-progress
       - name: Set LIBCLANG_PATH via discovered clang location
         shell: pwsh
         run: |
@@ -875,7 +875,7 @@ jobs:
           # which doesn't propagate per commit 8 falsification). Ninja is
           # preinstalled on windows-2025 runners (ships with Visual Studio
           # Build Tools); choco install line is defensive idempotency.
-          choco install ninja -y --no-progress
+          choco install ninja --version 1.13.2 --allow-downgrade -y --no-progress
           Add-Content $env:GITHUB_ENV "CMAKE_GENERATOR=Ninja"
           # T0.2.3 close commit 12 fix-forward (2026-05-24): shorten
           # `CARGO_TARGET_DIR` to bypass the Windows MAX_PATH=260 limit hit
