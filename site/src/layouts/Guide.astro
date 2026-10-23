@@ -4,6 +4,8 @@ import DocsNav from '../components/DocsNav.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import { pageFor } from '../data/site';
 import { lastModified } from '../lib/lastmod';
+import { langOf } from '../i18n/locales';
+import { formatDate, t } from '../i18n/ui';
 
 // A how-to guide (SEO-HANDOFF §1 step 6): one task per page. The breadcrumb
 // trail, the H1 (the PAGES entry's heading, also the Article JSON-LD headline),
@@ -21,10 +23,9 @@ interface Props {
 const { path, lede, outline } = Astro.props;
 const page = pageFor(path);
 if (!page.heading) throw new Error(`Guide ${path} needs a heading in its PAGES entry`);
+const lang = langOf(path);
 const updated = lastModified(page.path);
-const updatedLabel = updated
-  ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-  : undefined;
+const updatedLabel = updated ? formatDate(updated, lang) : undefined;
 ---
 <Base page={page}>
   <div class="docs">
@@ -32,7 +33,7 @@ const updatedLabel = updated
       <Breadcrumbs page={page} />
       <h1>{page.heading}</h1>
       <p>{lede}</p>
-      {updatedLabel && <p class="doc-updated">Last updated {updatedLabel}</p>}
+      {updatedLabel && <p class="doc-updated">{t(lang, 'Last updated {date}', { date: updatedLabel })}</p>}
     </header>
 
     <div class="docs-layout">
@@ -42,8 +43,8 @@ const updatedLabel = updated
         <slot />
       </div>
 
-      <aside class="docs-toc" aria-label="On this page">
-        <p class="docs-toc-title">On this page</p>
+      <aside class="docs-toc" aria-label={t(lang, 'On this page')}>
+        <p class="docs-toc-title">{t(lang, 'On this page')}</p>
         {outline.map((s) => <a class="docs-toc-section" href={`#${s.id}`}>{s.title}</a>)}
       </aside>
     </div>

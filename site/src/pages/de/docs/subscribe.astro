@@ -1,0 +1,83 @@
+---
+// How to subscribe, in German (ADR-113). Button words stay as the app and the
+// Account page show them (in English): crates/vault-tauri/dist/index.html and
+// site/account/pages/account.astro.
+import Guide from '../../../layouts/Guide.astro';
+import Row from '../../../components/Row.astro';
+import Download from '../../../components/Download.astro';
+import { ACCOUNT, PLANS, PRICES, TRIAL } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+
+const L = (href: string) => localize(href, 'de');
+// The app's plan buttons, word for word (they are in English in the app).
+const yearlyButton = `${PLANS.yearly} (save $${PRICES.monthly * 12 - PRICES.yearly})`;
+const monthly = `${PRICES.monthly} USD pro Monat`;
+const yearly = `${PRICES.yearly} USD pro Jahr`;
+const OUTLINE = [
+  { id: 'account', title: '1. Erstelle dein Konto' },
+  { id: 'download', title: '2. Lade Zaaheen herunter' },
+  { id: 'trial', title: '3. Melde dich in der App an' },
+  { id: 'in-the-app', title: '4. Schließ das Abo in der App ab' },
+  { id: 'on-the-website', title: 'Oder schließ das Abo auf der Website ab' },
+  { id: 'manage', title: 'Tarif wechseln oder kündigen' },
+];
+---
+<Guide
+  path="/de/docs/subscribe/"
+  lede={`Erstelle dein Konto, lade Zaaheen herunter und melde dich in der App an: Deine kostenlose Testphase von ${TRIAL.days} Tagen beginnt, ohne Karte. Schließ ein Abo ab, wann immer du bereit bist, für ${monthly} oder ${yearly}, in der App oder auf deiner Account-Seite. Ein Abo gilt für dein Konto auf jedem Computer, auf dem du dich anmeldest.`}
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="account" title="1. Erstelle dein Konto" where="Dein Browser">
+      <p><a href={ACCOUNT.signUp}>Erstelle dein Zaaheen-Konto</a> mit deiner E-Mail-Adresse oder Google. Wir
+         schicken dir einen Code per E-Mail, um zu bestätigen, dass du es bist. Du hast schon ein Konto?
+         <a href={ACCOUNT.signIn}>Melde dich an</a>.</p>
+    </Row>
+
+    <Row level={2} id="download" title="2. Lade Zaaheen herunter" where="Windows oder Mac">
+      <p>Lade die App für deinen Computer herunter und installiere sie. Die Anleitung <a
+         href={L('/docs/getting-started/')}>Erste Schritte</a> führt dich durch die Installation.</p>
+      <Download small />
+    </Row>
+
+    <Row level={2} id="trial" title="3. Melde dich in der App an" where="Zaaheen">
+      <p>Öffne Zaaheen und wähle <em>Begin set up</em>, dann melde dich mit derselben E-Mail-Adresse oder
+         demselben Google-Konto an. Deine kostenlose Testphase von {TRIAL.days} Tagen beginnt, wenn du dich
+         zum ersten Mal in der App anmeldest. Du brauchst keine Karte, und in der Testphase funktioniert
+         alles.</p>
+    </Row>
+
+    <Row level={2} id="in-the-app" title="4. Schließ das Abo in der App ab" where="Settings › Account">
+      <p>Schließ das Abo jederzeit ab, während der Testphase oder danach:</p>
+      <ol>
+        <li>Öffne in Zaaheen <strong>Settings</strong>, dann <strong>Account</strong>.</li>
+        <li>Wähle unter <strong>Subscribe</strong> <strong>{PLANS.monthly}</strong> oder
+            <strong>{yearlyButton}</strong>.</li>
+        <li>Die Zahlung öffnet sich in deinem Browser in unserem sicheren Checkout. Steuern kommen dort
+            hinzu, wo sie anfallen.</li>
+        <li>Schließ die Zahlung im Browser ab und geh dann zurück zu Zaaheen. Es prüft deine Zahlung von
+            selbst und zeigt deinen Tarif als abonniert, sobald die Zahlung eingeht, meist innerhalb einer
+            Minute. Du kannst auch <em>I've paid</em> wählen, um sofort zu prüfen.</li>
+      </ol>
+      <p>In den letzten sieben Tagen deiner Testphase zeigt der Startbildschirm auch einen Knopf
+         <em>Subscribe</em>. Endet deine Testphase vorher, wird nichts gelöscht: Zaaheen bittet dich, ein
+         Abo abzuschließen, und deine Erinnerungen sind weiter auf deinem Computer.</p>
+    </Row>
+
+    <Row level={2} id="on-the-website" title="Oder schließ das Abo auf der Website ab" where="Account-Seite">
+      <p>Lieber zuerst zahlen? Öffne deine <a href={ACCOUNT.page}>Account-Seite</a>, melde dich an und wähle
+         unter <strong>Subscribe</strong> <strong>{PLANS.monthly}</strong> oder
+         <strong>{yearlyButton}</strong>. Die Zahlung öffnet sich im selben sicheren Checkout. Dein Abo
+         gehört zu deinem Konto, also übernimmt die App es, wenn du dich mit derselben E-Mail-Adresse
+         anmeldest.</p>
+    </Row>
+
+    <Row level={2} id="manage" title="Tarif wechseln oder kündigen" where="App oder Account-Seite">
+      <p>Mit <strong>Manage subscription</strong> wechselst du deinen Tarif oder änderst deine Karte, mit
+         <strong>Cancel subscription</strong> beendest du das Abo. Beides findest du in der App unter
+         Settings, Account, und auf deiner <a href={ACCOUNT.page}>Account-Seite</a>. Nach der Kündigung
+         funktioniert Zaaheen bis zum Ende des bezahlten Zeitraums weiter. Zu Erstattungen siehe die
+         <a href="/refunds/">Erstattungsrichtlinie (auf Englisch)</a>.</p>
+    </Row>
+  </section>
+</Guide>

@@ -1,0 +1,20 @@
+---
+// The ChatGPT Desktop connect guide in French (ADR-113). The steps come from the desktop
+// app's own wording, translated in src/i18n/ui/fr.ts.
+import Guide from '../../../layouts/Guide.astro';
+import ConnectSteps from '../../../components/ConnectSteps.astro';
+import { connectOutline } from '../../../data/app-words';
+import { t } from '../../../i18n/ui';
+
+const NAME = 'ChatGPT Desktop';
+const OUTLINE = connectOutline(NAME).map((o) => ({ ...o, title: t('fr', o.title) }));
+---
+<Guide
+  path="/fr/docs/connect-chatgpt/"
+  lede="Dans ChatGPT Desktop, ouvrez Settings, puis Plugins, puis MCP, et ajoutez un serveur MCP nommé Zaaheen avec la commande affichée dans l’onglet Agents de Zaaheen et les arguments mcp et serve. Utilisez ensuite Zaaheen dans un chat Work ou Codex."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <ConnectSteps name={NAME} where="ChatGPT › Settings" />
+  </section>
+</Guide>

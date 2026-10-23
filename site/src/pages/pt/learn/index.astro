@@ -1,0 +1,30 @@
+---
+import Base from '../../../layouts/Base.astro';
+import { LEARN, pageFor } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+import { learnSummary } from '../../../i18n/learn';
+
+// The Learn hub in Portuguese (ADR-113): every article, newest last as LEARN
+// lists them, with each article's translated heading and summary.
+const page = pageFor('/pt/learn/');
+const L = (href: string) => localize(href, 'pt');
+const articles = LEARN.map((a) => ({
+  path: L(a.path),
+  heading: pageFor(L(a.path)).heading,
+  summary: learnSummary(a, 'pt'),
+}));
+---
+<Base page={page}>
+  <div class="docs learn">
+    <header class="docs-head">
+      <h1>Aprenda sobre memória de IA</h1>
+      <p class="learn-lede">Respostas simples para as perguntas que as pessoas fazem sobre apps de IA
+         que lembram: como o Claude, o ChatGPT, o Claude Code e o Cursor guardam o que sabem sobre
+         você, e como manter uma única memória em todos eles. Escrito pelo Zaaheen e conferido com as
+         próprias páginas de ajuda de cada empresa.</p>
+    </header>
+    <ul class="learn-list">
+      {articles.map((a) => <li><a href={a.path}>{a.heading}</a><p>{a.summary}</p></li>)}
+    </ul>
+  </div>
+</Base>

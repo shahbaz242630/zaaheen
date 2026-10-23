@@ -1,0 +1,33 @@
+---
+// The "other AI apps" connect guide in German (ADR-113). The steps come from
+// the desktop app's own wording ("Another app"), translated in src/i18n/ui/de.ts.
+import Guide from '../../../layouts/Guide.astro';
+import Row from '../../../components/Row.astro';
+import ConnectSteps from '../../../components/ConnectSteps.astro';
+import { connectOutline } from '../../../data/app-words';
+import { GUIDES } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+import { t } from '../../../i18n/ui';
+
+const NAME = 'Another app';
+const L = (href: string) => localize(href, 'de');
+const APP_GUIDES = GUIDES.filter((g) => g.path.startsWith('/docs/connect-') && g.path !== '/docs/connect-other-apps/');
+const OUTLINE = [
+  { id: 'what', title: 'Was deine App braucht' },
+  ...connectOutline(NAME).map((o) => ({ ...o, title: t('de', o.title) })),
+];
+---
+<Guide
+  path="/de/docs/connect-other-apps/"
+  lede="Zaaheen verbindet sich mit KI-Apps über MCP, den üblichen Weg, über den KI-Apps sich mit Tools verbinden. Hat deine App unten eine eigene Anleitung, nutze diese. Sonst gib deiner App die Einstellung aus dem Tab Agents von Zaaheen, der sie genau für deinen Computer zeigt."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="what" title="Was deine App braucht" where="MCP">
+      <p>Deine KI-App muss MCP-Server unterstützen, die auf deinem Computer laufen. Du nutzt {APP_GUIDES.map((g, i) => (
+           <>{i > 0 && (i === APP_GUIDES.length - 1 ? ' oder ' : ', ')}<a href={L(g.path)}>{g.label.replace(/^Connect /, '')}</a></>
+         ))}? Dann nimm die eigene Anleitung dafür. Für jede andere App folge den Schritten unten.</p>
+    </Row>
+    <ConnectSteps name={NAME} where="Deine App" />
+  </section>
+</Guide>

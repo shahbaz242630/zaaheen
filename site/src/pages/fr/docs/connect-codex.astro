@@ -1,0 +1,20 @@
+---
+// The Codex connect guide in French (ADR-113). The steps come from the desktop
+// app's own wording, translated in src/i18n/ui/fr.ts.
+import Guide from '../../../layouts/Guide.astro';
+import ConnectSteps from '../../../components/ConnectSteps.astro';
+import { connectOutline } from '../../../data/app-words';
+import { t } from '../../../i18n/ui';
+
+const NAME = 'Codex';
+const OUTLINE = connectOutline(NAME).map((o) => ({ ...o, title: t('fr', o.title) }));
+---
+<Guide
+  path="/fr/docs/connect-codex/"
+  lede="Ajoutez le réglage de Zaaheen au fichier config.toml de Codex (l’onglet Agents de Zaaheen l’affiche pour votre ordinateur), redémarrez Codex et vérifiez que /mcp indique zaaheen comme connecté. Vous avez déjà connecté ChatGPT Desktop ? Codex partage ses réglages : vérifiez simplement que c’est connecté."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <ConnectSteps name={NAME} where="Codex › config.toml" />
+  </section>
+</Guide>

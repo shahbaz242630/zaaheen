@@ -1,0 +1,101 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+
+// Learn article 4 in German (ADR-113): the English article's structure and
+// sources with its words translated.
+const OUTLINE = [
+  { id: 'enough', title: 'Wann eine Datei reicht' },
+  { id: 'short', title: 'Wo eine Datei nicht reicht' },
+  { id: 'ours', title: 'Unsere eigenen Dateien' },
+  { id: 'both', title: 'Beides nutzen' },
+];
+const CLAUDE_DOCS = 'https://code.claude.com/docs/en/memory';
+---
+<Learn
+  path="/de/learn/ai-memory-tool-or-notes-file/"
+  lede="Für ein Projekt in einem Coding-Werkzeug ist eine Notizdatei wie CLAUDE.md oder AGENTS.md oft alles, was du brauchst. Sie reicht nicht mehr, wenn du mehrere KI-Apps nutzt, wenn es um Fakten über dich statt über das Projekt geht oder wenn die Datei länger wird als das, was die App zu Beginn liest."
+  outline={OUTLINE}
+>
+  <section id="enough">
+    <h2>Wann eine Notizdatei reicht</h2>
+    <p>Viele Entwickler sagen, eine einfache Notizdatei sei alles Gedächtnis, das eine KI braucht,
+       und für manche Aufgaben haben sie recht. Eine Datei kostet nichts, du kannst jedes Wort darin
+       lesen, sie liegt mit dem Code im Projekt, und nichts passiert mit ihr, was du nicht selbst
+       geschrieben hast.</p>
+    <p>Eine Datei ist das richtige Werkzeug, wenn:</p>
+    <ul>
+      <li>du eine KI-App nutzt, meist in einem Projekt.</li>
+      <li>es um das Projekt geht: wie es gebaut wird, wie es getestet wird, was zu vermeiden ist.</li>
+      <li>du sie selbst kurz und aktuell hältst.</li>
+    </ul>
+    <p>Claude Code liest CLAUDE.md, Cursor liest seine Regeln, und alle drei, Claude Code, Cursor
+       und Codex, können eine AGENTS.md lesen. Für Projektregeln ist eine AGENTS.md, die mit dem Code
+       eingecheckt ist, kaum zu schlagen.</p>
+  </section>
+
+  <section id="short">
+    <h2>Wo eine Datei nicht reicht</h2>
+    <ul>
+      <li><strong>Jede App liest eine andere Datei, oder gar keine.</strong> Die Chat-Apps von
+          ChatGPT und Claude lesen die Notizdateien deiner Coding-Werkzeuge nicht; ihr eigenes
+          Gedächtnis liegt im Konto des jeweiligen Unternehmens.</li>
+      <li><strong>Fakten über dich gehören nicht zu einem Projekt.</strong> Wie du Antworten magst,
+          welche Werkzeuge du bevorzugst, woran du diesen Monat arbeitest: Steht das in der Datei
+          eines Repositorys, hat das nächste Projekt es nicht.</li>
+      <li><strong>Jemand muss sie schreiben.</strong> Eine Datei weiß nur, was du oder die App daran
+          gedacht habt einzutragen, und die Dateien von drei Apps auf demselben Stand zu halten ist
+          eine lästige Aufgabe, die schnell liegen bleibt.</li>
+      <li><strong>Zu Beginn wird nur begrenzt viel gelesen.</strong> Anthropic empfiehlt, jede
+          CLAUDE.md unter 200 Zeilen zu halten, und lädt beim Start einer Sitzung nur die ersten
+          200 Zeilen oder 25 KB des Gedächtnisverzeichnisses von Claude Code
+          (<a href={CLAUDE_DOCS}>Dokumentation von Anthropic</a>). Darüber hinaus kostet eine längere
+          Datei mehr und wird weniger befolgt.</li>
+    </ul>
+  </section>
+
+  <section id="ours">
+    <h2>Unsere eigenen Dateien nach fünf Monaten</h2>
+    <p>Wir bauen Zaaheen mit Claude Code und führen beide Arten von Notizen, also haben wir unsere
+       gezählt:</p>
+
+    <BarChart
+      id="chart-notes-lines"
+      title="Unsere eigenen Claude-Code-Notizen nach fünf Monaten, in Zeilen, verglichen mit der 200-Zeilen-Empfehlung"
+      measure="Zeilen"
+      max={200}
+      bars={[
+        { label: 'Unsere CLAUDE.md', value: 147, note: 'Zeilen' },
+        { label: 'Unser Verzeichnis', value: 155, note: 'Zeilen' },
+        { label: 'Empfehlung Anthropic', value: 200, note: 'Zeilen' },
+      ]}
+      source={{ text: 'Das eigene Projekt von Zaaheen, gemessen am 6. Oktober 2026. Die 200 Zeilen stammen aus der Claude-Code-Dokumentation von Anthropic.', href: CLAUDE_DOCS }}
+    />
+
+    <p>Beide sind nah an der Grenze und bleiben nur darunter, weil wir sie ausdünnen: eine Zeile pro
+       Erinnerung, Details in separate Dateien verschoben, alte Einträge zusammengeführt oder
+       gestrichen. Eine Notizdatei funktioniert, aber sie braucht Pflege.</p>
+  </section>
+
+  <section id="both">
+    <h2>Beides nutzen, für verschiedene Dinge</h2>
+    <p>Die Frage ist eigentlich nicht Datei oder Werkzeug. Halte die Regeln des Projekts in einer
+       Datei beim Code. Halte, was über dich gilt, in einem Gedächtnis, das jede KI-App erreicht, damit
+       es nicht in deinen Projektdateien steht und du es nie dreimal schreibst.</p>
+
+    <MemoryFlow
+      id="flow-notes-shared"
+      from="ChatGPT"
+      to="Claude Code"
+      fact="Einfach, ohne Fachjargon"
+      others={['Cursor', 'Claude']}
+      caption="Eine Vorliebe über dich, die du ChatGPT einmal erzählst, wird in einem Gedächtnis auf deinem Computer gespeichert. Claude Code, Cursor und Claude rufen sie ab, ohne dass du eine Datei abgleichen musst."
+    />
+
+    <p>Zaaheen ist so ein Gedächtnis, für Windows und Mac: Deine KI-Apps speichern nebenbei, was sie
+       über dich lernen, und finden es wieder, wenn es darauf ankommt, während deine Erinnerungen
+       verschlüsselt auf deinem eigenen Computer bleiben. Du siehst jede Erinnerung in der App und
+       kannst jede einzelne vergessen lassen.</p>
+  </section>
+</Learn>

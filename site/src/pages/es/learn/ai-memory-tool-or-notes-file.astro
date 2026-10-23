@@ -1,0 +1,101 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+
+// Learn article 4 in Spanish (ADR-113), translated from the English page; its
+// sources and the chart's measurements are in the English page's header comment.
+const OUTLINE = [
+  { id: 'enough', title: 'Cuándo basta un archivo' },
+  { id: 'short', title: 'Dónde se queda corto' },
+  { id: 'ours', title: 'Nuestros propios archivos' },
+  { id: 'both', title: 'Usa los dos' },
+];
+const CLAUDE_DOCS = 'https://code.claude.com/docs/en/memory';
+---
+<Learn
+  path="/es/learn/ai-memory-tool-or-notes-file/"
+  lede="Para un proyecto en una herramienta de programación, un archivo de notas como CLAUDE.md o AGENTS.md suele ser todo lo que necesitas. Deja de bastar cuando usas varias apps de IA, cuando los datos son sobre ti y no sobre el proyecto, o cuando el archivo crece más de lo que la app lee al empezar."
+  outline={OUTLINE}
+>
+  <section id="enough">
+    <h2>Cuándo basta un archivo de notas</h2>
+    <p>Muchos desarrolladores dicen que un simple archivo de notas es toda la memoria que necesita
+       una IA, y para algunos trabajos tienen razón. Un archivo es gratis, puedes leer cada palabra,
+       vive en el proyecto junto al código y no le pasa nada que tú no hayas escrito.</p>
+    <p>Un archivo es la herramienta adecuada cuando:</p>
+    <ul>
+      <li>Usas una app de IA, casi siempre en un proyecto.</li>
+      <li>Lo que necesita saber es sobre el proyecto: cómo compilarlo, cómo probarlo, qué
+          evitar.</li>
+      <li>Lo mantienes corto y al día tú mismo.</li>
+    </ul>
+    <p>Claude Code lee CLAUDE.md, Cursor lee sus reglas, y los tres, Claude Code, Cursor y Codex,
+       pueden leer un AGENTS.md. Para las reglas del proyecto, un AGENTS.md guardado junto al código
+       es difícil de superar.</p>
+  </section>
+
+  <section id="short">
+    <h2>Dónde se queda corto un archivo</h2>
+    <ul>
+      <li><strong>Cada app lee un archivo distinto, o ninguno.</strong> Las apps de chat de ChatGPT
+          y Claude no leen los archivos de notas de tus herramientas de programación; su propia
+          memoria vive en la cuenta de cada empresa.</li>
+      <li><strong>Los datos sobre ti no pertenecen a un solo proyecto.</strong> Cómo te gustan las
+          respuestas, las herramientas que prefieres, en qué trabajas este mes: si los pones en el
+          archivo de un repositorio, el siguiente proyecto no los tiene.</li>
+      <li><strong>Alguien tiene que escribirlo.</strong> Un archivo solo sabe lo que tú, o la app,
+          se acordó de añadir, y mantener sincronizados los archivos de tres apps es una tarea que
+          se acaba descuidando.</li>
+      <li><strong>Al empezar solo se lee una parte.</strong> Anthropic sugiere que cada CLAUDE.md
+          tenga menos de 200 líneas, y al empezar una sesión solo carga las primeras 200 líneas o
+          25KB del índice de memoria de Claude Code (<a href={CLAUDE_DOCS}>documentación de
+          Anthropic</a>). Más allá de eso, un archivo más largo cuesta más y se sigue menos.</li>
+    </ul>
+  </section>
+
+  <section id="ours">
+    <h2>Nuestros propios archivos, después de cinco meses</h2>
+    <p>Creamos Zaaheen con Claude Code y usamos los dos tipos de notas, así que contamos los
+       nuestros:</p>
+
+    <BarChart
+      id="chart-notes-lines"
+      title="Nuestras notas de Claude Code tras cinco meses, en líneas, frente a la guía de 200 líneas"
+      measure="Líneas"
+      max={200}
+      bars={[
+        { label: 'Nuestro CLAUDE.md', value: 147, note: 'líneas' },
+        { label: 'Nuestro índice', value: 155, note: 'líneas' },
+        { label: 'Guía de Anthropic', value: 200, note: 'líneas' },
+      ]}
+      source={{ text: 'El propio proyecto de Zaaheen, medido el 6 de octubre de 2026. La cifra de 200 líneas viene de la documentación de Claude Code de Anthropic.', href: CLAUDE_DOCS }}
+    />
+
+    <p>Los dos están cerca del límite, y solo se mantienen por debajo porque los recortamos: una
+       línea por recuerdo, los detalles movidos a archivos aparte, las entradas antiguas fusionadas
+       o eliminadas. Un archivo de notas funciona, y requiere mantenimiento.</p>
+  </section>
+
+  <section id="both">
+    <h2>Usa los dos, para cosas distintas</h2>
+    <p>La pregunta no es realmente archivo o herramienta. Guarda las reglas del proyecto en un
+       archivo junto al código. Guarda lo que es cierto sobre ti en una sola memoria a la que pueda
+       llegar cualquier app de IA, para que no esté en los archivos de tus proyectos y nunca tengas
+       que escribirlo tres veces.</p>
+
+    <MemoryFlow
+      id="flow-notes-shared"
+      from="ChatGPT"
+      to="Claude Code"
+      fact="Lenguaje sencillo, sin jerga"
+      others={['Cursor', 'Claude']}
+      caption="Una preferencia sobre ti, contada una vez a ChatGPT, se guarda en una sola memoria en tu computadora. Claude Code, Cursor y Claude la recuerdan sin ningún archivo que mantener sincronizado."
+    />
+
+    <p>Zaaheen es una memoria de ese tipo, para Windows y Mac: tus apps de IA guardan lo que
+       aprenden sobre ti sobre la marcha y lo vuelven a encontrar cuando importa, mientras tus
+       recuerdos se quedan cifrados en tu propia computadora. Puedes ver cada recuerdo en la app y
+       olvidar el que quieras.</p>
+  </section>
+</Learn>

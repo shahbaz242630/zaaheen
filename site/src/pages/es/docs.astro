@@ -1,0 +1,334 @@
+---
+// The Documents hub in Spanish (ADR-113): the English page's structure with
+// its words translated. The app's own labels (tabs, buttons, menus) stay in
+// English, as the app shows them; ids stay as in English so anchors work.
+import Base from '../../layouts/Base.astro';
+import DocsNav from '../../components/DocsNav.astro';
+import Download from '../../components/Download.astro';
+import { ACCOUNT, COMPANY, PRICES, RELEASE, TRIAL, pageFor } from '../../data/site';
+import { lastModified } from '../../lib/lastmod';
+import { localize } from '../../i18n/locales';
+import { formatDate, t } from '../../i18n/ui';
+
+const page = pageFor('/es/docs/');
+const L = (href: string) => localize(href, 'es');
+const win = RELEASE.windows;
+const mac = RELEASE.mac;
+const monthly = `${PRICES.monthly} USD al mes`;
+const yearly = `${PRICES.yearly} USD al año`;
+const updated = lastModified(page.path);
+const updatedLabel = updated ? formatDate(updated, 'es') : undefined;
+
+// The page outline: the same ids as the English page (and DOCS_SECTIONS).
+const OUTLINE = [
+  { id: 'getting-started', title: 'Primeros pasos', topics: [
+    { id: 'install', title: 'Cómo instalar Zaaheen' },
+    { id: 'first-launch', title: 'Qué pasa la primera vez que lo abres' },
+  ] },
+  { id: 'connecting', title: 'Conectar tus apps de IA', topics: [
+    { id: 'connect-claude', title: 'Claude Desktop' },
+    { id: 'connect-claude-code', title: 'Claude Code' },
+    { id: 'connect-cursor', title: 'Cursor' },
+    { id: 'connect-chatgpt', title: 'ChatGPT' },
+    { id: 'connect-other', title: 'Otras apps de IA' },
+  ] },
+  { id: 'memories', title: 'Tus recuerdos', topics: [
+    { id: 'location', title: 'Dónde se guardan tus recuerdos' },
+    { id: 'consolidation', title: 'Qué hace la limpieza' },
+    { id: 'download', title: 'Cómo llevarte tus recuerdos' },
+    { id: 'delete', title: 'Cómo borrarlo todo' },
+  ] },
+  { id: 'account', title: 'Cuenta y suscripción', topics: [
+    { id: 'subscription', title: 'Cómo funcionan la prueba y la suscripción' },
+    { id: 'delete-account', title: 'Cómo borrar tu cuenta' },
+    { id: 'uninstall', title: 'Cómo desinstalar Zaaheen' },
+  ] },
+  { id: 'support', title: 'Ayuda', topics: [
+    { id: 'help', title: 'Cómo obtener ayuda' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((x) => x.id === id)?.title ?? id;
+---
+<Base page={page}>
+  <div class="docs">
+    <header class="docs-head">
+      <h1>Ayuda y guías de Zaaheen</h1>
+      <p>Cómo instalar la app de memoria Zaaheen, conectar tus apps de IA y cuidar tus
+         recuerdos. Cada paso usa las mismas palabras que verás en pantalla (la app está en inglés).</p>
+      {updatedLabel && <p class="doc-updated">{t('es', 'Last updated {date}', { date: updatedLabel })}</p>}
+    </header>
+
+    <div class="docs-layout">
+      <DocsNav current="/es/docs/" />
+
+      <div class="docs-body">
+        <section id="getting-started" class="docs-section">
+          <h2 class="docs-title">Primeros pasos</h2>
+
+          <div id="install" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('install')}</h3>
+                <span class="set-where">Windows o Mac</span>
+              </div>
+              {!RELEASE.available && <p><strong>Zaaheen para Windows y Mac llegará muy pronto.</strong> Estos
+                 pasos explican cómo funciona cuando puedas descargarlo.</p>}
+              <p>Zaaheen {RELEASE.version} es para Windows (64 bits,
+                 probado en {win.tested}) y para Macs con chip de Apple, M1 o posterior (probado en
+                 {mac.tested}). Todavía no está disponible para Linux ni para teléfonos.</p>
+              <Download small />
+              <p><strong>En Windows,</strong> abre el instalador{RELEASE.available ? ` (${win.size})` : ''}.
+                 <strong>En un Mac,</strong> abre la imagen de disco{RELEASE.available ? ` (${mac.size})` : ''},
+                 arrastra Zaaheen a la carpeta Applications y ábrelo desde allí. Windows o tu
+                 Mac pueden hacerte una o dos preguntas por el camino, y todas son normales:
+                 <a href={L('/docs/getting-started/#install')}>qué significa cada pregunta y qué elegir</a>.</p>
+            </div>
+          </div>
+
+          <div id="first-launch" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('first-launch')}</h3>
+                <span class="set-where">Set up</span>
+              </div>
+              <p>Elige <em>Begin set up</em>. La configuración tarda unos tres minutos:</p>
+              <ol>
+                <li><strong>Tu cuenta.</strong> Elige <em>Create an account</em> o <em>Sign
+                    in</em>. Se abre tu navegador web. Tu prueba gratis de {TRIAL.days} días empieza la
+                    primera vez que inicias sesión desde la app de Zaaheen, y no necesitas tarjeta. Iniciar sesión
+                    nunca nos comparte tus recuerdos.</li>
+                <li><strong>Dónde guardar tus recuerdos.</strong> El lugar habitual le va bien a la mayoría.
+                    Puedes cambiarlo más tarde.</li>
+                <li><strong>Tu primera app de IA.</strong> Elige la app que usas y sigue los pasos, o
+                    elige <em>I'll connect one later</em>.</li>
+                <li><strong>Tu primer recuerdo.</strong> Cuéntale a Zaaheen algo que tus apps de IA deberían saber
+                    sobre ti, y luego elige <em>Keep this memory</em>, o <em>Skip for now</em>.</li>
+                <li><strong>Limpieza.</strong> Elige si Zaaheen mantiene tu memoria ordenada por su
+                    cuenta cada día, y luego <em>Finish setup</em>.</li>
+              </ol>
+              <p>La primera vez, Zaaheen también descarga lo que necesita para buscar en tus recuerdos. Lo hace
+                 en segundo plano, y puedes usarlo mientras termina.
+                 <a href={L('/docs/getting-started/')}>Guía completa: instalar y configurar Zaaheen</a>.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="connecting" class="docs-section">
+          <h2 class="docs-title">Conectar tus apps de IA</h2>
+          <p class="docs-intro">Abre la pestaña <em>Agents</em> y elige <em>+ Connect an AI app</em>.
+             Zaaheen nunca cambia por sí mismo la configuración de otra app: le entrega a la app lo que necesita, y
+             la app te pregunta a ti.</p>
+
+          <div id="connect-claude" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">Claude Desktop (la app de Claude para tu computadora)</h3>
+                <span class="set-where">Agents › Connect</span>
+              </div>
+              <p>Elige <em>Connect it for me</em>. Claude te pide que instales Zaaheen: haz clic en
+                 <em>Install</em>, y queda conectado. Funciona en Chat y Cowork de Claude.
+                 <a href={L('/docs/connect-claude/')}>Guía completa: conectar Claude Desktop</a>.</p>
+            </div>
+          </div>
+
+          <div id="connect-claude-code" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">Claude Code (Claude en tu terminal)</h3>
+                <span class="set-where">Terminal</span>
+              </div>
+              <p>En una terminal, ejecuta una vez el comando que aparece en la pestaña <em>Agents</em>. A partir de ahí,
+                 Zaaheen está disponible en todos los proyectos de Claude Code.
+                 <a href={L('/docs/connect-claude-code/')}>Guía completa: conectar Claude Code</a>.</p>
+            </div>
+          </div>
+
+          <div id="connect-cursor" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">Cursor</h3>
+                <span class="set-where">Agents › Connect</span>
+              </div>
+              <p>Elige <em>Connect it for me</em>. Cursor te pide que instales Zaaheen: haz clic en
+                 <em>Install</em>, y queda conectado.
+                 <a href={L('/docs/connect-cursor/')}>Guía completa: conectar Cursor</a>.</p>
+            </div>
+          </div>
+
+          <div id="connect-chatgpt" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">ChatGPT (la app para tu computadora)</h3>
+                <span class="set-where">ChatGPT › Settings</span>
+              </div>
+              <p>En ChatGPT, abre Settings, luego Plugins y luego MCP, y añade Zaaheen como servidor
+                 MCP. Úsalo en el modo Work o Codex de ChatGPT; su modo Chat no puede conectarse a apps
+                 de tu computadora. <a href={L('/docs/connect-chatgpt/')}>Guía completa: conectar ChatGPT</a>.</p>
+            </div>
+          </div>
+
+          <div id="connect-other" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">Otras apps de IA</h3>
+                <span class="set-where">Agents</span>
+              </div>
+              <p>Zaaheen se conecta por MCP, el estándar que usan muchas apps de IA. La pestaña <em>Agents</em>
+                 también muestra la configuración para otras apps. Una app aparece en esa pestaña mientras está abierta y
+                 conectada. <a href={L('/docs/connect-other-apps/')}>Guía completa: conectar otras apps de IA</a>.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="memories" class="docs-section">
+          <h2 class="docs-title">Tus recuerdos</h2>
+
+          <div id="location" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('location')}</h3>
+                <span class="set-where">Settings › Your memories</span>
+              </div>
+              <p>En tu propia computadora, cifrados. Nunca se suben a internet. Para guardarlos en otra
+                 carpeta o en otra unidad, elige <em>Move my memories…</em>. Zaaheen se cierra, los
+                 mueve y se vuelve a abrir solo. Si se cierra a medias, tus recuerdos siguen a salvo donde
+                 estaban.</p>
+            </div>
+          </div>
+
+          <div id="consolidation" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">Qué hace la limpieza (consolidation)</h3>
+                <span class="set-where">Consolidation</span>
+              </div>
+              <p>Mientras no estás, Zaaheen ordena lo que ha aprendido: une los casi duplicados
+                 en uno, resuelve los datos que se contradicen a favor del más reciente y
+                 archiva los recuerdos antiguos que nunca usas, fuera de la consulta diaria. Nunca los borra,
+                 y todo ocurre en tu computadora.</p>
+              <p>La configuración inicial la activa, todos los días a las 3 de la mañana, salvo que elijas <em>Not now</em>. Puedes
+                 cambiarla o desactivarla en <em>Consolidation</em>. Si tu computadora estaba en reposo o
+                 apagada a esa hora, se pone al día más tarde. Para ordenar en el momento, elige <em>Run
+                 consolidation now</em>. Zaaheen descarga lo que necesita, unos 2,5 GB, una sola vez, durante
+                 la configuración.</p>
+            </div>
+          </div>
+
+          <div id="download" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('download')}</h3>
+                <span class="set-where">Settings › Your memories</span>
+              </div>
+              <p>Elige <em>Download my memories</em>. Guarda todo lo que has conservado en un solo archivo.
+                 Es tuyo, te suscribas o no: el botón sigue disponible incluso cuando termina una
+                 prueba o una suscripción.</p>
+            </div>
+          </div>
+
+          <div id="delete" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('delete')}</h3>
+                <span class="set-where">Settings › Your memories</span>
+              </div>
+              <p>Elige <em>Delete everything</em>, escribe DELETE para confirmar y luego elige
+                 <em>Permanently delete everything</em>. Esto destruye la clave de cifrado y los
+                 archivos de memoria, así que no se puede deshacer, y ninguna copia cifrada se podrá volver a abrir.
+                 Los archivos que guardaste con <em>Download my memories</em> son copias legibles a las que
+                 esto no afecta, así que bórralos tú. Borrar tus recuerdos no cancela tu
+                 suscripción; cancélala aparte con <em>Cancel subscription</em>.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="account" class="docs-section">
+          <h2 class="docs-title">Cuenta y suscripción</h2>
+
+          <div id="subscription" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('subscription')}</h3>
+                <span class="set-where">Settings › Account</span>
+              </div>
+              <p>Los primeros {TRIAL.days} días son gratis, sin tarjeta. Después cuesta {monthly}
+                 o {yearly}. Para suscribirte, elige <em>Subscribe</em> en la app: el pago se abre
+                 en tu navegador, y Zaaheen se desbloquea solo cuando se completa. Para cambiar de
+                 plan o actualizar tu tarjeta, elige <em>Manage subscription</em>. Para cancelarla, elige
+                 <em>Cancel subscription</em>. Las dos opciones también están en tu página <em>Account</em> de
+                 zaaheen.com. O usa el enlace de cancelación de cualquier correo de Paddle, nuestro revendedor, que
+                 funciona desde cualquier dispositivo.</p>
+              <p>Si termina una prueba o una suscripción, no se borra nada. Todo se queda en tu
+                 computadora, y puedes seguir descargándolo.</p>
+            </div>
+          </div>
+
+          <div id="delete-account" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('delete-account')}</h3>
+                <span class="set-where">Settings › Account</span>
+              </div>
+              <p>Elige <em>Delete my account</em> en la app. Te ofrece descargar tus recuerdos,
+                 borra los recuerdos de esta computadora y luego abre una página donde confirmas que quieres borrar
+                 tu cuenta de Zaaheen. Para borrar solo tu cuenta y conservar tus recuerdos, usa la
+                 <a href={ACCOUNT.deleteAccount}>página <em>Delete my account</em></a> de nuestro sitio web.</p>
+              <p>Borrar tu cuenta cancela al instante cualquier suscripción, sin reembolso del
+                 tiempo que quede. Si pagaste en los últimos 14 días, pide primero tu reembolso según nuestra
+                 <a href="/refunds/">Política de reembolsos (en inglés)</a>.</p>
+            </div>
+          </div>
+
+          <div id="uninstall" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('uninstall')}</h3>
+                <span class="set-where">Windows Settings o Applications</span>
+              </div>
+              <p>Quitar la app no quita tus recuerdos, así que si la vuelves a instalar los encuentra otra vez.
+                 Para quitar también tus recuerdos, usa antes <em>Delete everything</em>.</p>
+              <p><strong>En Windows,</strong> usa la configuración de Windows (Settings), luego Apps y luego Installed apps,
+                 y desinstala Zaaheen.</p>
+              <p><strong>En un Mac,</strong> cierra Zaaheen y arrástralo de Applications a la Papelera.
+                 Para liberar el espacio que usan los motores de IA que descargó (varios GB), borra también las
+                 carpetas <code>~/Library/Application Support/com.zaaheen.app</code> y
+                 <code>~/Library/Logs/com.zaaheen.app</code>.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="support" class="docs-section">
+          <h2 class="docs-title">Ayuda</h2>
+
+          <div id="help" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('help')}</h3>
+                <span class="set-where">Settings › Help</span>
+              </div>
+              <p>Escribe a <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>. Si algo salió
+                 mal, elige <em>Save activity record…</em> y adjunta el archivo. El registro no contiene
+                 ninguno de tus recuerdos. Muchos problemas tienen una solución rápida en
+                 <a href={L('/docs/troubleshooting/')}>Solución de problemas</a>.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="docs-toc" aria-label={t('es', 'On this page')}>
+        <p class="docs-toc-title">{t('es', 'On this page')}</p>
+        {OUTLINE.map((s) => (
+          <div class="docs-toc-group" data-section={s.id}>
+            <a class="docs-toc-section" href={`#${s.id}`}>{s.title}</a>
+            <ul>
+              {s.topics.map((x) => <li><a href={`#${x.id}`} data-topic={x.id}>{x.title}</a></li>)}
+            </ul>
+          </div>
+        ))}
+      </aside>
+    </div>
+  </div>
+
+  <script src="../../scripts/docs-nav.js"></script>
+</Base>

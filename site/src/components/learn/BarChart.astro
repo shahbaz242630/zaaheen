@@ -33,6 +33,9 @@ const LABEL = 200;
 const WIDTH = 640;
 const BAR = WIDTH - LABEL - 90;
 const height = bars.length * ROW + 8;
+import { langOf } from '../../i18n/locales';
+import { t } from '../../i18n/ui';
+const lang = langOf(Astro.url.pathname);
 ---
 <figure class="chart" id={id} aria-labelledby={`${id}-title`}>
   <figcaption id={`${id}-title`} class="chart-title">{title}</figcaption>
@@ -52,8 +55,8 @@ const height = bars.length * ROW + 8;
   </svg>
   <table class="sr-only">
     <caption>{title}</caption>
-    <thead><tr><th scope="col">Option</th><th scope="col">{measure}</th></tr></thead>
+    <thead><tr><th scope="col">{t(lang, 'Option')}</th><th scope="col">{measure}</th></tr></thead>
     <tbody>{bars.map((b) => <tr><th scope="row">{b.label}</th><td>{b.value}{b.note && ` ${b.note}`}</td></tr>)}</tbody>
   </table>
-  <p class="chart-source">Source: {source.href ? <a href={source.href}>{source.text}</a> : source.text}</p>
+  <p class="chart-source">{t(lang, 'Source:')} {source.href ? <a href={source.href}>{source.text}</a> : source.text}</p>
 </figure>

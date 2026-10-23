@@ -1,0 +1,303 @@
+---
+// The home page in Spanish (ADR-113): the English page's structure with its
+// words translated. The pictures of the app (the demo window, its buttons)
+// stay in English, as the app shows them. Translated from the English page
+// whose fingerprint src/i18n/translated-from.json records.
+import Base from '../../layouts/Base.astro';
+import Download from '../../components/Download.astro';
+import { COMPANY, DEMO_APPS, PICTURED_APPS, PRICES, RELEASE, TRIAL, pageFor, verifiedAppList } from '../../data/site';
+import { localize } from '../../i18n/locales';
+
+const page = pageFor('/es/');
+const L = (href: string) => localize(href, 'es');
+const apps = verifiedAppList().replace(/ and /, ' y ');
+const monthly = `${PRICES.monthly} USD al mes`;
+const yearly = `${PRICES.yearly} USD al año`;
+
+const PROMISES = [
+  { key: 'local', text: 'Se queda en tu computadora' },
+  { key: 'trial', text: `Prueba gratis de ${TRIAL.days} días, sin tarjeta` },
+  { key: 'delete', text: 'Bórralo todo en un solo paso' },
+];
+
+// The demo window is a picture of the app, which is in English.
+const SAID_ONCE_APP = 'Prefers short answers in plain English';
+const START = [
+  { type: 'fact', text: SAID_ONCE_APP, when: '2 days ago' },
+  { type: 'how-to', text: 'Book meetings after 10am, never on Fridays', when: 'last week' },
+];
+const SAID_ONCE = 'Prefiere respuestas cortas y en lenguaje sencillo';
+const MEMORIES = [
+  { type: 'dato', text: SAID_ONCE },
+  { type: 'cómo hacerlo', text: 'Agendar reuniones después de las 10, nunca los viernes' },
+];
+
+const FAQ: { q: string; a: string; link?: { href: string; text: string } }[] = [
+  {
+    q: '¿Qué hace Zaaheen?',
+    a: `Zaaheen da a tus apps de IA una única memoria compartida sobre ti. Cuéntale algo una vez a ${apps}, y todas las apps que conectes podrán recordarlo después. Funciona en tu PC con Windows o en tu Mac y guarda allí tus recuerdos, cifrados.`,
+  },
+  {
+    q: '¿Por qué elegir Zaaheen y no otra herramienta de memoria para IA?',
+    a: `Zaaheen reúne tres cosas. Tus recuerdos se quedan en tu propia computadora, cifrados, y nuestros servidores nunca los reciben. Una sola memoria funciona en todas tus apps de IA conectadas, en lugar de una distinta dentro de cada una. Y tú tienes el control: ves cada recuerdo, olvidas el que quieras, los descargas todos o lo borras todo en un solo paso. Cuesta ${monthly} o ${yearly} después de una prueba gratis de ${TRIAL.days} días, sin tarjeta. Nuestra página de precios lo compara con otras herramientas de memoria, comprobado en el sitio web de cada empresa.`,
+    link: { href: L('/pricing/#compare'), text: 'Compara Zaaheen con otras herramientas de memoria' },
+  },
+  {
+    q: '¿Dónde guarda Zaaheen mis recuerdos?',
+    a: 'En tu propia computadora, cifrados, y nunca se suben a internet. Puedes moverlos a otra carpeta o unidad desde Settings, con Move my memories.',
+  },
+  {
+    q: '¿Puedo ver y borrar lo que mis apps de IA recuerdan de mí?',
+    a: 'Sí. Cada recuerdo aparece en la app de Zaaheen, donde puedes buscarlo u olvidar el que quieras. Delete everything, en Settings, destruye la clave de cifrado y los archivos de memoria en un solo paso.',
+  },
+  {
+    q: '¿Necesito una cuenta para usar Zaaheen?',
+    a: `Sí. Creas una cuenta o inicias sesión la primera vez que abres la app, y ese primer inicio de sesión desde la app empieza tu prueba gratis de ${TRIAL.days} días. La cuenta se ocupa del inicio de sesión y de tu suscripción. Nunca guarda tus recuerdos.`,
+  },
+  {
+    q: '¿Necesito saber qué es MCP?',
+    a: `No. MCP es la forma estándar en que las apps de IA se conectan a herramientas, y la app de Zaaheen conecta ${apps} por ti. Para otras apps de IA compatibles con MCP, la página de documentos explica cómo hacerlo.`,
+    link: { href: L('/docs/#connecting'), text: 'Cómo conectar tus apps de IA' },
+  },
+  {
+    q: '¿Claude Code recuerda cosas entre sesiones?',
+    a: 'Claude Code guarda notas de cada proyecto en archivos como CLAUDE.md. Conéctalo a Zaaheen una vez, con un solo comando, y también podrá guardar lo que aprende sobre ti y tu forma de trabajar, y recordarlo en cualquier sesión posterior y en cualquier proyecto. Tus otras apps de IA conectadas comparten los mismos recuerdos.',
+    link: { href: L('/learn/does-claude-code-remember-between-sessions/'), text: '¿Claude Code recuerda entre sesiones?' },
+  },
+  {
+    q: '¿Cursor me recuerda entre chats?',
+    a: 'Sí, una vez que Cursor está conectado a Zaaheen. Puede guardar lo que aprende sobre ti mientras trabajas y consultarlo en cualquier chat o proyecto posterior. Cursor consulta Zaaheen por su cuenta cuando le preguntas algo sobre ti.',
+    link: { href: L('/docs/connect-cursor/'), text: 'Conectar Cursor' },
+  },
+  {
+    q: '¿Puedo usar una sola memoria en Claude Code, Cursor y Codex?',
+    a: 'Sí. Conecta cada uno a Zaaheen una vez, y todos leerán y guardarán en la misma memoria de tu computadora. Una preferencia que le cuentas a Claude Code estará ahí cuando abras Cursor o Codex.',
+    link: { href: L('/learn/one-memory-across-claude-code-cursor-and-codex/'), text: 'Una memoria para Claude Code, Cursor y Codex' },
+  },
+  {
+    q: '¿Cómo paso de ChatGPT a Claude sin perder el contexto?',
+    a: 'Conecta ambos a Zaaheen. Lo que le cuentas a cualquiera de las dos apps va a una única memoria en tu computadora, así que la otra puede recordarlo cuando cambias. La memoria integrada de cada app todavía no se puede importar con un clic, así que pide a la app que has estado usando que guarde en Zaaheen lo importante.',
+    link: { href: L('/learn/share-memory-between-chatgpt-and-claude/'), text: 'Cómo compartir memoria entre ChatGPT y Claude' },
+  },
+  {
+    q: '¿Qué es un servidor de memoria MCP?',
+    a: 'MCP es la forma estándar en que las apps de IA se conectan a herramientas. Un servidor de memoria es una herramienta que da a las apps de IA un lugar donde guardar datos sobre ti y consultarlos después. Zaaheen es uno: funciona en tu propia computadora y permite a las apps conectadas leer, buscar, guardar, corregir y olvidar recuerdos.',
+    link: { href: L('/docs/#connecting'), text: 'Cómo conectar tus apps de IA' },
+  },
+  {
+    q: '¿ChatGPT funciona con Zaaheen?',
+    a: 'Sí, la app de ChatGPT para tu computadora. Añade Zaaheen en la configuración de ChatGPT, en Plugins y luego MCP, y úsalo en un chat de Work o de Codex. El modo Chat de ChatGPT, y ChatGPT en un navegador web, no pueden conectarse a apps de tu computadora.',
+    link: { href: L('/docs/connect-chatgpt/'), text: 'Conectar ChatGPT' },
+  },
+  {
+    q: '¿Zaaheen usa IA?',
+    a: 'Sí, tres modelos de IA pequeños que funcionan en tu propia computadora: uno entiende el significado, otro ordena los resultados y otro pone orden. Una vez descargados funcionan sin conexión, y tus recuerdos nunca pasan por un servicio de IA en línea. Zaaheen entrega a tus apps de IA los recuerdos que coinciden, tal como están guardados, y la app que usas escribe la respuesta.',
+  },
+  {
+    q: '¿Qué hace la limpieza?',
+    a: 'Une recuerdos casi duplicados, resuelve los datos que se contradicen a favor del más reciente y aparta de la consulta diaria los recuerdos que nunca usas. Nunca borra un recuerdo. La configuración inicial la activa, todos los días a las 3 de la mañana, salvo que elijas Not now, y puedes cambiarla o desactivarla en Consolidation. Lo que necesita, unos 2,5 GB, se descarga una vez durante la configuración.',
+  },
+  {
+    q: '¿Quién hace Zaaheen?',
+    a: `Zaaheen está hecho por ${COMPANY.legalName}, una empresa con licencia en Dubái. Creamos software para personas que usan IA todos los días, y esta memoria privada para tus apps de IA es nuestro primer producto. Puedes escribirnos a ${COMPANY.email}.`,
+  },
+];
+---
+<Base page={page}>
+  <section class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">Una memoria privada para tus apps de IA</p>
+      <h1>Una sola memoria para todas tus apps de IA.</h1>
+      <p class="lede">Cuéntale algo una vez a una app de IA, y todas las apps que conectes lo recordarán.
+         Tus recuerdos se guardan de forma segura en tu propia computadora, cifrados, y tú decides qué
+         apps pueden leerlos.</p>
+      <div class="cta-row">
+        <Download />
+        <span class="cta-meta">Versión {RELEASE.version}</span>
+      </div>
+      <p class="cta-note">Para {RELEASE.windows.tested} (64 bits), o un Mac con chip de Apple (M1 o
+         posterior). {TRIAL.days} días gratis, luego {monthly}. <a href={L('/pricing/')}>Ver precios</a></p>
+      <p class="cta-note">La app está en inglés.</p>
+    </div>
+
+    <!-- A picture of the app, animated by scripts/hero.js. Decorative and in
+         English, as the app is; every claim it makes is also in the text. -->
+    <div class="demo" id="hero-demo" data-apps={DEMO_APPS.join(',')}>
+      <div class="win" aria-hidden="true">
+        <div class="win-bar">
+          <span class="win-dot"></span><span class="win-dot"></span><span class="win-dot"></span>
+          <span class="win-title" id="demo-title">Zaaheen · Memories</span>
+        </div>
+        <div class="win-body">
+          <div class="win-side" id="demo-tabs">
+            <div class="win-tab is-on" data-tab="Memories">Memories</div>
+            <div class="win-tab" data-tab="Agents">Agents</div>
+            <div class="win-tab" data-tab="Consolidation">Consolidation</div>
+            <div class="win-tab" data-tab="Settings">Settings</div>
+          </div>
+          <div class="win-pane" id="demo-pane">
+            <div class="pane">
+              <div class="pane-title">Recently remembered</div>
+              {START.map((m) => (
+                <div class="mrow">
+                  <span class="mrow-ty">{m.type}</span>
+                  <span class="mrow-tx">{m.text}</span>
+                  <span class="mrow-wh">{m.when}</span>
+                </div>
+              ))}
+              <div class="pane-foot"><span class="mono-note">2 memories · encrypted on this computer</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ul class="demo-chips">
+        {PROMISES.map((p) => (
+          <li class="demo-chip" data-promise={p.key}><span class="chip-dot"></span>{p.text}</li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <section class="problem">
+    <div class="wrap">
+      <div class="section-head is-centred">
+        <p class="eyebrow">El problema</p>
+        <h2>Cada app de IA empieza de cero. Acabas explicándote otra vez.</h2>
+      </div>
+      <div class="compare">
+        <div class="compare-card is-before">
+          <div class="compare-head">
+            <h3>Sin Zaaheen</h3>
+            <span class="mono-note">{PICTURED_APPS.length} apps · {PICTURED_APPS.length} memorias separadas</span>
+          </div>
+          <div class="app-trio">
+            {PICTURED_APPS.map((a) => (
+              <div class="app-card">
+                <div class="app-name">{a}</div>
+                <div class="app-quote">"Prefiero respuestas cortas y en lenguaje sencillo…"</div>
+              </div>
+            ))}
+          </div>
+          <p class="compare-note">Cada app guarda sus propias notas sobre ti, en un lugar que no puedes ver,
+             y no se comunican entre sí.</p>
+        </div>
+        <div class="compare-card is-after">
+          <div class="compare-head">
+            <h3>Con Zaaheen</h3>
+            <span class="mono-note is-sage">{PICTURED_APPS.length} apps · 1 memoria</span>
+          </div>
+          <div class="shared">
+            <div class="app-trio">
+              {PICTURED_APPS.map((a) => <div class="app-tile">{a}</div>)}
+            </div>
+            <div class="shared-line"></div>
+            <div class="shared-memory">
+              <div class="shared-text">{SAID_ONCE}</div>
+              <div class="mono-note is-sage">una memoria · en tu computadora</div>
+            </div>
+          </div>
+          <p class="compare-note">Dilo una vez. Todas las apps que conectes leen la misma memoria,
+             guardada en tu propia computadora.</p>
+        </div>
+      </div>
+    </div>
+    <div class="strip">
+      <div class="strip-row">
+        <div class="strip-item">
+          <h3>Se queda en tu computadora</h3>
+          <p>Guardada y cifrada en tu dispositivo, nunca se sube a internet.
+             <a href="/ai-and-your-data/">Lo que podemos y no podemos ver (en inglés)</a></p>
+        </div>
+        <div class="strip-item">
+          <h3>Tus apps de IA la comparten</h3>
+          <p>Conecta {apps} una vez. Otras apps compatibles con MCP deberían funcionar igual.
+             <a href={L('/docs/#connecting')}>Cómo conectar cada app</a></p>
+        </div>
+        <div class="strip-item">
+          <h3>Puedes borrarla por completo</h3>
+          <p>Un botón destruye la clave de cifrado y los archivos.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="how">
+    <div class="wrap">
+      <div class="how-head">
+        <div class="section-head">
+          <p class="eyebrow">Cómo funciona</p>
+          <h2>Configúralo una vez. A partir de ahí, todas las apps recuerdan.</h2>
+        </div>
+        <Download small />
+
+      </div>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-text">
+            <span class="step-no">01</span>
+            <h3>Instala e inicia sesión</h3>
+            <p>Descarga la app para Windows o Mac, y crea una cuenta o inicia sesión desde ella. Tu
+               prueba gratis de {TRIAL.days} días empieza la primera vez que inicias sesión desde la app de
+               Zaaheen, y no necesitas tarjeta. Tu cuenta nunca guarda tus recuerdos.
+               <a href={L('/docs/getting-started/')}>Guía de instalación y configuración</a></p>
+          </div>
+          <div class="snippet">
+            <div class="snippet-title">Create your Zaaheen account, or sign in.</div>
+            <div class="snippet-pills"><span class="pill-dark">Create an account</span><span class="pill-dark">Sign in</span></div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-text">
+            <span class="step-no">02</span>
+            <h3>Conecta tus apps de IA</h3>
+            <p>Conecta {apps} desde la app, una sola vez. Otras apps compatibles con MCP deberían
+               funcionar igual.</p>
+          </div>
+          <div class="snippet snippet-list">
+            {PICTURED_APPS.map((a, i) => (
+              <div class={i < 2 ? 'srow' : 'srow is-off'}>
+                <span class="srow-name"><span class="chip-dot"></span>{a}</span>
+                <span class="mono-note">{i < 2 ? 'connected' : '+ connect'}</span>
+              </div>
+            ))}
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-text">
+            <span class="step-no">03</span>
+            <h3>Tus apps de IA conectadas recuerdan</h3>
+            <p>Lo que le cuentas a una app, las demás pueden recordarlo. Cada recuerdo aparece en la
+               app, donde puedes buscarlo u olvidarlo.</p>
+          </div>
+          <div class="snippet snippet-mems">
+            {MEMORIES.map((m) => (
+              <div class="mrow is-card">
+                <span class="mrow-ty">{m.type}</span>
+                <span class="mrow-tx">{m.text}</span>
+              </div>
+            ))}
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="faq" class="faq">
+    <div class="wrap">
+      <div class="section-head is-centred">
+        <p class="eyebrow">Preguntas frecuentes</p>
+        <h2>Lo que la gente pregunta sobre Zaaheen.</h2>
+      </div>
+      <div class="faq-list">
+        {FAQ.map((f) => (
+          <details class="faq-item">
+            <summary>{f.q}</summary>
+            <p>{f.a}{f.link && <> <a href={f.link.href}>{f.link.text}</a>.</>}</p>
+          </details>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <script src="../../scripts/hero.js"></script>
+</Base>

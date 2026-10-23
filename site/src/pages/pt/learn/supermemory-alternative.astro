@@ -1,0 +1,123 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../../data/site';
+
+// Learn comparison page 4 in Portuguese (ADR-113): the English page's
+// structure with its words translated. Every Supermemory fact, price and date
+// is the English page's, from the sources listed in its header comment.
+const CHECKED = '13 de outubro de 2026';
+const monthly = `US$ ${PRICES.monthly} por mês`;
+const yearly = `US$ ${PRICES.yearly} por ano`;
+const OUTLINE = [
+  { id: 'what', title: 'O que é o Supermemory' },
+  { id: 'differ', title: 'Onde o Zaaheen é diferente' },
+  { id: 'table', title: 'Lado a lado' },
+  { id: 'better', title: 'Onde o Supermemory é a melhor escolha' },
+  { id: 'limits', title: 'Onde o Zaaheen fica devendo' },
+];
+const SM_HOME = 'https://supermemory.ai/';
+const SM_PRICING = 'https://supermemory.ai/pricing';
+const SM_MCP = 'https://supermemory.ai/docs/supermemory-mcp/introduction';
+const SM_GITHUB = 'https://github.com/supermemoryai/supermemory';
+---
+<Learn
+  path="/pt/learn/supermemory-alternative/"
+  lede="O Supermemory é um motor de memória para agentes de IA, feito principalmente para desenvolvedores, com um serviço hospedado e uma versão local grátis que você inicia pelo terminal. Se você quer uma memória única para o ChatGPT, o Claude e o Cursor que se instale como um app comum e fique criptografada no seu próprio computador, o Zaaheen foi feito para isso."
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>O que é o Supermemory</h2>
+    <p>O Supermemory dá aos apps e agentes de IA uma memória de longo prazo. A página inicial dele
+       lista ChatGPT, Claude, Cursor e Claude Code entre as ferramentas com que funciona, e a oferta
+       principal é para equipes que criam com ele (<a href={SM_HOME}>site do Supermemory</a>). Ele
+       diz ter a certificação SOC 2.</p>
+    <p>Há duas formas de usar. O serviço hospedado: você adiciona o servidor dele,
+       mcp.supermemory.ai, ao seu app e faz login, sem chave para copiar (<a href={SM_MCP}>página de
+       configuração</a>). O plano grátis inclui US$ 5 de créditos por mês e o Pro custa US$ 19 por
+       mês (<a href={SM_PRICING}>preços</a>). Ou a versão local: o Supermemory é de código aberto, e
+       um comando no terminal o inicia no seu computador, com sua memória em uma pasta ali
+       (<a href={SM_GITHUB}>página no GitHub</a>).</p>
+  </section>
+
+  <section id="differ">
+    <h2>Onde o Zaaheen é diferente</h2>
+    <ul>
+      <li><strong>Instalação sem terminal.</strong> O Zaaheen é um instalador comum para Windows e
+          Mac. Você conecta cada app de IA pela aba Agents, e não há comandos para rodar.</li>
+      <li><strong>Criptografado no seu computador.</strong> O Zaaheen criptografa suas memórias no
+          seu próprio computador, e nossos servidores nunca as recebem. As páginas do Supermemory
+          que lemos não descrevem criptografia para a versão local.</li>
+      <li><strong>Feito para pessoas, não para produtos.</strong> Os planos pagos do Supermemory são
+          pensados para desenvolvedores que criam com memória. O Zaaheen é um plano para uma
+          pessoa: {monthly} ou {yearly} depois de {TRIAL.days} dias grátis.</li>
+    </ul>
+
+    <MemoryFlow
+      id="flow-supermemory"
+      from="ChatGPT"
+      to="Cursor"
+      fact="Alergia a amendoim"
+      others={['Claude', 'Codex']}
+      caption="Algo que você conta ao ChatGPT é salvo uma vez na memória criptografada do seu computador, e o Cursor e seus outros apps podem recuperar depois."
+    />
+  </section>
+
+  <section id="table">
+    <h2>Lado a lado</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">Supermemory</th><th scope="col">Zaaheen</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Feito para</th><td>Principalmente desenvolvedores e equipes que criam com memória de IA</td><td>Pessoas que usam vários apps de IA</td></tr>
+        <tr><th scope="row">Onde as memórias ficam</th><td>Serviço hospedado, ou uma pasta local com a versão local</td><td>Seu computador, criptografadas</td></tr>
+        <tr><th scope="row">Configuração</th><td>Hospedado: adicionar o endereço de um servidor e fazer login. Local: um comando no terminal</td><td>Um instalador, depois conectar cada app</td></tr>
+        <tr><th scope="row">Preço</th><td>Grátis com US$ 5 de créditos por mês; Pro US$ 19 por mês</td><td>{TRIAL.days} dias grátis, depois {monthly} ou {yearly}</td></tr>
+        <tr><th scope="row">Código aberto</th><td>Sim</td><td>Não</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">Situação em {CHECKED}, segundo as próprias páginas do Supermemory, e pode
+       mudar. Confira os links acima para ver os preços mais recentes.</p>
+    <p>O que mais importa em qualquer memória é se a resposta certa volta, e se o app admite quando
+       a memória não tem a resposta. Fizemos ao Cursor cinco perguntas sobre fatos que outro app
+       tinha salvo em uma memória compartilhada do Zaaheen.</p>
+
+    <BarChart
+      id="chart-supermemory-cursor"
+      title="5 perguntas ao Cursor sobre fatos salvos por outro app"
+      measure="Perguntas"
+      max={5}
+      bars={[
+        { label: 'Lembrou o fato', value: 3, note: 'de 5' },
+        { label: 'Disse que não sabia', value: 1, note: 'de 5' },
+        { label: 'Não caiu na pegadinha', value: 1, note: 'de 5' },
+      ]}
+      source={{ text: 'Teste do próprio Zaaheen, 5 de junho de 2026, uma versão de desenvolvimento do Zaaheen no Windows. Não sabia, corretamente: um tipo sanguíneo que a memória não guardava. A pegadinha: perguntado sobre o gato da pessoa, respondeu que ela tem um cachorro.' }}
+    />
+  </section>
+
+  <section id="better">
+    <h2>Onde o Supermemory é a melhor escolha</h2>
+    <p>Se você cria produtos de IA, o Supermemory oferece uma API, conectores e planos para equipes
+       que o Zaaheen não tem. Se você se sente à vontade no terminal, a versão local dele é grátis e
+       de código aberto. E o plano hospedado grátis permite experimentar uma memória compartilhada
+       sem pagar nada.</p>
+  </section>
+
+  <section id="limits">
+    <h2>Onde o Zaaheen fica devendo</h2>
+    <ul>
+      <li>Ele roda só no Windows e em Macs com chip da Apple, sem versão para Linux nem para
+          celular.</li>
+      <li>O ChatGPT se conecta pelo app do ChatGPT para computador, não pelo navegador.</li>
+      <li>Sua memória fica em um computador; ainda não há sincronização entre computadores.</li>
+      <li>Ele não é de código aberto e, depois do teste de {TRIAL.days} dias, não há plano
+          grátis.</li>
+    </ul>
+    <p class="learn-note">Supermemory é um nome do seu dono. Não temos nenhum vínculo com o
+       Supermemory. Fatos conferidos em {CHECKED}; se algo aqui estiver errado ou desatualizado,
+       avise-nos em <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> e vamos corrigir.</p>
+  </section>
+</Learn>

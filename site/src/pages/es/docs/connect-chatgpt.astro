@@ -1,0 +1,20 @@
+---
+// ChatGPT Desktop guide in Spanish (ADR-113): the English guide's structure; the steps come
+// from the app's own wording through ConnectSteps, translated in src/i18n/ui/es.ts.
+import Guide from '../../../layouts/Guide.astro';
+import ConnectSteps from '../../../components/ConnectSteps.astro';
+import { connectOutline } from '../../../data/app-words';
+import { t } from '../../../i18n/ui';
+
+const NAME = 'ChatGPT Desktop';
+const OUTLINE = connectOutline(NAME).map((s) => ({ ...s, title: t('es', s.title) }));
+---
+<Guide
+  path="/es/docs/connect-chatgpt/"
+  lede="En ChatGPT Desktop, abre Settings, luego Plugins y luego MCP, y añade un servidor MCP llamado Zaaheen con el comando de la pestaña Agents de Zaaheen y los argumentos mcp y serve. Después usa Zaaheen en un chat de Work o de Codex."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <ConnectSteps name={NAME} where="ChatGPT › Settings" />
+  </section>
+</Guide>

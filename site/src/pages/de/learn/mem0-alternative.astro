@@ -1,0 +1,120 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../../data/site';
+
+// Learn comparison page 3 in German (ADR-113): the English page's structure,
+// sources and facts with its words translated; the sources are in the English
+// page's header comment. Quotes from Mem0's pages are translated faithfully.
+const CHECKED = '13. Oktober 2026';
+const OUTLINE = [
+  { id: 'what', title: 'Was Mem0 ist' },
+  { id: 'differ', title: 'Worin sich Zaaheen unterscheidet' },
+  { id: 'table', title: 'Im direkten Vergleich' },
+  { id: 'better', title: 'Wann Mem0 die bessere Wahl ist' },
+  { id: 'limits', title: 'Wo Zaaheen nicht mithält' },
+];
+const MEM0 = 'https://mem0.ai/pricing';
+const MEM0_MCP = 'https://docs.mem0.ai/platform/mem0-mcp';
+const OPENMEMORY = 'https://mem0.ai/openmemory';
+const monthly = `${PRICES.monthly} USD pro Monat`;
+const yearly = `${PRICES.yearly} USD pro Jahr`;
+---
+<Learn
+  path="/de/learn/mem0-alternative/"
+  lede="Mem0 ist ein Gedächtnis-Dienst, den Entwickler in ihre eigenen KI-Apps einbauen, und sein MCP-Server bewahrt deine Erinnerungen online in deinem Mem0-Konto auf. Wenn du keine App baust und ein Gedächtnis für Claude, ChatGPT und Cursor willst, das auf deinem eigenen Computer bleibt, ist Zaaheen genau dafür gemacht, mit einem normalen Installationsprogramm und nichts, was du von Hand konfigurieren musst."
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>Was Mem0 ist</h2>
+    <p>Mem0 gibt Entwicklern ein Gedächtnis, das sie über eine API in die KI-Produkte einbauen können,
+       die sie entwickeln. Es gibt einen kostenlosen Hobby-Tarif mit 10.000 hinzugefügten Erinnerungen
+       und 1.000 Suchen pro Monat, danach Starter für 19 USD pro Monat und Pro für 249 USD pro Monat
+       (<a href={MEM0}>Preise von Mem0</a>).</p>
+    <p>Es bietet auch einen MCP-Server, damit Apps wie Claude Desktop, Claude Code, Codex und Cursor dein
+       Mem0-Gedächtnis direkt nutzen können. Du brauchst ein Mem0-Konto, und die Schnelleinrichtung
+       führt einen Befehl aus, der Node.js braucht. Die Dokumentation von Mem0 sagt klar, wo die Dinge
+       liegen: „Nothing runs on your machine“ (auf deinem Gerät läuft nichts), und die Erinnerungen „live in your Mem0 account, not on your computer“ (liegen in deinem Mem0-Konto, nicht auf deinem Computer) (<a href={MEM0_MCP}>MCP-Dokumentation von Mem0</a>). Die Seite zu OpenMemory
+       beschreibt ein Gedächtnis für „every MCP-compatible coding agent“ (jeden MCP-kompatiblen Coding-Agenten)
+       (<a href={OPENMEMORY}>OpenMemory</a>).</p>
+  </section>
+
+  <section id="differ">
+    <h2>Worin sich Zaaheen unterscheidet</h2>
+    <ul>
+      <li><strong>Wo deine Erinnerungen liegen.</strong> Zaaheen bewahrt sie verschlüsselt auf deinem
+          eigenen Computer auf. Unsere Server kümmern sich um die Anmeldung und dein Abo und erhalten
+          deine Erinnerungen nie.</li>
+      <li><strong>Für wen es ist.</strong> Mem0 ist für Entwickler gebaut. Zaaheen ist für alle, die
+          mehrere KI-Apps nutzen: Du installierst es wie jedes andere Programm und verbindest jede App
+          über den Tab <em>Agents</em>.</li>
+      <li><strong>Apps.</strong> Beide erreichen Claude Desktop, Claude Code, Codex und Cursor. Zaaheen
+          verbindet sich außerdem mit der ChatGPT-App für deinen Computer.</li>
+    </ul>
+
+    <MemoryFlow
+      id="flow-mem0"
+      from="Claude Code"
+      to="Cursor"
+      fact="Nutzt pnpm, nicht npm"
+      others={['Codex', 'Claude']}
+      caption="Eine Vorliebe, die Claude Code speichert, liegt im Gedächtnis auf deinem Computer, und Cursor und deine anderen verbundenen Apps lesen sie dort."
+    />
+  </section>
+
+  <section id="table">
+    <h2>Im direkten Vergleich</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">Mem0 (MCP)</th><th scope="col">Zaaheen</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Gemacht für</th><td>Entwickler, die KI-Apps bauen</td><td>Leute, die mehrere KI-Apps nutzen</td></tr>
+        <tr><th scope="row">Wo Erinnerungen liegen</th><td>Dein Mem0-Konto, online</td><td>Dein Computer, verschlüsselt</td></tr>
+        <tr><th scope="row">Einrichtung</th><td>Mem0-Konto, Node.js, ein Einrichtungsbefehl</td><td>Ein Installationsprogramm, dann jede App verbinden</td></tr>
+        <tr><th scope="row">Preis</th><td>Kostenloser Hobby-Tarif; Starter 19 USD pro Monat</td><td>{TRIAL.days} Tage kostenlos, danach {monthly} oder {yearly}</td></tr>
+        <tr><th scope="row">Open Source</th><td>Ja</td><td>Nein</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">Stand {CHECKED}, von den Seiten von Mem0, Änderungen möglich. Die aktuellen
+       Preise findest du über die Links oben.</p>
+    <p>Hält ein gemeinsames Gedächtnis über Apps hinweg? Wir haben unseres getestet: fünf KI-Apps auf
+       einem Windows-Computer, mit einem gemeinsamen Zaaheen-Gedächtnis, beantworteten acht Fragen über
+       die Person.</p>
+
+    <BarChart
+      id="chart-mem0-recall"
+      title="8 Fragen über die Person, gestellt in 5 KI-Apps mit einem gemeinsamen Gedächtnis"
+      measure="Fragen"
+      max={8}
+      bars={[
+        { label: 'Von selbst beantwortet', value: 4, note: 'von 8' },
+        { label: 'Erst nach Hinweis', value: 3, note: 'von 8' },
+        { label: 'Von Add-on blockiert', value: 1, note: 'von 8' },
+      ]}
+      source={{ text: 'Eigener Live-Test von Zaaheen, 26. September 2026, Windows, mit Claude Desktop, Cursor, ChatGPT (Work und Codex) und Antigravity. Die blockierte Antwort ging auf ein Google-Add-on zurück, das die Werkzeugaufrufe von Antigravity abstürzen ließ, bevor sie Zaaheen erreichten.' }}
+    />
+  </section>
+
+  <section id="better">
+    <h2>Wann Mem0 die bessere Wahl ist</h2>
+    <p>Wenn du als Entwickler Gedächtnis in ein eigenes Produkt einbaust, ist Mem0 genau dafür gebaut,
+       Zaaheen nicht: Es hat eine API, einen kostenlosen Tarif, offenen Quellcode und Möglichkeiten, es
+       selbst zu betreiben. Es passt auch, wenn dein Gedächtnis lieber online liegen und dir auf jeden
+       Computer folgen soll.</p>
+  </section>
+
+  <section id="limits">
+    <h2>Wo Zaaheen nicht mithält</h2>
+    <ul>
+      <li>Es läuft nur unter Windows und auf Macs mit Apple-Chips, ohne Version für Linux oder das Handy.</li>
+      <li>Dein Gedächtnis liegt auf einem Computer; eine Synchronisierung zwischen Computern gibt es noch nicht.</li>
+      <li>Es hat keine API, um eigene Apps zu bauen, und es ist nicht Open Source.</li>
+      <li>Nach der {TRIAL.days}-tägigen Testphase gibt es keinen kostenlosen Tarif.</li>
+    </ul>
+    <p class="learn-note">Mem0 und OpenMemory sind Namen ihres Inhabers. Wir haben keine Verbindung zu
+       Mem0. Fakten geprüft am {CHECKED}; wenn hier etwas falsch oder veraltet ist, schreib uns an
+       <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>, und wir korrigieren es.</p>
+  </section>
+</Learn>

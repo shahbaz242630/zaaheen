@@ -3,6 +3,9 @@ import Base from './Base.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import { RELEASE, TRIAL, alsoRead, pageFor } from '../data/site';
 import { lastModified } from '../lib/lastmod';
+import { englishPath, langOf, localize } from '../i18n/locales';
+import { learnSummary } from '../i18n/learn';
+import { formatDate, t } from '../i18n/ui';
 
 // A Learn article (s91): the answer first, in the lede; then the body, which
 // carries at least one chart (components/learn/BarChart.astro) and one
@@ -19,11 +22,17 @@ interface Props {
 const { path, lede, outline } = Astro.props;
 const page = pageFor(path);
 if (!page.heading) throw new Error(`Learn article ${path} needs a heading in its PAGES entry`);
+const lang = langOf(path);
+const L = (href: string) => localize(href, lang);
 const updated = lastModified(page.path);
-const updatedLabel = updated
-  ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-  : undefined;
-const more = alsoRead(path).map((a) => ({ ...a, heading: pageFor(a.path).heading }));
+const updatedLabel = updated ? formatDate(updated, lang) : undefined;
+// "People also read" in the page's language: each article's translated
+// heading and summary, linking to its translation (ADR-113 D3).
+const more = alsoRead(englishPath(path)).map((a) => ({
+  path: L(a.path),
+  heading: pageFor(L(a.path)).heading,
+  summary: learnSummary(a, lang),
+}));
 ---
 <Base page={page}>
   <div class="docs learn">
@@ -31,24 +40,23 @@ const more = alsoRead(path).map((a) => ({ ...a, heading: pageFor(a.path).heading
       <Breadcrumbs page={page} />
       <h1>{page.heading}</h1>
       <p class="learn-lede">{lede}</p>
-      <p class="doc-updated">By Zaaheen{updatedLabel && ` · Last updated ${updatedLabel}`}</p>
+      <p class="doc-updated">{t(lang, 'By Zaaheen')}{updatedLabel && ` · ${t(lang, 'Last updated {date}', { date: updatedLabel })}`}</p>
     </header>
 
     <div class="learn-layout">
       <article class="learn-body">
         <slot />
 
-        <aside class="learn-cta" aria-label="About Zaaheen">
-          <p>Zaaheen is one private memory for Claude, ChatGPT, Cursor and your other AI apps, kept
-             encrypted on your own computer. {TRIAL.days} days free, no card.</p>
+        <aside class="learn-cta" aria-label={t(lang, 'About Zaaheen')}>
+          <p>{t(lang, 'Zaaheen is one private memory for Claude, ChatGPT, Cursor and your other AI apps, kept encrypted on your own computer. {days} days free, no card.', { days: TRIAL.days })}</p>
           {RELEASE.available
-            ? <a class="cta cta-sm" href="/docs/getting-started/">Try Zaaheen free</a>
-            : <a class="cta cta-sm" href="/products/">See how Zaaheen works</a>}
+            ? <a class="cta cta-sm" href={L('/docs/getting-started/')}>{t(lang, 'Try Zaaheen free')}</a>
+            : <a class="cta cta-sm" href={L('/products/')}>{t(lang, 'See how Zaaheen works')}</a>}
         </aside>
 
         {more.length > 0 && (
-          <nav class="learn-more" aria-label="People also read">
-            <h2>People also read</h2>
+          <nav class="learn-more" aria-label={t(lang, 'People also read')}>
+            <h2>{t(lang, 'People also read')}</h2>
             <ul>
               {more.map((a) => <li><a href={a.path}>{a.heading}</a><span>{a.summary}</span></li>)}
             </ul>
@@ -56,8 +64,8 @@ const more = alsoRead(path).map((a) => ({ ...a, heading: pageFor(a.path).heading
         )}
       </article>
 
-      <aside class="docs-toc" aria-label="On this page">
-        <p class="docs-toc-title">On this page</p>
+      <aside class="docs-toc" aria-label={t(lang, 'On this page')}>
+        <p class="docs-toc-title">{t(lang, 'On this page')}</p>
         {outline.map((s) => <a class="docs-toc-section" href={`#${s.id}`}>{s.title}</a>)}
       </aside>
     </div>

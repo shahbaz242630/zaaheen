@@ -1,6 +1,8 @@
 ---
 import Logo from './Logo.astro';
 import { COACHING, COACHING_POLICIES, COMPANY, SITE } from '../data/site';
+import { langOf, localize } from '../i18n/locales';
+import { formatDate, t } from '../i18n/ui';
 
 // The footer on every page (founder, session 67: "a little bit professional
 // footer", after the Best Answer Hub one): the brand, three columns of links,
@@ -21,31 +23,35 @@ interface Props {
   updated?: string;
 }
 const { variant = 'app', updated } = Astro.props;
-const updatedLabel = updated
-  ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-  : undefined;
+// A translated page's footer is in its language (ADR-113 D2); links go to the
+// same language where that page is translated. The legal pages stay English,
+// so on a translated page their labels say so.
+const lang = langOf(Astro.url.pathname);
+const L = (href: string) => localize(href, lang);
+const english = (label: string) => (lang === 'en' ? label : `${t(lang, label)} (${t(lang, 'English')})`);
+const updatedLabel = updated ? formatDate(updated, lang) : undefined;
 const coaching = variant === 'coaching';
 const year = new Date().getFullYear();
 
 const APP_COLUMNS = [
-  { title: 'Product', links: [
-    { label: 'The memory app', href: '/products/' },
-    { label: 'Pricing', href: '/pricing/' },
-    { label: 'Documents', href: '/docs/' },
-    { label: 'Learn', href: '/learn/' },
-    { label: 'AI and your data', href: '/ai-and-your-data/' },
+  { title: t(lang, 'Product'), links: [
+    { label: t(lang, 'The memory app'), href: L('/products/') },
+    { label: t(lang, 'Pricing'), href: L('/pricing/') },
+    { label: t(lang, 'Documents'), href: L('/docs/') },
+    { label: t(lang, 'Learn'), href: L('/learn/') },
+    { label: english('AI and your data'), href: '/ai-and-your-data/' },
   ] },
-  { title: 'Company', links: [
-    { label: 'Company information', href: '/company/' },
-    { label: 'Knowledge Centre', href: '/knowledge-centre/' },
-    { label: 'Security', href: '/security/' },
-    { label: 'Contact us', href: '/docs/contact/' },
+  { title: t(lang, 'Company'), links: [
+    { label: english('Company information'), href: '/company/' },
+    { label: english('Knowledge Centre'), href: '/knowledge-centre/' },
+    { label: english('Security'), href: '/security/' },
+    { label: t(lang, 'Contact us'), href: L('/docs/contact/') },
   ] },
-  { title: 'Legal', links: [
-    { label: 'Terms of Service', href: '/terms/' },
-    { label: 'Privacy Policy', href: '/privacy/' },
-    { label: 'Refund Policy', href: '/refunds/' },
-    { label: 'Open-source licences', href: '/licences/' },
+  { title: t(lang, 'Legal'), links: [
+    { label: english('Terms of Service'), href: '/terms/' },
+    { label: english('Privacy Policy'), href: '/privacy/' },
+    { label: english('Refund Policy'), href: '/refunds/' },
+    { label: english('Open-source licences'), href: '/licences/' },
   ] },
 ];
 
@@ -69,14 +75,14 @@ const COACHING_COLUMNS = [
 const columns = coaching ? COACHING_COLUMNS : APP_COLUMNS;
 const blurb = coaching
   ? 'Private 1-to-1 AI coaching, built around a real task you bring. Booked and paid online, delivered live.'
-  : 'A private memory for your AI apps. Your memories stay encrypted on your own computer and never reach us.';
+  : t(lang, 'A private memory for your AI apps. Your memories stay encrypted on your own computer and never reach us.');
 const email = coaching ? COACHING.email : COMPANY.email;
 ---
 <footer class:list={['site-foot', { 'is-coaching': coaching }]} data-footer={variant}>
   <div class="foot-inner">
     <div class="foot-grid">
       <div class="foot-brand">
-        <a class="foot-logo" href="/" aria-label={`${SITE.name} home`}>
+        <a class="foot-logo" href={L('/')} aria-label={t(lang, '{name} home', { name: SITE.name })}>
           <Logo size={48} />
           <span>{coaching ? `${SITE.name} Knowledge Centre` : SITE.name}</span>
         </a>
@@ -90,8 +96,8 @@ const email = coaching ? COACHING.email : COMPANY.email;
       ))}
     </div>
     <div class="foot-bottom">
-      <p>© {year} {COMPANY.legalName}. All rights reserved.</p>
-      {updated && <p data-page-updated>Page last updated <time datetime={updated}>{updatedLabel}</time></p>}
+      <p>© {year} {COMPANY.legalName}. {t(lang, 'All rights reserved.')}</p>
+      {updated && <p data-page-updated>{t(lang, 'Page last updated')} <time datetime={updated}>{updatedLabel}</time></p>}
       <p>{COMPANY.licence} · <a href={`mailto:${email}`}>{email}</a></p>
     </div>
   </div>

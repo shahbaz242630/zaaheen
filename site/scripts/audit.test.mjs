@@ -221,7 +221,7 @@ const cases = [
   ['guide missing', (d) => fs.rmSync(path.join(d, 'docs', 'getting-started'), { recursive: true }), /broken internal link or asset: \/docs\/getting-started\//],
   // <main> carries attributes since session 90 (id="main" for the skip link):
   // match the tag, and throw if it is missing so the case never tests nothing.
-  ['breadcrumb on a top-level page', edit('docs/index.html', (s) => { const out = s.replace(/<main\b[^>]*>/, (m) => `${m}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li></ol></nav>`); if (out === s) throw new Error('audit.test: no <main>'); return out; }), /docs\/index\.html: a top-level page must not carry a breadcrumb trail/],
+  ['breadcrumb on a top-level page', edit('docs/index.html', (s) => { const out = s.replace(/<main\b[^>]*>/, (m) => `${m}<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li></ol></nav>`); if (out === s) throw new Error('audit.test: no <main>'); return out; }), /docs\/index\.html: a top-level page must not carry a breadcrumb trail/],
   ['security.txt wrong contact', edit('.well-known/security.txt', (s) => s.replace('customerservice@', 'someone@')), /security\.txt: must have "Contact: mailto:customerservice@zaaheen\.com"/],
   // SEO audit, session 72.
   ['guide heading skips a level', edit('docs/connect-claude/index.html', (s) => { const out = s.replace(/<h2 class="set-name">([\s\S]*?)<\/h2>/, '<h3 class="set-name">$1</h3>'); if (out === s) throw new Error('audit.test: no guide row heading'); return out; }), /docs\/connect-claude\/index\.html: heading level skipped: an <h3> follows an <h1>/],

@@ -1,0 +1,103 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { localize } from '../../../i18n/locales';
+
+// Learn article 3 in Spanish (ADR-113), translated from the English page; its
+// sources and the test behind the chart are in the English page's header comment.
+const L = (href: string) => localize(href, 'es');
+const OUTLINE = [
+  { id: 'each', title: 'Qué guarda cada uno' },
+  { id: 'rules', title: 'Reglas del proyecto: un AGENTS.md' },
+  { id: 'you', title: 'Lo que saben de ti' },
+  { id: 'test', title: 'Nuestra prueba' },
+];
+const CLAUDE_DOCS = 'https://code.claude.com/docs/en/memory';
+const CURSOR_DOCS = 'https://cursor.com/docs/rules';
+const CODEX_DOCS = 'https://learn.chatgpt.com/docs/customization/memories?surface=app';
+---
+<Learn
+  path="/es/learn/one-memory-across-claude-code-cursor-and-codex/"
+  lede="Claude Code, Cursor y Codex guardan cada uno su propia memoria, y ninguno lee la de los otros. Pon las reglas del proyecto en un archivo AGENTS.md, que los tres pueden leer, y guarda lo que es cierto sobre ti en una sola memoria compartida a la que se conectan los tres."
+  outline={OUTLINE}
+>
+  <section id="each">
+    <h2>Qué guarda cada uno</h2>
+    <p>Según la documentación de cada empresa:</p>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col">App</th><th scope="col">Su propia memoria</th><th scope="col">¿Compartida con los otros?</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Claude Code</th><td>Archivos CLAUDE.md que escribes tú, más la memoria automática que escribe él, en una carpeta para cada proyecto en tu computadora (<a href={CLAUDE_DOCS}>Anthropic</a>)</td><td>No</td></tr>
+        <tr><th scope="row">Cursor</th><td>Reglas del proyecto en <code>.cursor/rules</code>, reglas de usuario para todos tus proyectos y AGENTS.md (<a href={CURSOR_DOCS}>Cursor</a>)</td><td>No</td></tr>
+        <tr><th scope="row">Codex</th><td>AGENTS.md, más recuerdos que puede escribir en <code>~/.codex/memories/</code>, desactivados hasta que los activas (<a href={CODEX_DOCS}>OpenAI</a>)</td><td>No, ni siquiera con ChatGPT</td></tr>
+      </tbody>
+    </table>
+    <p>Así que una preferencia que le enseñas a Claude Code el lunes es nueva para Cursor el martes
+       y para Codex el miércoles. Los desarrolladores que alternan entre ellos acaban repitiendo lo
+       mismo tres veces, o manteniendo tres archivos sincronizados a mano.</p>
+  </section>
+
+  <section id="rules">
+    <h2>Reglas del proyecto: un AGENTS.md para los tres</h2>
+    <p>Para las reglas del propio proyecto, como cómo compilarlo, cómo ejecutar las pruebas y qué
+       convenciones seguir, ahora hay una respuesta sencilla: AGENTS.md. Cursor lo lee como uno de
+       sus tipos de reglas. OpenAI sugiere guardar en él las indicaciones que Codex debe seguir
+       siempre. Y Claude Code lo lee como las instrucciones del proyecto cuando el proyecto no tiene
+       CLAUDE.md (desde la versión 2.1.277).</p>
+    <p>Un solo archivo en el repositorio, guardado junto al código, y las tres herramientas parten de
+       las mismas reglas. Si ya tienes un CLAUDE.md, la documentación de Anthropic explica cómo
+       hacer que apunte a AGENTS.md para que los dos nunca se contradigan.</p>
+  </section>
+
+  <section id="you">
+    <h2>Lo que saben de ti: una sola memoria compartida</h2>
+    <p>AGENTS.md no es el lugar para los datos sobre ti. No forman parte del proyecto, cambian y
+       sirven en todos los proyectos, no en uno. Ahí entra una memoria compartida: una memoria fuera
+       de las tres herramientas a la que cada una se conecta mediante MCP, la forma estándar en que
+       las apps de IA se conectan a herramientas y datos.</p>
+
+    <MemoryFlow
+      id="flow-codex-cursor"
+      from="Codex"
+      to="Cursor"
+      fact="Prefiere pnpm a npm"
+      others={['Claude Code']}
+      caption="Una preferencia que le cuentas a Codex se guarda una vez, en tu computadora. Cursor y Claude Code la recuerdan en su siguiente sesión, en cualquier proyecto."
+    />
+
+    <p>Zaaheen es una de esas memorias, para Windows y Mac, guardada y cifrada en tu propia
+       computadora. Cada herramienta se conecta una vez: Claude Code con un comando, Cursor con un
+       enlace de instalación y Codex con unas pocas líneas en su archivo de configuración
+       (<a href={L('/docs/connect-claude-code/')}>Claude Code</a>, <a href={L('/docs/connect-cursor/')}>Cursor</a>,
+       <a href={L('/docs/connect-codex/')}>Codex</a>). Después, lo que cualquiera de ellas guarde
+       sobre ti, las otras lo pueden recordar.</p>
+  </section>
+
+  <section id="test">
+    <h2>Nuestra prueba</h2>
+    <p>Lo probamos con Cursor leyendo una memoria compartida que tenía unos 15 datos sobre una
+       persona, guardados antes por otra app. Las preguntas eran de las que harías de verdad, y dos
+       estaban pensadas para hacerlo fallar: una sobre algo que la memoria no tenía y una pregunta
+       trampa.</p>
+
+    <BarChart
+      id="chart-cursor-recall"
+      title="5 preguntas a Cursor sobre datos guardados por otra app"
+      measure="Preguntas"
+      max={5}
+      bars={[
+        { label: 'Recordó el dato', value: 3, note: 'de 5' },
+        { label: 'Dijo que no lo sabía', value: 1, note: 'de 5' },
+        { label: 'Evitó la trampa', value: 1, note: 'de 5' },
+      ]}
+      source={{ text: 'Prueba de Zaaheen, 5 de junio de 2026, una versión de desarrollo de Zaaheen en Windows. Recordó: el instrumento que toca la persona, su mascota y lo que colecciona. No lo sabía, con razón: su grupo sanguíneo, que la memoria no tenía. La trampa: al preguntarle por su gato, dijo que tiene un perro.' }}
+    />
+
+    <p>Las cinco respuestas fueron correctas, incluidas las dos en que la respuesta correcta era
+       "no". Para una memoria, esa segunda parte importa tanto como la primera: una app que se
+       inventa una respuesta es peor que una que dice que no lo sabe.</p>
+  </section>
+</Learn>

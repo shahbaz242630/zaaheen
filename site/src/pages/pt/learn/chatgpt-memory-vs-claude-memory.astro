@@ -1,0 +1,132 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { COMPANY, TIP_LINE } from '../../../data/site';
+
+// Learn comparison page 2 in Portuguese (ADR-113): the English page's
+// structure with its words translated. Every fact and date is the English
+// page's, from the sources listed in its header comment. The tip line is the
+// app's own words, so it stays in English.
+const CHECKED = '13 de outubro de 2026';
+const OUTLINE = [
+  { id: 'short', title: 'A resposta curta' },
+  { id: 'chatgpt', title: 'Como o ChatGPT lembra' },
+  { id: 'claude', title: 'Como o Claude lembra' },
+  { id: 'table', title: 'Lado a lado' },
+  { id: 'both', title: 'Se você usa os dois' },
+];
+const OPENAI_MEMORY = 'https://help.openai.com/en/articles/8590148-memory-in-chatgpt';
+const CLAUDE_MEMORY = 'https://support.claude.com/en/articles/11817273-use-claude-s-chat-search-and-memory-to-build-on-previous-context';
+---
+<Learn
+  path="/pt/learn/chatgpt-memory-vs-claude-memory/"
+  lede="Os dois lembram bem de você, e os dois são grátis para ativar. O ChatGPT usa mais fontes, como conversas anteriores, arquivos e apps conectados. O Claude guarda a memória como tópicos que você pode ler e editar, com uma memória separada para cada projeto. Nenhum consegue ler a do outro, então, se você usa os dois, cada um só sabe metade do que você contou."
+  outline={OUTLINE}
+>
+  <section id="short">
+    <h2>A resposta curta</h2>
+    <p>Se você usa só um deles, a memória dele provavelmente é tudo de que você precisa, e não custa
+       nada a mais. As diferenças estão nas fontes que cada um usa, em quanto você pode ver e mudar
+       e em como tratam detalhes sensíveis. Tudo abaixo vem das próprias páginas de ajuda da OpenAI e
+       da Anthropic, como estavam em {CHECKED}; as duas dizem que os recursos variam conforme o
+       plano, então o seu pode ser um pouco diferente.</p>
+  </section>
+
+  <section id="chatgpt">
+    <h2>Como o ChatGPT lembra</h2>
+    <p>A memória do ChatGPT pode usar várias fontes: suas conversas anteriores, memórias salvas,
+       suas instruções personalizadas, arquivos na sua Library e apps conectados como o Gmail,
+       dependendo do seu plano e da sua região (<a href={OPENAI_MEMORY}>página de ajuda da
+       OpenAI</a>). Os controles ficam em Settings, Personalization, Memory, onde você vê um resumo
+       da memória e pode corrigi-lo. Quando o ChatGPT usa algo de que se lembra, uma lista de
+       fontes (Sources) pode aparecer abaixo da resposta.</p>
+    <p>Alguns detalhes que vale a pena saber. Apagar uma conversa não apaga uma memória salva que
+       veio dela; você precisa remover as duas. Se você desligar "Reference chat history", o que ele
+       aprendeu com conversas anteriores é programado para ser apagado em até 30 dias. E, em contas
+       pessoais, a OpenAI pode usar conversas e informações lembradas para melhorar os modelos dela
+       enquanto "Improve the model for everyone" estiver ligado, o que você pode desligar em Data
+       controls.</p>
+  </section>
+
+  <section id="claude">
+    <h2>Como o Claude lembra</h2>
+    <p>A memória do Claude vem ligada por padrão nos planos Free, Pro e Max, na web, no Claude
+       Desktop e nos apps para celular. Nos planos Team e Enterprise quem decide é o responsável
+       pela conta, e cada membro a ativa para si (<a href={CLAUDE_MEMORY}>página de ajuda da
+       Anthropic</a>).</p>
+    <p>O Claude salva a memória como tópicos enquanto você conversa, e você pode ler, editar ou
+       apagar cada um em Settings, Memory. Cada projeto tem a sua própria memória separada. Pesquisar
+       suas conversas anteriores exige um plano pago. Por padrão, ele não guarda assuntos sensíveis
+       como saúde, religião ou política, a menos que você escolha incluí-los, e algumas coisas, como
+       números de documentos oficiais e de contas financeiras, ele nunca salva.</p>
+  </section>
+
+  <section id="table">
+    <h2>Lado a lado</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">ChatGPT</th><th scope="col">Claude</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Custo</th><td>Incluído; os recursos variam conforme o plano</td><td>Incluído no Free, Pro e Max; no Team e Enterprise, quem decide é o responsável</td></tr>
+        <tr><th scope="row">O que ele usa</th><td>Conversas anteriores, memórias salvas, instruções personalizadas, arquivos da Library, apps conectados</td><td>Tópicos salvos das suas conversas; conversas anteriores por pesquisa nos planos pagos</td></tr>
+        <tr><th scope="row">Ver e mudar</th><td>Resumo da memória que você pode corrigir, fontes abaixo das respostas</td><td>Uma lista de tópicos que você pode ler, editar e apagar</td></tr>
+        <tr><th scope="row">Projetos</th><td>Memória só do projeto em alguns espaços de trabalho empresariais</td><td>Cada projeto tem a própria memória</td></tr>
+        <tr><th scope="row">Detalhes sensíveis</th><td>Podem aparecer se você os compartilhar</td><td>Ficam de fora por padrão, a menos que você os inclua</td></tr>
+        <tr><th scope="row">Onde fica guardada</th><td>Sua conta da OpenAI</td><td>Sua conta da Anthropic</td></tr>
+        <tr><th scope="row">Compartilhada com o outro</th><td>Não</td><td>Não</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">Situação em {CHECKED}, segundo a página de ajuda de cada empresa, e pode
+       mudar. Confira os links acima para ver o mais recente.</p>
+  </section>
+
+  <section id="both">
+    <h2>Se você usa os dois</h2>
+    <p>É aqui que as memórias embutidas chegam ao limite. Cada uma fica na conta da própria empresa,
+       então uma preferência que você passou ao ChatGPT no mês passado não significa nada para o
+       Claude hoje. O Claude pode importar do ChatGPT uma vez, o que ajuda se você está mudando de
+       vez, mas tudo o que você contar ao ChatGPT depois fica lá.</p>
+    <p>O outro caminho é uma memória que fica fora dos dois e à qual os dois apps se conectam. O
+       Zaaheen, que nós fazemos, é uma delas: ele guarda suas memórias criptografadas no seu próprio
+       computador, e o Claude Desktop e o app do ChatGPT para computador salvam nela e leem dela.</p>
+
+    <MemoryFlow
+      id="flow-chatgpt-vs-claude"
+      from="Claude"
+      to="ChatGPT"
+      fact="Novo emprego em maio"
+      caption="Conte algo ao Claude uma vez e isso é salvo na memória única do seu computador, onde o ChatGPT pode encontrar em uma conversa futura."
+    />
+
+    <p>Nós testamos isso. Cinco apps de IA em um computador com Windows, entre eles o ChatGPT e o
+       Claude Desktop, compartilharam uma memória do Zaaheen, e fizemos oito perguntas sobre a
+       pessoa, quase sempre em um app diferente daquele que salvou a resposta.</p>
+
+    <BarChart
+      id="chart-both-recall"
+      title="8 perguntas sobre a pessoa, feitas em 5 apps de IA que compartilham uma memória"
+      measure="Perguntas"
+      max={8}
+      bars={[
+        { label: 'Respondeu sozinho', value: 4, note: 'de 8' },
+        { label: 'Após pedir para checar', value: 3, note: 'de 8' },
+        { label: 'Bloqueada por extensão', value: 1, note: 'de 8' },
+      ]}
+      source={{ text: 'Teste ao vivo do próprio Zaaheen, 26 de setembro de 2026, Windows, com Claude Desktop, Cursor, ChatGPT (Work e Codex) e Antigravity. A resposta bloqueada foi uma extensão do Google que travava as chamadas de ferramenta do Antigravity antes de chegarem ao Zaaheen.' }}
+    />
+
+    <p>Na metade das vezes o app consultou a memória compartilhada sozinho; nas outras, respondeu
+       primeiro com a própria memória. Adicionar esta linha às instruções de cada app resolve a
+       maior parte disso (a linha fica em inglês, como no app):
+       "{TIP_LINE}"</p>
+    <p>Dois limites, para ser justo. O ChatGPT só alcança o Zaaheen pelo app do ChatGPT para
+       computador, não no navegador nem no celular. E o Zaaheen roda no Windows e em Macs com chip
+       da Apple, sem versão para celular. Se você usa um app só, fique com a memória dele; se usa os
+       dois toda semana, uma memória compartilhada poupa você de se repetir.</p>
+    <p class="learn-note">ChatGPT e Claude são nomes dos seus donos, a OpenAI e a Anthropic. Não
+       temos nenhum vínculo com nenhuma das duas. Se algo aqui estiver errado ou desatualizado,
+       avise-nos em <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> e vamos corrigir.</p>
+  </section>
+</Learn>

@@ -1,0 +1,109 @@
+---
+// Getting started in German (ADR-113): install and first launch, in the
+// app's own words (the setup screens in crates/vault-tauri/dist/app.js),
+// which stay in English as the app shows them.
+import Guide from '../../../layouts/Guide.astro';
+import Row from '../../../components/Row.astro';
+import Download from '../../../components/Download.astro';
+import { RELEASE, TRIAL } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+
+const L = (href: string) => localize(href, 'de');
+const win = RELEASE.windows;
+const mac = RELEASE.mac;
+const OUTLINE = [
+  { id: 'before', title: 'Bevor du anfängst' },
+  { id: 'install', title: 'Installieren' },
+  { id: 'set-up', title: 'Einrichten' },
+  { id: 'next', title: 'Wie es weitergeht' },
+];
+---
+<Guide
+  path="/de/docs/getting-started/"
+  lede={`Lade Zaaheen für Windows oder Mac herunter, installiere es und wähle dann Begin set up. Die Einrichtung dauert etwa drei Minuten: Du meldest dich in der App an, was deine kostenlose Testphase von ${TRIAL.days} Tagen startet (keine Karte nötig), wählst, wo deine Erinnerungen liegen, und verbindest deine erste KI-App.`}
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="before" title="Bevor du anfängst" where="Windows oder Mac">
+      {!RELEASE.available && <p><strong>Zaaheen für Windows und Mac kommt bald.</strong> Diese
+         Schritte zeigen, wie es funktioniert, sobald du es herunterladen kannst.</p>}
+      <p>Zaaheen {RELEASE.version} ist für Windows (64-Bit), getestet unter {win.tested}, und für
+         Macs mit Apple-Chip, M1 oder neuer, getestet unter {mac.tested}. Für Linux und Handys gibt es
+         es noch nicht.</p>
+      <p>Die App ist auf Englisch. Diese Anleitung nennt Knöpfe und Menüs deshalb so, wie du sie in
+         der App siehst.</p>
+      <Download small />
+    </Row>
+
+    <Row level={2} id="install" title="Installieren" where="Windows oder Mac">
+      <p><strong>Unter Windows</strong> öffnest du das heruntergeladene Installationsprogramm. Unterwegs
+         siehst du vielleicht bis zu drei Fragen, und jede ist normal:</p>
+      <ul>
+        <li><strong>Microsoft Edge sagt, die Datei "isn't commonly downloaded".</strong> Das
+            Installationsprogramm ist neu, deshalb hat Edge es noch nicht oft gesehen. Wähle die drei
+            Punkte neben dem Download, dann <em>Keep</em>, <em>Show more</em> und <em>Keep anyway</em>.
+            Chrome fragt nicht.</li>
+        <li><strong>Windows sagt, der Herausgeber sei unbekannt.</strong> Das Installationsprogramm ist
+            noch nicht code-signiert; die Signatur kommt später. Wähle <em>More info</em>, dann
+            <em>Run anyway</em>.</li>
+        <li><strong>Windows fragt nach Administratorrechten.</strong> Zaaheen wird für alle auf dem
+            Computer installiert, deshalb fragt Windows einmal. Zum Ausführen braucht es danach keine
+            Administratorrechte.</li>
+      </ul>
+      <p><strong>Auf dem Mac</strong> öffnest du das heruntergeladene Disk-Image, ziehst Zaaheen in den
+         Ordner Programme (Applications) und öffnest Zaaheen dann von dort. Zaaheen läuft nur von dort.</p>
+      <ul>
+        <li><strong>Dein Mac fragt, ob er eine aus dem Internet geladene App öffnen soll.</strong> Er
+            nennt den Entwickler. Die Mac-App ist von Apple signiert und geprüft. Wähle
+            <em>Open</em>.</li>
+        <li><strong>Dein Mac fragt vielleicht, ob Zaaheen deinen Schlüsselbund nutzen darf.</strong> Dort
+            liegt der Schlüssel zu deinen Erinnerungen. Wähle <em>Always Allow</em>.</li>
+      </ul>
+      {RELEASE.available && <>
+        <p><strong>Um deinen Download zu prüfen,</strong> vergleiche seinen Fingerabdruck (SHA-256) mit
+           dem unten. Weichen sie ab, lösche die Datei und lade sie erneut von dieser Website herunter.</p>
+        <ul>
+          <li><strong>Windows</strong> ({win.file}): <code class="hash">{win.sha256}</code>. Führe in
+              PowerShell <code>Get-FileHash "$HOME\Downloads\{win.file}"</code> aus.</li>
+          <li><strong>Mac</strong> ({mac.file}): <code class="hash">{mac.sha256}</code>. Führe im
+              Terminal <code>shasum -a 256 ~/Downloads/{mac.file}</code> aus.</li>
+        </ul>
+      </>}
+    </Row>
+
+    <Row level={2} id="set-up" title="Einrichten" where="Begin set up">
+      <p>Öffne Zaaheen und wähle <em>Begin set up</em>. Es führt dich durch fünf Schritte:</p>
+      <ol>
+        <li><strong>Dein Konto.</strong> Wähle <em>Create an account</em> oder <em>Sign in</em>. Dabei
+            öffnet sich dein Webbrowser. Deine kostenlose Testphase von {TRIAL.days} Tagen beginnt, wenn
+            du dich zum ersten Mal in der Zaaheen-App anmeldest, und du brauchst keine Karte. Die
+            Anmeldung teilt deine Erinnerungen nie mit uns.</li>
+        <li><strong>Wo deine Erinnerungen liegen.</strong> Der übliche Ort passt für die meisten. Du
+            kannst ihn später in Settings mit <em>Move my memories…</em> ändern.</li>
+        <li><strong>Deine erste KI-App.</strong> Wähle die App, die du nutzt, und folge den Schritten,
+            oder wähle <em>I'll connect one later</em>.</li>
+        <li><strong>Deine erste Erinnerung.</strong> Erzähl Zaaheen etwas, das deine KI-Apps über dich
+            wissen sollten, und wähle dann <em>Keep this memory</em> oder <em>Skip for now</em>.</li>
+        <li><strong>Aufräumen.</strong> Zaaheen räumt dein Gedächtnis jede Nacht von selbst auf, außer du
+            wählst <em>Not now</em>, dann <em>Finish setup</em>.</li>
+      </ol>
+      <p>Beim ersten Mal lädt Zaaheen außerdem herunter, was es zum Durchsuchen deiner Erinnerungen
+         braucht. Das passiert im Hintergrund, und du kannst Zaaheen währenddessen schon nutzen.</p>
+    </Row>
+
+    <Row level={2} id="next" title="Wie es weitergeht" where="Agents">
+      <p>Verbinde die KI-Apps, die du nutzt, jede einmal, über den Tab <em>Agents</em>:</p>
+      <ul>
+        <li><a href={L('/docs/connect-claude/')}>Claude Desktop verbinden</a></li>
+        <li><a href={L('/docs/connect-claude-code/')}>Claude Code verbinden</a></li>
+        <li><a href={L('/docs/connect-cursor/')}>Cursor verbinden</a></li>
+        <li><a href={L('/docs/connect-chatgpt/')}>ChatGPT verbinden</a></li>
+        <li><a href={L('/docs/connect-codex/')}>Codex verbinden</a></li>
+        <li><a href={L('/docs/connect-antigravity/')}>Antigravity verbinden</a></li>
+        <li><a href={L('/docs/connect-other-apps/')}>Andere KI-Apps verbinden</a></li>
+      </ul>
+      <p>Funktioniert etwas nicht wie beschrieben, sieh unter <a href={L('/docs/troubleshooting/')}>Häufige
+         Probleme beheben</a> nach.</p>
+    </Row>
+  </section>
+</Guide>

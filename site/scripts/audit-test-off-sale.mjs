@@ -43,5 +43,8 @@ const run = (args) => {
 run([ASTRO, 'build', '--silent']);
 run(['scripts/page-dates.mjs', '--write']);
 run([ASTRO, 'build', '--silent']);
+// The off-sale English pages read differently, so the copy records the English
+// its translations match too (ADR-113 D6), as it does its page dates.
+run(['scripts/translations.mjs', '--write', '--fresh']);
 run(['scripts/audit.test.mjs']);
 fs.rmSync(COPY, { recursive: true, force: true });

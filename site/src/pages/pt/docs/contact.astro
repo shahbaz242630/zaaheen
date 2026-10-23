@@ -1,0 +1,53 @@
+---
+// Contact us, in Brazilian Portuguese (ADR-113): the English page's structure
+// with its words translated.
+import Guide from '../../../layouts/Guide.astro';
+import Row from '../../../components/Row.astro';
+import CopyBox from '../../../components/CopyBox.astro';
+import { COMPANY } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+
+const L = (href: string) => localize(href, 'pt');
+const OUTLINE = [
+  { id: 'answers', title: 'A maioria das respostas já está aqui' },
+  { id: 'email', title: 'Escreva para nós' },
+  { id: 'include', title: 'O que incluir' },
+];
+---
+<Guide
+  path="/pt/docs/contact/"
+  lede={`A maioria das perguntas tem resposta nos nossos guias e na página de solução de problemas. Se a sua não tiver, escreva para ${COMPANY.email}.`}
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="answers" title="A maioria das respostas já está aqui" where="Documentos">
+      <ul>
+        <li><a href={L('/docs/troubleshooting/')}>Solução de problemas</a>: mensagens de erro e como resolver, e o que
+            fazer quando um app de IA não usa o Zaaheen.</li>
+        <li><a href={L('/docs/getting-started/')}>Primeiros passos</a>: como instalar o Zaaheen e conectar seu primeiro
+            app de IA.</li>
+        <li><a href={L('/pricing/')}>Preços</a> e a <a href="/refunds/">Política de Reembolso (em inglês)</a>: seu teste,
+            sua assinatura e reembolsos.</li>
+      </ul>
+      <p>Seu app de IA também pode pesquisar: peça que ele consulte a ajuda do Zaaheen em
+         <a href="/llms.txt">zaaheen.com/llms.txt</a> (em inglês).</p>
+    </Row>
+
+    <Row level={2} id="email" title="Escreva para nós" where="Qualquer pergunta">
+      <p>Escreva para <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>. Se o link não abrir
+         seu e-mail, copie o endereço:</p>
+      <CopyBox text={COMPANY.email} />
+    </Row>
+
+    <Row level={2} id="include" title="O que incluir" where="Para ajudarmos de primeira">
+      <ul>
+        <li>Windows ou Mac.</li>
+        <li>Qual app de IA você estava usando.</li>
+        <li>As palavras exatas de qualquer mensagem de erro.</li>
+        <li>Para um problema no app, o registro de atividade dele: escolha <em>Save activity record…</em> em
+            Settings e anexe o arquivo. Ele nos mostra a versão do app e o que aconteceu, e não contém nenhuma das suas memórias.</li>
+      </ul>
+      <p>Nunca envie sua senha nem qualquer código de login. Nunca vamos pedir isso.</p>
+    </Row>
+  </section>
+</Guide>

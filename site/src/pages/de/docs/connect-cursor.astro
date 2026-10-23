@@ -1,0 +1,20 @@
+---
+// The Cursor Desktop connect guide in German (ADR-113). The steps come from the desktop
+// app's own wording, translated in src/i18n/ui/de.ts.
+import Guide from '../../../layouts/Guide.astro';
+import ConnectSteps from '../../../components/ConnectSteps.astro';
+import { connectOutline } from '../../../data/app-words';
+import { t } from '../../../i18n/ui';
+
+const NAME = 'Cursor Desktop';
+const OUTLINE = connectOutline(NAME).map((o) => ({ ...o, title: t('de', o.title) }));
+---
+<Guide
+  path="/de/docs/connect-cursor/"
+  lede="Öffne in Zaaheen den Tab Agents, wähle + Connect an AI app, dann Cursor Desktop und Connect it for me. Cursor öffnet sich und fragt, ob du Zaaheen installieren willst. Das kann bis zu einer Minute dauern: Klick auf Install. Die Cursor IDE nutzt dann dieselbe Verbindung."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <ConnectSteps name={NAME} where="Cursor › Customize" />
+  </section>
+</Guide>

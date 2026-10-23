@@ -11,9 +11,9 @@ for (const btn of document.querySelectorAll('[data-copy]')) {
   btn.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(code.textContent ?? '');
-      btn.textContent = 'Copied';
+      btn.textContent = btn.dataset.copied || 'Copied';
     } catch {
-      btn.textContent = 'Select and copy';
+      btn.textContent = btn.dataset.fallback || 'Select and copy';
     }
     setTimeout(() => { btn.textContent = label; }, 2000);
   });
