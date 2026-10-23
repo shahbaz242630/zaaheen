@@ -1,0 +1,164 @@
+---
+// Troubleshooting in Brazilian Portuguese (ADR-113): the English guide's
+// structure with its words translated. The error messages stay exactly as the
+// apps show them, in English; where they appear and the fixes are translated
+// below, keyed by the English error, so a new or changed fix in
+// src/data/fixes.ts fails the build until it is translated here.
+import Guide from '../../../layouts/Guide.astro';
+import Row from '../../../components/Row.astro';
+import CopyBox from '../../../components/CopyBox.astro';
+import { COMPANY, TIP_LINE } from '../../../data/site';
+import { FIXES } from '../../../data/fixes';
+import { localize } from '../../../i18n/locales';
+
+const L = (href: string) => localize(href, 'pt');
+const FIX_WORDS: Record<string, { where: string; fix: string }> = {
+  'Invalid result for tools/call: missing required resultType': {
+    where: 'Claude Code, quando chama o Zaaheen',
+    fix: 'Atualize o Zaaheen para a versão mais recente em zaaheen.com: a versão 0.3.1 e as seguintes respondem corretamente aos apps mais novos.',
+  },
+  'The filename, directory name, or volume label syntax is incorrect. (os error 123)': {
+    where: 'ChatGPT Desktop ou Codex, no registro do app; o próprio ChatGPT só diz que o Zaaheen não está acessível',
+    fix: 'O Command tem um espaço ou aspas antes de C:. Edite o servidor MCP para que o Command comece exatamente com C:\\ (copie com o botão Copy da aba Agents do Zaaheen), salve e reinicie o ChatGPT.',
+  },
+  "Zaaheen isn't accessible in this chat": {
+    where: 'ChatGPT Desktop',
+    fix: 'Use um chat de Work ou de Codex (o modo Chat do ChatGPT não consegue se conectar a apps do seu computador), confira se o Command não tem espaço antes, depois feche o ChatGPT por completo e abra de novo.',
+  },
+  'request timed out (zaaheen: Tools: (none))': {
+    where: 'Codex no terminal, depois de /mcp',
+    fix: 'Atualize o Codex (npm install -g @openai/codex@latest), depois rode codex de novo e digite /mcp: o zaaheen aparece como conectado, com 5 ferramentas.',
+  },
+  'The AI app saves to its own memory, or answers "I don\'t know", instead of using Zaaheen': {
+    where: 'Claude Desktop, ChatGPT Desktop, Codex',
+    fix: 'Adicione a linha do Zaaheen às instruções do app (Claude: Settings, Account, Instructions for Claude; ChatGPT: Custom instructions; Codex: AGENTS.md na pasta .codex). A linha está nesta página e em cada guia de conexão.',
+  },
+  'Double-clicking "Zaaheen for Claude.mcpb" asks which app to open it with': {
+    where: 'Windows, com o Claude da Microsoft Store',
+    fix: 'Cancele essa caixa. No Claude, abra Settings, depois Extensions, depois Advanced settings, depois Install Extension, e escolha "Zaaheen for Claude.mcpb".',
+  },
+  "isn't commonly downloaded. Make sure you trust [the Zaaheen installer] before you open it.": {
+    where: 'Microsoft Edge, ao baixar',
+    fix: 'Escolha os três pontos ao lado do download, depois Keep, depois Show more, depois Keep anyway. O instalador é novo e ainda não tem assinatura de código, então o Edge ainda não o viu muitas vezes.',
+  },
+  'Windows protected your PC. Microsoft Defender SmartScreen prevented an unrecognized app from starting.': {
+    where: 'Windows, ao abrir o instalador',
+    fix: 'Escolha More info e depois Run anyway.',
+  },
+  'Your memories were NOT deleted, and they are still readable.': {
+    where: 'Mac, depois de Delete everything ou Delete my account no Zaaheen 0.3.0',
+    fix: 'Atualize o Zaaheen para a versão mais recente em zaaheen.com (0.3.1 ou posterior) e tente de novo. Nada foi apagado, e sua conta e sua assinatura não mudaram.',
+  },
+  'Still working. This is taking longer than usual. Please keep Zaaheen open.': {
+    where: 'Mac, durante Delete everything ou Delete my account',
+    fix: 'O macOS pode estar perguntando sobre o Zaaheen e suas chaves (keychain) em uma caixa atrás da janela do Zaaheen: procure por ela e escolha Allow. A exclusão então termina. Nada é apagado até sua chave sumir, então, se você fechar o Zaaheen, suas memórias continuam lá e você pode tentar de novo.',
+  },
+  "This site can't be reached (or another browser error) right after signing in": {
+    where: 'Seu navegador, depois de entrar pelo app do Zaaheen',
+    fix: 'Volte para o app do Zaaheen: ele mostra se você entrou. A página depois do login só confirma isso, então não importa se ela não carregou.',
+  },
+};
+const FIXES_PT = FIXES.map((f) => {
+  const words = FIX_WORDS[f.error];
+  if (!words) throw new Error(`pt troubleshooting: translate the fix for "${f.error}"`);
+  return { error: f.error, ...words };
+});
+const OUTLINE = [
+  { id: 'errors', title: 'Mensagens de erro e como resolver' },
+  { id: 'not-using', title: 'Meu app de IA não usa o Zaaheen' },
+  { id: 'not-listed', title: 'Meu app não aparece na aba Agents' },
+  { id: 'chatgpt', title: 'O ChatGPT não vê o Zaaheen' },
+  { id: 'claude', title: 'O Claude não pediu para instalar' },
+  { id: 'unknown-publisher', title: 'O Windows diz que o editor é desconhecido' },
+  { id: 'mac-applications', title: 'O Mac pede para mover o Zaaheen para Aplicativos' },
+  { id: 'mac-keychain', title: 'O Mac pergunta sobre as chaves (keychain)' },
+  { id: 'stopped', title: 'Meus apps pararam de usar o Zaaheen' },
+  { id: 'else', title: 'Outra coisa deu errado' },
+];
+---
+<Guide
+  path="/pt/docs/troubleshooting/"
+  lede="A maioria dos problemas vem de um app de IA que só olha na própria memória, ou que ainda não está conectado. Cada solução abaixo começa pela resposta. Se o seu problema não estiver aqui, fale conosco e envie um registro de atividade tirado de Settings."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="errors" title="Mensagens de erro e como resolver" where="Qualquer app">
+      <p>Encontre as palavras que você está vendo e faça o que está escrito ao lado delas.</p>
+      <dl class="fixes">
+        {FIXES_PT.map((f) => (
+          <>
+            <dt><code>{f.error}</code> <span class="set-where">{f.where}</span></dt>
+            <dd>{f.fix}</dd>
+          </>
+        ))}
+      </dl>
+    </Row>
+
+    <Row level={2} id="not-using" title="Meu app de IA responde sem usar o Zaaheen" where="Claude, ChatGPT, Codex">
+      <p>O Claude, o ChatGPT e o Codex olham primeiro na própria memória e podem parar ali, ou salvar ali.
+         Adicione esta linha em Instructions for Claude, no Claude (Settings, depois Account), em Custom
+         instructions, no ChatGPT, ou ao arquivo AGENTS.md na pasta .codex do Codex, e eles passam a salvar e
+         consultar o Zaaheen também:</p>
+      <CopyBox text={TIP_LINE} />
+      <p>Você também pode pedir diretamente, por exemplo "check my Zaaheen memory for how I like meetings
+         booked" (consulte minha memória do Zaaheen para ver como gosto que as reuniões sejam marcadas). O Cursor
+         e o Antigravity consultam o Zaaheen sozinhos quando você pergunta algo sobre você.</p>
+    </Row>
+
+    <Row level={2} id="not-listed" title="Meu app não aparece na aba Agents" where="Agents">
+      <p>Um app só aparece na aba <em>Agents</em> enquanto está aberto e conectado. Abra o app e
+         confira as configurações dele: cada guia de conexão tem um passo para conferir se funcionou
+         (<a href={L('/docs/connect-claude/')}>Claude Desktop</a>,
+         <a href={L('/docs/connect-claude-code/')}>Claude Code</a>, <a href={L('/docs/connect-cursor/')}>Cursor</a>,
+         <a href={L('/docs/connect-chatgpt/')}>ChatGPT</a>). Se o Zaaheen não estiver listado ali, conecte de
+         novo.</p>
+    </Row>
+
+    <Row level={2} id="chatgpt" title="O ChatGPT não vê o Zaaheen" where="ChatGPT">
+      <p>Use o modo Work ou Codex do ChatGPT: o modo Chat não consegue se conectar a apps do seu computador. Depois
+         confira a configuração: o Command precisa começar exatamente com <code>C:\</code>, sem espaço nem
+         aspas antes, e <code>mcp</code> e <code>serve</code> precisam ser dois itens separados
+         em Arguments, não uma linha só. Feche o ChatGPT por completo e abra de novo. Veja
+         <a href={L('/docs/connect-chatgpt/')}>Conectar o ChatGPT Desktop</a>.</p>
+    </Row>
+
+    <Row level={2} id="claude" title="O Claude não pediu para eu instalar o Zaaheen" where="Claude › Extensions">
+      <p>O Zaaheen salva a extensão na sua pasta Downloads. No Claude, abra Settings, depois
+         Extensions, depois Advanced settings, depois Install Extension, e escolha
+         "Zaaheen for Claude.mcpb".</p>
+    </Row>
+
+    <Row level={2} id="unknown-publisher" title="O Windows diz que o editor é desconhecido" where="Instalador">
+      <p>Escolha <em>More info</em> e depois <em>Run anyway</em>. Se antes o Microsoft Edge disser que o arquivo
+         "isn't commonly downloaded" (não é baixado com frequência), escolha os três pontos ao lado do download,
+         depois <em>Keep</em>, <em>Show more</em> e <em>Keep anyway</em>. O instalador ainda não tem assinatura
+         de código; a assinatura vem depois.</p>
+    </Row>
+
+    <Row level={2} id="mac-applications" title="Meu Mac pede para mover o Zaaheen para Aplicativos" where="Mac">
+      <p>O Zaaheen só roda a partir da pasta Aplicativos (Applications). Se você o abriu pela imagem de disco ou
+         pela pasta Downloads, feche o Zaaheen, arraste-o para Aplicativos no Finder e abra a partir
+         dali.</p>
+    </Row>
+
+    <Row level={2} id="mac-keychain" title="Meu Mac pergunta se o Zaaheen pode usar as chaves (keychain)" where="Mac">
+      <p>A chave das suas memórias fica guardada nas chaves (keychain) do seu Mac, então o macOS pergunta antes
+         de o Zaaheen lê-la. Escolha <em>Always Allow</em>. Se o Zaaheen disser que não conseguiu usar o
+         armazenamento seguro deste computador, abra o Acesso às Chaves (Keychain Access), desbloqueie suas
+         chaves de login (login keychain) e tente de novo.</p>
+    </Row>
+
+    <Row level={2} id="stopped" title="Meus apps pararam de usar o Zaaheen" where="Settings › Account">
+      <p>Se o seu teste grátis ou sua assinatura terminou, o Zaaheen deixa de atender seus apps de IA até você
+         assinar. Nada é apagado: suas memórias ficam no seu computador, e <em>Download my
+         memories</em> continua funcionando. Escolha <em>Subscribe</em> no app, e seus apps voltam a usar
+         o Zaaheen.</p>
+    </Row>
+
+    <Row level={2} id="else" title="Outra coisa deu errado" where="Settings › Help">
+      <p>Escolha <em>Save activity record…</em> em Settings e envie o arquivo por e-mail para
+         <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>, contando o que você estava fazendo. O registro
+         não contém nenhuma das suas memórias. <a href={L('/docs/contact/')}>Como falar conosco</a>.</p>
+    </Row>
+  </section>
+</Guide>

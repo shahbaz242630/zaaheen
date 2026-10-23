@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expectedOffers, readComparisonDate } from './site-facts.mjs';
 import { readDates, staleDates } from './page-dates.mjs';
+import { phraseProblems, translationProblems } from './translations.mjs';
 import { pageFolders, siteHeaders, siteRedirects } from './cloudflare-files.mjs';
 
 const ORIGIN = 'https://zaaheen.com';
@@ -136,7 +137,10 @@ for (const rel of files.filter((f) => f.endsWith('.html'))) {
   if (!ON_SALE && header.includes(`${ACCOUNT_ORIGIN}/sign-up/`)) fail(rel, 'the header links to sign-up while the app is not on sale');
   // The Mac launches with Windows (founder, session 78): while the download is
   // off, the header says both are coming.
-  if (!ON_SALE && !/<span class="bar-soon-long">Coming soon for Windows and Mac<\/span>/.test(header)) {
+  // A translated page says it in its own language (src/i18n/ui).
+  const translatedPage = /^(es|pt|de|fr)\//.test(rel);
+  const soon = translatedPage ? /<span class="bar-soon-long">[^<]+<\/span>/ : /<span class="bar-soon-long">Coming soon for Windows and Mac<\/span>/;
+  if (!ON_SALE && !soon.test(header)) {
     fail(rel, 'the header must say "Coming soon for Windows and Mac" while the app is not on sale');
   }
 }
@@ -158,7 +162,9 @@ for (const rel of files.filter((f) => f.endsWith('.html'))) {
   if (inKc && !coaching) fail(rel, 'the Knowledge Centre must use the coaching footer (data-footer="coaching")');
   if (!inKc && coaching) fail(rel, 'the coaching footer is only for the Knowledge Centre');
   // s83: every footer links its own Contact us page.
-  const contact = inKc || coaching ? '/knowledge-centre/contact/' : '/docs/contact/';
+  // A translated page's footer links the contact page in its language (ADR-113).
+  const footLang = (rel.match(/^(es|pt|de|fr)\//) || [])[1];
+  const contact = inKc || coaching ? '/knowledge-centre/contact/' : footLang ? `/${footLang}/docs/contact/` : '/docs/contact/';
   if (!hrefs.includes(contact)) fail(rel, `the footer must link to its Contact us page (${contact})`);
   if (inKc || coaching) {
     for (const [url, name] of Object.entries(COACHING_POLICIES)) {
@@ -278,8 +284,11 @@ function checkOffers(rel, graph) {
 // neither. Markup that disagrees with the page is what Google's structured-data
 // policy penalises.
 function checkBreadcrumbs(rel, url, html, graph) {
-  const needed = url.split('/').filter(Boolean).length >= 2 || url in POLICIES;
-  const navs = all(html, /<nav\b[^>]*aria-label="Breadcrumb"[^>]*>([\s\S]*?)<\/nav>/gi);
+  // A translated page nests like its English page: /es/products/ is top level.
+  const englishUrl = url.replace(/^\/(es|pt|de|fr)(\/|$)/, '/');
+  const needed = englishUrl.split('/').filter(Boolean).length >= 2 || url in POLICIES;
+  // Found by its class: its label is in the page's language (ADR-113).
+  const navs = all(html, /<nav\b[^>]*class="crumbs"[^>]*>([\s\S]*?)<\/nav>/gi);
   const lists = graph.filter((n) => n['@type'] === 'BreadcrumbList');
   if (!needed) {
     if (navs.length || lists.length) fail(rel, 'a top-level page must not carry a breadcrumb trail');
@@ -294,7 +303,9 @@ function checkBreadcrumbs(rel, url, html, graph) {
     return cur ? { name: plainText(cur[1]), item: `${ORIGIN}${url}`, current: true } : { name: plainText(li[1]), item: '', current: false };
   });
   const last = visible[visible.length - 1];
-  if (visible.length < 3 || visible[0].item !== `${ORIGIN}/` || !last?.current || !last.name
+  // A translated page's trail starts at its language's home (/es/, ...).
+  const home = `${ORIGIN}${url.slice(0, url.length - englishUrl.length + 1) || '/'}`;
+  if (visible.length < 3 || visible[0].item !== home || !last?.current || !last.name
     || visible.slice(0, -1).some((v) => v.current)) {
     fail(rel, 'the breadcrumb trail must run from Home (/) to this page, the last item marked aria-current="page"');
   }
@@ -410,6 +421,9 @@ for (const rel of htmlFiles) {
     const tag = m[0];
     if (/rel="canonical"/i.test(tag)) continue;
     const ref = attr(tag, 'src') ?? attr(tag, 'href');
+    // A language version (ADR-113 D4) names a page; browsers fetch nothing for
+    // it. Only our own pages, so a stray foreign alternate still fails.
+    if (/rel="alternate"/i.test(tag) && attr(tag, 'hreflang') && ref?.startsWith(`${ORIGIN}/`)) continue;
     if (!ref || !/^(https?:)?\/\//i.test(ref)) continue;
     const allowed = m[1].toLowerCase() === 'script' && (THIRD_PARTY_ALLOWED[rel] || []).includes(ref);
     if (!allowed) fail(rel, `loads a third-party resource: ${ref}`);
@@ -550,25 +564,41 @@ for (const rel of files.filter((f) => /\.(html|txt|xml)$/i.test(f))) {
 // refuses the placeholder itself (below).
 const AI_TELLS = /\b(?:delve[sd]?|delving|tapestry|in today's (?:fast-paced|digital|ever-changing)|ever-evolving|game-?changer|unlock(?:s|ing)? the (?:power|potential)|seamless(?:ly)?|navigate the (?:complexities|world)|in the realm of|it's not just|not only .{1,40} but also|elevate your|look no further|harness(?:es|ing)? the power|robust|leverage[sd]?|embark|in conclusion|in summary)\b/gi;
 {
-  const learnPages = htmlFiles.filter((f) => /^learn\/[^/]+\/index\.html$/.test(f));
+  // Every language's articles (ADR-113): /learn/x/ and /es/learn/x/ alike. The
+  // stock-phrase list is English, so it only reads the English ones.
+  const LEARN_ARTICLE = /^(?:(es|pt|de|fr)\/)?learn\/[^/]+\/index\.html$/;
+  // Each page's link targets, read once: with five languages, re-reading every
+  // page for every article made the audit (and its tests) many times slower.
+  const hrefCache = new Map();
+  const hrefsOf = (file) => {
+    if (!hrefCache.has(file)) hrefCache.set(file, new Set(all(read(file), /\shref="([^"#]*)/gi).map((m) => m[1])));
+    return hrefCache.get(file);
+  };
+  const learnPages = htmlFiles.filter((f) => LEARN_ARTICLE.test(f));
   for (const rel of learnPages) {
+    const lang = rel.match(LEARN_ARTICLE)[1];
+    const learnRoot = lang ? `${lang}/learn/` : 'learn/';
     const main = (read(rel).match(/<main\b[^>]*>([\s\S]*)<\/main>/i) || [])[1] || '';
     const pending = main.includes('[Placeholder]');
     if (!main.includes('<figure class="chart"') && !pending) fail(rel, 'a Learn article needs a chart (components/learn/BarChart.astro)');
     if (!main.includes('<figure class="flow"')) fail(rel, 'a Learn article needs an animation (components/learn/MemoryFlow.astro)');
     const text = plainText(main);
-    for (const m of text.matchAll(AI_TELLS)) {
+    for (const m of lang ? [] : text.matchAll(AI_TELLS)) {
       const at = m.index ?? 0;
       fail(rel, `stock phrase "${m[0]}" reads as machine-written; rewrite: "${text.slice(Math.max(0, at - 30), at + 40)}"`);
     }
     const url = urlFor(rel);
-    const linked = htmlFiles.some((other) => !other.startsWith('learn/') &&
-      all(read(other), /\shref="([^"#]*)/gi).some((m) => m[1] === url));
-    if (!linked) fail(rel, 'no page outside /learn/ links to this article: link it where it answers a question (the home FAQ, a guide)');
-    // Founder (s91): related articles at the bottom, under "People also read".
+    const linked = htmlFiles.some((other) => !other.startsWith(learnRoot) && hrefsOf(other).has(url));
+    if (!linked) fail(rel, `no page outside /${learnRoot} links to this article: link it where it answers a question (the home FAQ, a guide)`);
+    // Founder (s91): related articles at the bottom, under "People also read"
+    // (its label is in the page's language).
     if (learnPages.length > 1) {
-      const also = (main.match(/<nav class="learn-more" aria-label="People also read">([\s\S]*?)<\/nav>/) || [])[1] || '';
-      if (!/href="\/learn\/[^"]+\/"/.test(also)) fail(rel, 'a Learn article needs a People also read list linking other articles');
+      const also = (main.match(/<nav class="learn-more" aria-label="[^"]*">([\s\S]*?)<\/nav>/) || [])[1] || '';
+      // Plain prefix match on the links, no pattern built from a path.
+      const others = all(also, /\shref="([^"]*)"/gi).map((m) => m[1]);
+      if (!others.some((h) => h.startsWith(`/${learnRoot}`) && h.length > learnRoot.length + 1 && h.endsWith('/'))) {
+        fail(rel, 'a Learn article needs a People also read list linking other articles in its language');
+      }
     }
   }
 }
@@ -590,12 +620,21 @@ if (RELEASE) {
   for (const { rel, snippet } of placeholders) fail(rel, `placeholder text would be published: "${snippet}"`);
 }
 
+// --- Translations keep up with the English (ADR-113 D6, scripts/translations.mjs) -
+// Every translated page exists in every language, names all its language
+// versions, and was translated from the English page as it reads today.
+for (const [where, message] of [...translationProblems(DIST), ...(await phraseProblems())]) fail(`translations ${where}`, message);
+
 if (errors.length) {
   console.error(`audit: ${errors.length} problem(s) in ${DIST}\n`);
   for (const e of errors) console.error(`  - ${e}`);
-  process.exit(1);
-}
-console.log(`audit: OK. ${htmlFiles.length} page(s), ${files.length} file(s), ${indexable.length} in the sitemap.`);
-if (placeholders.length) {
-  console.log(`audit: ${placeholders.length} placeholder(s) left in ${new Set(placeholders.map((p) => p.rel)).size} file(s). Fine for a preview; a --release run refuses them.`);
+  // exitCode, not exit(): exiting at once after the dictionaries' dynamic
+  // import (phraseProblems) aborts Node on Windows with a libuv assertion,
+  // which turns "1 problem" into a crash code.
+  process.exitCode = 1;
+} else {
+  console.log(`audit: OK. ${htmlFiles.length} page(s), ${files.length} file(s), ${indexable.length} in the sitemap.`);
+  if (placeholders.length) {
+    console.log(`audit: ${placeholders.length} placeholder(s) left in ${new Set(placeholders.map((p) => p.rel)).size} file(s). Fine for a preview; a --release run refuses them.`);
+  }
 }

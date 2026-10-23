@@ -1,0 +1,27 @@
+---
+// The Learn hub in German (ADR-113): the English hub's structure with its
+// words translated; each article's heading and summary come from
+// src/i18n/pages/de-learn.ts.
+import Base from '../../../layouts/Base.astro';
+import { LEARN, pageFor } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+import { learnSummary } from '../../../i18n/learn';
+
+const page = pageFor('/de/learn/');
+const L = (href: string) => localize(href, 'de');
+const articles = LEARN.map((a) => ({ path: L(a.path), heading: pageFor(L(a.path)).heading, summary: learnSummary(a, 'de') }));
+---
+<Base page={page}>
+  <div class="docs learn">
+    <header class="docs-head">
+      <h1>Wissen rund um KI-Gedächtnis</h1>
+      <p class="learn-lede">Klare Antworten auf die Fragen, die Leute zu KI-Apps stellen, die sich etwas merken:
+         wie Claude, ChatGPT, Claude Code und Cursor behalten, was sie über dich wissen, und wie du
+         ein gemeinsames Gedächtnis für alle nutzt. Geschrieben von Zaaheen und geprüft anhand der
+         Hilfeseiten der jeweiligen Unternehmen.</p>
+    </header>
+    <ul class="learn-list">
+      {articles.map((a) => <li><a href={a.path}>{a.heading}</a><p>{a.summary}</p></li>)}
+    </ul>
+  </div>
+</Base>

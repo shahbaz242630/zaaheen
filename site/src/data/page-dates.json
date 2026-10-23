@@ -11,6 +11,118 @@
     "text": "6fffdb06990b6571",
     "date": "2026-09-30T05:21:23Z"
   },
+  "/de/": {
+    "text": "f8391aa5f0b97f5d",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/docs/": {
+    "text": "e01d0bb213cee322",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/docs/connect-antigravity/": {
+    "text": "313dbcbc56825850",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/docs/connect-chatgpt/": {
+    "text": "0f45a57ebc8bc05b",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/docs/connect-claude-code/": {
+    "text": "b4289161215ee6ba",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/de/docs/connect-claude/": {
+    "text": "daeaa4e09b89ff6c",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/docs/connect-codex/": {
+    "text": "54f1e5afb4b8bae2",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/docs/connect-cursor/": {
+    "text": "42de9594ff0c54af",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/docs/connect-other-apps/": {
+    "text": "b689b89e05a84079",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/docs/contact/": {
+    "text": "96fc3d934040a9dc",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/docs/getting-started/": {
+    "text": "696f0fcb254e2172",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/de/docs/subscribe/": {
+    "text": "111db7be46bbb934",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/docs/troubleshooting/": {
+    "text": "722ece90cac2adac",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/learn/": {
+    "text": "a6511aaa4a6354bb",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/learn/ai-memory-apps-compared/": {
+    "text": "7db92a9d53f64ef5",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/de/learn/ai-memory-tool-or-notes-file/": {
+    "text": "395411a3e03dda65",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/de/learn/best-memory-mcp-server-for-claude-code/": {
+    "text": "c53e1343b375d41a",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/de/learn/chatgpt-memory-vs-claude-memory/": {
+    "text": "ac8ea26be2b19829",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/learn/does-claude-code-remember-between-sessions/": {
+    "text": "31552df81a2fe325",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/learn/mem0-alternative/": {
+    "text": "5ec88e746359d236",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/de/learn/memoryplugin-alternative/": {
+    "text": "e02a4c73caa280c3",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/de/learn/obsidian-vs-ai-memory-app/": {
+    "text": "28d8380b930abb1b",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/de/learn/one-memory-across-claude-code-cursor-and-codex/": {
+    "text": "c5cc343d23cdb57a",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/learn/share-memory-between-chatgpt-and-claude/": {
+    "text": "368391c3cd8bd10b",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/learn/supermemory-alternative/": {
+    "text": "5b276cf68737e5ed",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/learn/switch-from-chatgpt-to-claude/": {
+    "text": "57594dc11edecef9",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/de/pricing/": {
+    "text": "8de7de4059998b8a",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/de/products/": {
+    "text": "d9d7ead63757dbba",
+    "date": "2026-10-22T19:12:23Z"
+  },
   "/docs/": {
     "text": "bd45d4302fec942f",
     "date": "2026-10-21T09:43:57Z"
@@ -62,6 +174,230 @@
   "/docs/troubleshooting/": {
     "text": "f9b2aeb84971866e",
     "date": "2026-10-21T09:43:57Z"
+  },
+  "/es/": {
+    "text": "bd9acc44b8339c0b",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/docs/": {
+    "text": "e1a8056cb62c153c",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/docs/connect-antigravity/": {
+    "text": "5b75b41644940857",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/docs/connect-chatgpt/": {
+    "text": "8d2cdda2851a53ec",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/docs/connect-claude-code/": {
+    "text": "31fc8754871bade4",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/docs/connect-claude/": {
+    "text": "440a84d1f6d40bdd",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/docs/connect-codex/": {
+    "text": "9e553316cd0f4639",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/docs/connect-cursor/": {
+    "text": "f0153d0ef8c82954",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/docs/connect-other-apps/": {
+    "text": "ec4d4710b7fa6737",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/docs/contact/": {
+    "text": "f35b9bb05dc70ace",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/docs/getting-started/": {
+    "text": "d0c83933dae33be8",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/docs/subscribe/": {
+    "text": "eecb6df25848106d",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/docs/troubleshooting/": {
+    "text": "83f50a7ace8ebeb7",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/learn/": {
+    "text": "44d215105fb07d7f",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/learn/ai-memory-apps-compared/": {
+    "text": "7c3cc8a032623ef1",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/es/learn/ai-memory-tool-or-notes-file/": {
+    "text": "1f4e1d3a04075501",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/learn/best-memory-mcp-server-for-claude-code/": {
+    "text": "fff3aee67c8191d3",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/es/learn/chatgpt-memory-vs-claude-memory/": {
+    "text": "edfe7f3f157b50d7",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/learn/does-claude-code-remember-between-sessions/": {
+    "text": "8e5a302de4be95c5",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/learn/mem0-alternative/": {
+    "text": "dcdf5dbbbb713feb",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/es/learn/memoryplugin-alternative/": {
+    "text": "31d8ba6dc359ec2d",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/es/learn/obsidian-vs-ai-memory-app/": {
+    "text": "148288cfb6014ce7",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/es/learn/one-memory-across-claude-code-cursor-and-codex/": {
+    "text": "6469b0f3e7718259",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/learn/share-memory-between-chatgpt-and-claude/": {
+    "text": "065c30b74e4e2139",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/learn/supermemory-alternative/": {
+    "text": "a8ed5ea10678eb8b",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/learn/switch-from-chatgpt-to-claude/": {
+    "text": "b6afb40eec73b2f6",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/pricing/": {
+    "text": "2913d734a6f931ab",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/es/products/": {
+    "text": "17395a2d767b50af",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/fr/": {
+    "text": "dedf663ad245ec46",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/fr/docs/": {
+    "text": "8ba76791128dc819",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/fr/docs/connect-antigravity/": {
+    "text": "ee8f44acc2e45c47",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/fr/docs/connect-chatgpt/": {
+    "text": "2572500b7f3f3f04",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/fr/docs/connect-claude-code/": {
+    "text": "c4fc38e34b202675",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/fr/docs/connect-claude/": {
+    "text": "2df29d0e6124b0ec",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/fr/docs/connect-codex/": {
+    "text": "84fd2fe7894093e3",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/fr/docs/connect-cursor/": {
+    "text": "44b1baa99abe4993",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/fr/docs/connect-other-apps/": {
+    "text": "b73114e5120ae6c3",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/fr/docs/contact/": {
+    "text": "81c0a9b71d035251",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/fr/docs/getting-started/": {
+    "text": "6167041731ad9f5d",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/fr/docs/subscribe/": {
+    "text": "2236657ec9c064d8",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/fr/docs/troubleshooting/": {
+    "text": "636eb9c2a791d56c",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/fr/learn/": {
+    "text": "bb2a1718e59745a0",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/fr/learn/ai-memory-apps-compared/": {
+    "text": "b17bd82e6e31d85a",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/fr/learn/ai-memory-tool-or-notes-file/": {
+    "text": "4fbc476549107978",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/fr/learn/best-memory-mcp-server-for-claude-code/": {
+    "text": "22b76a82f25503a7",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/fr/learn/chatgpt-memory-vs-claude-memory/": {
+    "text": "d8b2217ccaf82359",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/fr/learn/does-claude-code-remember-between-sessions/": {
+    "text": "bdde12ad0dbb8315",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/fr/learn/mem0-alternative/": {
+    "text": "581e49e21d9a9f08",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/fr/learn/memoryplugin-alternative/": {
+    "text": "628e2abc67d5dd36",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/fr/learn/obsidian-vs-ai-memory-app/": {
+    "text": "603faebb96005ba1",
+    "date": "2026-10-22T20:04:26Z"
+  },
+  "/fr/learn/one-memory-across-claude-code-cursor-and-codex/": {
+    "text": "88e2fa3de1b1e5ac",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/fr/learn/share-memory-between-chatgpt-and-claude/": {
+    "text": "f1d52ca8841efbd9",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/fr/learn/supermemory-alternative/": {
+    "text": "fba9bbbfbf042050",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/fr/learn/switch-from-chatgpt-to-claude/": {
+    "text": "78538815fd7b9282",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/fr/pricing/": {
+    "text": "0f8a56964ccc77a5",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/fr/products/": {
+    "text": "5c520a3a1a7536ba",
+    "date": "2026-10-22T19:14:46Z"
   },
   "/knowledge-centre/": {
     "text": "bc3b85823d8aceba",
@@ -150,6 +486,118 @@
   "/products/": {
     "text": "8425cdbc056f37ed",
     "date": "2026-10-06T11:21:07Z"
+  },
+  "/pt/": {
+    "text": "ba75a62031431c7f",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/pt/docs/": {
+    "text": "79d51779be506710",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/docs/connect-antigravity/": {
+    "text": "7901268bc738630f",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/pt/docs/connect-chatgpt/": {
+    "text": "af2388f9bda7cbba",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/docs/connect-claude-code/": {
+    "text": "ffbbb1151b573c6c",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/docs/connect-claude/": {
+    "text": "a2e307df13474d46",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/docs/connect-codex/": {
+    "text": "7982aa506d28f635",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/pt/docs/connect-cursor/": {
+    "text": "afbd0cc4f8f7a076",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/docs/connect-other-apps/": {
+    "text": "e956269fd13017b4",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/docs/contact/": {
+    "text": "2dc608ffd17aa2a5",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/docs/getting-started/": {
+    "text": "4e8341639d947930",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/docs/subscribe/": {
+    "text": "e242c37d099d6f6d",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/docs/troubleshooting/": {
+    "text": "bb7e2551a06034c8",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/": {
+    "text": "fecbf1174c61e268",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/ai-memory-apps-compared/": {
+    "text": "d2396bf23567fca1",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/ai-memory-tool-or-notes-file/": {
+    "text": "8732a852b57e06dd",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/best-memory-mcp-server-for-claude-code/": {
+    "text": "39144f64368fc0d1",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/chatgpt-memory-vs-claude-memory/": {
+    "text": "08d0ed80b891f155",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/does-claude-code-remember-between-sessions/": {
+    "text": "2e95989af9417fc3",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/mem0-alternative/": {
+    "text": "bb2c0f7839556d0d",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/memoryplugin-alternative/": {
+    "text": "af56713c49488d06",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/obsidian-vs-ai-memory-app/": {
+    "text": "beaea91b7c3dcc28",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/one-memory-across-claude-code-cursor-and-codex/": {
+    "text": "37c8b1d668e9d4ee",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/share-memory-between-chatgpt-and-claude/": {
+    "text": "22507b32c355c95e",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/supermemory-alternative/": {
+    "text": "eab015db10433301",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/learn/switch-from-chatgpt-to-claude/": {
+    "text": "ed92d4356ee19f87",
+    "date": "2026-10-22T19:12:23Z"
+  },
+  "/pt/pricing/": {
+    "text": "ebd072a22d15f3ad",
+    "date": "2026-10-22T19:14:46Z"
+  },
+  "/pt/products/": {
+    "text": "3cc73bbce71ad3c3",
+    "date": "2026-10-22T19:12:23Z"
   },
   "/refunds/": {
     "text": "b5fb10231737ea91",

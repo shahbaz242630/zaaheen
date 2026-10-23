@@ -1,0 +1,122 @@
+---
+// Learn article 5 in French (ADR-113): the English article's structure with its
+// words translated. Facts, sources and the chart's numbers are the English
+// page's (src/pages/learn/switch-from-chatgpt-to-claude.astro).
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+
+const OUTLINE = [
+  { id: 'three', title: 'Trois choses à transférer' },
+  { id: 'memory', title: 'Ce dont ChatGPT se souvient' },
+  { id: 'chats', title: 'Vos anciennes conversations' },
+  { id: 'time', title: 'Combien de temps cela prend' },
+  { id: 'again', title: 'Ne plus jamais déménager' },
+];
+const OPENAI_EXPORT = 'https://help.openai.com/en/articles/7260999-exporting-your-chatgpt-history-and-data';
+const OPENAI_MEMORY = 'https://help.openai.com/en/articles/8590148-memory-in-chatgpt';
+const CLAUDE_IMPORT = 'https://support.claude.com/en/articles/12123587-import-and-export-your-memory-from-claude';
+---
+<Learn
+  path="/fr/learn/switch-from-chatgpt-to-claude/"
+  lede="Transférez trois choses : ce dont ChatGPT se souvient à votre sujet, que l'import de mémoire de Claude récupère en quelques minutes ; vos instructions personnalisées, que vous copiez à la main ; et vos anciennes conversations, que ChatGPT peut exporter pour vous en téléchargement. Pour ne pas tout refaire la prochaine fois, gardez ce qui est vrai à votre sujet dans une mémoire en dehors des deux applications."
+  outline={OUTLINE}
+>
+  <section id="three">
+    <h2>Trois choses à transférer</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col">Quoi</th><th scope="col">Comment ça se transfère</th><th scope="col">Arrive dans Claude sous forme de</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Ce dont ChatGPT se souvient à votre sujet</th><td>L'import de mémoire de Claude</td><td>La mémoire de Claude</td></tr>
+        <tr><th scope="row">Vos instructions personnalisées</th><td>Copier-coller</td><td>Vos préférences dans les réglages de Claude</td></tr>
+        <tr><th scope="row">Vos anciennes conversations</th><td>L'export de données de ChatGPT</td><td>Un fichier que vous gardez, pour y chercher des choses</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="memory">
+    <h2>Ce dont ChatGPT se souvient à votre sujet</h2>
+    <p>C'est ce que les gens entendent par « repartir de zéro », et Claude a un outil pour ça
+       (<a href={CLAUDE_IMPORT}>page d'aide d'Anthropic</a>), avec les offres Free, Pro, Max et
+       Team :</p>
+    <ol>
+      <li>Dans Claude, ouvrez Settings, puis Memory, et choisissez Start import. Copiez le texte que
+          Claude vous donne.</li>
+      <li>Collez-le dans ChatGPT. ChatGPT rédige ce dont il se souvient à votre sujet.</li>
+      <li>Lisez-le d'abord, et retirez ce que vous préférez ne pas transférer.</li>
+      <li>Collez le reste dans la zone de Claude et choisissez Add to memory.</li>
+    </ol>
+    <p>Anthropic qualifie l'import d'expérimental, indique qu'il peut mettre jusqu'à 24 heures à
+       apparaître, et précise que Claude garde surtout les informations liées au travail. Vérifiez
+       la mémoire de Claude le lendemain et ajoutez ce qui manque en le disant directement à
+       Claude.</p>
+    <p>Vos instructions personnalisées, le texte « comment me répondre » des réglages de
+       personnalisation de ChatGPT, ne suivent pas avec la mémoire. Recopiez-les à la main dans les
+       réglages de Claude.</p>
+  </section>
+
+  <section id="chats">
+    <h2>Vos anciennes conversations</h2>
+    <p>ChatGPT peut vous envoyer une copie de tout (<a href={OPENAI_EXPORT}>page d'aide
+       d'OpenAI</a>), avec les offres Free, Go, Plus et Pro :</p>
+    <ol>
+      <li>Dans ChatGPT, ouvrez Settings, puis Data controls.</li>
+      <li>Sous Export data, choisissez Export, puis Confirm export.</li>
+      <li>Attendez l'e-mail ou le SMS, et téléchargez le fichier pendant que vous êtes
+          connecté.</li>
+    </ol>
+    <p>Vous recevez un fichier ZIP avec l'historique de vos conversations. Gardez-le comme archive :
+       quand vous avez besoin d'une ancienne réponse, cherchez dans le fichier, ou collez le passage
+       utile dans une nouvelle conversation Claude. Vous quittez ChatGPT ? Sa mémoire et vos
+       conversations restent dans votre compte OpenAI jusqu'à ce que vous les supprimiez
+       (<a href={OPENAI_MEMORY}>comment la mémoire de ChatGPT est conservée et supprimée</a>).</p>
+  </section>
+
+  <section id="time">
+    <h2>Combien de temps cela prend</h2>
+    <p>L'essentiel du travail prend quelques minutes. L'attente est plus longue, alors lancez
+       l'export en premier :</p>
+
+    <BarChart
+      id="chart-switch-wait"
+      title="Durée maximale de chaque étape, en heures, d'après la page d'aide de chaque entreprise"
+      measure="Heures, au maximum"
+      max={168}
+      bars={[
+        { label: 'Export de données ChatGPT', value: 168, note: 'heures (7 jours)' },
+        { label: 'Import de mémoire Claude', value: 24, note: 'heures' },
+        { label: "Validité du lien d'export", value: 24, note: 'heures' },
+      ]}
+      source={{ text: "OpenAI, \"Exporting your ChatGPT history and data\", et Anthropic, \"Import and export your memory from Claude\", tous deux lus le 6 octobre 2026.", href: OPENAI_EXPORT }}
+    />
+
+    <p>Le lien de l'e-mail de ChatGPT cesse de fonctionner 24 heures après son arrivée, alors
+       téléchargez le fichier le jour même.</p>
+  </section>
+
+  <section id="again">
+    <h2>Ne plus jamais déménager</h2>
+    <p>Chaque changement d'application d'IA répète le même travail, parce que chacune garde sa
+       mémoire dans son propre compte. La solution est de garder ce qui est vrai à votre sujet dans
+       un endroit qui vous appartient, et de laisser chaque application le lire.</p>
+
+    <MemoryFlow
+      id="flow-switch"
+      from="ChatGPT"
+      to="Claude"
+      fact="Réunions après 10 h"
+      caption="Une préférence enregistrée pendant que vous utilisiez ChatGPT est conservée sur votre ordinateur : Claude s'en souvient le jour où vous changez, comme toute application que vous essayez ensuite."
+    />
+
+    <p>Zaaheen est une mémoire de ce type, pour Windows et Mac, chiffrée sur votre propre
+       ordinateur. Les deux sens fonctionnent dans nos propres tests : Claude a retrouvé une
+       préférence de réunion que ChatGPT avait enregistrée, une fois invité à vérifier dans Zaaheen
+       (26 septembre 2026), et ChatGPT a retrouvé un souvenir que Claude avait enregistré
+       (2 octobre 2026).
+       Avant de changer, connectez les deux applications et demandez une fois à ChatGPT :
+       « Enregistre dans Zaaheen tout ce dont tu te souviens à mon sujet. » La prochaine fois que
+       vous changerez d'application, il n'y aura rien à déplacer.</p>
+  </section>
+</Learn>

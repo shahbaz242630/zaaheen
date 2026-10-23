@@ -6,17 +6,20 @@
 // "download for mac next to download for windows same style"). Without scripts
 // the order is Windows, then Mac; scripts/platform.js puts the Mac first on a Mac.
 import { RELEASE } from '../data/site';
+import { langOf } from '../i18n/locales';
+import { t } from '../i18n/ui';
 
 interface Props {
   small?: boolean;
 }
 const { small = false } = Astro.props;
 const size = small ? 'cta cta-sm' : 'cta';
+const lang = langOf(Astro.url.pathname);
 ---
 {RELEASE.available
   ? <div class="dl" data-dl>
-      <a class={size} data-os="windows" href={RELEASE.windows.url} download>Download for Windows</a>
-      <a class={size} data-os="mac" href={RELEASE.mac.url} download>Download for Mac</a>
+      <a class={size} data-os="windows" href={RELEASE.windows.url} download>{t(lang, 'Download for Windows')}</a>
+      <a class={size} data-os="mac" href={RELEASE.mac.url} download>{t(lang, 'Download for Mac')}</a>
     </div>
-  : <span class={`${size} cta-soon`}>Coming soon for Windows and Mac</span>}
+  : <span class={`${size} cta-soon`}>{t(lang, 'Coming soon for Windows and Mac')}</span>}
 {RELEASE.available && <script src="../scripts/platform.js"></script>}

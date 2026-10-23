@@ -1,0 +1,34 @@
+---
+// The "other AI apps" connect guide in French (ADR-113). The steps come from
+// the desktop app's own wording ("Another app"), translated in src/i18n/ui/fr.ts.
+import Guide from '../../../layouts/Guide.astro';
+import Row from '../../../components/Row.astro';
+import ConnectSteps from '../../../components/ConnectSteps.astro';
+import { connectOutline } from '../../../data/app-words';
+import { GUIDES } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+import { t } from '../../../i18n/ui';
+
+const NAME = 'Another app';
+const L = (href: string) => localize(href, 'fr');
+const APP_GUIDES = GUIDES.filter((g) => g.path.startsWith('/docs/connect-') && g.path !== '/docs/connect-other-apps/');
+const OUTLINE = [
+  { id: 'what', title: 'Ce dont votre application a besoin' },
+  ...connectOutline(NAME).map((o) => ({ ...o, title: t('fr', o.title) })),
+];
+---
+<Guide
+  path="/fr/docs/connect-other-apps/"
+  lede="Zaaheen se connecte aux applications d’IA via MCP, la façon standard dont les applications d’IA se connectent à des outils. Si votre application a son propre guide ci-dessous, suivez-le. Sinon, donnez à votre application le réglage de l’onglet Agents de Zaaheen, qui l’affiche exactement pour votre ordinateur."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="what" title="Ce dont votre application a besoin" where="MCP">
+      <p>Votre application d’IA doit prendre en charge les serveurs MCP qui fonctionnent sur votre
+         ordinateur. Vous utilisez {APP_GUIDES.map((g, i) => (
+           <>{i > 0 && (i === APP_GUIDES.length - 1 ? ' ou ' : ', ')}<a href={L(g.path)}>{g.label.replace(/^Connect /, '')}</a></>
+         ))} ? Suivez plutôt son propre guide. Pour toute autre application, suivez les étapes ci-dessous.</p>
+    </Row>
+    <ConnectSteps name={NAME} where="Votre application" />
+  </section>
+</Guide>

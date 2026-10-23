@@ -1,0 +1,150 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { TIP_LINE } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+
+// Learn article 1 in Portuguese (ADR-113): the English page's structure with
+// its words translated. Sources as in the English page's header comment. The
+// tip line is the app's own words, so it stays in English.
+const L = (href: string) => localize(href, 'pt');
+const OUTLINE = [
+  { id: 'why', title: 'Por que não compartilham' },
+  { id: 'copy', title: 'Copiar e colar' },
+  { id: 'import', title: 'A importação de memória do Claude' },
+  { id: 'shared', title: 'Uma memória para os dois' },
+  { id: 'choose', title: 'Qual escolher' },
+];
+const OPENAI_MEMORY = 'https://help.openai.com/en/articles/8590148-memory-in-chatgpt';
+const CLAUDE_IMPORT = 'https://support.claude.com/en/articles/12123587-import-and-export-your-memory-from-claude';
+const CLAUDE_MEMORY = 'https://support.claude.com/en/articles/11817273-use-claude-s-chat-search-and-memory-to-build-on-previous-context';
+---
+<Learn
+  path="/pt/learn/share-memory-between-chatgpt-and-claude/"
+  lede="O ChatGPT e o Claude têm cada um a sua própria memória, e nenhum dos dois consegue ler a do outro. Você pode copiar à mão o que o ChatGPT sabe para o Claude, usar uma vez a importação de memória do Claude ou conectar os dois apps a uma única memória compartilhada, para que algo que você conte a qualquer um deles esteja disponível nos dois."
+  outline={OUTLINE}
+>
+  <section id="why">
+    <h2>Por que o ChatGPT e o Claude não compartilham memória</h2>
+    <p>Os dois apps conseguem se lembrar de você. O ChatGPT guarda memórias salvas e pode consultar
+       suas conversas anteriores; você as gerencia em Settings, Personalization, Memory
+       (<a href={OPENAI_MEMORY}>página de ajuda da OpenAI</a>). O Claude monta uma memória a partir
+       das suas conversas, com uma memória separada para cada projeto; você a gerencia em
+       Settings, Memory (<a href={CLAUDE_MEMORY}>página de ajuda da Anthropic</a>).</p>
+    <p>Cada memória fica na conta daquela empresa, nos servidores daquela empresa, e não existe
+       ligação entre as duas. Por isso, as preferências que o ChatGPT aprendeu ao longo de meses não
+       significam nada para o Claude no primeiro dia, e vice-versa. As pessoas descrevem isso sempre
+       do mesmo jeito: explicar de novo quem são, no que estão trabalhando e como gostam das
+       respostas, toda vez que trocam de app.</p>
+    <p>Há três maneiras de contornar isso. Elas variam no esforço e em uma coisa que importa
+       muito: se continuam funcionando depois do primeiro dia.</p>
+  </section>
+
+  <section id="copy">
+    <h2>Opção 1: copiar e colar</h2>
+    <p>O jeito mais simples não custa nada:</p>
+    <ol>
+      <li>No ChatGPT, peça: "Liste tudo o que você lembra sobre mim, em tópicos curtos."</li>
+      <li>Leia a lista e tire o que você não quer levar junto.</li>
+      <li>No Claude, comece uma conversa, cole a lista e diga "Por favor, lembre disto sobre mim."</li>
+    </ol>
+    <p>Funciona para alguns poucos fatos. O problema é que é uma foto de um momento. Tudo o que
+       você contar ao ChatGPT amanhã fica no ChatGPT até você copiar de novo, e a partir daí as duas
+       memórias vão se distanciando.</p>
+  </section>
+
+  <section id="import">
+    <h2>Opção 2: a importação de memória do Claude</h2>
+    <p>O Claude tem uma ferramenta feita para essa mudança (<a href={CLAUDE_IMPORT}>página de ajuda
+       da Anthropic</a>). Ela está nos planos Free, Pro, Max e Team, na web e no Claude Desktop:</p>
+    <ol>
+      <li>No Claude, abra Settings, depois Memory, e escolha Start import. O Claude dá a você um
+          prompt para copiar.</li>
+      <li>Cole esse prompt no ChatGPT. Ele escreve o que lembra sobre você.</li>
+      <li>Copie a resposta do ChatGPT de volta para a caixa do Claude e escolha Add to memory.</li>
+    </ol>
+    <p>É rápido, mas a Anthropic deixa claros os limites: a importação é experimental, pode levar
+       até 24 horas para aparecer, e o Claude guarda principalmente detalhes ligados ao trabalho,
+       então alguns detalhes pessoais podem não passar. Além disso, ela só vai em uma direção, uma
+       vez. A página de ajuda de memória da OpenAI não descreve nenhuma importação de outros apps, e
+       algo que você conte ao ChatGPT depois da importação nunca chega ao Claude.</p>
+  </section>
+
+  <section id="shared">
+    <h2>Opção 3: uma memória que os dois apps usam</h2>
+    <p>O terceiro jeito acaba com a mudança de memórias de um lado para o outro. Em vez de duas
+       memórias, uma dentro de cada app, você mantém uma memória fora dos dois e conecta cada app a
+       ela. Tudo o que você conta ao ChatGPT é salvo lá, e o Claude lê de lá, hoje e no mês que
+       vem.</p>
+
+    <MemoryFlow
+      id="flow-chatgpt-claude"
+      from="ChatGPT"
+      to="Claude"
+      fact="Prefere respostas curtas"
+      caption="Você conta uma preferência ao ChatGPT uma vez. Ela é salva na memória única do seu computador, e o Claude a recupera de lá, em qualquer conversa futura."
+    />
+
+    <p>Os apps se conectam a ferramentas assim por meio do MCP, o jeito padrão de os apps de IA se
+       ligarem a ferramentas e dados. O Zaaheen é uma memória desse tipo: um app para Windows e Mac
+       que guarda suas memórias criptografadas no seu próprio computador, onde o ChatGPT, o Claude e
+       seus outros apps de IA conectados podem salvar e consultar. Como configurar para esses dois
+       apps:</p>
+    <ul>
+      <li><strong>Claude Desktop:</strong> a aba Agents do Zaaheen salva uma extensão que você
+          instala no Claude (<a href={L('/docs/connect-claude/')}>passo a passo</a>). Funciona no
+          Chat e no Cowork do Claude.</li>
+      <li><strong>ChatGPT:</strong> o app do ChatGPT para computador, onde você adiciona o Zaaheen em
+          Settings, Plugins, MCP e o usa em uma conversa Work ou Codex
+          (<a href={L('/docs/connect-chatgpt/')}>passo a passo</a>). O modo Chat do ChatGPT, e o
+          ChatGPT em um navegador, não conseguem se conectar a apps no seu computador.</li>
+    </ul>
+    <p class="learn-note">Os dois apps continuam usando a própria memória também, e nem sempre vão
+       pensar sozinhos em uma memória compartilhada. Adicione esta linha às instruções de cada app
+       para que pensem (a linha fica em inglês, como no app):
+       "{TIP_LINE}"</p>
+    <p>Para trazer o que o ChatGPT já sabe, peça uma vez ao ChatGPT, depois de conectar: "Salve no
+       Zaaheen tudo o que você lembra sobre mim." A partir daí, não sobra nada para copiar.</p>
+  </section>
+
+  <section id="choose">
+    <h2>Qual opção escolher</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col">Opção</th><th scope="col">Esforço</th><th scope="col">Depois do primeiro dia</th><th scope="col">Onde fica guardada</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Copiar e colar</th><td>Alguns minutos, toda vez</td><td>As memórias se distanciam até você copiar de novo</td><td>Na conta de cada app</td></tr>
+        <tr><th scope="row">Importação de memória do Claude</th><td>Alguns minutos, uma vez</td><td>Só do ChatGPT para o Claude, só o que existia naquele momento</td><td>Na conta do Claude</td></tr>
+        <tr><th scope="row">Uma memória compartilhada</th><td>Conectar cada app uma vez</td><td>Os dois apps salvam e recuperam, nos dois sentidos</td><td>Onde essa memória roda; com o Zaaheen, no seu computador</td></tr>
+      </tbody>
+    </table>
+
+    <p>Nós mesmos testamos uma memória compartilhada. Cinco apps de IA em um computador com Windows
+       foram conectados à mesma memória do Zaaheen, e fizemos oito perguntas sobre a pessoa, como o
+       chá favorito, a cidade favorita e quando ela gosta de marcar reuniões, quase sempre em um app
+       diferente daquele que salvou a resposta.</p>
+
+    <BarChart
+      id="chart-shared-recall"
+      title="8 perguntas sobre a pessoa, feitas em 5 apps de IA que compartilham uma memória"
+      measure="Perguntas"
+      max={8}
+      bars={[
+        { label: 'Respondeu sozinho', value: 4, note: 'de 8' },
+        { label: 'Após pedir para checar', value: 3, note: 'de 8' },
+        { label: 'Bloqueada por extensão', value: 1, note: 'de 8' },
+      ]}
+      source={{ text: 'Teste ao vivo do próprio Zaaheen, 26 de setembro de 2026, Windows, com Claude Desktop, Cursor, ChatGPT (Work e Codex) e Antigravity. A resposta bloqueada foi uma extensão do Google que travava as chamadas de ferramenta do Antigravity antes de chegarem ao Zaaheen.' }}
+    />
+
+    <p>Todos os apps que chegaram à memória deram a resposta certa. Na metade das vezes o app
+       consultou sozinho; nas outras, respondeu primeiro com a própria memória e precisou ouvir
+       "check Zaaheen". Por isso a linha acima, nas instruções de cada app, faz diferença.</p>
+
+    <p>Se você só usa os dois apps de vez em quando, copiar uma lista curta uma vez pode bastar. Se
+       você está trocando o ChatGPT pelo Claude de vez, a importação do Claude foi feita para isso.
+       Se você usa os dois, toda semana, uma memória compartilhada é a que não fica desatualizada.</p>
+  </section>
+</Learn>

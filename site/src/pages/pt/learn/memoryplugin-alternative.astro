@@ -1,0 +1,113 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../../data/site';
+
+// Learn comparison page 5 in Portuguese (ADR-113): the English page's
+// structure with its words translated. Every MemoryPlugin fact, price and date
+// is the English page's, from the sources listed in its header comment.
+const CHECKED = '13 de outubro de 2026';
+const monthly = `US$ ${PRICES.monthly} por mês`;
+const yearly = `US$ ${PRICES.yearly} por ano`;
+const OUTLINE = [
+  { id: 'what', title: 'O que é o MemoryPlugin' },
+  { id: 'differ', title: 'Onde o Zaaheen é diferente' },
+  { id: 'price', title: 'Quanto custa um ano' },
+  { id: 'better', title: 'Onde o MemoryPlugin é a melhor escolha' },
+  { id: 'limits', title: 'Onde o Zaaheen fica devendo' },
+];
+const MP = 'https://www.memoryplugin.com/';
+---
+<Learn
+  path="/pt/learn/memoryplugin-alternative/"
+  lede={`O MemoryPlugin dá a mais de 20 ferramentas de IA uma memória única, guardada no serviço dele, a partir de US$ 89 por ano. O Zaaheen faz um trabalho parecido para os apps de IA do seu computador, mas com suas memórias criptografadas nesse computador, por ${yearly}. O MemoryPlugin alcança mais lugares, incluindo o ChatGPT na web e no celular; o Zaaheen mantém suas memórias mais perto de você.`}
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>O que é o MemoryPlugin</h2>
+    <p>O MemoryPlugin conecta uma longa lista de ferramentas de IA a uma memória única, "21+ AI
+       tools" (mais de 21 ferramentas de IA) nas palavras dele, entre elas ChatGPT, Claude, Gemini,
+       Grok, Perplexity, Cursor, Claude Code e Codex (<a href={MP}>site do MemoryPlugin</a>). Ele
+       chega lá de várias formas: uma extensão de navegador para sites de IA, um GPT personalizado
+       que também funciona nos apps de celular do ChatGPT e um servidor MCP para o Claude Desktop e
+       o Claude Code.</p>
+    <p>O serviço dele guarda suas memórias, e o site diz que elas são "Encrypted in transit and at
+       rest" (criptografadas em trânsito e em repouso) e nunca vendidas nem usadas para treinar
+       modelos. Ele não diz onde ficam armazenadas. O Core custa US$ 89 por ano e guarda as suas
+       últimas 500 conversas de histórico; o Pro custa US$ 180 por ano e acrescenta recursos como
+       um grafo de conhecimento e buckets compartilhados. Os dois vêm com um teste de 7 dias.</p>
+  </section>
+
+  <section id="differ">
+    <h2>Onde o Zaaheen é diferente</h2>
+    <ul>
+      <li><strong>Onde suas memórias ficam.</strong> Com o Zaaheen, elas nunca saem do seu
+          computador: ficam criptografadas lá, e nossos servidores cuidam só do login e da sua
+          assinatura.</li>
+      <li><strong>Preço.</strong> {yearly} ou {monthly}, depois de {TRIAL.days} dias grátis, sem
+          cartão.</li>
+      <li><strong>Como os apps se conectam.</strong> O Zaaheen se conecta por MCP aos apps do seu
+          computador: Claude Desktop, Claude Code, Cursor, o app do ChatGPT, Codex e outros. Não há
+          extensão de navegador.</li>
+    </ul>
+
+    <MemoryFlow
+      id="flow-memoryplugin"
+      from="Claude"
+      to="ChatGPT"
+      fact="Reuniões depois das 14h"
+      others={['Cursor', 'Codex']}
+      caption="Uma preferência que você menciona ao Claude é salva uma vez na memória do seu computador, e o app do ChatGPT a lê de lá."
+    />
+  </section>
+
+  <section id="price">
+    <h2>Quanto custa um ano</h2>
+    <BarChart
+      id="chart-memoryplugin-year"
+      title="Um ano para uma pessoa, em dólares americanos"
+      measure="Dólares americanos por ano"
+      bars={[
+        { label: 'Zaaheen', value: PRICES.yearly, note: 'plano anual' },
+        { label: 'MemoryPlugin Core', value: 89, note: 'plano anual' },
+        { label: 'MemoryPlugin Pro', value: 180, note: 'plano anual' },
+      ]}
+      source={{ text: `O próprio site do MemoryPlugin e o nosso, preços de ${CHECKED}, que podem mudar. O MemoryPlugin mostra esses valores como preços reduzidos ao lado de preços mais altos riscados.` }}
+    />
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">MemoryPlugin</th><th scope="col">Zaaheen</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Onde as memórias ficam</th><td>No serviço dele, "Encrypted in transit and at rest" (criptografadas em trânsito e em repouso)</td><td>Seu computador, criptografadas</td></tr>
+        <tr><th scope="row">Ferramentas de IA</th><td>"21+", incluindo sites de IA e o ChatGPT no celular</td><td>Apps no seu computador compatíveis com MCP</td></tr>
+        <tr><th scope="row">Teste</th><td>7 dias</td><td>{TRIAL.days} dias, sem cartão</td></tr>
+        <tr><th scope="row">Onde roda</th><td>Onde as extensões de navegador, o GPT personalizado ou o servidor MCP dele funcionam</td><td>Windows e Macs com chip da Apple</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">Situação em {CHECKED}, segundo o próprio site do MemoryPlugin, e pode
+       mudar. Confira <a href={MP}>o site deles</a> para ver os preços mais recentes.</p>
+  </section>
+
+  <section id="better">
+    <h2>Onde o MemoryPlugin é a melhor escolha</h2>
+    <p>Se você usa IA principalmente no navegador, no celular ou em ferramentas como Gemini e
+       Perplexity, o MemoryPlugin chega a lugares onde o Zaaheen não chega. O plano Pro dele também
+       permite compartilhar memória com uma equipe.</p>
+  </section>
+
+  <section id="limits">
+    <h2>Onde o Zaaheen fica devendo</h2>
+    <ul>
+      <li>Não há extensão de navegador, então o ChatGPT e o Claude no navegador não conseguem
+          usá-lo.</li>
+      <li>Não há versão para celular e, nos computadores, só Windows e Macs com chip da Apple.</li>
+      <li>Sua memória fica em um computador; ainda não há sincronização entre computadores.</li>
+      <li>Depois do teste de {TRIAL.days} dias, não há plano grátis.</li>
+    </ul>
+    <p class="learn-note">MemoryPlugin é um nome do seu dono. Não temos nenhum vínculo com o
+       MemoryPlugin. Fatos conferidos em {CHECKED}; se algo aqui estiver errado ou desatualizado,
+       avise-nos em <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> e vamos corrigir.</p>
+  </section>
+</Learn>

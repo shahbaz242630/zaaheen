@@ -1,0 +1,141 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+
+// Learn comparison page 6 in Portuguese (ADR-113): the English page's
+// structure with its words translated. A roundup with no ranking, as in
+// English. Every fact, price and date is the English page's, from the sources
+// listed in its header comment.
+const L = (href: string) => localize(href, 'pt');
+const CHECKED = '13 de outubro de 2026';
+const OUTLINE = [
+  { id: 'what', title: 'O que um servidor de memória acrescenta' },
+  { id: 'options', title: 'As opções' },
+  { id: 'table', title: 'Lado a lado' },
+  { id: 'cost', title: 'Quanto custa um ano' },
+  { id: 'choose', title: 'Como escolher' },
+];
+const REF = 'https://github.com/modelcontextprotocol/servers/tree/main/src/memory';
+const MMS = 'https://github.com/doobidoo/mcp-memory-service';
+const BASIC = 'https://basicmemory.com/';
+const BASIC_QS = 'https://docs.basicmemory.com/start-here/quickstart-local/';
+const MEM0_MCP = 'https://docs.mem0.ai/platform/mem0-mcp';
+const CC_MEMORY = 'https://code.claude.com/docs/en/memory';
+---
+<Learn
+  path="/pt/learn/best-memory-mcp-server-for-claude-code/"
+  lede="Não existe um único melhor; depende de para que você quer a memória. Para uma memória grátis e simples só para o Claude Code, o servidor de referência da própria Anthropic ou o mcp-memory-service resolvem. Para anotações que você mesmo pode ler, o Basic Memory. Para uma memória criptografada que o Claude Code compartilha com o Cursor, o ChatGPT e o Claude Desktop, sem Python nem arquivos de configuração, foi para isso que criamos o Zaaheen."
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>O que um servidor de memória acrescenta ao Claude Code</h2>
+    <p>O Claude Code já lembra dentro de um projeto: o CLAUDE.md, que você escreve, e a auto memory,
+       que ele escreve, as duas guardadas no seu computador para aquele repositório
+       (<a href={CC_MEMORY}>documentação da Anthropic</a>). Um servidor de memória acrescenta uma
+       memória que o Claude Code pode pesquisar e na qual pode salvar em todos os seus projetos e,
+       dependendo do servidor, que outros apps de IA também podem usar.</p>
+  </section>
+
+  <section id="options">
+    <h2>As opções</h2>
+
+    <h3>O servidor de memória de referência da Anthropic</h3>
+    <p>Descrito nas próprias palavras como "A basic implementation of persistent memory using a
+       local knowledge graph" (uma implementação básica de memória persistente usando um grafo de
+       conhecimento local). É grátis e tem licença MIT. Você adiciona um comando npx às
+       configurações do seu app, ou o roda com Docker, e ele guarda tudo em um arquivo chamado
+       memory.jsonl (<a href={REF}>página no GitHub</a>). A página dele não menciona
+       criptografia.</p>
+
+    <h3>mcp-memory-service</h3>
+    <p>Um servidor de memória grátis e de código aberto que você instala com pip. Ele pode guardar
+       memórias localmente em SQLite ou no Cloudflare e em outros backends, e cita Claude Code,
+       Cursor, Codex e Claude Desktop entre os apps com que funciona (<a href={MMS}>página no
+       GitHub</a>). Tem muitas opções, o que agrada a quem gosta de configurar as próprias
+       ferramentas.</p>
+
+    <h3>Basic Memory</h3>
+    <p>Escreve memórias como anotações simples em Markdown que você pode abrir e editar. A versão
+       local é grátis e precisa do Python 3.12 ou superior, instalada com uv ou, no Mac, com
+       Homebrew (<a href={BASIC_QS}>guia de início rápido</a>). Uma versão Cloud hospedada começa em
+       US$ 15 por mês (<a href={BASIC}>site do Basic Memory</a>).</p>
+
+    <h3>Mem0</h3>
+    <p>Uma memória hospedada: o servidor MCP dele roda do lado do Mem0 e suas memórias ficam na sua
+       conta Mem0, com um plano Hobby grátis (<a href={MEM0_MCP}>documentação do Mem0</a>). Bom se
+       você quer a memória online, e não em um computador.</p>
+
+    <h3>Zaaheen</h3>
+    <p>O nosso. Um app para Windows e Mac que guarda uma memória única criptografada no seu
+       computador. Para o Claude Code, você copia um comando da aba Agents do Zaaheen e o roda uma
+       vez; depois disso, ele está presente em todos os projetos
+       (<a href={L('/docs/connect-claude-code/')}>passo a passo</a>). A mesma memória é compartilhada
+       com o Cursor, o Claude Desktop, o app do ChatGPT, o Codex e outros apps.</p>
+
+    <MemoryFlow
+      id="flow-claude-code"
+      from="Claude Code"
+      to="Claude"
+      fact="Deploy só às sextas"
+      others={['Cursor', 'ChatGPT']}
+      caption="O que o Claude Code salva em um projeto fica na memória do seu computador, onde o Claude Desktop e seus outros apps podem recuperar."
+    />
+  </section>
+
+  <section id="table">
+    <h2>Lado a lado</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">Configuração</th><th scope="col">Onde as memórias ficam</th><th scope="col">Criptografia no seu computador</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Servidor de referência</th><td>npx em um arquivo de configuração, ou Docker</td><td>Um arquivo memory.jsonl</td><td>Não mencionada</td></tr>
+        <tr><th scope="row">mcp-memory-service</th><td>pip install</td><td>SQLite no seu computador, ou um backend na nuvem</td><td>Não mencionada</td></tr>
+        <tr><th scope="row">Basic Memory (local)</th><td>Python 3.12+, uv ou Homebrew</td><td>Arquivos Markdown no seu computador</td><td>Não mencionada</td></tr>
+        <tr><th scope="row">Mem0 (MCP)</th><td>Conta Mem0 e um comando de configuração</td><td>Sua conta Mem0, online</td><td>Não fica no seu computador</td></tr>
+        <tr><th scope="row">Zaaheen</th><td>Um instalador, depois um comando para o Claude Code</td><td>Seu computador</td><td>Sim</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">Situação em {CHECKED}, segundo as próprias páginas de cada projeto, e pode
+       mudar. "Não mencionada" quer dizer que a página deles não fala disso; confira os links acima
+       para ver o mais recente.</p>
+  </section>
+
+  <section id="cost">
+    <h2>Quanto custa um ano</h2>
+    <BarChart
+      id="chart-claude-code-servers-year"
+      title="Um ano de memória para o Claude Code, uma pessoa, em dólares americanos"
+      measure="Dólares americanos por ano"
+      max={60}
+      bars={[
+        { label: 'Servidor de referência', value: 0, note: 'grátis' },
+        { label: 'mcp-memory-service', value: 0, note: 'grátis' },
+        { label: 'Basic Memory (local)', value: 0, note: 'grátis' },
+        { label: 'Zaaheen', value: PRICES.yearly, note: 'plano anual' },
+      ]}
+      source={{ text: `As próprias páginas de cada projeto e as nossas, situação em ${CHECKED}. O Mem0 ficou de fora porque os planos dele têm preços pensados para desenvolvedores que criam apps.` }}
+    />
+    <p>As opções grátis são grátis. O que você paga com o Zaaheen é nenhuma configuração além de um
+       comando, criptografia no seu computador e uma memória que seus outros apps de IA
+       compartilham.</p>
+  </section>
+
+  <section id="choose">
+    <h2>Como escolher</h2>
+    <p>Se você só usa o Claude Code e gosta de configurar as coisas, comece com um dos servidores
+       grátis. Se quer ler e editar sua memória como anotações, use o Basic Memory. Se quer a memória
+       online, veja o Mem0. Se você também usa o Cursor, o Claude Desktop ou o ChatGPT e quer que
+       todos compartilhem o que o Claude Code aprende, criptografado no seu próprio computador,
+       experimente o Zaaheen grátis por {TRIAL.days} dias.</p>
+    <p>Onde o Zaaheen fica devendo: só Windows e Macs com chip da Apple, sem Linux; um computador,
+       ainda sem sincronização; não é de código aberto; não há plano grátis depois do teste.</p>
+    <p class="learn-note">Claude Code, Mem0 e Basic Memory são nomes dos seus donos, e os servidores
+       de código aberto pertencem aos seus autores. Não temos nenhum vínculo com nenhum deles. Fatos
+       conferidos em {CHECKED}; se algo aqui estiver errado ou desatualizado, avise-nos em
+       <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> e vamos corrigir.</p>
+  </section>
+</Learn>

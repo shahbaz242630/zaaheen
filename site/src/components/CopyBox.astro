@@ -3,15 +3,21 @@
 // session 79: "copy option like a small tab on top in the box"). The button is
 // hidden until scripts/copy.js runs, so without scripts the box is plain text
 // that can still be selected. Scripts are external files: the CSP allows no
-// inline script or style.
+// inline script or style. The button's words come from the page's language
+// (data-copied, data-fallback: scripts/copy.js shows them after a click).
+import { langOf } from '../i18n/locales';
+import { t } from '../i18n/ui';
+
 interface Props {
   text: string;
   label?: string;
 }
-const { text, label = 'Copy' } = Astro.props;
+const lang = langOf(Astro.url.pathname);
+const { text, label = t(lang, 'Copy') } = Astro.props;
 ---
 <div class="copybox">
-  <button class="copy-btn" type="button" data-copy hidden>{label}</button>
+  <button class="copy-btn" type="button" data-copy data-copied={t(lang, 'Copied')}
+          data-fallback={t(lang, 'Select and copy')} hidden>{label}</button>
   <pre><code>{text}</code></pre>
 </div>
 <script src="../scripts/copy.js"></script>

@@ -1,0 +1,42 @@
+---
+// The Products page in Brazilian Portuguese (ADR-113): the English page's
+// structure with its words translated.
+import Base from '../../layouts/Base.astro';
+import Logo from '../../components/Logo.astro';
+import { COMPANY, PRICES, RELEASE, TRIAL, pageFor } from '../../data/site';
+import { localize } from '../../i18n/locales';
+
+const page = pageFor('/pt/products/');
+const L = (href: string) => localize(href, 'pt');
+const monthly = `US$ ${PRICES.monthly} por mês`;
+const yearly = `US$ ${PRICES.yearly} por ano`;
+---
+<Base page={page}>
+  <section class="page">
+    <h1>Produtos</h1>
+    <p>A Zaaheen é uma empresa de {COMPANY.city} que cria software para pessoas que usam IA todos os dias.
+       Nosso primeiro produto dá aos seus apps de IA uma memória privada que fica no seu próprio computador.</p>
+
+    <div class="cards">
+      <a class="card" href={L('/')}>
+        <div class="card-brand"><Logo size={40} /><h2>Zaaheen</h2></div>
+        <p>Uma memória privada para seus assistentes de IA. Seus apps de IA compartilham uma única memória
+           sobre você, guardada e criptografada no seu próprio computador.</p>
+        <span class="card-link">Conheça o app de memória</span>
+      </a>
+    </div>
+
+    <h2>O que o app de memória faz</h2>
+    <ul class="facts">
+      <li><strong>Uma única memória para todos os seus apps de IA.</strong> Conte algo uma vez ao Claude, e o
+          Cursor ou o ChatGPT podem lembrar disso. <a href={L('/docs/#connecting')}>Como conectar seus apps de IA</a></li>
+      <li><strong>Fica no seu computador.</strong> Suas memórias são guardadas e criptografadas no seu
+          dispositivo, e nunca enviadas para a internet. <a href="/ai-and-your-data/">O que podemos e não podemos ver (em inglês)</a></li>
+      <li><strong>Você continua no controle.</strong> Veja cada memória, esqueça a que quiser, baixe todas ou
+          apague tudo em um só passo. <a href={L('/docs/#memories')}>Cuidando das suas memórias</a></li>
+      <li><strong>Para Windows e Mac.</strong> {RELEASE.windows.tested} (64 bits), ou um Mac
+          com chip da Apple (M1 ou mais recente). {TRIAL.days} dias grátis, depois {monthly} ou
+          {yearly}. <a href={L('/pricing/')}>Preços</a></li>
+    </ul>
+  </section>
+</Base>

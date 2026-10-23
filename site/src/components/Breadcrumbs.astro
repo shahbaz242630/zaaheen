@@ -1,5 +1,7 @@
 ---
 import { breadcrumbsFor, type PageEntry } from '../data/site';
+import { langOf } from '../i18n/locales';
+import { t } from '../i18n/ui';
 
 // "Home › Knowledge Centre › Coaching Terms" on nested pages; nothing on the
 // home page and top-level pages. The same trail is in the page's JSON-LD
@@ -11,7 +13,7 @@ const trail = breadcrumbsFor(Astro.props.page);
 const last = trail.length - 1;
 ---
 {trail.length > 0 && (
-  <nav class="crumbs" aria-label="Breadcrumb">
+  <nav class="crumbs" aria-label={t(langOf(Astro.props.page.path), 'Breadcrumb')}>
     <ol>
       {trail.map((c, i) => (
         <li>{i === last ? <span aria-current="page">{c.name}</span> : <a href={c.path}>{c.name}</a>}</li>

@@ -1,0 +1,54 @@
+---
+// Contact us in French (ADR-113): the answers first, then the address.
+import Guide from '../../../layouts/Guide.astro';
+import Row from '../../../components/Row.astro';
+import CopyBox from '../../../components/CopyBox.astro';
+import { COMPANY } from '../../../data/site';
+import { localize } from '../../../i18n/locales';
+
+const L = (href: string) => localize(href, 'fr');
+const OUTLINE = [
+  { id: 'answers', title: 'La plupart des réponses sont déjà ici' },
+  { id: 'email', title: 'Écrivez-nous' },
+  { id: 'include', title: 'Ce qu’il faut indiquer' },
+];
+---
+<Guide
+  path="/fr/docs/contact/"
+  lede={`La plupart des questions trouvent leur réponse dans nos guides et sur la page de dépannage. Si ce n’est pas le cas de la vôtre, écrivez-nous à ${COMPANY.email}.`}
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <Row level={2} id="answers" title="La plupart des réponses sont déjà ici" where="Documentation">
+      <ul>
+        <li><a href={L('/docs/troubleshooting/')}>Dépannage</a> : les messages d’erreur et leurs solutions,
+            et que faire quand une application d’IA n’utilise pas Zaaheen.</li>
+        <li><a href={L('/docs/getting-started/')}>Bien démarrer</a> : installer Zaaheen et connecter votre
+            première application d’IA.</li>
+        <li><a href={L('/pricing/')}>Tarifs</a> et la <a href="/refunds/">Politique de remboursement (en
+            anglais)</a> : votre essai, votre abonnement et les remboursements.</li>
+      </ul>
+      <p>Votre application d’IA peut aussi chercher pour vous : demandez-lui de consulter l’aide de Zaaheen
+         sur <a href="/llms.txt">zaaheen.com/llms.txt</a> (en anglais).</p>
+    </Row>
+
+    <Row level={2} id="email" title="Écrivez-nous" where="Toute question">
+      <p>Écrivez-nous à <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>. Si le lien n’ouvre pas votre
+         messagerie, copiez l’adresse :</p>
+      <CopyBox text={COMPANY.email} />
+    </Row>
+
+    <Row level={2} id="include" title="Ce qu’il faut indiquer" where="Pour vous aider du premier coup">
+      <ul>
+        <li>Windows ou Mac.</li>
+        <li>L’application d’IA que vous utilisiez.</li>
+        <li>Les mots exacts de tout message d’erreur.</li>
+        <li>Pour un problème dans l’application, son journal d’activité : choisissez <em>Save activity
+            record…</em> dans Settings et joignez le fichier. Il nous indique la version de l’application et
+            ce qui s’est passé, et ne contient aucun de vos souvenirs.</li>
+      </ul>
+      <p>N’envoyez jamais votre mot de passe ni aucun code de connexion. Nous ne vous les demanderons
+         jamais.</p>
+    </Row>
+  </section>
+</Guide>

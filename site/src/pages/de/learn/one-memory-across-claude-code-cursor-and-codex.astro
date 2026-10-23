@@ -1,0 +1,103 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { localize } from '../../../i18n/locales';
+
+// Learn article 3 in German (ADR-113): the English article's structure and
+// sources with its words translated.
+const L = (href: string) => localize(href, 'de');
+const OUTLINE = [
+  { id: 'each', title: 'Was jedes Werkzeug speichert' },
+  { id: 'rules', title: 'Projektregeln: eine AGENTS.md' },
+  { id: 'you', title: 'Was sie über dich wissen' },
+  { id: 'test', title: 'Unser Test' },
+];
+const CLAUDE_DOCS = 'https://code.claude.com/docs/en/memory';
+const CURSOR_DOCS = 'https://cursor.com/docs/rules';
+const CODEX_DOCS = 'https://learn.chatgpt.com/docs/customization/memories?surface=app';
+---
+<Learn
+  path="/de/learn/one-memory-across-claude-code-cursor-and-codex/"
+  lede="Claude Code, Cursor und Codex haben jeweils ihr eigenes Gedächtnis, und keines liest das der anderen. Leg Projektregeln in eine AGENTS.md-Datei, die alle drei lesen können, und bewahre, was über dich gilt, in einem gemeinsamen Gedächtnis auf, mit dem sich alle drei verbinden."
+  outline={OUTLINE}
+>
+  <section id="each">
+    <h2>Was jedes Werkzeug speichert</h2>
+    <p>Laut der eigenen Dokumentation der Unternehmen:</p>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col">App</th><th scope="col">Ihr eigenes Gedächtnis</th><th scope="col">Mit den anderen geteilt?</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Claude Code</th><td>CLAUDE.md-Dateien, die du schreibst, plus Auto Memory, die es selbst schreibt, in einem Ordner pro Projekt auf deinem Computer (<a href={CLAUDE_DOCS}>Anthropic</a>)</td><td>Nein</td></tr>
+        <tr><th scope="row">Cursor</th><td>Projektregeln in <code>.cursor/rules</code>, Benutzerregeln für alle deine Projekte und AGENTS.md (<a href={CURSOR_DOCS}>Cursor</a>)</td><td>Nein</td></tr>
+        <tr><th scope="row">Codex</th><td>AGENTS.md, plus Erinnerungen, die es in <code>~/.codex/memories/</code> schreiben kann, aus, bis du sie einschaltest (<a href={CODEX_DOCS}>OpenAI</a>)</td><td>Nein, nicht einmal mit ChatGPT</td></tr>
+      </tbody>
+    </table>
+    <p>Eine Vorliebe, die du Claude Code am Montag beibringst, ist für Cursor am Dienstag neu und für
+       Codex am Mittwoch auch. Entwickler, die zwischen ihnen wechseln, wiederholen dieselben Dinge
+       dreimal oder halten drei Dateien von Hand auf demselben Stand.</p>
+  </section>
+
+  <section id="rules">
+    <h2>Projektregeln: eine AGENTS.md für alle drei</h2>
+    <p>Für Regeln zum Projekt selbst, etwa wie es gebaut wird, wie die Tests laufen und welche
+       Konventionen gelten, gibt es inzwischen eine einfache Antwort: AGENTS.md. Cursor liest sie als
+       eine seiner Regelarten. OpenAI empfiehlt, die Vorgaben, an die sich Codex immer halten muss,
+       dort abzulegen. Und Claude Code liest sie als Anweisungen des Projekts, wenn das Projekt keine
+       CLAUDE.md hat (ab Version 2.1.277).</p>
+    <p>Eine Datei im Repository, zusammen mit dem Code eingecheckt, und alle drei Werkzeuge starten
+       mit denselben Regeln. Wenn du schon eine CLAUDE.md hast, zeigt die Dokumentation von Anthropic,
+       wie du sie auf AGENTS.md verweisen lässt, damit sich die beiden nie widersprechen.</p>
+  </section>
+
+  <section id="you">
+    <h2>Was sie über dich wissen: ein gemeinsames Gedächtnis</h2>
+    <p>AGENTS.md ist der falsche Ort für Fakten über dich. Sie gehören nicht zum Projekt, sie ändern
+       sich, und sie gehören in jedes Projekt, nicht nur in eines. Hier kommt ein gemeinsames
+       Gedächtnis ins Spiel: ein Gedächtnis außerhalb aller drei Werkzeuge, mit dem sich jedes über
+       MCP verbindet, den Standardweg, über den KI-Apps an Werkzeuge und Daten andocken.</p>
+
+    <MemoryFlow
+      id="flow-codex-cursor"
+      from="Codex"
+      to="Cursor"
+      fact="Nimmt pnpm statt npm"
+      others={['Claude Code']}
+      caption="Eine Vorliebe, die du Codex erzählst, wird einmal gespeichert, auf deinem Computer. Cursor und Claude Code rufen sie in ihrer nächsten Sitzung ab, in jedem Projekt."
+    />
+
+    <p>Zaaheen ist so ein Gedächtnis, für Windows und Mac, verschlüsselt auf deinem eigenen Computer.
+       Jedes Werkzeug wird einmal verbunden: Claude Code mit einem Befehl, Cursor mit einem
+       Installationslink und Codex mit ein paar Zeilen in seiner Einstellungsdatei
+       (<a href={L('/docs/connect-claude-code/')}>Claude Code</a>, <a href={L('/docs/connect-cursor/')}>Cursor</a>,
+       <a href={L('/docs/connect-codex/')}>Codex</a>). Danach kann jedes von ihnen abrufen, was ein
+       anderes über dich gespeichert hat.</p>
+  </section>
+
+  <section id="test">
+    <h2>Unser Test</h2>
+    <p>Wir haben das mit Cursor ausprobiert, das ein gemeinsames Gedächtnis mit etwa 15 Fakten über
+       eine Person las, die zuvor eine andere App gespeichert hatte. Die Fragen waren solche, die man
+       wirklich stellen würde, und zwei sollten Cursor aufs Glatteis führen: eine zu etwas, das nicht
+       im Gedächtnis stand, und eine Fangfrage.</p>
+
+    <BarChart
+      id="chart-cursor-recall"
+      title="5 Fragen an Cursor zu Fakten, die eine andere App gespeichert hat"
+      measure="Fragen"
+      max={5}
+      bars={[
+        { label: 'Fakt abgerufen', value: 3, note: 'von 5' },
+        { label: 'Sagte „weiß ich nicht“', value: 1, note: 'von 5' },
+        { label: 'Fangfrage erkannt', value: 1, note: 'von 5' },
+      ]}
+      source={{ text: 'Eigener Test von Zaaheen, 5. Juni 2026, eine Entwicklungsversion von Zaaheen unter Windows. Abgerufen: das Instrument, das die Person spielt, ihr Haustier und was sie sammelt. Zu Recht nicht gewusst: ihre Blutgruppe, die nicht im Gedächtnis stand. Die Fangfrage: Auf die Frage nach ihrer Katze sagte Cursor, dass sie einen Hund hat.' }}
+    />
+
+    <p>Alle fünf Antworten waren richtig, auch die beiden, bei denen die richtige Antwort „nein“ war.
+       Bei einem Gedächtnis zählt dieser zweite Teil so viel wie der erste: Eine App, die eine Antwort
+       erfindet, ist schlechter als eine, die sagt, dass sie es nicht weiß.</p>
+  </section>
+</Learn>

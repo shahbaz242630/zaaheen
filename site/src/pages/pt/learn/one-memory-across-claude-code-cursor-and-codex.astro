@@ -1,0 +1,104 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { localize } from '../../../i18n/locales';
+
+// Learn article 3 in Portuguese (ADR-113): the English page's structure with
+// its words translated. Sources and the test as in the English page's header
+// comment.
+const L = (href: string) => localize(href, 'pt');
+const OUTLINE = [
+  { id: 'each', title: 'O que cada um guarda' },
+  { id: 'rules', title: 'Regras do projeto: um AGENTS.md' },
+  { id: 'you', title: 'O que eles sabem sobre você' },
+  { id: 'test', title: 'Nosso teste' },
+];
+const CLAUDE_DOCS = 'https://code.claude.com/docs/en/memory';
+const CURSOR_DOCS = 'https://cursor.com/docs/rules';
+const CODEX_DOCS = 'https://learn.chatgpt.com/docs/customization/memories?surface=app';
+---
+<Learn
+  path="/pt/learn/one-memory-across-claude-code-cursor-and-codex/"
+  lede="O Claude Code, o Cursor e o Codex têm cada um a sua própria memória, e nenhum lê a dos outros. Coloque as regras do projeto em um único arquivo AGENTS.md, que os três conseguem ler, e mantenha o que é verdade sobre você em uma memória compartilhada à qual os três se conectam."
+  outline={OUTLINE}
+>
+  <section id="each">
+    <h2>O que cada um guarda</h2>
+    <p>Segundo a documentação de cada empresa:</p>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col">App</th><th scope="col">A própria memória</th><th scope="col">Compartilhada com os outros?</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Claude Code</th><td>Arquivos CLAUDE.md que você escreve, mais a auto memory que ele escreve, em uma pasta para cada projeto no seu computador (<a href={CLAUDE_DOCS}>Anthropic</a>)</td><td>Não</td></tr>
+        <tr><th scope="row">Cursor</th><td>Regras de projeto em <code>.cursor/rules</code>, regras de usuário para todos os seus projetos e AGENTS.md (<a href={CURSOR_DOCS}>Cursor</a>)</td><td>Não</td></tr>
+        <tr><th scope="row">Codex</th><td>AGENTS.md, mais memórias que ele pode escrever em <code>~/.codex/memories/</code>, desligadas até você ativá-las (<a href={CODEX_DOCS}>OpenAI</a>)</td><td>Não, nem mesmo com o ChatGPT</td></tr>
+      </tbody>
+    </table>
+    <p>Então uma preferência que você ensina ao Claude Code na segunda-feira é novidade para o
+       Cursor na terça e para o Codex na quarta. Desenvolvedores que alternam entre eles acabam
+       repetindo as mesmas coisas três vezes, ou mantendo três arquivos sincronizados à mão.</p>
+  </section>
+
+  <section id="rules">
+    <h2>Regras do projeto: um AGENTS.md para os três</h2>
+    <p>Para regras sobre o próprio projeto, como compilar, como rodar os testes e as convenções a
+       seguir, agora existe uma resposta simples: AGENTS.md. O Cursor o lê como um dos seus tipos de
+       regra. A OpenAI sugere manter nele as orientações que o Codex deve sempre seguir. E o Claude
+       Code o lê como as instruções do projeto quando o projeto não tem CLAUDE.md (a partir da
+       versão 2.1.277).</p>
+    <p>Um arquivo no repositório, versionado junto com o código, e as três ferramentas começam das
+       mesmas regras. Se você já tem um CLAUDE.md, a documentação da Anthropic mostra como apontá-lo
+       para o AGENTS.md, para que os dois nunca discordem.</p>
+  </section>
+
+  <section id="you">
+    <h2>O que eles sabem sobre você: uma memória compartilhada</h2>
+    <p>O AGENTS.md é o lugar errado para fatos sobre você. Eles não fazem parte do projeto, mudam e
+       pertencem a todos os projetos, não a um só. É aí que entra uma memória compartilhada: uma
+       memória fora das três ferramentas, à qual cada uma se conecta por meio do MCP, o jeito padrão
+       de os apps de IA se ligarem a ferramentas e dados.</p>
+
+    <MemoryFlow
+      id="flow-codex-cursor"
+      from="Codex"
+      to="Cursor"
+      fact="Prefere pnpm ao npm"
+      others={['Claude Code']}
+      caption="Uma preferência que você conta ao Codex é salva uma vez, no seu computador. O Cursor e o Claude Code a recuperam na próxima sessão, em qualquer projeto."
+    />
+
+    <p>O Zaaheen é uma memória desse tipo, para Windows e Mac, guardada e criptografada no seu
+       próprio computador. Cada ferramenta é conectada uma vez: o Claude Code com um comando, o
+       Cursor com um link de instalação e o Codex com algumas linhas no arquivo de configuração
+       dele (<a href={L('/docs/connect-claude-code/')}>Claude Code</a>,
+       <a href={L('/docs/connect-cursor/')}>Cursor</a>, <a href={L('/docs/connect-codex/')}>Codex</a>).
+       Depois disso, o que qualquer um deles salvar sobre você, os outros conseguem recuperar.</p>
+  </section>
+
+  <section id="test">
+    <h2>Nosso teste</h2>
+    <p>Testamos isso com o Cursor lendo uma memória compartilhada que guardava uns 15 fatos sobre
+       uma pessoa, salvos antes por outro app. As perguntas eram do tipo que você faria de verdade,
+       e duas foram feitas para pegá-lo no erro: uma sobre algo que a memória não guardava e uma
+       pergunta capciosa.</p>
+
+    <BarChart
+      id="chart-cursor-recall"
+      title="5 perguntas ao Cursor sobre fatos salvos por outro app"
+      measure="Perguntas"
+      max={5}
+      bars={[
+        { label: 'Lembrou o fato', value: 3, note: 'de 5' },
+        { label: 'Disse que não sabia', value: 1, note: 'de 5' },
+        { label: 'Não caiu na pegadinha', value: 1, note: 'de 5' },
+      ]}
+      source={{ text: 'Teste do próprio Zaaheen, 5 de junho de 2026, uma versão de desenvolvimento do Zaaheen no Windows. Lembrou: o instrumento que a pessoa toca, o animal de estimação dela e o que ela coleciona. Não sabia, corretamente: o tipo sanguíneo, que a memória não guardava. A pegadinha: perguntado sobre o gato da pessoa, respondeu que ela tem um cachorro.' }}
+    />
+
+    <p>As cinco respostas estavam certas, inclusive as duas em que a resposta certa era "não". Para
+       uma memória, essa segunda parte importa tanto quanto a primeira: um app que inventa uma
+       resposta é pior do que um que diz que não sabe.</p>
+  </section>
+</Learn>

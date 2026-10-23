@@ -1,0 +1,114 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../../data/site';
+
+// Learn comparison page 7 in Spanish (ADR-113), translated from the English
+// page; its sources, read on the date below, are in the English page's header
+// comment. Quotes from Obsidian's site are translated, in quotation marks.
+const CHECKED = '13 de octubre de 2026';
+const OUTLINE = [
+  { id: 'short', title: 'La respuesta corta' },
+  { id: 'obsidian', title: 'Obsidian como memoria de IA' },
+  { id: 'app', title: 'Una app de memoria' },
+  { id: 'cost', title: 'Cuánto cuesta un año' },
+  { id: 'both', title: 'Usar los dos' },
+];
+const OBSIDIAN = 'https://obsidian.md/pricing';
+const BASIC = 'https://basicmemory.com/';
+---
+<Learn
+  path="/es/learn/obsidian-vs-ai-memory-app/"
+  lede="Obsidian es una app de notas, y muy buena: tus notas son archivos en tu computadora que escribes y lees tú. En una app de memoria escriben tus apps de IA mientras hablas con ellas, y son ellas las que buscan allí después. Usa Obsidian cuando quieras escribir el conocimiento tú mismo; usa una app de memoria cuando quieras que tus apps de IA te recuerden sin que tengas que tomar notas."
+  outline={OUTLINE}
+>
+  <section id="short">
+    <h2>La respuesta corta</h2>
+    <p>La gente usa Obsidian como memoria de IA de dos formas: pegando notas en un chat, o conectando
+       la bóveda (vault) a una app de IA mediante un plugin de la comunidad o una herramienta como
+       Basic Memory. Funciona, y a mucha gente le gusta, porque cada recuerdo es una nota que puede
+       abrir y corregir. La contrapartida es que tú cuidas de las notas, y conectar las apps de IA a
+       ellas requiere algo de configuración.</p>
+  </section>
+
+  <section id="obsidian">
+    <h2>Obsidian como memoria de IA</h2>
+    <p>Obsidian es gratis para uso personal, "Free without limits" (gratis y sin límites) en sus propias palabras. La
+       sincronización entre dispositivos cuesta 4 USD al mes con pago anual, y Obsidian dice que las
+       notas sincronizadas están protegidas con cifrado de extremo a extremo AES-256, "preventing us from reading it" (lo que nos impide leerlas) (<a href={OBSIDIAN}>precios de Obsidian</a>). También funciona en
+       teléfonos.</p>
+    <p>Obsidian por sí solo no se conecta a apps de IA. Para que Claude o Cursor lean y escriban en
+       tu bóveda, añades un plugin de la comunidad o una herramienta aparte como Basic Memory, que es
+       gratis, de código abierto y escribe Markdown sencillo que Obsidian puede abrir
+       (<a href={BASIC}>sitio de Basic Memory</a>). Esa herramienta necesita Python y algo de
+       configuración.</p>
+  </section>
+
+  <section id="app">
+    <h2>Una app de memoria</h2>
+    <p>Una app de memoria está hecha para que la use la IA. Tus apps guardan datos cortos mientras
+       hablas, como una preferencia, una fecha límite o el nombre de una persona, y los consultan
+       después sin que les pidas abrir una nota. Zaaheen, que hacemos nosotros, guarda esa memoria
+       cifrada en tu computadora y la comparte entre Claude Desktop, Claude Code, Cursor, la app de
+       ChatGPT, Codex y otras apps. Puedes ver y borrar tus recuerdos en la app, pero no los escribes
+       como notas.</p>
+
+    <MemoryFlow
+      id="flow-obsidian"
+      from="ChatGPT"
+      to="Claude Code"
+      fact="Entrega: 30 de noviembre"
+      others={['Cursor']}
+      caption="Una app de memoria guarda por sí sola un dato de un chat, sin ninguna nota que escribir, y tus otras apps de IA lo encuentran allí después."
+    />
+
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">Obsidian (con un plugin de IA)</th><th scope="col">Zaaheen</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Quién escribe la memoria</th><td>Sobre todo tú; la IA puede añadir notas mediante un plugin</td><td>Tus apps de IA, mientras hablas</td></tr>
+        <tr><th scope="row">¿Puedes leerla como notas?</th><td>Sí, cada nota es un archivo</td><td>Ves y borras los recuerdos en la app; no como archivos</td></tr>
+        <tr><th scope="row">Apps de IA</th><td>Mediante plugins de la comunidad o herramientas como Basic Memory</td><td>Integradas, desde la pestaña <em>Agents</em></td></tr>
+        <tr><th scope="row">Cifrado</th><td>De extremo a extremo en Obsidian Sync</td><td>En tu computadora</td></tr>
+        <tr><th scope="row">Teléfonos</th><td>Sí</td><td>No</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">A fecha del {CHECKED}, según los sitios web de Obsidian y de Basic Memory,
+       y puede cambiar. Consulta los enlaces de arriba para ver lo último.</p>
+  </section>
+
+  <section id="cost">
+    <h2>Cuánto cuesta un año</h2>
+    <BarChart
+      id="chart-obsidian-year"
+      title="Un año para una persona, en dólares estadounidenses"
+      measure="Dólares estadounidenses al año"
+      max={60}
+      bars={[
+        { label: 'Obsidian', value: 0, note: 'gratis para uso personal' },
+        { label: 'Basic Memory (local)', value: 0, note: 'gratis' },
+        { label: 'Obsidian con Sync', value: 48, note: '4 USD al mes, pago anual' },
+        { label: 'Zaaheen', value: PRICES.yearly, note: 'plan anual' },
+      ]}
+      source={{ text: `El sitio web de cada empresa y el nuestro; precios a fecha del ${CHECKED}, que pueden cambiar.` }}
+    />
+  </section>
+
+  <section id="both">
+    <h2>Usar los dos</h2>
+    <p>No compiten tanto como parece. Mucha gente guarda sus notas y documentos en Obsidian y deja
+       que una app de memoria se ocupe de los datos pequeños y personales que sus apps de IA no paran
+       de preguntar. Si te encanta escribir notas y las quieres en tu teléfono, puede que Obsidian
+       solo sea todo lo que necesitas. Si prefieres que tus apps de IA simplemente te recuerden,
+       prueba Zaaheen gratis durante {TRIAL.days} días.</p>
+    <p>Dónde se queda corto Zaaheen: no hay versión para teléfono; solo Windows y Mac con chips de
+       Apple; una computadora, todavía sin sincronización; tus recuerdos no son archivos que puedas
+       editar a mano.</p>
+    <p class="learn-note">Obsidian y Basic Memory son nombres de sus propietarios. No tenemos ninguna
+       relación con ninguno de los dos. Datos comprobados el {CHECKED}; si algo de aquí es incorrecto
+       o está desactualizado, escríbenos a <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> y
+       lo corregiremos.</p>
+  </section>
+</Learn>

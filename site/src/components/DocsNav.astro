@@ -1,5 +1,7 @@
 ---
 import { COACHING_POLICIES, DOCS_SECTIONS, GUIDES, POLICIES } from '../data/site';
+import { englishPath, langOf, localize } from '../i18n/locales';
+import { t } from '../i18n/ui';
 
 // The Documents menu on the left (founder, session 67): dropdowns for "Using
 // Zaaheen" (the how-to sections of /docs/), "Guides" (one task per page,
@@ -13,8 +15,16 @@ interface Props {
   coaching?: boolean;
 }
 const { current, coaching = false } = Astro.props;
-const onDocs = current === '/docs/';
-const onGuide = GUIDES.some((g) => g.path === current);
+// On a translated page (ADR-113 D2): labels in its language, links to the same
+// language where the page is translated, "(English)" on the ones that stay
+// English. The search covers the English documents only, so it is left out.
+const lang = langOf(current);
+const here = englishPath(current);
+const L = (href: string) => localize(href, lang);
+const label = (path: string, english: string) =>
+  lang === 'en' ? english : L(path) === path ? `${t(lang, english)} (${t(lang, 'English')})` : t(lang, english);
+const onDocs = here === '/docs/';
+const onGuide = GUIDES.some((g) => g.path === here);
 ---
 {coaching ? (
   <nav class="docs-sections" aria-label="Coaching documents">
@@ -27,31 +37,33 @@ const onGuide = GUIDES.some((g) => g.path === current);
     <a href="/knowledge-centre/">Back to the Knowledge Centre</a>
   </nav>
 ) : (
-  <nav class="docs-sections" aria-label="Documents">
+  <nav class="docs-sections" aria-label={t(lang, 'Documents')}>
     <!-- s83: search every guide, policy and error fix. Hidden until
          scripts/search.js runs; it searches in the browser, sends nothing. -->
-    <form class="docs-search" role="search" data-search hidden>
-      <input type="search" name="q" placeholder="Search the documents" aria-label="Search the documents" autocomplete="off" />
-      <ul class="docs-search-results" aria-live="polite" hidden></ul>
-    </form>
+    {lang === 'en' && (
+      <form class="docs-search" role="search" data-search hidden>
+        <input type="search" name="q" placeholder="Search the documents" aria-label="Search the documents" autocomplete="off" />
+        <ul class="docs-search-results" aria-live="polite" hidden></ul>
+      </form>
+    )}
     <details class="docs-group" open={onDocs}>
-      <summary>Using Zaaheen</summary>
+      <summary>{t(lang, 'Using Zaaheen')}</summary>
       {DOCS_SECTIONS.map((s) => (
-        <a href={onDocs ? `#${s.id}` : `/docs/#${s.id}`} data-section={onDocs ? s.id : undefined}>{s.title}</a>
+        <a href={onDocs ? `#${s.id}` : `${L('/docs/')}#${s.id}`} data-section={onDocs ? s.id : undefined}>{t(lang, s.title)}</a>
       ))}
     </details>
     <details class="docs-group" open={onGuide}>
-      <summary>Guides</summary>
+      <summary>{t(lang, 'Guides')}</summary>
       {GUIDES.map((g) => (
-        <a href={g.path} aria-current={g.path === current ? 'page' : undefined}>{g.label}</a>
+        <a href={L(g.path)} aria-current={g.path === here ? 'page' : undefined}>{label(g.path, g.label)}</a>
       ))}
     </details>
     <details class="docs-group" open={!onDocs && !onGuide}>
-      <summary>Policies</summary>
+      <summary>{t(lang, 'Policies')}</summary>
       {POLICIES.map((p) => (
-        <a href={p.path} aria-current={p.path === current ? 'page' : undefined}>{p.label}</a>
+        <a href={p.path} aria-current={p.path === current ? 'page' : undefined}>{label(p.path, p.label)}</a>
       ))}
     </details>
   </nav>
 )}
-{!coaching && <script src="../scripts/search.js"></script>}
+{!coaching && lang === 'en' && <script src="../scripts/search.js"></script>}

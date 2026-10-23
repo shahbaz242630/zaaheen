@@ -1,0 +1,20 @@
+---
+// The Antigravity connect guide in Brazilian Portuguese (ADR-113). The steps come from
+// the desktop app's own wording, translated in src/i18n/ui/pt.ts.
+import Guide from '../../../layouts/Guide.astro';
+import ConnectSteps from '../../../components/ConnectSteps.astro';
+import { connectOutline } from '../../../data/app-words';
+import { t } from '../../../i18n/ui';
+
+const NAME = 'Antigravity';
+const OUTLINE = connectOutline(NAME).map((o) => ({ ...o, title: t('pt', o.title) }));
+---
+<Guide
+  path="/pt/docs/connect-antigravity/"
+  lede="Abra o arquivo de configurações do Antigravity, mcp_config.json, cole a configuração do Zaaheen que aparece na aba Agents do Zaaheen, salve e reinicie o Antigravity. Depois confira se o Zaaheen aparece com um círculo verde em MCP tools."
+  outline={OUTLINE}
+>
+  <section class="docs-section">
+    <ConnectSteps name={NAME} where="Antigravity › mcp_config.json" />
+  </section>
+</Guide>

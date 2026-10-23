@@ -1,0 +1,45 @@
+---
+import Base from '../../layouts/Base.astro';
+import Logo from '../../components/Logo.astro';
+import { COMPANY, PRICES, RELEASE, TRIAL, pageFor } from '../../data/site';
+import { localize } from '../../i18n/locales';
+
+// Products in German (ADR-113): the English page's structure with its words
+// translated. Only the memory app is listed (founder, session 79).
+const page = pageFor('/de/products/');
+const L = (href: string) => localize(href, 'de');
+const monthly = `${PRICES.monthly} USD pro Monat`;
+const yearly = `${PRICES.yearly} USD pro Jahr`;
+---
+<Base page={page}>
+  <section class="page">
+    <h1>Produkte</h1>
+    <p>Zaaheen ist ein Unternehmen aus {COMPANY.city}, das Software für Menschen baut, die jeden Tag KI
+       nutzen. Unser erstes Produkt gibt deinen KI-Apps ein privates Gedächtnis, das auf deinem eigenen
+       Computer bleibt.</p>
+
+    <div class="cards">
+      <a class="card" href={L('/')}>
+        <div class="card-brand"><Logo size={40} /><h2>Zaaheen</h2></div>
+        <p>Ein privates Gedächtnis für deine KI-Assistenten. Deine KI-Apps teilen ein Gedächtnis über
+           dich, gespeichert und verschlüsselt auf deinem eigenen Computer.</p>
+        <span class="card-link">Zur Gedächtnis-App</span>
+      </a>
+    </div>
+
+    <h2>Was die Gedächtnis-App macht</h2>
+    <ul class="facts">
+      <li><strong>Ein Gedächtnis für alle deine KI-Apps.</strong> Erzähl Claude etwas einmal, und Cursor
+          oder ChatGPT können sich daran erinnern. <a href={L('/docs/#connecting')}>So verbindest du deine KI-Apps</a></li>
+      <li><strong>Es bleibt auf deinem Computer.</strong> Deine Erinnerungen werden auf deinem Gerät
+          gespeichert und verschlüsselt und nie hochgeladen. <a href="/ai-and-your-data/">Was wir sehen
+          können und was nicht (auf Englisch)</a></li>
+      <li><strong>Du behältst die Kontrolle.</strong> Sieh jede Erinnerung, vergiss jede einzelne, lade
+          alle herunter oder lösche alles in einem Schritt. <a href={L('/docs/#memories')}>Deine
+          Erinnerungen verwalten</a></li>
+      <li><strong>Für Windows und Mac.</strong> {RELEASE.windows.tested} (64-Bit) oder ein Mac mit
+          Apple-Chip (M1 oder neuer). {TRIAL.days} Tage kostenlos, danach {monthly} oder
+          {yearly}. <a href={L('/pricing/')}>Preise</a></li>
+    </ul>
+  </section>
+</Base>
