@@ -65,6 +65,12 @@ serde_json = { workspace = true }
 [target.'cfg(windows)'.dependencies]
 vault-scheduler = { path = "../vault-scheduler" }
 
+# ADR-SEC-048: on macOS the program ends with `libc::_exit` (src/exit.rs),
+# skipping ONNX Runtime's C++ teardown that aborts at exit. Exact-pinned to
+# the in-tree version (no new crate).
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "=0.2.186"
+
 [dev-dependencies]
 tempfile = { workspace = true }
 # Sub-task (a) tests consume keychain test helpers (unique_test_namespace,

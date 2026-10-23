@@ -35,8 +35,11 @@
 //! diagnostic-side detail goes to the local `tracing` subscriber for dev
 //! debugging only.
 
-#![forbid(unsafe_code)]
+// `deny`, not `forbid`: the one exception is the macOS `_exit` in `exit.rs`
+// (ADR-SEC-048), pinned there by a test.
+#![deny(unsafe_code)]
 
+mod exit;
 mod keeper;
 
 use std::path::{Path, PathBuf};
@@ -428,13 +431,14 @@ enum DeadLetterAction {
 #[tokio::main]
 async fn main() -> ExitCode {
     init_tracing();
-    match real_main().await {
-        Ok(()) => ExitCode::SUCCESS,
+    let code = match real_main().await {
+        Ok(()) => 0,
         Err(e) => {
             eprintln!("error: {e:#}");
-            ExitCode::FAILURE
+            1
         }
-    }
+    };
+    exit::finish(code)
 }
 
 fn init_tracing() {

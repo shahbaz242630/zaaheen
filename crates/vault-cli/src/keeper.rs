@@ -313,7 +313,7 @@ pub async fn dispatch_keeper(paths: KeeperPaths, exit_on_stdin_eof: bool) -> Res
     };
     // See the function docs: exit with `vault_lock` still held (it is never
     // dropped; the OS releases it with the process).
-    std::process::exit(code)
+    crate::exit::now(code)
 }
 
 /// How often a keeper that is still opening the vault refreshes its
@@ -350,13 +350,13 @@ where
         Ok(None) => {
             tracing::info!("locked, and no key yet: nothing to serve; this keeper exits");
             let _ = discovery::remove_if_written_by(vault_root, Role::Starting, pid);
-            std::process::exit(0)
+            crate::exit::now(0)
         }
         Err(e) => {
             tracing::warn!(error = %e, "the key could not be read for lock mode");
             start_failure::write(vault_root, pid, StartFailureCode::CredentialStore);
             publish_failure();
-            std::process::exit(1)
+            crate::exit::now(1)
         }
     };
     let keys = HandshakeKeys::derive(&master_key);
@@ -398,7 +398,7 @@ where
             1
         }
     };
-    std::process::exit(code)
+    crate::exit::now(code)
 }
 
 /// Where the account folder lives: `%LOCALAPPDATA%\com.zaaheen.app`, the same

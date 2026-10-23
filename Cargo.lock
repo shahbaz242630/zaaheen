@@ -10072,6 +10072,7 @@ dependencies = [
  "chrono",
  "clap",
  "hyper-util",
+ "libc",
  "rmcp",
  "serde_json",
  "tempfile",
