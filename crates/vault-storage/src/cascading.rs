@@ -74,6 +74,7 @@ use crate::metadata_store::{
     tx_append_audit, tx_get_memory, tx_insert_memory, tx_update_memory, MemoryFilter, MetadataStore,
 };
 use crate::pending_sync::PendingSync;
+use crate::recently_deleted::{tx_check_app_limit, tx_insert_bin, BinBy, BinKind};
 use crate::retry_queue::{CascadeOperation, RetryQueue, PAYLOAD_FORMAT_VERSION};
 use crate::vector_store::{LanceVectorStore, VectorStore};
 
@@ -351,8 +352,13 @@ impl StorageBackend {
     #[instrument(skip(self, memory, embedding), fields(memory_id = %memory.id, dim = embedding.len()))]
     pub async fn write_memory(&self, memory: &Memory, embedding: &[f32]) -> VaultResult<Ack> {
         self.eager_validate(memory, embedding)?;
-        self.cascading_write(memory.clone(), embedding.to_vec(), CascadeOperation::Write)
-            .await
+        self.cascading_write(
+            memory.clone(),
+            embedding.to_vec(),
+            CascadeOperation::Write,
+            None,
+        )
+        .await
     }
 
     /// Cascading update. Same atomicity contract as [`Self::write_memory`].
@@ -360,8 +366,36 @@ impl StorageBackend {
     #[instrument(skip(self, memory, embedding), fields(memory_id = %memory.id, dim = embedding.len()))]
     pub async fn update_memory(&self, memory: &Memory, embedding: &[f32]) -> VaultResult<Ack> {
         self.eager_validate(memory, embedding)?;
-        self.cascading_write(memory.clone(), embedding.to_vec(), CascadeOperation::Update)
-            .await
+        self.cascading_write(
+            memory.clone(),
+            embedding.to_vec(),
+            CascadeOperation::Update,
+            None,
+        )
+        .await
+    }
+
+    /// [`Self::update_memory`] for an edit by the user or an AI app (ADR-114):
+    /// the wording it replaces goes into Recently deleted as `replaced`, in
+    /// the same transaction. An AI app's edit is refused with
+    /// [`VaultError::RateLimited`] once AI apps have made
+    /// [`crate::recently_deleted::APP_CHANGES_PER_HOUR`] changes in the last
+    /// hour (ADR-SEC-049); nothing changes then.
+    #[instrument(skip(self, memory, embedding), fields(memory_id = %memory.id, by = by.as_str()))]
+    pub async fn update_memory_keeping_previous(
+        &self,
+        memory: &Memory,
+        embedding: &[f32],
+        by: BinBy,
+    ) -> VaultResult<Ack> {
+        self.eager_validate(memory, embedding)?;
+        self.cascading_write(
+            memory.clone(),
+            embedding.to_vec(),
+            CascadeOperation::Update,
+            Some(by),
+        )
+        .await
     }
 
     /// Cascading delete. Idempotent: deleting a non-existent id still
@@ -371,6 +405,22 @@ impl StorageBackend {
     /// (nothing to cascade).
     #[instrument(skip(self), fields(memory_id = %id))]
     pub async fn delete_memory(&self, id: &MemoryId) -> VaultResult<Ack> {
+        self.delete_cascading(id, None).await
+    }
+
+    /// [`Self::delete_memory`] for a delete by the user or an AI app
+    /// (ADR-114): the memory is copied into Recently deleted as `deleted` in
+    /// the same transaction as the delete, so it can be restored for
+    /// [`crate::recently_deleted::RECENTLY_DELETED_DAYS`] days. It still leaves
+    /// the search files at once (ADR-039). An AI app's delete is refused with
+    /// [`VaultError::RateLimited`] past the hourly limit (ADR-SEC-049); a
+    /// missing id stays a quiet success and counts for nothing.
+    #[instrument(skip(self), fields(memory_id = %id, by = by.as_str()))]
+    pub async fn move_to_recently_deleted(&self, id: &MemoryId, by: BinBy) -> VaultResult<Ack> {
+        self.delete_cascading(id, Some(by)).await
+    }
+
+    async fn delete_cascading(&self, id: &MemoryId, bin: Option<BinBy>) -> VaultResult<Ack> {
         let id_owned = *id;
         let metadata = self.metadata.clone();
         let in_cap = self.in_cap_overflow.clone();
@@ -386,6 +436,14 @@ impl StorageBackend {
                     let existing = tx_get_memory(tx, &id_for_closure)?;
                     let boundary_owned = existing.as_ref().map(|m| m.boundary.clone());
 
+                    // ADR-114: keep a copy first, in this transaction, so the
+                    // delete and the copy land together or not at all.
+                    if let (Some(by), Some(memory)) = (bin, existing.as_ref()) {
+                        let now = Utc::now();
+                        tx_check_app_limit(tx, by, now)?;
+                        tx_insert_bin(tx, memory, BinKind::Deleted, by, now)?;
+                    }
+
                     let rows = tx
                         .execute(
                             "DELETE FROM memories WHERE id = ?1",
@@ -393,13 +451,18 @@ impl StorageBackend {
                         )
                         .map_err(|e| VaultError::Storage(format!("delete memory: {e}")))?;
 
-                    let mut pending =
-                        PendingAuditEvent::success(AuditEventType::MemoryDelete, ActorKind::System)
-                            .with_resource("memory", id_for_closure.to_string());
+                    let mut pending = PendingAuditEvent::success(
+                        AuditEventType::MemoryDelete,
+                        bin.map_or(ActorKind::System, BinBy::actor),
+                    )
+                    .with_resource("memory", id_for_closure.to_string());
                     if let Some(b) = &boundary_owned {
                         pending = pending.with_boundary(b.clone());
                     }
-                    pending.details_json = format!(r#"{{"deleted":{}}}"#, rows > 0);
+                    pending.details_json = match bin {
+                        None => format!(r#"{{"deleted":{}}}"#, rows > 0),
+                        Some(_) => format!(r#"{{"deleted":{},"recently_deleted":true}}"#, rows > 0),
+                    };
                     let event = tx_append_audit(tx, pending)?;
                     let committed_at = event.timestamp;
                     let audit_seq = event.seq;
@@ -1004,7 +1067,7 @@ impl StorageBackend {
     /// Eager-validate memory + embedding before any SQLite write. Drops
     /// [`VaultError::DimensionMismatch`] / invalid-memory cases on the
     /// floor so they never reach the cascading queue.
-    fn eager_validate(&self, memory: &Memory, embedding: &[f32]) -> VaultResult<()> {
+    pub(crate) fn eager_validate(&self, memory: &Memory, embedding: &[f32]) -> VaultResult<()> {
         memory.validate()?; // content / confidence / etc.
         let expected = self.vector.dimension();
         if embedding.len() != expected {
@@ -1024,14 +1087,22 @@ impl StorageBackend {
         Ok(())
     }
 
+    /// The overflow flag shared by every cascading write (Recently deleted's
+    /// restore enqueues through [`tx_enqueue_cascade`] too).
+    pub(crate) fn in_cap_overflow(&self) -> &Arc<AtomicBool> {
+        &self.in_cap_overflow
+    }
+
     /// Shared SQLite-side body for write + update. The only difference is
     /// (a) the SQL (INSERT vs UPDATE) and (b) the `CascadeOperation` written
-    /// onto the retry-queue row.
+    /// onto the retry-queue row. With `bin` set (ADR-114), an update first
+    /// copies the wording it replaces into Recently deleted.
     async fn cascading_write(
         &self,
         memory: Memory,
         embedding: Vec<f32>,
         op: CascadeOperation,
+        bin: Option<BinBy>,
     ) -> VaultResult<Ack> {
         debug_assert!(matches!(
             op,
@@ -1056,6 +1127,13 @@ impl StorageBackend {
                         AuditEventType::MemoryCreate
                     }
                     CascadeOperation::Update => {
+                        if let Some(by) = bin {
+                            if let Some(previous) = tx_get_memory(tx, &memory_id)? {
+                                let now = Utc::now();
+                                tx_check_app_limit(tx, by, now)?;
+                                tx_insert_bin(tx, &previous, BinKind::Replaced, by, now)?;
+                            }
+                        }
                         let rows = tx_update_memory(tx, &memory)?;
                         if rows == 0 {
                             return Err(VaultError::NotFound(format!(
@@ -1067,42 +1145,28 @@ impl StorageBackend {
                     CascadeOperation::Delete => unreachable!("delete uses delete_memory"),
                 };
 
-                let event = tx_append_audit(
-                    tx,
-                    PendingAuditEvent::success(event_kind, ActorKind::System)
-                        .with_resource("memory", memory_id.to_string())
-                        .with_boundary(memory.boundary.clone()),
-                )?;
+                let mut pending = PendingAuditEvent::success(
+                    event_kind,
+                    bin.map_or(ActorKind::System, BinBy::actor),
+                )
+                .with_resource("memory", memory_id.to_string())
+                .with_boundary(memory.boundary.clone());
+                if bin.is_some() {
+                    pending.details_json = r#"{"recently_deleted":true}"#.to_string();
+                }
+                let event = tx_append_audit(tx, pending)?;
                 let committed_at = event.timestamp;
                 let audit_seq = event.seq;
 
-                let queue_len = tx_count_retry_queue(tx)?;
-                if queue_len < MAX_RETRY_QUEUE_DEPTH {
-                    tx_insert_retry_queue(tx, memory_id, op, audit_seq, &payload_bytes)?;
-                    in_cap.store(false, Ordering::Release);
-                } else {
-                    tx_upsert_pending_sync(
-                        tx,
-                        memory_id,
-                        op,
-                        committed_at,
-                        audit_seq,
-                        &payload_bytes,
-                    )?;
-                    if !in_cap.swap(true, Ordering::AcqRel) {
-                        tx_append_audit(
-                            tx,
-                            PendingAuditEvent::success(
-                                AuditEventType::CascadeQueueOverflow,
-                                ActorKind::System,
-                            )
-                            .error()
-                            .with_details_json(
-                                r#"{"cap":10000,"action":"pending_sync_fallback"}"#.to_string(),
-                            ),
-                        )?;
-                    }
-                }
+                tx_enqueue_cascade(
+                    tx,
+                    memory_id,
+                    op,
+                    committed_at,
+                    audit_seq,
+                    &payload_bytes,
+                    &in_cap,
+                )?;
                 Ok::<DateTime<Utc>, VaultError>(committed_at)
             })
             .await?;
@@ -1118,6 +1182,38 @@ impl StorageBackend {
 // SQL helpers (private to this module — all run inside a caller-supplied
 // `&Transaction<'_>`)
 // ---------------------------------------------------------------------------
+
+/// Queue a write/update cascade (LanceDB + DuckDB) for the retry worker, or
+/// spill it into `pending_sync` at the cap, emitting the one debounced
+/// `cascade.queue_overflow` event on the way into overflow (Phase C plan Q2).
+pub(crate) fn tx_enqueue_cascade(
+    tx: &rusqlite::Transaction<'_>,
+    memory_id: MemoryId,
+    op: CascadeOperation,
+    committed_at: DateTime<Utc>,
+    audit_seq: i64,
+    payload_bytes: &[u8],
+    in_cap: &AtomicBool,
+) -> VaultResult<()> {
+    let queue_len = tx_count_retry_queue(tx)?;
+    if queue_len < MAX_RETRY_QUEUE_DEPTH {
+        tx_insert_retry_queue(tx, memory_id, op, audit_seq, payload_bytes)?;
+        in_cap.store(false, Ordering::Release);
+    } else {
+        tx_upsert_pending_sync(tx, memory_id, op, committed_at, audit_seq, payload_bytes)?;
+        if !in_cap.swap(true, Ordering::AcqRel) {
+            tx_append_audit(
+                tx,
+                PendingAuditEvent::success(AuditEventType::CascadeQueueOverflow, ActorKind::System)
+                    .error()
+                    .with_details_json(
+                        r#"{"cap":10000,"action":"pending_sync_fallback"}"#.to_string(),
+                    ),
+            )?;
+        }
+    }
+    Ok(())
+}
 
 fn tx_count_retry_queue(tx: &rusqlite::Transaction<'_>) -> VaultResult<usize> {
     let n: i64 = tx

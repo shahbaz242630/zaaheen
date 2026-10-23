@@ -96,7 +96,13 @@ pub const MAGIC: &[u8; 4] = b"ZKH1";
 /// `source_agent` is the saving app's own name, not verified (security
 /// audit s89), so the tool contract's hash changed. Nothing else on the pipe
 /// changed; the admin contract is unchanged and moves with this number.
-pub const WIRE: u16 = 6;
+///
+/// 7 (session 109, app 0.3.6): Recently deleted (ADR-114). `memory_delete`
+/// and `memory_update` say a delete or an edit can be undone by the user for
+/// 30 days and that AI apps are limited per hour (ADR-SEC-049), and the admin
+/// contract gains the four `admin_bin_*` tools. Nothing else on the pipe
+/// changed.
+pub const WIRE: u16 = 7;
 
 /// Fresh random bytes each side contributes per connection.
 pub const CHALLENGE_LEN: usize = 32;

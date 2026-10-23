@@ -216,6 +216,12 @@ impl ToolInvokeError {
                 category: "Scheduler".to_string(),
                 message: message.clone(),
             },
+            // ADR-SEC-049: AI apps hit the hourly delete/edit limit. The
+            // message is the count and the limit, never memory content.
+            VaultError::RateLimited(message) => Self::Internal {
+                category: "RateLimited".to_string(),
+                message: message.clone(),
+            },
             VaultError::Mcp(message) => Self::Internal {
                 category: "Mcp".to_string(),
                 message: message.clone(),

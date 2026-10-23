@@ -165,6 +165,15 @@ pub enum AuditEventType {
     ///
     /// [`StorageBackend::apply_archive`]: crate::cascading::StorageBackend::apply_archive
     MemoryArchived,
+
+    /// A memory came back out of Recently deleted (ADR-114): a deleted memory
+    /// written back, or a replaced wording put back. Owner only.
+    MemoryRestored,
+
+    /// Recently deleted entries erased for good (ADR-114): by the owner
+    /// (`"reason":"user"`) or after 30 days (`"reason":"expired"`).
+    /// `details_json` carries the reason and the count, never content.
+    BinErased,
 }
 
 impl AuditEventType {
@@ -188,6 +197,8 @@ impl AuditEventType {
             Self::MemoryDeduped => "memory.deduped",
             Self::MemoryDecayed => "memory.decayed",
             Self::MemoryArchived => "memory.archived",
+            Self::MemoryRestored => "memory.restored",
+            Self::BinErased => "bin.erased",
         }
     }
 
@@ -216,6 +227,8 @@ impl AuditEventType {
             "memory.deduped" => Some(Self::MemoryDeduped),
             "memory.decayed" => Some(Self::MemoryDecayed),
             "memory.archived" => Some(Self::MemoryArchived),
+            "memory.restored" => Some(Self::MemoryRestored),
+            "bin.erased" => Some(Self::BinErased),
             _ => None,
         }
     }
@@ -578,6 +591,8 @@ mod tests {
             AuditEventType::MemoryDeduped,
             AuditEventType::MemoryDecayed,
             AuditEventType::MemoryArchived,
+            AuditEventType::MemoryRestored,
+            AuditEventType::BinErased,
         ] {
             assert_eq!(AuditEventType::parse(et.as_str()), Some(et));
         }

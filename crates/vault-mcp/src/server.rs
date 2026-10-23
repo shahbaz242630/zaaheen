@@ -62,6 +62,17 @@ fn desk_busy() -> CallToolResult {
     CallToolResult::error(vec![ContentBlock::text(MSG_BUSY)])
 }
 
+/// What an AI app reads when AI apps together have deleted or changed as many
+/// memories as the hour allows (ADR-SEC-049). Fixed English, no data; the
+/// agent passes it on to the user (ADR-103 D2).
+pub const MSG_PAUSED: &str = "Zaaheen has paused deletes and edits from AI apps for a while, \
+     to protect your memories. You can delete or edit them in the Zaaheen app.";
+
+/// The paused answer: a tool result the agent reads, not a protocol error.
+fn paused() -> CallToolResult {
+    CallToolResult::error(vec![ContentBlock::text(MSG_PAUSED)])
+}
+
 /// The answer to a cancelled call. rmcp does not send a reply for a request
 /// its caller cancelled, so nobody normally reads this; it exists so the
 /// handler still returns a well-formed result.
@@ -1088,6 +1099,13 @@ impl StdioServer {
                        \n\
                        6. Never first-person agent reference. \
                        \n\n\
+                       UNDO: the wording an update replaces is kept in \
+                       the user's Recently deleted list in the Zaaheen \
+                       app for 30 days. AI apps together can delete or \
+                       change at most 30 memories an hour; past that the \
+                       call changes nothing and returns a message to pass \
+                       on to the user. \
+                       \n\n\
                        The vault verifies the memory's stored boundary \
                        against the authorized set before update."
     )]
@@ -1149,6 +1167,9 @@ impl StdioServer {
             .await
             .map_err(vault_error_to_mcp)?;
 
+        if matches!(dispatch_result, Err(VaultError::RateLimited(_))) {
+            return Ok(paused());
+        }
         dispatch_result.map_err(vault_error_to_mcp)?;
         success_json_result(&serde_json::json!({ "updated": p.id }))
     }
@@ -1181,9 +1202,14 @@ impl StdioServer {
                        on agent inference alone; require explicit user \
                        direction. \
                        \n\n\
-                       IRREVERSIBILITY: delete removes the memory + its \
-                       embedding + its cascade rows; provenance is lost. \
-                       Prefer update or supersession when in doubt. \
+                       UNDO: the memory leaves the vault at once (no app \
+                       can read or search it) and waits in the user's \
+                       Recently deleted list in the Zaaheen app for 30 \
+                       days, where only the user can restore it or erase \
+                       it sooner. AI apps together can delete or change at \
+                       most 30 memories an hour; past that the call \
+                       changes nothing and returns a message to pass on \
+                       to the user. \
                        \n\n\
                        Idempotent: deleting a non-existent id returns \
                        success."
@@ -1233,6 +1259,9 @@ impl StdioServer {
             .await
             .map_err(vault_error_to_mcp)?;
 
+        if matches!(dispatch_result, Err(VaultError::RateLimited(_))) {
+            return Ok(paused());
+        }
         dispatch_result.map_err(vault_error_to_mcp)?;
         success_json_result(&serde_json::json!({ "deleted": p.id }))
     }
@@ -1384,6 +1413,10 @@ pub(crate) fn vault_error_to_mcp(err: VaultError) -> McpError {
         // and never reaches MCP dispatch; mapped generically for the same
         // privacy posture as the other out-of-band variants if it ever leaks.
         | VaultError::Scheduler(_)
+        // ADR-SEC-049: tool_delete / tool_update answer RateLimited with the
+        // readable paused result before reaching here; generic if it ever
+        // leaks from another path.
+        | VaultError::RateLimited(_)
         | VaultError::ModelUnavailable { .. } => McpError::internal_error("internal error", None),
     }
 }

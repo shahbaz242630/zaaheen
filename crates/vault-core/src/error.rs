@@ -243,6 +243,13 @@ pub enum VaultError {
     /// the API boundary (ADR-SEC-005), caught before any OS call is made.
     #[error("scheduler error: {0}")]
     Scheduler(String),
+
+    /// AI apps together have deleted or changed as many memories as the
+    /// rolling hour allows (ADR-SEC-049). Nothing was changed. The wrapped
+    /// message is for the logs only; the MCP layer answers the app with its
+    /// own fixed sentence, which the agent must read to tell the user.
+    #[error("rate limited: {0}")]
+    RateLimited(String),
 }
 
 /// Why the vault's master key could not be opened (ADR-SEC-029 U1).
@@ -441,6 +448,13 @@ mod tests {
             VaultError::Scheduler("x".into()),
             VaultError::Scheduler(_)
         ));
+    }
+
+    #[test]
+    fn rate_limited_displays_category_prefix() {
+        assert!(VaultError::RateLimited("30 an hour".into())
+            .to_string()
+            .starts_with("rate limited:"));
     }
 
     #[test]

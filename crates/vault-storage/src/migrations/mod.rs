@@ -66,6 +66,11 @@ const MIGRATIONS: &[Migration] = &[
         description: "UI slice 2: boundaries registry (first-class rows, backfilled from memories)",
         up: include_str!("0008_boundaries.sql"),
     },
+    Migration {
+        version: 9,
+        description: "ADR-114 Recently deleted: deleted and replaced memories kept 30 days",
+        up: include_str!("0009_recently_deleted.sql"),
+    },
 ];
 
 /// Apply any pending migrations to the open connection. Uses the

@@ -276,6 +276,12 @@ pub const GATED_COMMANDS: &[&str] = &[
     "update_memory",
     "delete_memory",
     "list_recent_memories",
+    // Recently deleted (ADR-114): vault data, so past the lock like the
+    // memories themselves.
+    "list_recently_deleted",
+    "restore_recently_deleted",
+    "erase_recently_deleted",
+    "empty_recently_deleted",
     "list_boundaries",
     "create_boundary",
     "list_agents",
@@ -725,6 +731,7 @@ mod tests {
     fn every_gated_command_asks_before_it_serves() {
         const SOURCES: &[&str] = &[
             include_str!("commands/memory.rs"),
+            include_str!("commands/recently_deleted.rs"),
             include_str!("commands/boundary.rs"),
             include_str!("commands/agent.rs"),
             include_str!("commands/engine.rs"),

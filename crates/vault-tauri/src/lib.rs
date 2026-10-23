@@ -710,6 +710,10 @@ mod tests {
             ("keeper_start.rs", include_str!("keeper_start.rs")),
             ("guard.rs", include_str!("guard.rs")),
             ("commands/memory.rs", include_str!("commands/memory.rs")),
+            (
+                "commands/recently_deleted.rs",
+                include_str!("commands/recently_deleted.rs"),
+            ),
             ("commands/boundary.rs", include_str!("commands/boundary.rs")),
             ("commands/agent.rs", include_str!("commands/agent.rs")),
             ("commands/settings.rs", include_str!("commands/settings.rs")),

@@ -504,6 +504,23 @@ textarea.mv-input { resize: none; }
 .mem-row:hover .forget { color: var(--faint); }
 .mem-row .forget:hover { color: var(--red); }
 
+/* Recently deleted (ADR-114) */
+.mem-list-links { display: flex; gap: 16px; align-items: baseline; }
+.bin-head {
+  display: flex; gap: 14px; align-items: baseline; justify-content: space-between;
+  padding: 4px 0 10px;
+  font: 400 12px/1.5 var(--sans); color: var(--faint);
+}
+.mem-row .bin-act {
+  flex: none;
+  font: 400 11.5px var(--sans);
+  color: var(--faint);
+  cursor: pointer;
+  border: none; background: none; padding: 0;
+}
+.mem-row .bin-act:hover { color: var(--ink); }
+.mem-row .bin-act.erase:hover { color: var(--red); }
+
 .empty-note {
   padding: 26px 0;
   text-align: center;

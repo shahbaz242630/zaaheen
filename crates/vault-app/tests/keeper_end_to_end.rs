@@ -690,8 +690,12 @@ async fn erasure_waits_out_and_reports_a_maintenance_run() {
 /// this hash, and the fix is to bump `WIRE` deliberately.
 #[test]
 fn the_tool_contract_is_pinned_to_the_wire_version() {
-    // Wire 6 (session 89): `memory_read` says `source_agent` is not
-    // verified; recorded 2026-10-06 on CI (Linux and macOS agree). Wire 5 was
+    // Wire 7 (session 109): `memory_delete` / `memory_update` describe
+    // Recently deleted and the AI-app hourly limit (ADR-114, ADR-SEC-049);
+    // recorded 2026-10-23 on CI (macOS). Wire 6 was
+    // 36c2ad4654001bfd296da020bdd6510684e22a4f43c290ab4daff712ab7263dc
+    // (session 89: `memory_read` says `source_agent` is not verified;
+    // recorded 2026-10-06 on CI, Linux and macOS agree). Wire 5 was
     // 5ca1913b1cd3750439e3e4862fb4551140b03bca0cb1432ac02abfd53a564bd3,
     // recorded 2026-10-03 (session 83: the instructions end with where setup
     // help and fixes live), computed on CI (Linux and macOS agree) under
@@ -703,7 +707,7 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     // 64bafc664287b3e09449bb4c093e38bfa87b287bbb769ce86e14967363a7d836 (CI,
     // Linux and macOS, ADR-SEC-021 D4c); wire 1 was
     // 2e062fb5bc6adb1a62b37ca9c33adb51dbfd2f59249e501d7fa6dfb9871309be.
-    const PINNED: &str = "36c2ad4654001bfd296da020bdd6510684e22a4f43c290ab4daff712ab7263dc";
+    const PINNED: &str = "e1fc11ae9754329166276ba1ff6c16cf1051ff29ba8005a5dbb5cd5410b60b85";
 
     let server = StdioServer::new(Arc::new(NoVaultAdapter), Vec::new());
     let instructions = server.get_info().instructions.unwrap_or_default();
@@ -727,7 +731,7 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     let actual = hasher.finalize().to_hex().to_string();
     assert_eq!(
         (WIRE, actual.as_str()),
-        (6, PINNED),
+        (7, PINNED),
         "The MCP tool contract changed. Relays and keepers from different \
          builds must not disagree about it silently: bump WIRE in \
          vault_app::keeper::handshake and set PINNED to {actual}."

@@ -67,8 +67,8 @@ use vault_retrieval::{
     StructuredReadResponse,
 };
 use vault_storage::{
-    ActorKind, AgentToken, AuditEventType, AuditResult, BoundaryInfo, MemoryFilter, MetadataStore,
-    PendingAuditEvent, StorageBackend,
+    ActorKind, AgentToken, AuditEventType, AuditResult, BinBy, BinEntry, BoundaryInfo,
+    MemoryFilter, MetadataStore, PendingAuditEvent, StorageBackend,
 };
 
 /// Production `vault_mcp::Adapter` impl. Constructed by
@@ -165,52 +165,17 @@ impl VaultAdapter {
             );
         }
     }
-}
 
-#[async_trait]
-impl Adapter for VaultAdapter {
-    async fn search(&self, query: RetrievalQuery) -> VaultResult<Vec<RetrievedMemory>> {
-        // Trust-boundary auth-gating already done at the StdioServer
-        // layer (Step 4). Pass through to the Retriever.
-        self.retriever.retrieve(query).await
-    }
-
-    async fn read(&self, query: ReadQuery) -> VaultResult<StructuredReadResponse> {
-        // Trust-boundary auth-gating already done at the StdioServer
-        // layer per ADR-025 (handle_read populates query.authorized_
-        // boundaries from the trusted slice). Pass through to the
-        // wired StructuredReadPipeline; Commit 6 (ADR-052) removed the
-        // Option wrapper — pipeline is always present.
-        self.read_pipeline.read(query).await
-    }
-
-    async fn write(&self, mut new_memory: NewMemory) -> VaultResult<MemoryId> {
-        // Normalize content to canonical-save shape BEFORE validation.
-        // Belt-and-braces companion to the `memory_write` MCP tool
-        // description's canonical-save contract (T0.2.7 close,
-        // 2026-05-25): the description teaches agents the six rules;
-        // this catches the most common drift cases server-side so
-        // smaller / cheaper LLMs that don't follow the description
-        // perfectly still produce canonical-shape memories. See
-        // `crate::normalization` for the applied rules.
-        //
-        // `Adapter::update` is also normalized — same rationale as the
-        // write path. Closed as the small tech-debt follow-up shipping
-        // alongside this admin-cleanup ride-along.
-        new_memory.content =
-            crate::normalization::normalize_for_canonical_save(&new_memory.content)?;
-
-        // Memory::try_new applies validation + generates a fresh
-        // MemoryId. Embedding is computed from validated content.
-        let memory = Memory::try_new(new_memory)?;
-        let embedding = self.embedding.embed(&memory.content).await?;
-        self.storage.write_memory(&memory, &embedding).await?;
-        self.maintain_keyword_index_upsert(memory.id, &memory.content)
-            .await;
-        Ok(memory.id)
-    }
-
-    async fn update(&self, id: MemoryId, mut new_memory: NewMemory) -> VaultResult<()> {
+    /// Edit a memory on behalf of `by`: an AI app (the MCP `update`) or the
+    /// owner (the keeper's admin `update_memory`). The wording it replaces
+    /// goes into Recently deleted (ADR-114); an AI app is refused with
+    /// [`VaultError::RateLimited`] past the hourly limit (ADR-SEC-049).
+    pub async fn update_as(
+        &self,
+        id: MemoryId,
+        mut new_memory: NewMemory,
+        by: BinBy,
+    ) -> VaultResult<()> {
         // ADR-028 read-before-write contract: read existing → patch
         // preserved fields → re-compute embedding → cascade update.
 
@@ -263,20 +228,123 @@ impl Adapter for VaultAdapter {
         // stale embedding is a correctness bug.
         let embedding = self.embedding.embed(&updated.content).await?;
 
-        self.storage.update_memory(&updated, &embedding).await?;
+        self.storage
+            .update_memory_keeping_previous(&updated, &embedding, by)
+            .await?;
         self.maintain_keyword_index_upsert(id, &updated.content)
             .await;
         Ok(())
     }
 
-    async fn delete(&self, id: MemoryId) -> VaultResult<()> {
-        // StorageBackend::delete_memory is idempotent at the
-        // cascade layer per cascading.rs:323-329 — deleting a
-        // non-existent id still returns Ok with details.deleted =
-        // false. Pass through.
-        self.storage.delete_memory(&id).await?;
+    /// Delete a memory on behalf of `by` (see [`Self::update_as`]): it moves
+    /// into Recently deleted and leaves search at once. Idempotent: a
+    /// missing id is a quiet success and counts for nothing.
+    pub async fn delete_as(&self, id: MemoryId, by: BinBy) -> VaultResult<()> {
+        self.storage.move_to_recently_deleted(&id, by).await?;
         self.maintain_keyword_index_delete(id).await;
         Ok(())
+    }
+
+    /// Recently deleted, newest first (owner only: no MCP tool reaches it).
+    pub async fn list_recently_deleted(
+        &self,
+        limit: usize,
+        offset: usize,
+    ) -> VaultResult<Vec<BinEntry>> {
+        self.storage.list_recently_deleted(limit, offset).await
+    }
+
+    /// How many entries Recently deleted holds.
+    pub async fn count_recently_deleted(&self) -> VaultResult<u64> {
+        self.storage.count_recently_deleted().await
+    }
+
+    /// Put an entry back (owner only). Re-embeds its wording on this
+    /// computer, as saving does. Returns the memory's id.
+    pub async fn restore_recently_deleted(&self, entry_id: &str) -> VaultResult<MemoryId> {
+        let entry = self
+            .storage
+            .recently_deleted_entry(entry_id)
+            .await?
+            .ok_or_else(|| VaultError::NotFound("recently deleted entry".into()))?;
+        let embedding = self.embedding.embed(&entry.memory.content).await?;
+        let ack = self
+            .storage
+            .restore_from_recently_deleted(entry_id, &embedding)
+            .await?;
+        self.maintain_keyword_index_upsert(ack.memory_id, &entry.memory.content)
+            .await;
+        Ok(ack.memory_id)
+    }
+
+    /// Erase one entry for good (owner's "Delete now").
+    pub async fn erase_recently_deleted(&self, entry_id: &str) -> VaultResult<bool> {
+        self.storage.erase_from_recently_deleted(entry_id).await
+    }
+
+    /// Erase every entry for good (owner's "Empty Recently deleted").
+    pub async fn empty_recently_deleted(&self) -> VaultResult<usize> {
+        self.storage.empty_recently_deleted().await
+    }
+
+    /// Erase entries past their 30 days (keeper start and nightly job).
+    pub async fn purge_recently_deleted(&self) -> VaultResult<usize> {
+        self.storage.purge_recently_deleted(Utc::now()).await
+    }
+}
+
+#[async_trait]
+impl Adapter for VaultAdapter {
+    async fn search(&self, query: RetrievalQuery) -> VaultResult<Vec<RetrievedMemory>> {
+        // Trust-boundary auth-gating already done at the StdioServer
+        // layer (Step 4). Pass through to the Retriever.
+        self.retriever.retrieve(query).await
+    }
+
+    async fn read(&self, query: ReadQuery) -> VaultResult<StructuredReadResponse> {
+        // Trust-boundary auth-gating already done at the StdioServer
+        // layer per ADR-025 (handle_read populates query.authorized_
+        // boundaries from the trusted slice). Pass through to the
+        // wired StructuredReadPipeline; Commit 6 (ADR-052) removed the
+        // Option wrapper — pipeline is always present.
+        self.read_pipeline.read(query).await
+    }
+
+    async fn write(&self, mut new_memory: NewMemory) -> VaultResult<MemoryId> {
+        // Normalize content to canonical-save shape BEFORE validation.
+        // Belt-and-braces companion to the `memory_write` MCP tool
+        // description's canonical-save contract (T0.2.7 close,
+        // 2026-05-25): the description teaches agents the six rules;
+        // this catches the most common drift cases server-side so
+        // smaller / cheaper LLMs that don't follow the description
+        // perfectly still produce canonical-shape memories. See
+        // `crate::normalization` for the applied rules.
+        //
+        // `Adapter::update` is also normalized — same rationale as the
+        // write path. Closed as the small tech-debt follow-up shipping
+        // alongside this admin-cleanup ride-along.
+        new_memory.content =
+            crate::normalization::normalize_for_canonical_save(&new_memory.content)?;
+
+        // Memory::try_new applies validation + generates a fresh
+        // MemoryId. Embedding is computed from validated content.
+        let memory = Memory::try_new(new_memory)?;
+        let embedding = self.embedding.embed(&memory.content).await?;
+        self.storage.write_memory(&memory, &embedding).await?;
+        self.maintain_keyword_index_upsert(memory.id, &memory.content)
+            .await;
+        Ok(memory.id)
+    }
+
+    /// The MCP path: an AI app's edit (ADR-114: the old wording is kept in
+    /// Recently deleted; ADR-SEC-049: limited per hour).
+    async fn update(&self, id: MemoryId, new_memory: NewMemory) -> VaultResult<()> {
+        self.update_as(id, new_memory, BinBy::App).await
+    }
+
+    /// The MCP path: an AI app's delete (into Recently deleted, limited).
+    async fn delete(&self, id: MemoryId) -> VaultResult<()> {
+        self.delete_as(id, BinBy::App).await
     }
 
     /// ADR-025 amendment 2026-05-05: returns the memory's stored

@@ -35,6 +35,10 @@ const APP_JS: &str = include_str!("../dist/app.js");
 /// Command modules, in `generate_handler!` registration order.
 const COMMAND_SOURCES: &[(&str, &str)] = &[
     ("memory.rs", include_str!("../src/commands/memory.rs")),
+    (
+        "recently_deleted.rs",
+        include_str!("../src/commands/recently_deleted.rs"),
+    ),
     ("boundary.rs", include_str!("../src/commands/boundary.rs")),
     ("agent.rs", include_str!("../src/commands/agent.rs")),
     ("settings.rs", include_str!("../src/commands/settings.rs")),

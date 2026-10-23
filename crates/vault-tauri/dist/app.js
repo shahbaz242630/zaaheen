@@ -656,6 +656,8 @@ const state = {
   grantedAgents: [],                         // from list_agents (access keys)
   boundaries: [],                            // from list_boundaries
   showInlineAdd: false,
+  binView: false,                            // Memories › Recently deleted (ADR-114)
+  binShown: 50,                              // how many entries "Show more" has asked for
   showBoundaryAdd: false,
   toastTimer: null,
   searchSeq: 0,
@@ -1206,6 +1208,15 @@ function renderNav2() {
 async function renderMemList() {
   const q = state.query.trim();
   const seq = ++state.searchSeq;
+  // Searching always leaves Recently deleted.
+  if (q) state.binView = false;
+  $("bin-toggle").textContent = state.binView ? "Back to memories" : "Recently deleted";
+  $("add-toggle").classList.toggle("hidden", state.binView);
+  $("bin-head").classList.toggle("hidden", !state.binView);
+  if (state.binView) {
+    renderBin();
+    return;
+  }
   if (!q) {
     $("mem-list-title").textContent = "Recently remembered";
     const rseq = ++state.recentSeq;
@@ -1254,8 +1265,8 @@ function renderMemRows(rows, emptyText) {
       const id = row.dataset.id;
       const ok = await confirmAction({
         title: "Forget this memory?",
-        body: "It will be permanently deleted from your vault straight away. "
-            + "There is no undo and no recovery period.",
+        body: "It leaves your memories straight away, and no AI app can see it. "
+            + "It moves to Recently deleted, where you can restore it for 30 days.",
         confirmLabel: "Forget it",
       });
       if (!ok) return;
@@ -1267,6 +1278,115 @@ function renderMemRows(rows, emptyText) {
       }
     });
   });
+}
+
+// -- recently deleted (ADR-114) --
+//
+// Deleted memories and replaced wordings, kept 30 days. Only the owner sees
+// this list: AI apps have no tool for it.
+
+const BIN_PAGE = 50;
+
+function binWho(e) {
+  const who = e.by === "you" ? "you" : "an AI app";
+  return e.kind === "replaced" ? `Replaced by an edit from ${who}` : `Deleted by ${who}`;
+}
+
+async function renderBin() {
+  $("mem-list-title").textContent = "Recently deleted";
+  const rseq = ++state.recentSeq;
+  try {
+    // Page by page up to what "Show more" has asked for, so every entry can
+    // be reached and restored on its own.
+    const entries = [];
+    let total = 0;
+    for (;;) {
+      const page = await invoke("list_recently_deleted", { limit: BIN_PAGE, offset: entries.length });
+      if (rseq !== state.recentSeq || !state.binView) return; // superseded
+      const got = page.entries || [];
+      total = Number(page.total) || 0;
+      entries.push(...got);
+      if (!got.length || entries.length >= total || entries.length >= state.binShown) break;
+    }
+    $("bin-empty").classList.toggle("hidden", entries.length === 0);
+    if (!entries.length) {
+      $("mem-rows").innerHTML = `<div class="empty-note">Nothing here. Memories you or your AI apps delete wait here for 30 days.</div>`;
+      return;
+    }
+    const more = total > entries.length
+      ? `<div class="center-link"><button id="bin-more" class="link-underline">Show more (${entries.length} of ${total})</button></div>` : "";
+    $("mem-rows").innerHTML = entries.map((e) => `
+      <div class="mem-row" data-entry="${esc(e.entry_id)}">
+        <span class="ty">${esc(TYPE_ROW_LABEL[e.memory_type] || e.memory_type)}</span>
+        <span class="tx">${esc(e.content)}</span>
+        <span class="wh">${esc(`${binWho(e)}, ${relTime(e.at)}`)}</span>
+        <button class="bin-act restore" title="Put this back">restore</button>
+        <button class="bin-act erase" title="Erase this for good">delete now</button>
+      </div>`).join("") + more;
+    if ($("bin-more")) {
+      $("bin-more").addEventListener("click", () => {
+        state.binShown += BIN_PAGE;
+        renderBin();
+      });
+    }
+    [...$("mem-rows").querySelectorAll(".bin-act.restore")].forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const row = btn.closest(".mem-row");
+        try {
+          await invoke("restore_recently_deleted", { entryId: row.dataset.entry });
+          renderBin();
+        } catch (err) {
+          alert(`Couldn't restore it: ${err}`);
+        }
+      });
+    });
+    [...$("mem-rows").querySelectorAll(".bin-act.erase")].forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const row = btn.closest(".mem-row");
+        const ok = await confirmAction({
+          title: "Erase this for good?",
+          body: "It will be erased from your computer now. This cannot be undone.",
+          confirmLabel: "Erase it",
+        });
+        if (!ok) return;
+        try {
+          await invoke("erase_recently_deleted", { entryId: row.dataset.entry });
+          renderBin();
+        } catch (err) {
+          alert(`Couldn't erase it: ${err}`);
+        }
+      });
+    });
+  } catch (err) {
+    if (rseq !== state.recentSeq) return;
+    $("mem-rows").innerHTML = `<div class="empty-note">Couldn't load Recently deleted: ${esc(String(err))}</div>`;
+  }
+}
+
+async function emptyBin() {
+  const ok = await confirmAction({
+    title: "Empty Recently deleted?",
+    body: "Everything in Recently deleted will be erased from your computer now. This cannot be undone.",
+    confirmLabel: "Empty it",
+  });
+  if (!ok) return;
+  try {
+    await invoke("empty_recently_deleted");
+    renderBin();
+  } catch (err) {
+    alert(`Couldn't empty it: ${err}`);
+  }
+}
+
+function toggleBin() {
+  state.binView = !state.binView;
+  state.binShown = BIN_PAGE;
+  if (state.binView) {
+    state.query = "";
+    $("search-input").value = "";
+    toggleInlineAdd(false);
+  }
+  renderMemList();
 }
 
 function toggleInlineAdd(show) {
@@ -3478,6 +3598,9 @@ function init() {
 
   // home — inline add
   $("add-toggle").addEventListener("click", () => toggleInlineAdd());
+  // home — Recently deleted (ADR-114)
+  $("bin-toggle").addEventListener("click", toggleBin);
+  $("bin-empty").addEventListener("click", emptyBin);
   $("add-save").addEventListener("click", saveInlineMemory);
   $("add-cancel").addEventListener("click", () => toggleInlineAdd(false));
 
