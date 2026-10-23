@@ -20,6 +20,9 @@ jobs:
   mac-test-build:
     runs-on: macos-latest
     timeout-minutes: 240
+    # The Apple secrets live only in the `release` environment (founder's
+    # approval; security audit s101 #19 / s104 SUP-2), as in release-build.yml.
+    environment: release
     env:
       MACOSX_DEPLOYMENT_TARGET: '13.0'
     steps:
@@ -49,10 +52,24 @@ jobs:
           ZAAHEEN_LEASE_PRIMARY_KEY: ${{ secrets.MAC_TEST_LEASE_PRIMARY_KEY }}
           ZAAHEEN_LEASE_BACKUP_KID: ${{ secrets.MAC_TEST_LEASE_BACKUP_KID }}
           ZAAHEEN_LEASE_BACKUP_KEY: ${{ secrets.MAC_TEST_LEASE_BACKUP_KEY }}
-        run: cargo build --release -p vault-cli --bins
+        run: cargo build --release --locked -p vault-cli --bins
 
       - name: Install the Tauri CLI (the version the Windows build uses)
         run: cargo install tauri-cli --version 2.11.0 --locked
+
+      # Every compile finishes before the signing key is unlocked (security
+      # audit s104 SUP-1), as in release-build.yml.
+      - name: Compile the desktop app (no signing key yet)
+        working-directory: crates/vault-tauri
+        env:
+          ZAAHEEN_ACCOUNT_ISSUER: ${{ secrets.MAC_TEST_ACCOUNT_ISSUER }}
+          ZAAHEEN_ACCOUNT_CLIENT_ID: ${{ secrets.MAC_TEST_ACCOUNT_CLIENT_ID }}
+          ZAAHEEN_ACCOUNT_API: ${{ secrets.MAC_TEST_ACCOUNT_API }}
+          ZAAHEEN_LEASE_PRIMARY_KID: ${{ secrets.MAC_TEST_LEASE_PRIMARY_KID }}
+          ZAAHEEN_LEASE_PRIMARY_KEY: ${{ secrets.MAC_TEST_LEASE_PRIMARY_KEY }}
+          ZAAHEEN_LEASE_BACKUP_KID: ${{ secrets.MAC_TEST_LEASE_BACKUP_KID }}
+          ZAAHEEN_LEASE_BACKUP_KEY: ${{ secrets.MAC_TEST_LEASE_BACKUP_KEY }}
+        run: cargo tauri build --config tauri.mac-test.conf.json --no-bundle -- --locked
 
       # The Mac app ships its own open-source notices (launch checklist A11):
       # never a copy that differs from the committed, reviewed file.
@@ -124,8 +141,13 @@ jobs:
           export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
           printf '%s\n' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY_PATH"
           unset APPLE_API_KEY_P8
-          cargo tauri build --config tauri.mac-test.conf.json
+          cargo tauri build --config tauri.mac-test.conf.json -- --locked 2>&1 | tee "$RUNNER_TEMP/tauri-sign.log"
+          status=${PIPESTATUS[0]}
           rm -f "$APPLE_API_KEY_PATH"
+          [ "$status" = 0 ] || exit "$status"
+          if grep -E 'Compiling [A-Za-z0-9_-]+ v[0-9]' "$RUNNER_TEMP/tauri-sign.log"; then
+            echo "ABORTED: code compiled while the signing key was unlocked (SUP-1)"; exit 1
+          fi
 
       - name: Apple accepts the bundle (signature, notarisation ticket, Gatekeeper)
         run: |
