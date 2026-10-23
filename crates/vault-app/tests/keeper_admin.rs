@@ -348,6 +348,9 @@ fn args_for(tool: &str) -> Value {
         }),
         "admin_memory_delete" => json!({ "id": vault_core::MemoryId::new().to_string() }),
         "admin_memory_list_recent" => json!({ "limit": 5 }),
+        "admin_bin_list" => json!({ "limit": 5 }),
+        "admin_bin_restore" | "admin_bin_erase" => json!({ "entry_id": "x" }),
+        "admin_bin_empty" => json!({}),
         "admin_boundary_create" => json!({ "name": "work" }),
         "admin_agent_revoke" => json!({ "agent_name": "cursor" }),
         "admin_boundary_list"
@@ -591,10 +594,12 @@ async fn the_admin_server_serves_exactly_the_tools_in_the_table() {
 /// here (ADR-SEC-033 D1).
 #[test]
 fn the_admin_tool_contract_is_pinned_to_the_wire_version() {
-    // Unchanged at wire 5 and 6 (only the AI apps' contract moved).
-    // Recorded 2026-09-24 on Windows under rmcp 3.4.1 (session 60, wire 4,
+    // Wire 7 (session 109): the four admin_bin_* tools (Recently deleted,
+    // ADR-114); recorded 2026-10-23 on CI (macOS). Wires 4 to 6 were
+    // f4d3f7faeca531a07e2e6dfbc93c7cf6d24fa7ead4fdb5e58ae16285edd2b6cf,
+    // recorded 2026-09-24 on Windows under rmcp 3.4.1 (session 60, wire 4,
     // the first admin contract).
-    const PINNED_ADMIN: &str = "f4d3f7faeca531a07e2e6dfbc93c7cf6d24fa7ead4fdb5e58ae16285edd2b6cf";
+    const PINNED_ADMIN: &str = "01c738218b798b9e2025eb133e156dbc469759f18f553fb8b44d4c64a04527e4";
 
     let server = vault_app::admin::AdminServer::new(
         Arc::new(AdminHost::Locked(LockedHost::new(

@@ -657,6 +657,7 @@ const state = {
   boundaries: [],                            // from list_boundaries
   showInlineAdd: false,
   binView: false,                            // Memories › Recently deleted (ADR-114)
+  binShown: 50,                              // how many entries "Show more" has asked for
   showBoundaryAdd: false,
   toastTimer: null,
   searchSeq: 0,
@@ -1295,16 +1296,25 @@ async function renderBin() {
   $("mem-list-title").textContent = "Recently deleted";
   const rseq = ++state.recentSeq;
   try {
-    const page = await invoke("list_recently_deleted", { limit: BIN_PAGE, offset: 0 });
-    if (rseq !== state.recentSeq || !state.binView) return; // superseded
-    const entries = page.entries || [];
+    // Page by page up to what "Show more" has asked for, so every entry can
+    // be reached and restored on its own.
+    const entries = [];
+    let total = 0;
+    for (;;) {
+      const page = await invoke("list_recently_deleted", { limit: BIN_PAGE, offset: entries.length });
+      if (rseq !== state.recentSeq || !state.binView) return; // superseded
+      const got = page.entries || [];
+      total = Number(page.total) || 0;
+      entries.push(...got);
+      if (!got.length || entries.length >= total || entries.length >= state.binShown) break;
+    }
     $("bin-empty").classList.toggle("hidden", entries.length === 0);
     if (!entries.length) {
       $("mem-rows").innerHTML = `<div class="empty-note">Nothing here. Memories you or your AI apps delete wait here for 30 days.</div>`;
       return;
     }
-    const more = page.total > entries.length
-      ? `<div class="empty-note">Showing the newest ${entries.length} of ${Number(page.total)}.</div>` : "";
+    const more = total > entries.length
+      ? `<div class="center-link"><button id="bin-more" class="link-underline">Show more (${entries.length} of ${total})</button></div>` : "";
     $("mem-rows").innerHTML = entries.map((e) => `
       <div class="mem-row" data-entry="${esc(e.entry_id)}">
         <span class="ty">${esc(TYPE_ROW_LABEL[e.memory_type] || e.memory_type)}</span>
@@ -1313,6 +1323,12 @@ async function renderBin() {
         <button class="bin-act restore" title="Put this back">restore</button>
         <button class="bin-act erase" title="Erase this for good">delete now</button>
       </div>`).join("") + more;
+    if ($("bin-more")) {
+      $("bin-more").addEventListener("click", () => {
+        state.binShown += BIN_PAGE;
+        renderBin();
+      });
+    }
     [...$("mem-rows").querySelectorAll(".bin-act.restore")].forEach((btn) => {
       btn.addEventListener("click", async () => {
         const row = btn.closest(".mem-row");
@@ -1364,6 +1380,7 @@ async function emptyBin() {
 
 function toggleBin() {
   state.binView = !state.binView;
+  state.binShown = BIN_PAGE;
   if (state.binView) {
     state.query = "";
     $("search-input").value = "";

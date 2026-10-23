@@ -261,6 +261,25 @@ async fn purge_erases_exactly_the_entries_older_than_thirty_days() {
 }
 
 #[tokio::test]
+async fn an_entry_past_thirty_days_cannot_be_restored_even_before_the_purge() {
+    let (_tmp, b) = backend().await;
+    entry_aged(
+        &b,
+        "expired",
+        BinBy::User,
+        Duration::days(RECENTLY_DELETED_DAYS) + Duration::minutes(1),
+    )
+    .await;
+    let entry = b.list_recently_deleted(1, 0).await.unwrap().remove(0);
+    let err = b
+        .restore_from_recently_deleted(&entry.entry_id, &embedding())
+        .await
+        .unwrap_err();
+    assert!(matches!(err, VaultError::NotFound(_)), "{err}");
+    assert!(exists(&b, &entry.memory.id).await.is_none());
+}
+
+#[tokio::test]
 async fn delete_now_and_empty_erase_for_good() {
     let (_tmp, b) = backend().await;
     for content in ["one", "two", "three"] {

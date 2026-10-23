@@ -319,6 +319,11 @@ impl StorageBackend {
             .with_transaction(move |tx| {
                 let entry = tx_get_entry(tx, &entry_id)?
                     .ok_or_else(|| VaultError::NotFound("recently deleted entry".into()))?;
+                let now = Utc::now();
+                // Past its 30 days it is gone, even before the next purge.
+                if entry.at < now - Duration::days(RECENTLY_DELETED_DAYS) {
+                    return Err(VaultError::NotFound("recently deleted entry".into()));
+                }
                 tx.execute(
                     "DELETE FROM recently_deleted WHERE entry_id = ?1",
                     params![entry_id],
@@ -326,7 +331,6 @@ impl StorageBackend {
                 .map_err(|e| VaultError::Storage(format!("take recently_deleted: {e}")))?;
 
                 let memory = entry.memory;
-                let now = Utc::now();
                 let op = match tx_get_memory(tx, &memory.id)? {
                     Some(current) => {
                         tx_insert_bin(tx, &current, BinKind::Replaced, BinBy::User, now)?;
