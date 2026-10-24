@@ -393,13 +393,13 @@
             <div class="mem-list-head">
               <span id="mem-list-title" class="mem-list-title">Recently remembered</span>
               <span class="mem-list-links">
-                <button id="bin-toggle" class="link-quiet">Recently deleted</button>
-                <button id="add-toggle" class="link-quiet">+ Add a memory</button>
+                <button id="bin-empty" class="link-head danger hidden">Empty Recently deleted</button>
+                <button id="bin-toggle" class="link-head">Recently deleted</button>
+                <button id="add-toggle" class="link-head">+ Add a memory</button>
               </span>
             </div>
             <div id="bin-head" class="bin-head hidden">
               <span class="bin-note">Deleted memories and replaced wordings stay here for 30 days, then are erased for good. Only you can see them.</span>
-              <button id="bin-empty" class="link-quiet hidden">Empty Recently deleted</button>
             </div>
             <div id="inline-add" class="inline-add hidden">
               <textarea id="add-text" class="mv-input" placeholder="Something worth remembering…"></textarea>
@@ -533,9 +533,9 @@
           <nav id="settings-nav" class="settings-nav">
             <button data-section="account">Account</button>
             <button data-section="memories">Your memories</button>
-            <button data-section="about">About Zaaheen</button>
             <button data-section="documents">Documents</button>
             <button data-section="help">Help</button>
+            <button data-section="about">About Zaaheen</button>
           </nav>
           <div class="settings-pane">
 
