@@ -57,6 +57,10 @@ const FIX_WORDS: Record<string, { where: string; fix: string }> = {
     where: 'Seu navegador, depois de entrar pelo app do Zaaheen',
     fix: 'Volte para o app do Zaaheen: ele mostra se você entrou. A página depois do login só confirma isso, então não importa se ela não carregou.',
   },
+  'Zaaheen has paused deletes and edits from AI apps for a while, to protect your memories. You can delete or edit them in the Zaaheen app.': {
+    where: 'Qualquer app de IA, depois de apagar ou alterar muitas memórias',
+    fix: 'Não há nada errado. Juntos, seus apps de IA podem apagar ou alterar 30 memórias por hora, e a pausa termina em menos de uma hora. Para apagar ou editar mais agora, faça isso você mesmo no app do Zaaheen. Tudo o que foi apagado ou alterado fica em Memories, Recently deleted, por 30 dias.',
+  },
 };
 const FIXES_PT = FIXES.map((f) => {
   const words = FIX_WORDS[f.error];

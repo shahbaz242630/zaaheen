@@ -1,7 +1,7 @@
 {
   "/": {
-    "text": "948bd2b410236bd0",
-    "date": "2026-10-21T09:43:57Z"
+    "text": "ba894c9365f8f241",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/ai-and-your-data/": {
     "text": "2b6da38418a7c978",
@@ -12,12 +12,12 @@
     "date": "2026-09-30T05:21:23Z"
   },
   "/de/": {
-    "text": "f8391aa5f0b97f5d",
-    "date": "2026-10-22T19:12:23Z"
+    "text": "5ee6561db133a6e9",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/de/docs/": {
-    "text": "e01d0bb213cee322",
-    "date": "2026-10-22T19:12:23Z"
+    "text": "f5dc86c20305bd0c",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/de/docs/connect-antigravity/": {
     "text": "313dbcbc56825850",
@@ -52,16 +52,16 @@
     "date": "2026-10-22T19:12:23Z"
   },
   "/de/docs/getting-started/": {
-    "text": "696f0fcb254e2172",
-    "date": "2026-10-22T19:14:46Z"
+    "text": "3b8d3c2c8e455494",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/de/docs/subscribe/": {
     "text": "111db7be46bbb934",
     "date": "2026-10-22T19:12:23Z"
   },
   "/de/docs/troubleshooting/": {
-    "text": "722ece90cac2adac",
-    "date": "2026-10-22T19:12:23Z"
+    "text": "243dfac53ad56275",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/de/learn/": {
     "text": "a6511aaa4a6354bb",
@@ -124,8 +124,8 @@
     "date": "2026-10-22T19:12:23Z"
   },
   "/docs/": {
-    "text": "bd45d4302fec942f",
-    "date": "2026-10-21T09:43:57Z"
+    "text": "37f1efa53f368cd8",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/docs/connect-antigravity/": {
     "text": "78b59d555f8a023d",
@@ -160,28 +160,28 @@
     "date": "2026-10-03T05:49:27Z"
   },
   "/docs/getting-started/": {
-    "text": "eb0f69f940d5cdad",
-    "date": "2026-10-21T09:43:57Z"
+    "text": "ebb52b8b39cf246b",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/docs/release-notes/": {
-    "text": "6b6930a1cba1f94e",
-    "date": "2026-10-06T19:00:42Z"
+    "text": "267ebcb8318d395e",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/docs/subscribe/": {
     "text": "2bd84e2cc2eb3be6",
     "date": "2026-10-22T04:35:50Z"
   },
   "/docs/troubleshooting/": {
-    "text": "f9b2aeb84971866e",
-    "date": "2026-10-21T09:43:57Z"
+    "text": "f796177d9f3699c1",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/es/": {
-    "text": "bd9acc44b8339c0b",
-    "date": "2026-10-22T19:12:23Z"
+    "text": "f88158c6fa543924",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/es/docs/": {
-    "text": "e1a8056cb62c153c",
-    "date": "2026-10-22T19:12:23Z"
+    "text": "7c65eb214909b278",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/es/docs/connect-antigravity/": {
     "text": "5b75b41644940857",
@@ -216,16 +216,16 @@
     "date": "2026-10-22T19:12:23Z"
   },
   "/es/docs/getting-started/": {
-    "text": "d0c83933dae33be8",
-    "date": "2026-10-22T19:12:23Z"
+    "text": "f852407caeb582a6",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/es/docs/subscribe/": {
     "text": "eecb6df25848106d",
     "date": "2026-10-22T19:12:23Z"
   },
   "/es/docs/troubleshooting/": {
-    "text": "83f50a7ace8ebeb7",
-    "date": "2026-10-22T19:12:23Z"
+    "text": "8b62bff03246ba4f",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/es/learn/": {
     "text": "44d215105fb07d7f",
@@ -288,12 +288,12 @@
     "date": "2026-10-22T19:12:23Z"
   },
   "/fr/": {
-    "text": "dedf663ad245ec46",
-    "date": "2026-10-22T19:14:46Z"
+    "text": "c1dc85f7e283035c",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/fr/docs/": {
-    "text": "8ba76791128dc819",
-    "date": "2026-10-22T19:12:23Z"
+    "text": "9440bfcf5f560d26",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/fr/docs/connect-antigravity/": {
     "text": "ee8f44acc2e45c47",
@@ -328,16 +328,16 @@
     "date": "2026-10-22T19:12:23Z"
   },
   "/fr/docs/getting-started/": {
-    "text": "6167041731ad9f5d",
-    "date": "2026-10-22T19:14:46Z"
+    "text": "f442732e5890c346",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/fr/docs/subscribe/": {
     "text": "2236657ec9c064d8",
     "date": "2026-10-22T19:14:46Z"
   },
   "/fr/docs/troubleshooting/": {
-    "text": "636eb9c2a791d56c",
-    "date": "2026-10-22T19:14:46Z"
+    "text": "a4a80455b5e37697",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/fr/learn/": {
     "text": "bb2a1718e59745a0",
@@ -480,20 +480,20 @@
     "date": "2026-10-22T04:30:15Z"
   },
   "/privacy/": {
-    "text": "02533582afa566ab",
-    "date": "2026-10-21T11:40:15Z"
+    "text": "5e01c0916f09e12c",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/products/": {
     "text": "8425cdbc056f37ed",
     "date": "2026-10-06T11:21:07Z"
   },
   "/pt/": {
-    "text": "ba75a62031431c7f",
-    "date": "2026-10-22T19:14:46Z"
+    "text": "65e765a7203450ff",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/pt/docs/": {
-    "text": "79d51779be506710",
-    "date": "2026-10-22T19:12:23Z"
+    "text": "512c2191b8c106d4",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/pt/docs/connect-antigravity/": {
     "text": "7901268bc738630f",
@@ -528,16 +528,16 @@
     "date": "2026-10-22T19:12:23Z"
   },
   "/pt/docs/getting-started/": {
-    "text": "4e8341639d947930",
-    "date": "2026-10-22T19:12:23Z"
+    "text": "b3bd77ed006e603f",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/pt/docs/subscribe/": {
     "text": "e242c37d099d6f6d",
     "date": "2026-10-22T19:12:23Z"
   },
   "/pt/docs/troubleshooting/": {
-    "text": "bb7e2551a06034c8",
-    "date": "2026-10-22T19:12:23Z"
+    "text": "382285b0640efa30",
+    "date": "2026-10-24T10:52:04Z"
   },
   "/pt/learn/": {
     "text": "fecbf1174c61e268",
@@ -608,7 +608,7 @@
     "date": "2026-10-21T09:43:57Z"
   },
   "/terms/": {
-    "text": "3564c67476cc1267",
-    "date": "2026-10-04T18:19:40Z"
+    "text": "14169cbed0157f65",
+    "date": "2026-10-24T10:52:04Z"
   }
 }

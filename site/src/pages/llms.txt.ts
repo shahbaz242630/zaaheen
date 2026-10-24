@@ -95,6 +95,11 @@ export const GET: APIRoute = () => {
     '- memory_update: replace a stored memory with a corrected one.',
     '- memory_delete: forget a memory, when the person asks.',
     '',
+    // 0.3.6 (ADR-114, ADR-SEC-049): what an app should tell the person about
+    // undo and the hourly limit; the paused message itself is under fixes.
+    '- Undo: a memory deleted or replaced through memory_delete or memory_update waits for 30 days in the Zaaheen app, under Memories, then "Recently deleted", where the person can restore it. AI apps cannot open or empty that list.',
+    '- Limit: all connected AI apps together can delete or change at most 30 memories an hour. Past that, the tools answer that Zaaheen has paused deletes and edits; tell the person they can delete or edit in the Zaaheen app, or try again within the hour.',
+    '',
     // For an assistant a user asks "help me connect Zaaheen": the whole
     // procedure, so it follows the guides instead of guessing (founder,
     // session 75). The same steps ship as README.txt in the install folder.

@@ -75,4 +75,11 @@ export const FIXES: Fix[] = [
     where: 'Your browser, after signing in from the Zaaheen app',
     fix: 'Go back to the Zaaheen app: it shows whether you are signed in. The page after sign-in only confirms it, so it does not matter if that page failed to load.',
   },
+  // 0.3.6 (ADR-SEC-049): AI apps together may delete or change 30 memories in
+  // any 60 minutes; past that the app is told to pause (vault-mcp MSG_PAUSED).
+  {
+    error: 'Zaaheen has paused deletes and edits from AI apps for a while, to protect your memories. You can delete or edit them in the Zaaheen app.',
+    where: 'Any AI app, after it deletes or changes many memories',
+    fix: 'Nothing is wrong. Your AI apps together can delete or change 30 memories an hour, and the pause lifts within the hour. To delete or edit more now, do it yourself in the Zaaheen app. Anything deleted or changed waits in Memories, Recently deleted, for 30 days.',
+  },
 ];

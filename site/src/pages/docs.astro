@@ -41,6 +41,7 @@ const OUTLINE = [
     { id: 'location', title: 'Where your memories are kept' },
     { id: 'consolidation', title: 'What tidying up does' },
     { id: 'download', title: 'How to take your memories with you' },
+    { id: 'undo', title: 'How to undo a delete or an edit' },
     { id: 'delete', title: 'How to delete everything' },
   ] },
   { id: 'account', title: 'Account and subscription', topics: [
@@ -229,6 +230,24 @@ const topic = (id: string) =>
               <p>Choose <em>Download my memories</em>. It saves everything you've kept as one file.
                  It's yours, whether or not you subscribe: the button stays available even after a
                  trial or subscription ends.</p>
+            </div>
+          </div>
+
+          <div id="undo" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('undo')}</h3>
+                <span class="set-where">Memories › Recently deleted</span>
+              </div>
+              <p>When you or an AI app deletes or changes a memory, the earlier version waits in
+                 <em>Recently deleted</em> for 30 days. Open it from the link above your list of
+                 memories, then choose <em>restore</em> to bring a memory back. <em>delete now</em>
+                 erases one straight away, and <em>Empty Recently deleted</em> erases them all.
+                 After 30 days they are erased for good. Only you can see this list: AI apps
+                 can't open it.</p>
+              <p>AI apps together can delete or change at most 30 memories an hour. After that,
+                 Zaaheen asks them to pause, and you can still delete or edit anything yourself in
+                 the app.</p>
             </div>
           </div>
 

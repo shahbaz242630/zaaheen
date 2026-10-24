@@ -36,6 +36,7 @@ const OUTLINE = [
     { id: 'location', title: 'Dónde se guardan tus recuerdos' },
     { id: 'consolidation', title: 'Qué hace la limpieza' },
     { id: 'download', title: 'Cómo llevarte tus recuerdos' },
+    { id: 'undo', title: 'Cómo deshacer un borrado o un cambio' },
     { id: 'delete', title: 'Cómo borrarlo todo' },
   ] },
   { id: 'account', title: 'Cuenta y suscripción', topics: [
@@ -224,6 +225,24 @@ const topic = (id: string) =>
               <p>Elige <em>Download my memories</em>. Guarda todo lo que has conservado en un solo archivo.
                  Es tuyo, te suscribas o no: el botón sigue disponible incluso cuando termina una
                  prueba o una suscripción.</p>
+            </div>
+          </div>
+
+          <div id="undo" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('undo')}</h3>
+                <span class="set-where">Memories › Recently deleted</span>
+              </div>
+              <p>Cuando tú o una app de IA borran o cambian un recuerdo, la versión anterior espera en
+                 <em>Recently deleted</em> durante 30 días. Ábrelo desde el enlace que está encima de
+                 tu lista de recuerdos y elige <em>restore</em> para recuperar un recuerdo.
+                 <em>delete now</em> borra uno al instante, y <em>Empty Recently deleted</em> los
+                 borra todos. Pasados 30 días se borran para siempre. Solo tú ves esta lista: las
+                 apps de IA no pueden abrirla.</p>
+              <p>Entre todas, las apps de IA pueden borrar o cambiar como mucho 30 recuerdos por hora.
+                 Después, Zaaheen les pide que hagan una pausa, y tú puedes seguir borrando o
+                 editando lo que quieras en la app.</p>
             </div>
           </div>
 

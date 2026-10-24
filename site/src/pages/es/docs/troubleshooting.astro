@@ -57,6 +57,10 @@ const FIXES_ES = [
     where: 'Tu navegador, después de iniciar sesión desde la app de Zaaheen',
     fix: 'Vuelve a la app de Zaaheen: muestra si has iniciado sesión. La página que aparece después de iniciar sesión solo lo confirma, así que no importa si no se cargó.',
   },
+  {
+    where: 'Cualquier app de IA, después de borrar o cambiar muchos recuerdos',
+    fix: 'No pasa nada malo. Entre todas, tus apps de IA pueden borrar o cambiar 30 recuerdos por hora, y la pausa termina en menos de una hora. Para borrar o editar más ahora, hazlo tú en la app de Zaaheen. Todo lo borrado o cambiado espera en Memories, Recently deleted, durante 30 días.',
+  },
 ];
 if (FIXES_ES.length !== FIXES.length) throw new Error('es/docs/troubleshooting: the fixes no longer match data/fixes.ts');
 const FIXES_SHOWN = FIXES.map((f, i) => ({ error: f.error, ...FIXES_ES[i] }));

@@ -57,6 +57,10 @@ const FIXES_DE: Record<string, { where: string; fix: string }> = {
     where: 'Dein Browser, nach der Anmeldung aus der Zaaheen-App',
     fix: 'Geh zurück zur Zaaheen-App: Sie zeigt, ob du angemeldet bist. Die Seite nach der Anmeldung bestätigt das nur, es macht also nichts, wenn sie nicht geladen hat.',
   },
+  'Zaaheen has paused deletes and edits from AI apps for a while, to protect your memories. You can delete or edit them in the Zaaheen app.': {
+    where: 'Jede KI-App, nachdem sie viele Erinnerungen gelöscht oder geändert hat',
+    fix: 'Es ist alles in Ordnung. Deine KI-Apps können zusammen 30 Erinnerungen pro Stunde löschen oder ändern, und die Pause endet innerhalb einer Stunde. Willst du jetzt mehr löschen oder bearbeiten, mach es selbst in der Zaaheen-App. Alles Gelöschte oder Geänderte liegt 30 Tage lang unter Memories, Recently deleted.',
+  },
 };
 const FIXES_LIST = FIXES.map((f) => {
   const de = FIXES_DE[f.error];

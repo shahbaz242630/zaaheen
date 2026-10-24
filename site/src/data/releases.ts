@@ -24,6 +24,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
       'Recently deleted, in Memories. When you or an AI app deletes or changes a memory, the earlier version waits there for 30 days. "restore" brings it back; "delete now" or "Empty Recently deleted" erases it sooner. After 30 days it is erased for good.',
       'AI apps together can delete or change at most 30 memories an hour. After that Zaaheen tells the app to pause, and you can still delete or edit anything yourself in the Zaaheen app.',
       'Delete everything and Delete my account also empty Recently deleted.',
+      'The links above your memories (Recently deleted, + Add a memory) are easier to see, and About Zaaheen now comes last in Settings.',
     ],
     fixed: [
       'On a Mac, Zaaheen left a crash report each time it closed in the background, and the nightly tidy-up was marked as failed even when it had finished. No memories were lost. Both are fixed.',
