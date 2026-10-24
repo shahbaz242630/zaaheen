@@ -483,7 +483,7 @@ textarea.mv-input { resize: none; }
   display: flex; align-items: baseline; justify-content: space-between;
   margin-bottom: 6px;
 }
-.mem-list-title { font: 500 13px var(--sans); color: var(--muted); }
+.mem-list-title { font: 600 13px var(--sans); color: var(--ink-soft); }
 
 .mem-row {
   display: flex; gap: 14px;
@@ -505,16 +505,26 @@ textarea.mv-input { resize: none; }
 .mem-row .forget:hover { color: var(--red); }
 
 /* Recently deleted (ADR-114) */
-.mem-list-links { display: flex; gap: 16px; align-items: baseline; }
+.mem-list-links { display: flex; gap: 18px; align-items: baseline; }
+/* The list's own links (session 112, founder): as easy to see as its heading. */
+.link-head {
+  font: 500 13px var(--sans);
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.link-head:hover { color: var(--ink); text-decoration: underline; }
+.link-head.danger:hover { color: var(--red); }
 .bin-head {
-  display: flex; gap: 14px; align-items: baseline; justify-content: space-between;
-  padding: 4px 0 10px;
-  font: 400 12px/1.5 var(--sans); color: var(--faint);
+  padding: 2px 0 10px;
+  font: 400 12px/1.5 var(--sans); color: var(--muted);
 }
 .mem-row .bin-act {
   flex: none;
-  font: 400 11.5px var(--sans);
-  color: var(--faint);
+  font: 500 12px var(--sans);
+  color: var(--ink-soft);
   cursor: pointer;
   border: none; background: none; padding: 0;
 }
