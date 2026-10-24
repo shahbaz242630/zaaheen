@@ -65,7 +65,7 @@ export const RELEASE = {
     // SHA-256 of the file on dl.zaaheen.com, published so people can check their
     // download (security audit s89). Every release sets it from the build's
     // .sha256.txt, read back from dl.zaaheen.com; scripts/release-facts.test.mjs.
-    sha256: '788ee9d6c9c2d618ccbc403d76a62f9679c5ac8b5758fc64f6692f7c58a6cffa',
+    sha256: 'f67efcdc7a2cffacffab947f78b4581cfba50f08d6e85a3748164aa1072c9cff',
     arch: '64-bit',
     // Only Windows 11 has been tested. Do not claim Windows 10 until it has been.
     tested: 'Windows 11',
@@ -76,9 +76,9 @@ export const RELEASE = {
   mac: {
     file: 'Zaaheen_0.3.6_aarch64.dmg',
     url: 'https://dl.zaaheen.com/Zaaheen_0.3.6_aarch64.dmg',
-    // As Finder counts it (154,114,731 bytes, the 0.3.6 production build, session 112).
+    // As Finder counts it (154,116,867 bytes, the 0.3.6 production build, session 112).
     size: '154 MB',
-    sha256: 'd3f2b5c38f1e85b538a8b7d2f40c9882d59b19855001707f075667557d730c76',
+    sha256: '558f4a4fc70f91d64e6fe95ece33a57fc82120a671a13dd398d9f2db186f7306',
     arch: 'Apple chip (M1 or newer)',
     // Only macOS 26 has been tested. Do not claim older versions until they have been.
     tested: 'macOS 26',

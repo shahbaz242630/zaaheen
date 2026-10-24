@@ -28,6 +28,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
     ],
     fixed: [
       'On a Mac, Zaaheen left a crash report each time it closed in the background, and the nightly tidy-up was marked as failed even when it had finished. No memories were lost. Both are fixed.',
+      'When an AI app gave up waiting for an answer, Zaaheen could still finish that work, so the next question from your apps occasionally waited longer than it should. Zaaheen now drops it. Answers were always right; this only affected speed.',
       'Two parts Zaaheen is built on had security fixes published while 0.3.6 was being prepared. This version includes them.',
       'The installers are now built and signed under stricter checks, with the signing key used only after the app is fully built.',
     ],
