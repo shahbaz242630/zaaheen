@@ -44,7 +44,7 @@ repository = "https://github.com/shahbaz242630/zaaheen"
 # cannot drift in the lockfile until first use, so this is safe.
 [workspace.dependencies]
 # Async runtime (BRD §4.1)
-tokio = { version = "=1.52.1", features = ["full"] }
+tokio = { version = "=1.53.3", features = ["full"] }
 # CancellationToken, the type rmcp hands a handler for a cancelled request
 # (session 59: the relay cancels a call the AI app gave up on, and the keeper
 # drops it). Already in the lockfile through rmcp, at this version.
