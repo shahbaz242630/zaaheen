@@ -1213,6 +1213,8 @@ async function renderMemList() {
   $("bin-toggle").textContent = state.binView ? "Back to memories" : "Recently deleted";
   $("add-toggle").classList.toggle("hidden", state.binView);
   $("bin-head").classList.toggle("hidden", !state.binView);
+  // Shown by renderBin once it knows the list is not empty.
+  if (!state.binView) $("bin-empty").classList.add("hidden");
   if (state.binView) {
     renderBin();
     return;

@@ -3517,3 +3517,73 @@ fn the_app_catches_up_with_the_website_without_asking_the_lock() {
         .body
         .contains("refreshAccountView().then(syncAccount);"));
 }
+
+/// Session 112 (founder, on the 0.3.6 install): the links above the memory
+/// list were too faint to find, and "Empty Recently deleted" sat on its own
+/// line under "Back to memories". The list's heading and its links now read
+/// as clearly as each other, every link sits on the heading's line, and the
+/// restore and delete-now buttons are as dark as the memory text beside them.
+#[test]
+fn the_memory_list_heading_and_its_links_are_easy_to_see() {
+    let html = html();
+    let links = collect_between(&html, "<span class=\"mem-list-links\">", "</span>")
+        .into_iter()
+        .next()
+        .expect("the memory list has its links");
+    for id in ["bin-empty", "bin-toggle", "add-toggle"] {
+        assert!(
+            links.contains(&format!("id=\"{id}\" class=\"link-head")),
+            "{id} is not a heading link on the heading's line"
+        );
+    }
+    let note = collect_between(&html, "<div id=\"bin-head\"", "</div>")
+        .into_iter()
+        .next()
+        .expect("Recently deleted has its note");
+    assert!(!note.contains("<button"), "the note line holds no button");
+
+    let css = STYLES_CSS.replace("\r\n", "\n");
+    let rule = |selector: &str| {
+        css.split_once(&format!("\n{selector} {{"))
+            .unwrap_or_else(|| panic!("styles.css has no `{selector}` rule"))
+            .1
+            .split_once('}')
+            .expect("closed")
+            .0
+            .to_string()
+    };
+    for selector in [".mem-list-title", ".link-head", ".mem-row .bin-act"] {
+        let body = rule(selector);
+        assert!(
+            body.contains("color: var(--ink-soft);"),
+            "`{selector}` is not as dark as the memory text"
+        );
+        assert!(
+            !body.contains("var(--faint)"),
+            "`{selector}` is still faint"
+        );
+    }
+    assert!(rule(".link-head").contains("font: 500 13px var(--sans);"));
+    assert!(rule(".mem-list-title").contains("font: 600 13px var(--sans);"));
+    assert!(rule(".bin-head").contains("color: var(--muted);"));
+}
+
+/// Session 112 (founder): About Zaaheen comes last in Settings, below Help.
+#[test]
+fn settings_lists_about_zaaheen_last() {
+    let html = html();
+    let nav = collect_between(&html, "<nav id=\"settings-nav\"", "</nav>")
+        .into_iter()
+        .next()
+        .expect("Settings lists its sections");
+    let order: Vec<&str> = nav
+        .split("data-section=\"")
+        .skip(1)
+        .filter_map(|rest| rest.split_once('"').map(|(s, _)| s))
+        .collect();
+    assert_eq!(
+        order,
+        ["account", "memories", "documents", "help", "about"],
+        "Settings' sections are out of order"
+    );
+}
