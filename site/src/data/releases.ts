@@ -17,6 +17,21 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '0.3.6',
+    date: '2026-10-24',
+    summary: 'Undo a delete or an edit for 30 days, a limit on changes by AI apps, and fixes for the Mac.',
+    added: [
+      'Recently deleted, in Memories. When you or an AI app deletes or changes a memory, the earlier version waits there for 30 days. "restore" brings it back; "delete now" or "Empty Recently deleted" erases it sooner. After 30 days it is erased for good.',
+      'AI apps together can delete or change at most 30 memories an hour. After that Zaaheen tells the app to pause, and you can still delete or edit anything yourself in the Zaaheen app.',
+      'Delete everything and Delete my account also empty Recently deleted.',
+    ],
+    fixed: [
+      'On a Mac, Zaaheen left a crash report each time it closed in the background, and the nightly tidy-up was marked as failed even when it had finished. No memories were lost. Both are fixed.',
+      'Two parts Zaaheen is built on had security fixes published while 0.3.6 was being prepared. This version includes them.',
+      'The installers are now built and signed under stricter checks, with the signing key used only after the app is fully built.',
+    ],
+  },
+  {
     version: '0.3.5',
     date: '2026-10-06',
     summary: 'Security fixes from our own audit.',
