@@ -38,6 +38,7 @@ const OUTLINE = [
     { id: 'location', title: 'Où sont gardés vos souvenirs' },
     { id: 'consolidation', title: 'À quoi sert le rangement' },
     { id: 'download', title: 'Comment emporter vos souvenirs' },
+    { id: 'undo', title: 'Comment annuler une suppression ou une modification' },
     { id: 'delete', title: 'Comment tout supprimer' },
   ] },
   { id: 'account', title: t('fr', 'Account and subscription'), topics: [
@@ -231,6 +232,25 @@ const topic = (id: string) =>
               <p>Choisissez <em>Download my memories</em>. Tout ce que vous avez gardé est enregistré dans un
                  seul fichier. Il vous appartient, que vous soyez abonné ou non : le bouton reste disponible
                  même après la fin d’un essai ou d’un abonnement.</p>
+            </div>
+          </div>
+
+          <div id="undo" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('undo')}</h3>
+                <span class="set-where">Memories › Recently deleted</span>
+              </div>
+              <p>Quand vous ou une application d’IA supprimez ou modifiez un souvenir, la version
+                 précédente attend 30 jours dans <em>Recently deleted</em>. Ouvrez-la depuis le lien
+                 au-dessus de votre liste de souvenirs, puis choisissez <em>restore</em> pour
+                 récupérer un souvenir. <em>delete now</em> en efface un tout de suite, et
+                 <em>Empty Recently deleted</em> les efface tous. Après 30 jours, ils sont effacés
+                 pour de bon. Vous seul voyez cette liste : les applications d’IA ne peuvent pas
+                 l’ouvrir.</p>
+              <p>Ensemble, les applications d’IA peuvent supprimer ou modifier au plus 30 souvenirs par
+                 heure. Ensuite, Zaaheen leur demande de faire une pause, et vous pouvez toujours
+                 supprimer ou modifier ce que vous voulez dans l’application.</p>
             </div>
           </div>
 

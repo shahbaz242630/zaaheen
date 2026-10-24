@@ -36,6 +36,7 @@ const OUTLINE = [
     { id: 'location', title: 'Wo deine Erinnerungen liegen' },
     { id: 'consolidation', title: 'Was das Aufräumen macht' },
     { id: 'download', title: 'So nimmst du deine Erinnerungen mit' },
+    { id: 'undo', title: 'So machst du ein Löschen oder Ändern rückgängig' },
     { id: 'delete', title: 'So löschst du alles' },
   ] },
   { id: 'account', title: 'Konto und Abo', topics: [
@@ -226,6 +227,24 @@ const topic = (id: string) =>
               <p>Wähle <em>Download my memories</em>. Damit speicherst du alles, was du behalten hast, in
                  einer Datei. Sie gehört dir, ob mit Abo oder ohne: Der Knopf bleibt auch nach dem Ende
                  einer Testphase oder eines Abos verfügbar.</p>
+            </div>
+          </div>
+
+          <div id="undo" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('undo')}</h3>
+                <span class="set-where">Memories › Recently deleted</span>
+              </div>
+              <p>Wenn du oder eine KI-App eine Erinnerung löscht oder ändert, wartet die frühere
+                 Fassung 30 Tage lang unter <em>Recently deleted</em>. Öffne die Liste über den Link
+                 über deinen Erinnerungen und wähle <em>restore</em>, um eine Erinnerung
+                 zurückzuholen. <em>delete now</em> löscht eine sofort, <em>Empty Recently
+                 deleted</em> löscht alle. Nach 30 Tagen sind sie endgültig gelöscht. Nur du siehst
+                 diese Liste: KI-Apps können sie nicht öffnen.</p>
+              <p>KI-Apps können zusammen höchstens 30 Erinnerungen pro Stunde löschen oder ändern.
+                 Danach bittet Zaaheen sie um eine Pause, und du kannst in der App weiterhin alles
+                 selbst löschen oder bearbeiten.</p>
             </div>
           </div>
 

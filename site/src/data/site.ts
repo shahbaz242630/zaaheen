@@ -55,17 +55,17 @@ export const RELEASE = {
   // scripts/audit.mjs treats a home page without the installer link as "not on
   // sale"). Set true in the same change that uploads the installer.
   available: true,
-  version: '0.3.5',
+  version: '0.3.6',
   windows: {
     // The name .github/workflows/release-build.yml gives the production installer.
-    file: 'Zaaheen_0.3.5_x64.msi',
-    url: 'https://dl.zaaheen.com/Zaaheen_0.3.5_x64.msi',
-    // As Windows Explorer reports it (155,648,000 bytes, the 0.3.5 production build, session 91).
-    size: '148 MB',
+    file: 'Zaaheen_0.3.6_x64.msi',
+    url: 'https://dl.zaaheen.com/Zaaheen_0.3.6_x64.msi',
+    // As Windows Explorer reports it (155,725,824 bytes, the 0.3.6 production build, session 112).
+    size: '149 MB',
     // SHA-256 of the file on dl.zaaheen.com, published so people can check their
     // download (security audit s89). Every release sets it from the build's
     // .sha256.txt, read back from dl.zaaheen.com; scripts/release-facts.test.mjs.
-    sha256: 'c58c6f0e0ad17ccb1e41855a1e36cfc73b81f9a72e2b3ecd9c106600904d91c0',
+    sha256: 'f67efcdc7a2cffacffab947f78b4581cfba50f08d6e85a3748164aa1072c9cff',
     arch: '64-bit',
     // Only Windows 11 has been tested. Do not claim Windows 10 until it has been.
     tested: 'Windows 11',
@@ -74,11 +74,11 @@ export const RELEASE = {
   // (founder, session 77). Signed and notarised by Apple, a disk image to drag
   // into Applications.
   mac: {
-    file: 'Zaaheen_0.3.5_aarch64.dmg',
-    url: 'https://dl.zaaheen.com/Zaaheen_0.3.5_aarch64.dmg',
-    // As Finder counts it (154,058,492 bytes, the 0.3.5 production build, session 91).
+    file: 'Zaaheen_0.3.6_aarch64.dmg',
+    url: 'https://dl.zaaheen.com/Zaaheen_0.3.6_aarch64.dmg',
+    // As Finder counts it (154,116,867 bytes, the 0.3.6 production build, session 112).
     size: '154 MB',
-    sha256: '615e00a5d5ba9bdef26a64ff321847550ac46b4c3683a2ecdf585c8550d8b41a',
+    sha256: '558f4a4fc70f91d64e6fe95ece33a57fc82120a671a13dd398d9f2db186f7306',
     arch: 'Apple chip (M1 or newer)',
     // Only macOS 26 has been tested. Do not claim older versions until they have been.
     tested: 'macOS 26',

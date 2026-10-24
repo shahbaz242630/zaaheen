@@ -36,6 +36,7 @@ const OUTLINE = [
     { id: 'location', title: 'Onde suas memórias ficam' },
     { id: 'consolidation', title: 'O que a arrumação faz' },
     { id: 'download', title: 'Como levar suas memórias com você' },
+    { id: 'undo', title: 'Como desfazer uma exclusão ou uma alteração' },
     { id: 'delete', title: 'Como apagar tudo' },
   ] },
   { id: 'account', title: 'Conta e assinatura', topics: [
@@ -224,6 +225,24 @@ const topic = (id: string) =>
               <p>Escolha <em>Download my memories</em>. Isso salva tudo o que você guardou em um único arquivo.
                  Ele é seu, assinando ou não: o botão continua disponível mesmo depois que um
                  teste ou uma assinatura termina.</p>
+            </div>
+          </div>
+
+          <div id="undo" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('undo')}</h3>
+                <span class="set-where">Memories › Recently deleted</span>
+              </div>
+              <p>Quando você ou um app de IA apaga ou altera uma memória, a versão anterior fica em
+                 <em>Recently deleted</em> por 30 dias. Abra pelo link acima da sua lista de
+                 memórias e escolha <em>restore</em> para trazer uma memória de volta.
+                 <em>delete now</em> apaga uma na hora, e <em>Empty Recently deleted</em> apaga
+                 todas. Depois de 30 dias, elas são apagadas para sempre. Só você vê esta lista: os
+                 apps de IA não conseguem abri-la.</p>
+              <p>Juntos, os apps de IA podem apagar ou alterar no máximo 30 memórias por hora. Depois
+                 disso, o Zaaheen pede que eles façam uma pausa, e você continua podendo apagar ou
+                 editar o que quiser no app.</p>
             </div>
           </div>
 
