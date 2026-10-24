@@ -4,8 +4,8 @@
 
 Zaaheen is a desktop app that gives AI assistants one private, persistent memory about the person using them. Memories are stored and encrypted on that person's own computer and are never uploaded. The account is only for signing in and the subscription; it never holds the memories.
 
-- Current version: 0.3.5, for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
-- Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.5_x64.msi (148 MB, SHA-256 c58c6f0e0ad17ccb1e41855a1e36cfc73b81f9a72e2b3ecd9c106600904d91c0); Mac https://dl.zaaheen.com/Zaaheen_0.3.5_aarch64.dmg (154 MB, SHA-256 615e00a5d5ba9bdef26a64ff321847550ac46b4c3683a2ecdf585c8550d8b41a), a disk image: drag Zaaheen into Applications and open it from there.
+- Current version: 0.3.6, for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
+- Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.6_x64.msi (149 MB, SHA-256 f67efcdc7a2cffacffab947f78b4581cfba50f08d6e85a3748164aa1072c9cff); Mac https://dl.zaaheen.com/Zaaheen_0.3.6_aarch64.dmg (154 MB, SHA-256 558f4a4fc70f91d64e6fe95ece33a57fc82120a671a13dd398d9f2db186f7306), a disk image: drag Zaaheen into Applications and open it from there.
 - Free trial: 30 days, no card needed.
 - Price after the trial: $5 a month or $48 a year (US dollars, plus VAT or sales tax where it applies). Both plans include everything. Sold through our reseller Paddle.com.
 - Cancel any time in the app: Settings, then Account, then "Cancel subscription". A payment is refunded in full if asked within 14 days of it, once per person.
@@ -22,6 +22,9 @@ Zaaheen runs a local MCP server with five tools:
 - memory_write: save one fact about the person.
 - memory_update: replace a stored memory with a corrected one.
 - memory_delete: forget a memory, when the person asks.
+
+- Undo: a memory deleted or replaced through memory_delete or memory_update waits for 30 days in the Zaaheen app, under Memories, then "Recently deleted", where the person can restore it. AI apps cannot open or empty that list.
+- Limit: all connected AI apps together can delete or change at most 30 memories an hour. Past that, the tools answer that Zaaheen has paused deletes and edits; tell the person they can delete or edit in the Zaaheen app, or try again within the hour.
 
 ## Helping someone connect Zaaheen
 
@@ -106,14 +109,19 @@ Please follow both steps. If you skip one, your app may not use Zaaheen.
 - "Your memories were NOT deleted, and they are still readable." (Mac, after Delete everything or Delete my account in Zaaheen 0.3.0): Update Zaaheen to the latest version from zaaheen.com (0.3.1 or later), then try again. Nothing was deleted, and your account and subscription were not changed.
 - "Still working. This is taking longer than usual. Please keep Zaaheen open." (Mac, during Delete everything or Delete my account): macOS may be asking about Zaaheen and your keychain in a box behind the Zaaheen window: look for it and choose Allow. The delete then finishes. Nothing is deleted until your key is gone, so if you close Zaaheen instead, your memories are still there and you can try again.
 - "This site can't be reached (or another browser error) right after signing in" (Your browser, after signing in from the Zaaheen app): Go back to the Zaaheen app: it shows whether you are signed in. The page after sign-in only confirms it, so it does not matter if that page failed to load.
+- "Zaaheen has paused deletes and edits from AI apps for a while, to protect your memories. You can delete or edit them in the Zaaheen app." (Any AI app, after it deletes or changes many memories): Nothing is wrong. Your AI apps together can delete or change 30 memories an hour, and the pause lifts within the hour. To delete or edit more now, do it yourself in the Zaaheen app. Anything deleted or changed waits in Memories, Recently deleted, for 30 days.
 
 ## Release notes
 
-- Latest: 0.3.5, 2026-10-06. Security fixes from our own audit.
-- Fixed in 0.3.5: An AI app could change a memory that was kept away from it. It can now change only the memories it's allowed to see.
-- Fixed in 0.3.5: Zaaheen's log file could record words from your memories or your searches. It no longer does.
-- Fixed in 0.3.5: The name an AI app gives itself when it saves a memory is now cleaned and shortened, and shown as not verified.
-- Fixed in 0.3.5: Zaaheen now checks your plan with our server each time it starts and once a day, instead of relying on the record kept on your computer.
+- Latest: 0.3.6, 2026-10-24. Undo a delete or an edit for 30 days, a limit on changes by AI apps, and fixes for the Mac.
+- New in 0.3.6: Recently deleted, in Memories. When you or an AI app deletes or changes a memory, the earlier version waits there for 30 days. "restore" brings it back; "delete now" or "Empty Recently deleted" erases it sooner. After 30 days it is erased for good.
+- New in 0.3.6: AI apps together can delete or change at most 30 memories an hour. After that Zaaheen tells the app to pause, and you can still delete or edit anything yourself in the Zaaheen app.
+- New in 0.3.6: Delete everything and Delete my account also empty Recently deleted.
+- New in 0.3.6: The links above your memories (Recently deleted, + Add a memory) are easier to see, and About Zaaheen now comes last in Settings.
+- Fixed in 0.3.6: On a Mac, Zaaheen left a crash report each time it closed in the background, and the nightly tidy-up was marked as failed even when it had finished. No memories were lost. Both are fixed.
+- Fixed in 0.3.6: When an AI app gave up waiting for an answer, Zaaheen could still finish that work, so the next question from your apps occasionally waited longer than it should. Zaaheen now drops it. Answers were always right; this only affected speed.
+- Fixed in 0.3.6: Two parts Zaaheen is built on had security fixes published while 0.3.6 was being prepared. This version includes them.
+- Fixed in 0.3.6: The installers are now built and signed under stricter checks, with the signing key used only after the app is fully built.
 - Every release, newest first: https://zaaheen.com/docs/release-notes/.
 
 ## Cancelling
