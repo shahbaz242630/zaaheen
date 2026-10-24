@@ -208,6 +208,15 @@ fn soon() -> Instant {
     Instant::now() + Duration::from_secs(10)
 }
 
+/// A read: the stand-in answers it at once.
+fn read_call() -> CallToolRequestParams {
+    let mut params = CallToolRequestParams::new("memory_read");
+    params.arguments = serde_json::json!({ "query": "anything" })
+        .as_object()
+        .cloned();
+    params
+}
+
 fn search_call() -> CallToolRequestParams {
     let mut params = CallToolRequestParams::new("memory_search");
     params.arguments = serde_json::json!({ "query": "anything" })
@@ -1684,6 +1693,13 @@ async fn a_call_the_relay_gives_up_on_is_dropped_by_the_keeper() {
         Arc::new(NoStart),
         Arc::new(FixedKey(MASTER_KEY)),
     );
+    // Connected first, so the 400 ms below is spent at the keeper, which is
+    // what this checks: on a slow runner (session 112) finding the keeper
+    // used it all, and the call was not sent at all (see
+    // `a_call_whose_time_ran_out_while_finding_the_keeper_is_not_sent`).
+    pool.call_tool(read_call(), soon(), CancellationToken::new())
+        .await
+        .expect("connected");
 
     let abandoned = pool
         .call_tool(
@@ -1710,6 +1726,47 @@ async fn a_call_the_relay_gives_up_on_is_dropped_by_the_keeper() {
         adapter.completed(),
         1,
         "only the wanted call ran to the end"
+    );
+
+    drop(pool);
+    let _ = stop.send(());
+    let _ = keeper.await;
+}
+
+/// Session 112: a call whose deadline has passed by the time the keeper is
+/// found is not sent. Sent, it would be cancelled at once, and the cancel can
+/// overtake it on the way: the keeper ignores a cancel for a call it has not
+/// seen, runs the call to the end for nobody, and the next question waits
+/// behind it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_call_whose_time_ran_out_while_finding_the_keeper_is_not_sent() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::slow(Duration::from_secs(3)));
+    let (stop, keeper) = start_keeper(tmp.path(), adapter.clone(), Duration::from_secs(30)).await;
+    let pool = KeeperPool::new(
+        relay_settings(tmp.path().to_path_buf(), &["work"]),
+        Arc::new(NoStart),
+        Arc::new(FixedKey(MASTER_KEY)),
+    );
+
+    let late = pool
+        .call_tool(search_call(), Instant::now(), CancellationToken::new())
+        .await;
+    assert!(matches!(late, Err(UpstreamError::NotSent(_))), "{late:?}");
+
+    let asked = Instant::now();
+    pool.call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+        .expect("served");
+    assert!(
+        asked.elapsed() < Duration::from_millis(4500),
+        "the next call waited behind the late one ({:?})",
+        asked.elapsed()
+    );
+    assert_eq!(
+        adapter.searches().len(),
+        1,
+        "the late call reached the keeper"
     );
 
     drop(pool);
