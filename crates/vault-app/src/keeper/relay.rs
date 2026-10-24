@@ -739,6 +739,18 @@ impl KeeperPool {
             found = self.peer(deadline) => found.map_err(CallError::NotSent)?,
             () = cancel.cancelled() => return Err(CallError::NotSent(ResolveError::Cancelled)),
         };
+        // Found too late (session 112, a CI run): a connect step has its own
+        // budget, so finding the keeper can outlast the call's deadline. A
+        // request sent after its deadline is cancelled at once, the cancel
+        // can reach the keeper first, and rmcp ignores a cancel for an id it
+        // has not seen: the call then runs to the end for nobody and holds
+        // the desk. Not sent, nothing to drop.
+        if cancel.is_cancelled() {
+            return Err(CallError::NotSent(ResolveError::Cancelled));
+        }
+        if Instant::now() >= deadline {
+            return Err(CallError::NotSent(ResolveError::Starting));
+        }
         // Sent as a cancellable request (session 59): when the call's time is
         // up or the AI app cancels it, the keeper is TOLD, and drops the read
         // from its queue. Before, the relay only stopped listening, and the
