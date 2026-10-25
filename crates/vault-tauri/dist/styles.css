@@ -582,6 +582,29 @@ textarea.mv-input { resize: none; }
 .b-row .ds { flex: 1; font: 400 13.5px var(--sans); color: var(--muted); }
 .b-row .mt { flex: none; font: 400 12px var(--sans); color: var(--faint); }
 
+/* The Area dropdown (ADR-115): sized like the type chips beside it. Grey
+   while "Choose an area" is showing, so an unchosen area reads as unfinished. */
+select.area-select {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: 400 13px var(--sans);
+  color: var(--ink);
+  cursor: pointer;
+}
+select.area-select:focus { outline: none; border-color: var(--ink); }
+select.area-select.unchosen { color: var(--faint); }
+
+/* Wide enough that the label box's example is read in full. */
+#boundary-add input.mv-input { display: block; width: 100%; max-width: 520px; }
+
+.boundary-hint {
+  margin: 6px 0 10px;
+  font: 400 12.5px/1.6 var(--sans);
+  color: var(--faint);
+}
+
 .boundary-note {
   margin: 22px auto 40px;
   max-width: 460px;

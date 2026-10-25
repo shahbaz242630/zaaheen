@@ -46,6 +46,8 @@ struct RecordingAdapter {
     /// use this.
     completed: AtomicUsize,
     search_delay: Duration,
+    /// The registry `list_areas` reports (ADR-SEC-050); grows mid-test.
+    areas: Mutex<Vec<Boundary>>,
 }
 
 impl RecordingAdapter {
@@ -62,6 +64,13 @@ impl RecordingAdapter {
 
     fn completed(&self) -> usize {
         self.completed.load(Ordering::SeqCst)
+    }
+
+    fn add_area(&self, name: &str) {
+        self.areas
+            .lock()
+            .unwrap()
+            .push(Boundary::new(name).unwrap());
     }
 }
 
@@ -107,6 +116,20 @@ impl Adapter for RecordingAdapter {
 
     async fn lookup_boundary(&self, _id: MemoryId) -> VaultResult<Option<Boundary>> {
         Ok(None)
+    }
+
+    async fn list_areas(&self) -> VaultResult<Vec<vault_mcp::AreaInfo>> {
+        Ok(self
+            .areas
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|name| vault_mcp::AreaInfo {
+                name: name.clone(),
+                description: None,
+                memory_count: 0,
+            })
+            .collect())
     }
 
     async fn append_tool_invoke_audit(&self, _details: ToolInvokeDetails) -> VaultResult<()> {
@@ -185,10 +208,12 @@ fn keeper_settings(root: std::path::PathBuf, idle_exit: Duration) -> KeeperSetti
 fn relay_settings(root: std::path::PathBuf, boundaries: &[&str]) -> RelaySettings {
     RelaySettings {
         vault: vault_app::keeper::relay::RelayVault::Fixed(root),
-        boundaries: boundaries
-            .iter()
-            .map(|b| Boundary::new(*b).unwrap())
-            .collect(),
+        grant: vault_mcp::Grant::Only(
+            boundaries
+                .iter()
+                .map(|b| Boundary::new(*b).unwrap())
+                .collect(),
+        ),
         resolve_budget: Duration::from_secs(3),
         start_every: Duration::from_millis(200),
         poll_every: Duration::from_millis(50),
@@ -328,6 +353,44 @@ async fn a_relay_reaches_the_keeper_scoped_to_the_boundaries_it_proved() {
         discovery::read(tmp.path()).unwrap().is_none(),
         "a stopping keeper removes its discovery file"
     );
+}
+
+/// ADR-SEC-050, end to end through a real keeper: a relay that asks for
+/// every area reaches every registered area, and an area the user creates
+/// after the relay connected is reached by its next call (s113: memories the
+/// user typed into the app sat in `default`, which no AI app could see).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_relay_granted_every_area_reaches_areas_created_after_it_connected() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let adapter = Arc::new(RecordingAdapter::default());
+    adapter.add_area("default");
+    adapter.add_area("personal");
+    let (stop, keeper) = start_keeper(tmp.path(), adapter.clone(), Duration::from_secs(30)).await;
+
+    let mut settings = relay_settings(tmp.path().to_path_buf(), &["personal"]);
+    settings.grant = vault_mcp::Grant::Every;
+    let pool = KeeperPool::new(settings, Arc::new(NoStart), Arc::new(FixedKey(MASTER_KEY)));
+    pool.call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+        .expect("forwarded");
+    adapter.add_area("Health");
+    pool.call_tool(search_call(), soon(), CancellationToken::new())
+        .await
+        .expect("forwarded");
+
+    let b = |n: &str| Boundary::new(n).unwrap();
+    assert_eq!(
+        adapter.searches(),
+        vec![
+            vec![b("default"), b("personal")],
+            vec![b("default"), b("personal"), b("Health")],
+        ],
+        "every area, resolved again at each call"
+    );
+
+    drop(pool);
+    let _ = stop.send(());
+    assert_eq!(keeper.await.unwrap().unwrap(), KeeperExit::Shutdown);
 }
 
 /// Claude Desktop runs its chat and its shared pool at once; both must be
@@ -699,9 +762,13 @@ async fn erasure_waits_out_and_reports_a_maintenance_run() {
 /// this hash, and the fix is to bump `WIRE` deliberately.
 #[test]
 fn the_tool_contract_is_pinned_to_the_wire_version() {
-    // Wire 7 (session 109): `memory_delete` / `memory_update` describe
-    // Recently deleted and the AI-app hourly limit (ADR-114, ADR-SEC-049);
-    // recorded 2026-10-23 on CI (macOS). Wire 6 was
+    // Wire 8 (session 113, ADR-115 / ADR-SEC-050): every area, the
+    // `memory_help` tool, and instructions that point to it instead of the
+    // website; recorded on CI. Wire 7 was
+    // e1fc11ae9754329166276ba1ff6c16cf1051ff29ba8005a5dbb5cd5410b60b85
+    // (session 109: `memory_delete` / `memory_update` describe Recently
+    // deleted and the AI-app hourly limit, ADR-114, ADR-SEC-049; recorded
+    // 2026-10-23 on CI, macOS). Wire 6 was
     // 36c2ad4654001bfd296da020bdd6510684e22a4f43c290ab4daff712ab7263dc
     // (session 89: `memory_read` says `source_agent` is not verified;
     // recorded 2026-10-06 on CI, Linux and macOS agree). Wire 5 was
@@ -716,17 +783,20 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     // 64bafc664287b3e09449bb4c093e38bfa87b287bbb769ce86e14967363a7d836 (CI,
     // Linux and macOS, ADR-SEC-021 D4c); wire 1 was
     // 2e062fb5bc6adb1a62b37ca9c33adb51dbfd2f59249e501d7fa6dfb9871309be.
-    const PINNED: &str = "e1fc11ae9754329166276ba1ff6c16cf1051ff29ba8005a5dbb5cd5410b60b85";
+    const PINNED: &str = "to-be-recorded-on-ci";
 
     let server = StdioServer::new(Arc::new(NoVaultAdapter), Vec::new());
     let instructions = server.get_info().instructions.unwrap_or_default();
-    // Wire 5 (s83): an app that hits an error can find its fix.
-    assert!(instructions
-        .ends_with("Setup help and fixes for error messages: https://zaaheen.com/llms.txt"));
+    // Wire 8 (s113): an app that needs to know how Zaaheen works asks
+    // `memory_help`, never the website (founder: "it should never say I
+    // dont know how that works... or check the documents on the website").
+    assert!(instructions.contains("Call memory_help"));
+    assert!(!instructions.contains("http"));
     let mut hasher = blake3::Hasher::new();
     hasher.update(instructions.as_bytes());
     for name in [
         "memory_delete",
+        "memory_help",
         "memory_read",
         "memory_search",
         "memory_update",
@@ -740,7 +810,7 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     let actual = hasher.finalize().to_hex().to_string();
     assert_eq!(
         (WIRE, actual.as_str()),
-        (7, PINNED),
+        (8, PINNED),
         "The MCP tool contract changed. Relays and keepers from different \
          builds must not disagree about it silently: bump WIRE in \
          vault_app::keeper::handshake and set PINNED to {actual}."
@@ -1317,6 +1387,7 @@ fn the_tool_contract_does_not_depend_on_the_adapter_behind_it() {
         );
         for name in [
             "memory_delete",
+            "memory_help",
             "memory_read",
             "memory_search",
             "memory_update",

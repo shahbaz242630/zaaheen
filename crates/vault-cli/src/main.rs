@@ -55,7 +55,7 @@ use rmcp::transport::streamable_http_server::session::local::LocalSessionManager
 use rmcp::transport::{StreamableHttpServerConfig, StreamableHttpService};
 use tokio::net::TcpListener;
 use uuid::Uuid;
-use vault_mcp::{DaemonServer, Gate};
+use vault_mcp::{DaemonServer, Gate, Grant};
 
 use vault_app::install_paths;
 use vault_app::maintenance_state::{self, RunOutcome, RunSummary};
@@ -201,12 +201,12 @@ enum Command {
         /// first. Ignored when explicit reranker paths are supplied.
         #[arg(long, env = "VAULT_MODELS_DIR", value_name = "DIR")]
         models_dir: Option<PathBuf>,
-        /// Authorized boundary to expose to the MCP client. Repeatable;
-        /// defaults to ["personal"] when not supplied. Each boundary the
-        /// client can read/write/update/delete must be listed here at
-        /// launch time — the server refuses tool calls that touch other
-        /// boundaries (BRD §11.4.3).
-        #[arg(long, value_name = "NAME", default_values_t = vec!["personal".to_string()])]
+        /// Limit the MCP client to these areas (boundaries). Repeatable.
+        /// Omitted — as on every connection Zaaheen sets up — the client
+        /// reaches every area the user has, including ones created later
+        /// (ADR-115, ADR-SEC-050). Given, the server refuses tool calls that
+        /// touch other areas (BRD §11.4.3).
+        #[arg(long, value_name = "NAME")]
         boundary: Vec<String>,
         /// Local time of day (24-hour `HH:MM`) at which the in-process
         /// nightly consolidator should run. Defaults to `03:00` (BRD §5.6)
@@ -680,9 +680,9 @@ async fn real_main() -> Result<()> {
             }
             let homes = vault_app::location::Homes::production()
                 .map_err(|e| anyhow!("could not find this user's app folders: {e}"))?;
-            let boundaries = parse_agent_boundaries(boundary.clone())?;
+            let grant = mcp_grant(boundary.clone())?;
             return match action {
-                McpAction::Serve => keeper::run_relay(homes, boundaries).await,
+                McpAction::Serve => keeper::run_relay(homes, grant).await,
             };
         }
     }
@@ -949,6 +949,15 @@ async fn dispatch_agent(backend: &StorageBackend, action: AgentAction) -> Result
 }
 
 /// Parse the repeatable `--boundary` flags into validated [`Boundary`] values.
+/// The areas `zaaheen mcp serve` grants its client: every area when no
+/// `--boundary` is given (ADR-SEC-050), else exactly the listed ones.
+fn mcp_grant(raw: Vec<String>) -> Result<Grant> {
+    if raw.is_empty() {
+        return Ok(Grant::Every);
+    }
+    Ok(Grant::Only(parse_agent_boundaries(raw)?))
+}
+
 fn parse_agent_boundaries(raw: Vec<String>) -> Result<Vec<Boundary>> {
     raw.iter()
         .map(|b| Boundary::new(b).map_err(|e| anyhow!("invalid boundary {b:?}: {e}")))
@@ -1372,16 +1381,7 @@ async fn dispatch_mcp(
     // Map raw boundary strings to typed Boundary values up front so any
     // parse failure surfaces before we touch the keychain / open the
     // backend / load models (all expensive).
-    let authorized_boundaries: Vec<Boundary> = boundary
-        .into_iter()
-        .map(|raw| {
-            // `as_str()` so `raw` stays usable for the error message;
-            // `Boundary::new` takes `impl Into<String>` and `&str` is the
-            // simplest type that satisfies it without an early move.
-            Boundary::new(raw.as_str())
-                .map_err(|e| anyhow!("invalid --boundary value {raw:?}: {e}"))
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let grant = mcp_grant(boundary)?;
 
     // Parse the optional --run-at override up front (cheap, fail-fast)
     // before the expensive keychain/backend/model work. `None` leaves the
@@ -1433,31 +1433,28 @@ async fn dispatch_mcp(
     .await?;
 
     match action {
-        McpAction::Serve => {
-            run_mcp_serve(app, authorized_boundaries, consolidation_run_at, models_dir).await
-        }
+        McpAction::Serve => run_mcp_serve(app, grant, consolidation_run_at, models_dir).await,
     }
 }
 
 async fn run_mcp_serve(
     app: Application,
-    authorized_boundaries: Vec<Boundary>,
+    grant: Grant,
     consolidation_run_at: Option<chrono::NaiveTime>,
     models_dir: Option<PathBuf>,
 ) -> Result<()> {
-    eprintln!(
-        "zaaheen mcp serve: ready ({} authorized boundary{})",
-        authorized_boundaries.len(),
-        if authorized_boundaries.len() == 1 {
-            ""
-        } else {
-            "ies"
-        },
-    );
+    match &grant {
+        Grant::Every => eprintln!("zaaheen mcp serve: ready (every area)"),
+        Grant::Only(list) => eprintln!(
+            "zaaheen mcp serve: ready ({} authorized boundar{})",
+            list.len(),
+            if list.len() == 1 { "y" } else { "ies" },
+        ),
+    }
     // The subscription gate (ADR-104), when this build carries a sign-in.
     let gate = build_gate_or_fail()?;
     let handle = app
-        .start_with_mcp(authorized_boundaries, consolidation_run_at, gate)
+        .start_with_mcp(grant, consolidation_run_at, gate)
         .await
         .context("MCP transport bind failed")?;
 
@@ -2615,7 +2612,7 @@ mod tests {
             "--ort-lib",
             "/tmp/libonnxruntime.so",
             // --phi4-model deliberately omitted (Option<PathBuf>; mcp does not require it)
-            // --boundary deliberately omitted (defaults to ["personal"])
+            // --boundary deliberately omitted (every area, ADR-SEC-050)
             "serve",
         ])
         .expect("mcp-serve flat path should parse without phi4 / boundary");
@@ -2667,11 +2664,11 @@ mod tests {
                     models_dir.is_none() || std::env::var("VAULT_MODELS_DIR").is_ok(),
                     "mcp-serve without --models-dir MUST yield None unless env var supplies it"
                 );
-                assert_eq!(
-                    boundary,
-                    vec!["personal".to_string()],
-                    "default --boundary list MUST be exactly ['personal']"
-                );
+                // ADR-SEC-050: no --boundary means every area, never a
+                // hidden default list (s113: the old ["personal"] default
+                // hid every memory the user typed into the app).
+                assert!(boundary.is_empty(), "no --boundary must parse to no list");
+                assert_eq!(mcp_grant(boundary).unwrap(), Grant::Every);
                 assert!(
                     matches!(action, McpAction::Serve),
                     "expected McpAction::Serve; got {action:?}"

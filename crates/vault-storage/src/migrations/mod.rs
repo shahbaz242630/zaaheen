@@ -71,6 +71,11 @@ const MIGRATIONS: &[Migration] = &[
         description: "ADR-114 Recently deleted: deleted and replaced memories kept 30 days",
         up: include_str!("0009_recently_deleted.sql"),
     },
+    Migration {
+        version: 10,
+        description: "ADR-115 areas: backfill the boundaries registry again and seed personal",
+        up: include_str!("0010_areas_backfill.sql"),
+    },
 ];
 
 /// Apply any pending migrations to the open connection. Uses the
@@ -699,5 +704,87 @@ mod tests {
             )
             .unwrap();
         assert_eq!(m1_exists, 0, "no migrations should have applied");
+    }
+
+    fn registry_names(conn: &Connection) -> Vec<String> {
+        conn.prepare("SELECT name FROM boundaries ORDER BY name")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    }
+
+    #[test]
+    fn migration_0010_registers_areas_saved_after_0008() {
+        // The founder's vault (s113): 0008 ran on a vault with no memories, so
+        // only `default` was registered; AI apps then saved into `personal`
+        // and the desktop typed into `default`. `personal` held memories but
+        // was missing from the registry, so the Boundaries page hid it.
+        let mut conn = open_memory();
+        run_with_migrations(&mut conn, &MIGRATIONS[..9]).unwrap();
+        insert_bare_memory(&conn, "m1", "personal", "2026-10-06T02:17:18+00:00");
+        insert_bare_memory(&conn, "m2", "default", "2026-10-08T10:00:00+00:00");
+        insert_bare_memory(&conn, "m3", "Health", "2026-10-25T10:00:00+00:00");
+        assert_eq!(registry_names(&conn), vec!["default".to_string()]);
+
+        run(&mut conn).unwrap();
+
+        assert_eq!(
+            registry_names(&conn),
+            vec![
+                "Health".to_string(),
+                "default".to_string(),
+                "personal".to_string()
+            ],
+            "0010 must register every area that holds memories"
+        );
+        let personal_created: String = conn
+            .query_row(
+                "SELECT created_at FROM boundaries WHERE name = 'personal'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            personal_created, "2026-10-06T02:17:18+00:00",
+            "a backfilled area dates from its earliest memory"
+        );
+    }
+
+    #[test]
+    fn migration_0010_seeds_personal_in_an_empty_vault() {
+        // AI apps save into `personal` when the user names no area, so it
+        // must exist before the first save (an unknown area is refused).
+        let mut conn = open_memory();
+        run(&mut conn).unwrap();
+        assert_eq!(
+            registry_names(&conn),
+            vec!["default".to_string(), "personal".to_string()]
+        );
+    }
+
+    #[test]
+    fn migration_0010_keeps_existing_labels() {
+        let mut conn = open_memory();
+        run_with_migrations(&mut conn, &MIGRATIONS[..9]).unwrap();
+        conn.execute(
+            "INSERT INTO boundaries (name, description, created_at) \
+             VALUES ('personal', 'mine', '2026-01-01T00:00:00+00:00')",
+            [],
+        )
+        .unwrap();
+        insert_bare_memory(&conn, "m1", "personal", "2026-10-06T02:17:18+00:00");
+
+        run(&mut conn).unwrap();
+
+        let description: Option<String> = conn
+            .query_row(
+                "SELECT description FROM boundaries WHERE name = 'personal'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(description.as_deref(), Some("mine"));
     }
 }

@@ -33,6 +33,7 @@ const OUTLINE = [
     { id: 'connect-other', title: 'Outros apps de IA' },
   ] },
   { id: 'memories', title: 'Suas memórias', topics: [
+    { id: 'areas', title: 'Como as áreas funcionam e como adicionar uma' },
     { id: 'location', title: 'Onde suas memórias ficam' },
     { id: 'consolidation', title: 'O que a arrumação faz' },
     { id: 'download', title: 'Como levar suas memórias com você' },
@@ -117,7 +118,7 @@ const topic = (id: string) =>
 
         <section id="connecting" class="docs-section">
           <h2 class="docs-title">Conectar seus apps de IA</h2>
-          <p class="docs-intro">Abra a aba <em>Agents</em> e escolha <em>+ Connect an AI app</em>.
+          <p class="docs-intro">Abra a aba <em>Agents</em> e escolha <em>Connect an app</em>.
              O Zaaheen nunca muda sozinho as configurações de outro app: ele entrega ao app o que é preciso, e
              o app pergunta a você.</p>
 
@@ -184,6 +185,32 @@ const topic = (id: string) =>
 
         <section id="memories" class="docs-section">
           <h2 class="docs-title">Suas memórias</h2>
+
+          <div id="areas" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('areas')}</h3>
+                <span class="set-where">Boundaries</span>
+              </div>
+              <p>O Zaaheen guarda suas memórias em áreas, que o app chama de <em>boundaries</em>.
+                 As áreas mantêm suas memórias organizadas. Todos os apps de IA que você conectar podem
+                 ler e salvar em todas as áreas, inclusive nas que você criar depois. Duas áreas
+                 sempre existem: <em>default</em>, para o que você adiciona no app, e
+                 <em>personal</em>, onde seus apps de IA salvam quando você não indica uma área.</p>
+              <p>Para adicionar uma área, abra <em>Boundaries</em> e escolha <em>+ New boundary</em>.
+                 Digite um nome com letras, números, - ou _ (sem espaços), por exemplo
+                 <em>Health</em>. Você pode adicionar um rótulo curto, como "Consultas médicas e
+                 remédios": ele descreve a área, não é uma memória. Depois escolha <em>Create
+                 boundary</em>. A área nova começa vazia.</p>
+              <p>Para colocar você mesmo uma memória nela, abra <em>Memories</em>, escolha <em>+ Add a
+                 memory</em>, digite e escolha a área em <em>Area</em>. <em>Keep this memory</em> só
+                 fica ativo depois que você escolhe uma. Você também pode pedir a qualquer app de IA
+                 para "salvar isto na minha área Health". Os apps de IA não podem criar áreas: se você
+                 indicar uma que não existe, o app avisa, e você a cria aqui primeiro. Os nomes são
+                 exatos, inclusive maiúsculas: se sua área é <em>Health</em>, o app a sugere quando
+                 pedem "health".</p>
+            </div>
+          </div>
 
           <div id="location" class="set-row">
             <div class="set-text">

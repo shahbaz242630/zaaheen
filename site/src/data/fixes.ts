@@ -31,7 +31,7 @@ export const FIXES: Fix[] = [
   {
     error: 'request timed out (zaaheen: Tools: (none))',
     where: 'Codex in the terminal, after /mcp',
-    fix: 'Update Codex (npm install -g @openai/codex@latest), then run codex again and type /mcp: zaaheen shows as connected with 5 tools.',
+    fix: 'Update Codex (npm install -g @openai/codex@latest), then run codex again and type /mcp: zaaheen shows as connected with 6 tools.',
   },
   {
     error: 'The AI app saves to its own memory, or answers "I don\'t know", instead of using Zaaheen',

@@ -31,7 +31,7 @@ function appSteps(): string[] {
     if (agent.note) out.push(agent.note);
     const quick = agent.connect ? words.CONNECT_WORDS[agent.connect] : null;
     if (quick && t.quick) {
-      out.push(`- ${t.quick}: in ${SITE.name}, Agents, "+ Connect an AI app", "${agent.name}", then "${quick.button}". ${quick.note} ${quick.saved ?? quick.asked}`);
+      out.push(`- ${t.quick}: in ${SITE.name}, Agents, "Connect an app", "${agent.name}", then "${quick.button}". ${quick.note} ${quick.saved ?? quick.asked}`);
     }
     const parts = [agent.hint];
     for (const o of agent.openers ?? []) parts.push(`${o.label}: ${openerText(o, INSTALL_PATH)}`);
@@ -87,13 +87,25 @@ export const GET: APIRoute = () => {
     // crates/vault-mcp/src/server.rs.
     `## What ${SITE.name} gives a connected AI app`,
     '',
-    `${SITE.name} runs a local MCP server with five tools:`,
+    `${SITE.name} runs a local MCP server with six tools:`,
     '',
     '- memory_read: the main tool. Ask one question in plain words and get the matching facts about the person, or a clear "nothing stored" answer.',
     '- memory_search: browse stored memories by free text, best matches first.',
-    '- memory_write: save one fact about the person.',
+    '- memory_write: save one fact about the person, into one of their areas.',
     '- memory_update: replace a stored memory with a corrected one.',
     '- memory_delete: forget a memory, when the person asks.',
+    `- memory_help: the person's areas (names, labels, how many memories each holds) and the full guide to ${SITE.name}: areas, adding memories, undo, the hourly limit, connecting apps and what to do when something seems missing. Use it instead of guessing how the app works.`,
+    '',
+    // 0.3.7 (ADR-115, ADR-SEC-050): every connected app reads and saves in
+    // every area. Same facts as crates/vault-mcp/src/guide.md, which the
+    // memory_help tool returns.
+    '## Areas',
+    '',
+    `- Memories are kept in areas; the ${SITE.name} app calls them boundaries (its Boundaries tab). Every memory is in exactly one area.`,
+    '- A connected AI app can read and save in every area the person has, including an area created after the app connected.',
+    '- Two areas always exist: default (what the person adds in the app unless they choose another area) and personal (where AI apps save when the person does not name an area).',
+    '- Save into personal unless the person names an area; then use its exact name (capitals included).',
+    `- Only the person creates areas, in the ${SITE.name} app (Boundaries, then "+ New boundary"). Saving into an area that does not exist saves nothing and answers with the person's areas and the steps. Never tell the person something does not exist: call memory_help, which has the areas and the full guide.`,
     '',
     // 0.3.6 (ADR-114, ADR-SEC-049): what an app should tell the person about
     // undo and the hourly limit; the paused message itself is under fixes.
@@ -106,7 +118,7 @@ export const GET: APIRoute = () => {
     `## Helping someone connect ${SITE.name}`,
     '',
     `- First, the person opens ${SITE.name} on their computer and signs in; the first sign-in from the app starts the free trial.`,
-    `- In ${SITE.name}: the Agents tab, then "+ Connect an AI app", then the app. That tab shows the exact setting for their computer (its own install path), ready to copy: prefer it to the usual paths below (Windows ${INSTALL_PATH}, Mac ${MAC_INSTALL_PATH}). Use the Copy buttons; a space typed before the command stops it working.`,
+    `- In ${SITE.name}: the Agents tab, then "Connect an app", then the app. That tab shows the exact setting for their computer (its own install path), ready to copy: prefer it to the usual paths below (Windows ${INSTALL_PATH}, Mac ${MAC_INSTALL_PATH}). Use the Copy buttons; a space typed before the command stops it working.`,
     `- Codex (terminal) and ChatGPT Desktop share one settings file (.codex/config.toml); the Cursor IDE uses Cursor Desktop's settings. Connect once.`,
     `- Other apps: ${absolute('/docs/connect-other-apps/')}. More fixes: ${absolute('/docs/troubleshooting/')}.`,
     '',

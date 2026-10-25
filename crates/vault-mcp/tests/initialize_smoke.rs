@@ -202,7 +202,7 @@ async fn full_initialize_round_trip_lists_five_tools_with_expected_names() {
         .await
         .expect("list_tools succeeds");
 
-    assert_eq!(listed.tools.len(), 5, "expected exactly 5 tools advertised");
+    assert_eq!(listed.tools.len(), 6, "expected exactly 6 tools advertised");
 
     let names: BTreeSet<&str> = listed.tools.iter().map(|t| t.name.as_ref()).collect();
     let expected: BTreeSet<&str> = [
@@ -211,12 +211,13 @@ async fn full_initialize_round_trip_lists_five_tools_with_expected_names() {
         "memory_write",
         "memory_update",
         "memory_delete",
+        "memory_help",
     ]
     .into_iter()
     .collect();
     assert_eq!(
         names, expected,
-        "tool names must match the 5-tool contract — set comparison so emit order is not pinned"
+        "tool names must match the 6-tool contract — set comparison so emit order is not pinned"
     );
 
     // Drop the client to close the duplex; the spawned server task

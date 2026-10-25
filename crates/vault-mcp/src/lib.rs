@@ -22,13 +22,14 @@
 //! - **UNTRUSTED:** every field of the JSON-RPC request body. Tool args
 //!   from the MCP client (an AI agent) are NEVER read for authorization
 //!   decisions.
-//! - **TRUSTED:** the `authorized_boundaries: Vec<Boundary>` slice handed
-//!   to [`StdioServer::new`] at startup by `Application` after passphrase
-//!   unlock. This is the SOLE auth-gate input.
+//! - **TRUSTED:** the [`Grant`] handed to the server by the host when the
+//!   connection is made: a fixed list ([`StdioServer::new`]) or every area
+//!   ([`StdioServer::every_area`], ADR-SEC-050), resolved to a non-empty list
+//!   of areas at each call. This is the SOLE auth-gate input.
 //! - **Handlers MUST NOT** parse boundary names from request bodies,
 //!   interpolate request data into auth-gate inputs, or accept boundary
-//!   overrides via headers / metadata. The handler always uses
-//!   `self.authorized_boundaries.clone()`.
+//!   overrides via headers / metadata. A save's `boundary` argument is only
+//!   a target, checked against the resolved list.
 //!
 //! ## Audit (ADR-024 — locked schema)
 //!
@@ -66,6 +67,7 @@
 #![forbid(unsafe_code)]
 
 mod adapter;
+mod areas;
 mod audit;
 mod daemon;
 mod desk;
@@ -74,6 +76,7 @@ mod relay;
 mod server;
 
 pub use adapter::Adapter;
+pub use areas::{unknown_area_text, AreaInfo, Grant, CREATE_AREA_STEPS, HELP_TOPICS};
 pub use audit::{ToolInvokeDetails, ToolInvokeError};
 pub use daemon::DaemonServer;
 pub use desk::{ReadDesk, DESK_BUDGET, MSG_BUSY};
@@ -86,6 +89,6 @@ pub use relay::{
     MSG_TIMED_OUT_SAVE, RELAY_CALL_BUDGET,
 };
 pub use server::{
-    DeleteToolParams, SearchToolParams, StdioServer, UpdateToolParams, WriteToolParams,
-    MAX_SOURCE_AGENT_CHARS, MSG_PAUSED,
+    DeleteToolParams, HelpToolParams, ReadToolParams, SearchToolParams, StdioServer,
+    UpdateToolParams, WriteToolParams, MAX_SOURCE_AGENT_CHARS, MSG_PAUSED,
 };

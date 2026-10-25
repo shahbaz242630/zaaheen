@@ -102,7 +102,13 @@ pub const MAGIC: &[u8; 4] = b"ZKH1";
 /// 30 days and that AI apps are limited per hour (ADR-SEC-049), and the admin
 /// contract gains the four `admin_bin_*` tools. Nothing else on the pipe
 /// changed.
-pub const WIRE: u16 = 7;
+///
+/// 8 (session 113, app 0.3.7, ADR-115 / ADR-SEC-050): purpose 4 asks for
+/// every area; the tool contract gains `memory_help`, `memory_write` /
+/// `WriteToolParams.boundary` explain areas, and the instructions point to
+/// `memory_help` instead of the website. A wire-7 keeper does not know
+/// purpose 4, so an old side is told to restart, as for every bump.
+pub const WIRE: u16 = 8;
 
 /// Fresh random bytes each side contributes per connection.
 pub const CHALLENGE_LEN: usize = 32;
@@ -136,6 +142,12 @@ const PURPOSE_HANDOVER: u8 = 2;
 /// HANDOVER — any holder of the key — but served only on the same wire, so
 /// the admin tool contract always matches.
 const PURPOSE_ADMIN: u8 = 3;
+/// An AI app's relay asking to be served every area in the user's registry,
+/// as it stands at each call (ADR-115, ADR-SEC-050 G2). Carries no boundary
+/// frames; covered by the relay's proof like every purpose, so only a holder
+/// of the vault's key can ask, and a peer cannot turn a fixed-list request
+/// into this one.
+const PURPOSE_SERVE_EVERY: u8 = 4;
 
 const STATUS_REJECTED: u8 = 0;
 const STATUS_SERVING: u8 = 1;
@@ -173,6 +185,8 @@ pub struct KeeperIdentity {
 pub enum KeeperAccept {
     /// Serve this stream with exactly these boundaries.
     Serve { boundaries: Vec<Boundary> },
+    /// Serve this stream with every area (ADR-SEC-050).
+    ServeEvery,
     /// A newer relay asked this keeper to step aside.
     Yield,
     /// A key holder needs the vault to itself; stop serving and exit.
@@ -268,6 +282,34 @@ where
         keys,
         expected,
         boundaries,
+        challenge,
+        step_deadline,
+        WIRE,
+    )
+    .await
+}
+
+/// Run the relay half asking for every area (ADR-SEC-050) instead of a fixed
+/// list. Otherwise exactly [`relay_handshake`].
+///
+/// # Errors
+///
+/// As [`relay_handshake`].
+pub async fn relay_handshake_every<S>(
+    stream: &mut S,
+    keys: &HandshakeKeys,
+    expected: &KeeperIdentity,
+    challenge: [u8; CHALLENGE_LEN],
+    step_deadline: Duration,
+) -> Result<RelayOutcome, HandshakeError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    client_handshake(
+        stream,
+        keys,
+        expected,
+        (PURPOSE_SERVE_EVERY, 0, Vec::new()),
         challenge,
         step_deadline,
         WIRE,
@@ -407,7 +449,9 @@ where
     let mut status = [0u8; 1];
     io_within(step_deadline, stream.read_exact(&mut status)).await?;
     match (purpose, status[0]) {
-        (PURPOSE_SERVE | PURPOSE_ADMIN, STATUS_SERVING) => Ok(RelayOutcome::Serving),
+        (PURPOSE_SERVE | PURPOSE_SERVE_EVERY | PURPOSE_ADMIN, STATUS_SERVING) => {
+            Ok(RelayOutcome::Serving)
+        }
         (PURPOSE_YIELD, STATUS_YIELDING) => Ok(RelayOutcome::KeeperYielded),
         _ => Err(HandshakeError::Rejected),
     }
@@ -612,6 +656,11 @@ where
         stream.flush().await?;
         return Ok(KeeperAccept::Admin);
     }
+    if purpose == PURPOSE_SERVE_EVERY {
+        stream.write_all(&[STATUS_SERVING]).await?;
+        stream.flush().await?;
+        return Ok(KeeperAccept::ServeEvery);
+    }
     match decode_boundaries(n, &frames) {
         Ok(boundaries) => {
             stream.write_all(&[STATUS_SERVING]).await?;
@@ -642,7 +691,7 @@ where
                 return Err(HandshakeError::Malformed("boundary count"));
             }
         }
-        PURPOSE_YIELD | PURPOSE_HANDOVER | PURPOSE_ADMIN => {
+        PURPOSE_YIELD | PURPOSE_HANDOVER | PURPOSE_ADMIN | PURPOSE_SERVE_EVERY => {
             if n != 0 {
                 return Err(HandshakeError::Malformed("yield frame"));
             }
@@ -899,6 +948,68 @@ mod tests {
         let mut first = [0u8; 10];
         keeper_end.read_exact(&mut first).await.unwrap();
         assert_eq!(&first, b"{\"jsonrpc\"");
+    }
+
+    /// ADR-SEC-050 G2: a relay asking for every area is served every area.
+    #[tokio::test]
+    async fn a_relay_asking_for_every_area_is_served_every_area() {
+        let (mut relay_end, keeper_end) = tokio::io::duplex(4096);
+        let keeper = spawn_keeper(keeper_end, 1, WIRE);
+        let outcome = relay_handshake_every(
+            &mut relay_end,
+            &keys(1),
+            &identity(),
+            [3u8; CHALLENGE_LEN],
+            STEP,
+        )
+        .await
+        .unwrap();
+        assert_eq!(outcome, RelayOutcome::Serving);
+        let (accept, _) = keeper.await.unwrap();
+        assert_eq!(accept.unwrap(), KeeperAccept::ServeEvery);
+    }
+
+    /// Only a holder of the vault's key can ask for every area.
+    #[tokio::test]
+    async fn every_area_without_our_key_is_rejected() {
+        let (mut relay_end, keeper_end) = tokio::io::duplex(4096);
+        let keeper = spawn_keeper(keeper_end, 1, WIRE);
+        let status = manual_relay(
+            &mut relay_end,
+            &keys(99),
+            WIRE,
+            PURPOSE_SERVE_EVERY,
+            0,
+            &[],
+            &[],
+        )
+        .await;
+        assert_eq!(status, Some(STATUS_REJECTED));
+        let (accept, _) = keeper.await.unwrap();
+        assert!(matches!(accept, Err(HandshakeError::ProofMismatch)));
+    }
+
+    /// The purpose byte is under the proof: a fixed-list request rewritten
+    /// in flight into "every area" (purpose 0 signed, 4 sent) fails the MAC,
+    /// so a relay's scope cannot be widened between it and the keeper.
+    #[tokio::test]
+    async fn a_fixed_list_request_rewritten_to_every_area_is_rejected() {
+        let (mut s, keeper_end) = tokio::io::duplex(4096);
+        let keeper = spawn_keeper(keeper_end, 1, WIRE);
+        let c_r = [3u8; CHALLENGE_LEN];
+        send_f1(&mut s, WIRE, c_r).await;
+        let (wire_k, c_k) = read_f2(&mut s).await;
+        let t = build_transcript(WIRE, wire_k, &identity(), &c_r, &c_k).unwrap();
+        let (n, frames) = frames_for(&["personal"]);
+        let signed = relay_proof(&keys(1), &t, PURPOSE_SERVE, n, &frames);
+        let mut f3 = vec![PURPOSE_SERVE_EVERY, 0];
+        f3.extend_from_slice(signed.as_bytes());
+        s.write_all(&f3).await.unwrap();
+        let mut status = [0u8; 1];
+        let _ = s.read_exact(&mut status).await;
+        assert_eq!(status[0], STATUS_REJECTED);
+        let (accept, _) = keeper.await.unwrap();
+        assert!(matches!(accept, Err(HandshakeError::ProofMismatch)));
     }
 
     /// A keeper of ANOTHER vault (or anything without this vault's key) is
@@ -1234,6 +1345,7 @@ mod tests {
             ("admin with boundaries", vec![PURPOSE_ADMIN, 2]),
             ("yield with boundaries", vec![PURPOSE_YIELD, 1]),
             ("handover with boundaries", vec![PURPOSE_HANDOVER, 1]),
+            ("every area with boundaries", vec![PURPOSE_SERVE_EVERY, 1]),
         ];
         for (label, bytes) in cases {
             let (mut relay_end, keeper_end) = tokio::io::duplex(4096);

@@ -35,6 +35,7 @@ const OUTLINE = [
     { id: 'connect-other', title: 'Autres applications d’IA' },
   ] },
   { id: 'memories', title: t('fr', 'Your memories'), topics: [
+    { id: 'areas', title: 'Comment fonctionnent les espaces, et comment en ajouter un' },
     { id: 'location', title: 'Où sont gardés vos souvenirs' },
     { id: 'consolidation', title: 'À quoi sert le rangement' },
     { id: 'download', title: 'Comment emporter vos souvenirs' },
@@ -122,7 +123,7 @@ const topic = (id: string) =>
 
         <section id="connecting" class="docs-section">
           <h2 class="docs-title">{section('connecting')}</h2>
-          <p class="docs-intro">Ouvrez l’onglet <em>Agents</em> et choisissez <em>+ Connect an AI app</em>.
+          <p class="docs-intro">Ouvrez l’onglet <em>Agents</em> et choisissez <em>Connect an app</em>.
              Zaaheen ne modifie jamais lui-même les réglages d’une autre application : il donne à
              l’application ce dont elle a besoin, et c’est l’application qui vous le demande.</p>
 
@@ -191,6 +192,35 @@ const topic = (id: string) =>
 
         <section id="memories" class="docs-section">
           <h2 class="docs-title">{section('memories')}</h2>
+
+          <div id="areas" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('areas')}</h3>
+                <span class="set-where">Boundaries</span>
+              </div>
+              <p>Zaaheen range vos souvenirs dans des espaces, que l’application appelle
+                 <em>boundaries</em>. Les espaces gardent vos souvenirs organisés. Chaque application
+                 d’IA que vous connectez peut lire et enregistrer dans tous les espaces, y compris ceux
+                 que vous créez plus tard. Deux espaces existent toujours : <em>default</em>, pour ce
+                 que vous ajoutez dans l’application, et <em>personal</em>, où vos applications d’IA
+                 enregistrent quand vous ne nommez pas d’espace.</p>
+              <p>Pour ajouter un espace, ouvrez <em>Boundaries</em> et choisissez <em>+ New
+                 boundary</em>. Tapez un nom avec des lettres, des chiffres, - ou _ (sans espaces),
+                 par exemple <em>Health</em>. Vous pouvez ajouter une courte description, comme
+                 « Rendez-vous médicaux et médicaments » : elle décrit l’espace, ce n’est pas un
+                 souvenir. Choisissez ensuite <em>Create boundary</em>. Le nouvel espace est vide au
+                 départ.</p>
+              <p>Pour y mettre vous-même un souvenir, ouvrez <em>Memories</em>, choisissez <em>+ Add a
+                 memory</em>, tapez-le, puis choisissez l’espace sous <em>Area</em>. <em>Keep this
+                 memory</em> reste désactivé tant que vous n’en avez pas choisi un. Vous pouvez aussi
+                 demander à n’importe quelle application d’IA d’« enregistrer ceci dans mon espace
+                 Health ». Les applications d’IA ne peuvent pas créer d’espaces : si vous en nommez un
+                 qui n’existe pas, l’application vous le dit, et vous le créez d’abord ici. Les noms
+                 sont exacts, majuscules comprises : si votre espace s’appelle <em>Health</em>,
+                 l’application le propose quand on demande « health ».</p>
+            </div>
+          </div>
 
           <div id="location" class="set-row">
             <div class="set-text">

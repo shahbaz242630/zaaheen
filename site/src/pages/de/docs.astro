@@ -33,6 +33,7 @@ const OUTLINE = [
     { id: 'connect-other', title: 'Andere KI-Apps' },
   ] },
   { id: 'memories', title: 'Deine Erinnerungen', topics: [
+    { id: 'areas', title: 'So funktionieren Bereiche, und so legst du einen an' },
     { id: 'location', title: 'Wo deine Erinnerungen liegen' },
     { id: 'consolidation', title: 'Was das Aufräumen macht' },
     { id: 'download', title: 'So nimmst du deine Erinnerungen mit' },
@@ -117,7 +118,7 @@ const topic = (id: string) =>
 
         <section id="connecting" class="docs-section">
           <h2 class="docs-title">Deine KI-Apps verbinden</h2>
-          <p class="docs-intro">Öffne den Tab <em>Agents</em> und wähle <em>+ Connect an AI app</em>.
+          <p class="docs-intro">Öffne den Tab <em>Agents</em> und wähle <em>Connect an app</em>.
              Zaaheen ändert nie selbst die Einstellungen einer anderen App: Es gibt der App, was sie
              braucht, und die App fragt dich.</p>
 
@@ -186,6 +187,34 @@ const topic = (id: string) =>
 
         <section id="memories" class="docs-section">
           <h2 class="docs-title">Deine Erinnerungen</h2>
+
+          <div id="areas" class="set-row">
+            <div class="set-text">
+              <div class="set-head">
+                <h3 class="set-name">{topic('areas')}</h3>
+                <span class="set-where">Boundaries</span>
+              </div>
+              <p>Zaaheen bewahrt deine Erinnerungen in Bereichen auf, die die App
+                 <em>boundaries</em> nennt. Bereiche halten deine Erinnerungen geordnet. Jede KI-App,
+                 die du verbindest, kann in allen Bereichen lesen und speichern, auch in Bereichen, die
+                 du später anlegst. Zwei Bereiche gibt es immer: <em>default</em> für das, was du in
+                 der App hinzufügst, und <em>personal</em>, wo deine KI-Apps speichern, wenn du keinen
+                 Bereich nennst.</p>
+              <p>Um einen Bereich anzulegen, öffne <em>Boundaries</em> und wähle <em>+ New
+                 boundary</em>. Gib einen Namen aus Buchstaben, Ziffern, - oder _ ein (ohne
+                 Leerzeichen), zum Beispiel <em>Health</em>. Du kannst eine kurze Beschreibung
+                 hinzufügen, etwa „Arzttermine und Medikamente“: Sie beschreibt den Bereich, sie ist
+                 keine Erinnerung. Wähle dann <em>Create boundary</em>. Der neue Bereich ist zunächst
+                 leer.</p>
+              <p>Um selbst eine Erinnerung hineinzulegen, öffne <em>Memories</em>, wähle <em>+ Add a
+                 memory</em>, schreib sie und wähle den Bereich unter <em>Area</em>. <em>Keep this
+                 memory</em> bleibt aus, bis du einen gewählt hast. Du kannst auch jede KI-App bitten,
+                 „das in meinem Bereich Health zu speichern“. KI-Apps können keine Bereiche anlegen:
+                 Nennst du einen, den es nicht gibt, sagt die App es dir, und du legst ihn zuerst hier
+                 an. Namen sind genau, Großschreibung eingeschlossen: Heißt dein Bereich
+                 <em>Health</em>, schlägt die App ihn vor, wenn nach „health“ gefragt wird.</p>
+            </div>
+          </div>
 
           <div id="location" class="set-row">
             <div class="set-text">

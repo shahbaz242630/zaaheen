@@ -1,19 +1,23 @@
 //! Boundary registry (migration 0008) — the named-boundary read/write surface
 //! backing the desktop UI's Boundaries tab.
 //!
-//! ## What this is NOT
+//! ## What this is, and is not
 //!
 //! This is a registry of boundary NAMES and their metadata. It is **not** an
-//! access-control enforcement point. Per BRD §11.4.3 rule 3, boundary filtering
-//! happens "BEFORE any retrieval logic — at the storage layer", i.e. in the
-//! `WHERE boundary = ?` clause against `memories.boundary`, and rule 4 requires
-//! that "the retrieval engine cannot bypass boundary filters even with
-//! privileged code paths". Nothing in this module is consulted on a read path,
-//! so an absent or stale registry row can never widen what a caller may reach.
+//! enforcement point: per BRD §11.4.3 rule 3, boundary filtering happens
+//! "BEFORE any retrieval logic — at the storage layer", in the
+//! `WHERE boundary = ?` clause against `memories.boundary`, and the retriever
+//! always receives an explicit, non-empty list of areas.
 //!
-//! The registry exists purely so a boundary can be NAMED before it holds any
-//! memories — previously a boundary was only implied by the memories inside it,
-//! so an empty one could not exist and the UI could not create one.
+//! Since ADR-115 / ADR-SEC-050 (s113) the registry is where that list comes
+//! from for an AI app granted **every area**: the grant is resolved to the
+//! registered names before each call. So a registered name is readable by
+//! every such app, and an area missing from the registry would hide its
+//! memories. Hence every memory insert and update registers its area in the
+//! same transaction (`metadata_store::tx_register_boundary`), migration 0010
+//! catches up older vaults, and only the owner creates empty areas here.
+//!
+//! The registry also lets a boundary be NAMED before it holds any memories.
 //!
 //! ## Counts
 //!
@@ -128,13 +132,26 @@ impl MetadataStore {
 }
 
 impl StorageBackend {
+    /// Register a new named boundary. See [`MetadataStore::create_boundary`].
+    #[instrument(skip_all, fields(boundary = %boundary.as_str()))]
+    pub async fn create_boundary(
+        &self,
+        boundary: &Boundary,
+        description: Option<&str>,
+    ) -> VaultResult<bool> {
+        self.metadata().create_boundary(boundary, description).await
+    }
+}
+
+impl MetadataStore {
     /// Register a new named boundary. Returns `false` when a boundary of that
-    /// name already exists (idempotent no-op, not an error — the caller's
-    /// desired end state already holds).
+    /// name already exists, ignoring capitals (ADR-115: "health" is refused
+    /// when "Health" exists, so two areas never differ only by case) — an
+    /// idempotent no-op, not an error. No limit on how many there are.
     ///
-    /// Registering a name grants nothing on its own: what a caller may read is
-    /// decided by the authorized-boundary slice passed to retrieval, never by
-    /// the presence of a row here.
+    /// Under the "every area" grant (ADR-SEC-050) a registered name is
+    /// readable by every connected AI app; under a fixed grant registering
+    /// grants nothing. Only the owner (desktop, admin connection) calls this.
     #[instrument(skip_all, fields(boundary = %boundary.as_str()))]
     pub async fn create_boundary(
         &self,
@@ -148,18 +165,20 @@ impl StorageBackend {
         let description = description.map(|d| d.to_string());
         let created_at = Utc::now().to_rfc3339();
 
-        self.metadata()
-            .with_conn_blocking(move |conn| {
-                let affected = conn
-                    .execute(
-                        "INSERT OR IGNORE INTO boundaries (name, description, created_at) \
-                         VALUES (?1, ?2, ?3)",
-                        rusqlite::params![name, description, created_at],
-                    )
-                    .map_err(|e| VaultError::Storage(format!("create boundary: {e}")))?;
-                Ok(affected > 0)
-            })
-            .await
+        self.with_conn_blocking(move |conn| {
+            // Names are ASCII-only (vault_core::Boundary), so SQLite's lower()
+            // is an exact case fold here.
+            let affected = conn
+                .execute(
+                    "INSERT INTO boundaries (name, description, created_at) \
+                     SELECT ?1, ?2, ?3 \
+                     WHERE NOT EXISTS (SELECT 1 FROM boundaries WHERE lower(name) = lower(?1))",
+                    rusqlite::params![name, description, created_at],
+                )
+                .map_err(|e| VaultError::Storage(format!("create boundary: {e}")))?;
+            Ok(affected > 0)
+        })
+        .await
     }
 }
 

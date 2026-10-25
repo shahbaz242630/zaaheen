@@ -507,7 +507,7 @@ async fn the_handshake_ping_and_tool_list_never_ask_the_check() {
     );
 }
 
-/// A locked vault looks the same to the AI app: same name, same five tools
+/// A locked vault looks the same to the AI app: same name, same six tools
 /// with the same descriptions, so nothing changes in the app's tool list.
 #[tokio::test]
 async fn a_locked_vault_introduces_itself_and_lists_its_tools_unchanged() {
@@ -531,7 +531,7 @@ async fn a_locked_vault_introduces_itself_and_lists_its_tools_unchanged() {
             .as_array()
             .map(Vec::len)
             .unwrap_or(0),
-        5
+        6
     );
 }
 

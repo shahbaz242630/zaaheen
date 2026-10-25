@@ -47,7 +47,7 @@ use vault_consolidator::{
     migrate_plaintext_reports, write_report_atomic, ConsolidationReport, Consolidator,
     ConsolidatorConfig,
 };
-use vault_core::{Boundary, VaultError, VaultResult};
+use vault_core::{VaultError, VaultResult};
 use vault_embedding::{
     BgeSmallProvider, EmbeddingProvider, LazyQwen3Reranker, RerankProvider, EMBEDDING_DIM,
 };
@@ -959,10 +959,10 @@ impl Application {
     ///   at Phase 2 landing** — kept defined per session-open pre-flag
     ///   #5 awaiting user (a)/(b) decision on whether to retain as
     ///   future-proof or remove until a concrete consumer surfaces.
-    #[tracing::instrument(skip_all, fields(boundary_count = authorized_boundaries.len()))]
+    #[tracing::instrument(skip_all, fields(every_area = matches!(grant, vault_mcp::Grant::Every)))]
     pub async fn start_with_mcp(
         &self,
-        authorized_boundaries: Vec<Boundary>,
+        grant: vault_mcp::Grant,
         consolidation_run_at: Option<chrono::NaiveTime>,
         gate: Option<vault_mcp::Gate>,
     ) -> VaultResult<ApplicationHandle> {
@@ -977,7 +977,7 @@ impl Application {
         //    `Arc<VaultAdapter>` coerces to `Arc<dyn Adapter>` at the
         //    let-binding via DST coercion since `VaultAdapter: Adapter`.
         let adapter_dyn: Arc<dyn Adapter> = self.adapter.clone();
-        let server = StdioServer::new(adapter_dyn, authorized_boundaries);
+        let server = StdioServer::with_grant(adapter_dyn, grant);
         // The subscription gate (ADR-104), when this build carries a sign-in.
         // Direct mode serves one AI app straight from this process, so the
         // gate goes around the same server the keeper wraps.

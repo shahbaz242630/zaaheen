@@ -594,7 +594,9 @@ async fn the_admin_server_serves_exactly_the_tools_in_the_table() {
 /// here (ADR-SEC-033 D1).
 #[test]
 fn the_admin_tool_contract_is_pinned_to_the_wire_version() {
-    // Wire 7 (session 109): the four admin_bin_* tools (Recently deleted,
+    // Wire 8 (session 113): admin contract unchanged; the number moved with
+    // the AI apps' contract (ADR-SEC-050). Wire 7 (session 109): the four
+    // admin_bin_* tools (Recently deleted,
     // ADR-114); recorded 2026-10-23 on CI (macOS). Wires 4 to 6 were
     // f4d3f7faeca531a07e2e6dfbc93c7cf6d24fa7ead4fdb5e58ae16285edd2b6cf,
     // recorded 2026-09-24 on Windows under rmcp 3.4.1 (session 60, wire 4,
@@ -623,7 +625,7 @@ fn the_admin_tool_contract_is_pinned_to_the_wire_version() {
     let actual = hasher.finalize().to_hex().to_string();
     assert_eq!(
         (vault_app::keeper::handshake::WIRE, actual.as_str()),
-        (7, PINNED_ADMIN),
+        (8, PINNED_ADMIN),
         "The admin tool contract changed: bump WIRE in \
          vault_app::keeper::handshake and set PINNED_ADMIN to {actual}."
     );
@@ -674,7 +676,7 @@ impl KeeperStarter for CountingStarter {
 }
 
 fn desktop_settings(root: &std::path::Path, budget: Duration) -> RelaySettings {
-    let mut s = RelaySettings::production(root.to_path_buf(), Vec::new());
+    let mut s = RelaySettings::production(root.to_path_buf(), vault_mcp::Grant::Only(Vec::new()));
     s.purpose = Purpose::Admin;
     s.resolve_budget = budget;
     s.start_every = Duration::from_millis(100);
@@ -814,7 +816,7 @@ async fn the_desktop_gives_a_failed_start_one_fresh_try_and_a_relay_does_not() {
     let relay_starter = Arc::new(CountingStarter::default());
     let mut relay_settings = desktop_settings(tmp.path(), Duration::from_millis(400));
     relay_settings.purpose = Purpose::Serve;
-    relay_settings.boundaries = vec![Boundary::new("personal").unwrap()];
+    relay_settings.grant = vault_mcp::Grant::Only(vec![Boundary::new("personal").unwrap()]);
     let relay = KeeperPool::new(
         relay_settings,
         relay_starter.clone(),
