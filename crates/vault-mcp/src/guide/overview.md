@@ -42,4 +42,11 @@ Ask one question at a time and wait for each answer: Zaaheen answers one questio
 
 The Zaaheen app has five tabs at the top: **Memories**, **Boundaries**, **Agents**, **Consolidation**, **Settings**. The bottom line of the window shows "Encrypted on this device" and how many AI apps are connected.
 
+## Going deeper (if you can read web pages)
+
+This guide comes with the user's installed version and answers almost everything. If you can read web pages and need more, read these yourself; do not send the user to look things up:
+
+- **What changed in each version**, newest first: https://zaaheen.com/docs/release-notes/ (useful when the user asks what is new, or whether a problem is fixed in a newer version).
+- **The full help for AI apps**, kept up to date on the website: https://zaaheen.com/llms.txt
+
 Help by email: customerservice@zaaheen.com.
