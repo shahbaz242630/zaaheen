@@ -1078,11 +1078,10 @@ async function fillAreaSelect(selectId, errId) {
   } catch (err) {
     $(errId).textContent = `Couldn't load your areas: ${err}`;
   }
+  // The name only (founder s113): a long label would crowd the list. Labels
+  // stay on the Boundaries tab.
   select.innerHTML = [`<option value="">Choose an area</option>`]
-    .concat(rows.map((b) => {
-      const label = b.description || AREA_LABELS[b.name] || "";
-      return `<option value="${esc(b.name)}">${esc(label ? `${b.name} (${label})` : b.name)}</option>`;
-    }))
+    .concat(rows.map((b) => `<option value="${esc(b.name)}">${esc(b.name)}</option>`))
     .join("");
   select.value = rows.some((b) => b.name === kept) ? kept : "";
   select.classList.toggle("unchosen", !select.value);
