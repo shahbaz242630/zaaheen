@@ -3587,3 +3587,71 @@ fn settings_lists_about_zaaheen_last() {
         "Settings' sections are out of order"
     );
 }
+
+/// Session 113 (founder, ADR-115): a memory added in the app goes into the
+/// area the user chose — never a hard-coded one (every memory used to land
+/// in `default`, which no AI app could see) — and is not saved until an area
+/// is chosen, in the Memories tab and on the setup screen alike.
+#[test]
+fn a_memory_is_saved_only_into_the_area_the_user_chose() {
+    let code = js_code();
+    assert!(
+        !code.contains("boundary: \"default\""),
+        "a memory is saved into a hard-coded area"
+    );
+    let functions = top_level_functions(&code);
+    for (save, select, err) in [
+        ("saveInlineMemory", "add-area", "add-err"),
+        ("saveFirstMemory", "mem-area", "mem-err"),
+    ] {
+        let body = &js_function(&functions, save).body;
+        assert!(
+            body.contains(&format!("$(\"{select}\").value")),
+            "{save} does not read the Area dropdown"
+        );
+        assert!(
+            body.contains("boundary: area"),
+            "{save} does not save into the chosen area"
+        );
+        let refuse = body
+            .find("Choose an area first.")
+            .unwrap_or_else(|| panic!("{save} saves without an area"));
+        let invoke = body
+            .find("invoke(\"add_memory\"")
+            .unwrap_or_else(|| panic!("{save} never saves"));
+        assert!(refuse < invoke, "{save} refuses only after saving");
+        assert!(body.contains(&format!("$(\"{err}\")")));
+    }
+    let html = html();
+    for select in ["add-area", "mem-area"] {
+        let tag = format!("<select id=\"{select}\"");
+        let at = html
+            .find(&tag)
+            .unwrap_or_else(|| panic!("no Area dropdown #{select}"));
+        let first_option = &html[at..];
+        let first_option = &first_option[first_option.find("<option").unwrap()..];
+        assert!(
+            first_option.starts_with("<option value=\"\">Choose an area</option>"),
+            "#{select} must start on \"Choose an area\", with nothing chosen"
+        );
+    }
+    let fill = &js_function(&functions, "fillAreaSelect").body;
+    assert!(
+        fill.contains("invoke(\"list_boundaries\")"),
+        "areas come from the vault"
+    );
+}
+
+/// Session 113 (ADR-115): the Boundaries page no longer promises a per-app
+/// grant that does not exist; it says what is true.
+#[test]
+fn the_boundaries_page_says_every_app_sees_every_area() {
+    let html = html();
+    assert!(html.contains(
+        "Areas keep your memories organised. Every AI app you connect can read and save in every area."
+    ));
+    assert!(!html.contains("An agent only reads the boundaries you grant it."));
+    assert!(!html.contains("Granting an agent access to a specific boundary arrives"));
+    assert!(html.contains("Creates an empty area."));
+    assert!(!html.contains("What goes in here? (optional)"));
+}

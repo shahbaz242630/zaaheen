@@ -23,6 +23,7 @@ use async_trait::async_trait;
 use vault_core::{Boundary, MemoryId, NewMemory, VaultResult};
 use vault_retrieval::{ReadQuery, RetrievalQuery, RetrievedMemory, StructuredReadResponse};
 
+use crate::areas::AreaInfo;
 use crate::audit::ToolInvokeDetails;
 
 /// Domain-level interface for the four MCP tools. Implementations are
@@ -106,6 +107,19 @@ pub trait Adapter: Send + Sync {
     /// the memory does not exist (caller surfaces as
     /// `VaultError::NotFound`).
     async fn lookup_boundary(&self, id: MemoryId) -> VaultResult<Option<Boundary>>;
+
+    /// Every area in the user's registry, with its label and active-memory
+    /// count (ADR-115, ADR-SEC-050). Resolves the [`Grant::Every`] grant at
+    /// each tool call and feeds `memory_help`.
+    ///
+    /// **Default impl returns no areas**, so an adapter without a registry can
+    /// never serve an Every grant: [`crate::areas`] refuses an empty list as
+    /// `AccessDenied` (fail-secure).
+    ///
+    /// [`Grant::Every`]: crate::Grant::Every
+    async fn list_areas(&self) -> VaultResult<Vec<AreaInfo>> {
+        Ok(Vec::new())
+    }
 
     /// Resolve a presented capability token's BLAKE3 hash to the connecting
     /// agent's authorized boundaries (ADR-SEC-001 D3/D4).

@@ -452,7 +452,7 @@ const AGENT_CHECKS = {
   "ChatGPT Desktop": "In ChatGPT, open Settings, then Plugins, then MCP. Zaaheen is listed there and switched on.",
   "Antigravity": "In Antigravity, open Settings, then Customization. Under Token usage, next to MCP tools, click Show breakdown. Zaaheen is listed with a green circle.",
   "Claude Code": "In a terminal, run claude mcp list. Zaaheen shows as connected.",
-  "Codex": "In Codex, type /mcp and press Enter. zaaheen is listed as connected, with 5 tools. If it shows no tools or says it timed out, update Codex (npm install -g @openai/codex@latest) and try again.",
+  "Codex": "In Codex, type /mcp and press Enter. zaaheen is listed as connected, with 6 tools. If it shows no tools or says it timed out, update Codex (npm install -g @openai/codex@latest) and try again.",
   "Another app": "Your app's list of tools or MCP servers shows Zaaheen.",
 };
 
@@ -690,6 +690,7 @@ function showScreen(name) {
   }
   if (name === "welcome") runChecks();
   if (name === "location") renderLocationStep();
+  if (name === "memory") fillAreaSelect("mem-area", "mem-err").then(renderMemoryScreen);
   if (name === "maintenance") renderMaintEngineStatus();
   if (name === "home") renderHome();
   if (name === "lock") renderLockExport();
@@ -1056,21 +1057,57 @@ function renderTypeChips(containerId, current, onPick) {
   });
 }
 
+// Plain labels for the two areas every vault has (ADR-115), shown where the
+// user gave no label of their own.
+const AREA_LABELS = {
+  default: "What you add in this app",
+  personal: "What your AI apps save",
+};
+
+// Fill an Area dropdown with every area, "Choose an area" first. Nothing is
+// pre-chosen (founder s113: a memory is never saved until its area is
+// chosen, so it can't land somewhere by accident); a choice the user already
+// made is kept while that area exists. A new area appears the next time the
+// form opens.
+async function fillAreaSelect(selectId, errId) {
+  const select = $(selectId);
+  const kept = select.value;
+  let rows = [];
+  try {
+    rows = await invoke("list_boundaries");
+  } catch (err) {
+    $(errId).textContent = `Couldn't load your areas: ${err}`;
+  }
+  // The name only (founder s113): a long label would crowd the list. Labels
+  // stay on the Boundaries tab.
+  select.innerHTML = [`<option value="">Choose an area</option>`]
+    .concat(rows.map((b) => `<option value="${esc(b.name)}">${esc(b.name)}</option>`))
+    .join("");
+  select.value = rows.some((b) => b.name === kept) ? kept : "";
+  select.classList.toggle("unchosen", !select.value);
+}
+
 function renderMemoryScreen() {
-  const has = $("mem-text").value.trim().length > 0;
-  $("mem-save").classList.toggle("disabled", !has);
+  const ready = $("mem-text").value.trim().length > 0 && $("mem-area").value !== "";
+  $("mem-save").classList.toggle("disabled", !ready);
+  $("mem-area").classList.toggle("unchosen", !$("mem-area").value);
 }
 
 async function saveFirstMemory() {
   const text = $("mem-text").value.trim();
   if (!text) return;
+  const area = $("mem-area").value;
+  if (!area) {
+    $("mem-err").textContent = "Choose an area first.";
+    return;
+  }
   $("mem-save").classList.add("disabled");
   $("mem-err").textContent = "";
   try {
     await invoke("add_memory", {
       content: text,
       memoryType: state.memType,
-      boundary: "default",
+      boundary: area,
     });
     // Onboarding now has a 4th step (automatic maintenance) before it finishes.
     state.keptFirstMemory = true;
@@ -1396,21 +1433,38 @@ function toggleInlineAdd(show) {
   $("inline-add").classList.toggle("hidden", !state.showInlineAdd);
   if (state.showInlineAdd) {
     renderTypeChips("add-chips", state.addType, (t) => { state.addType = t; toggleInlineAdd(true); });
+    // Areas are listed afresh every time the form is shown (a choice
+    // already made is kept), so one created a moment ago is there.
+    fillAreaSelect("add-area", "add-err").then(renderInlineAdd);
+    renderInlineAdd();
     $("add-text").focus();
   }
+}
+
+function renderInlineAdd() {
+  const ready = $("add-text").value.trim().length > 0 && $("add-area").value !== "";
+  $("add-save").classList.toggle("disabled", !ready);
+  $("add-area").classList.toggle("unchosen", !$("add-area").value);
 }
 
 async function saveInlineMemory() {
   const text = $("add-text").value.trim();
   if (!text) return;
+  const area = $("add-area").value;
+  if (!area) {
+    $("add-err").textContent = "Choose an area first.";
+    return;
+  }
   $("add-err").textContent = "";
   try {
     await invoke("add_memory", {
       content: text,
       memoryType: state.addType,
-      boundary: "default",
+      boundary: area,
     });
     $("add-text").value = "";
+    // The next memory chooses its own area: nothing carries over.
+    $("add-area").value = "";
     toggleInlineAdd(false);
     state.query = "";
     $("search-input").value = "";
@@ -1430,8 +1484,7 @@ async function renderBoundaries() {
     $("boundary-rows").innerHTML = rows.map((b) => {
       const n = Number(b.memory_count) || 0;
       const count = n === 1 ? "1 memory" : `${n} memories`;
-      const desc = b.description
-        || (b.name === "default" ? "Everything this app remembers by default" : "");
+      const desc = b.description || AREA_LABELS[b.name] || "";
       return `
       <div class="b-row">
         <span class="nm">${esc(b.name)}</span>
@@ -1465,13 +1518,15 @@ async function saveBoundary() {
       description: description || null,
     });
     if (!created) {
-      $("boundary-err").textContent = "You already have a boundary with that name.";
+      $("boundary-err").textContent = "You already have an area with that name (capitals don't make a new one).";
       return;
     }
     $("boundary-name").value = "";
     $("boundary-desc").value = "";
     toggleBoundaryAdd(false);
     renderBoundaries();
+    // An add form left open on the Memories tab lists the new area at once.
+    if (state.showInlineAdd) fillAreaSelect("add-area", "add-err").then(renderInlineAdd);
   } catch (err) {
     // The backend rejects anything outside letters, digits, - and _ ; say so
     // in plain language rather than surfacing the validation error verbatim.
@@ -3535,6 +3590,7 @@ function init() {
   // first memory
   renderMemoryScreen();
   $("mem-text").addEventListener("input", renderMemoryScreen);
+  $("mem-area").addEventListener("change", () => { $("mem-err").textContent = ""; renderMemoryScreen(); });
   $("mem-save").addEventListener("click", saveFirstMemory);
   $("mem-skip").addEventListener("click", () => {
     state.keptFirstMemory = false;
@@ -3604,6 +3660,8 @@ function init() {
   $("bin-toggle").addEventListener("click", toggleBin);
   $("bin-empty").addEventListener("click", emptyBin);
   $("add-save").addEventListener("click", saveInlineMemory);
+  $("add-text").addEventListener("input", renderInlineAdd);
+  $("add-area").addEventListener("change", () => { $("add-err").textContent = ""; renderInlineAdd(); });
   $("add-cancel").addEventListener("click", () => toggleInlineAdd(false));
 
   // home — boundaries

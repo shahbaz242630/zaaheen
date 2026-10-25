@@ -126,7 +126,10 @@ impl RelayServer {
 
 /// Repeating these has the same effect as calling them once.
 fn is_repeat_safe(tool: &str) -> bool {
-    matches!(tool, "memory_read" | "memory_search" | "memory_delete")
+    matches!(
+        tool,
+        "memory_read" | "memory_search" | "memory_delete" | "memory_help"
+    )
 }
 
 /// A failure the relay itself produced, as a tool result the agent can read.

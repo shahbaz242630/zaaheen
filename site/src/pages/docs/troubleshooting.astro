@@ -16,6 +16,8 @@ const OUTLINE = [
   { id: 'unknown-publisher', title: 'Windows says the publisher is unknown' },
   { id: 'mac-applications', title: 'The Mac says to move Zaaheen to Applications' },
   { id: 'mac-keychain', title: 'The Mac asks about the keychain' },
+  { id: 'missing', title: 'My AI app can\'t find a memory I added in the Zaaheen app' },
+  { id: 'no-area', title: 'My AI app says an area doesn\'t exist' },
   { id: 'stopped', title: 'My apps stopped using Zaaheen' },
   { id: 'else', title: 'Something else went wrong' },
 ];
@@ -88,6 +90,22 @@ const OUTLINE = [
       <p>The key to your memories is kept in your Mac's keychain, so macOS asks before Zaaheen
          reads it. Choose <em>Always Allow</em>. If Zaaheen says it couldn't use this computer's
          secure storage, open Keychain Access, unlock your login keychain, then try again.</p>
+    </Row>
+
+    <Row level={2} id="missing" title="My AI app can't find a memory I added in the Zaaheen app" where="Memories">
+      <p>Update Zaaheen to version 0.3.7 or later from zaaheen.com. Before 0.3.7, a memory you added in
+         the app went into the <em>default</em> area, which AI apps couldn't read. From 0.3.7 every AI app
+         reads every area, including memories you added before the update. If it still isn't found,
+         check the memory is listed on the <em>Memories</em> tab (or in <em>Recently deleted</em>), then
+         close and reopen your AI app and ask again.</p>
+    </Row>
+
+    <Row level={2} id="no-area" title="My AI app says an area doesn't exist" where="Boundaries">
+      <p>AI apps can't create areas; only you can. Open <em>Boundaries</em>, choose <em>+ New
+         boundary</em>, type the name (letters, numbers, - or _, no spaces) and choose <em>Create
+         boundary</em>. Then ask your AI app to save it again. Names are exact, capitals included: if
+         you already have <em>Health</em>, ask for Health. See
+         <a href="/docs/#areas">How areas work</a>.</p>
     </Row>
 
     <Row level={2} id="stopped" title="My apps stopped using Zaaheen" where="Settings › Account">

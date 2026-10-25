@@ -719,7 +719,46 @@ pub fn rekey_in_place(
 // `pending_sync` and must run inside one SQLite transaction.
 // ---------------------------------------------------------------------------
 
+/// Register `boundary` in the area registry if it is not there yet (ADR-115,
+/// ADR-SEC-050 G3). Called by every memory insert and update, in the same
+/// transaction, so a memory can never sit in an area the registry lacks: under
+/// the "every area" grant the registry decides what an AI app reads, and a
+/// missing row would hide memories.
+///
+/// A save never creates an area differing only by capitals from one that
+/// exists (ADR-115, as `create_boundary` refuses for the owner): it fails
+/// with `InvalidInput`, and the whole write with it, so "health" cannot
+/// appear beside "Health" through a hand-made call. Areas that already
+/// differ that way in an older vault stay as they are (exact match first).
+pub(crate) fn tx_register_boundary(tx: &Transaction<'_>, boundary: &Boundary) -> VaultResult<()> {
+    let name = boundary.as_str();
+    // Names are ASCII-only (vault_core::Boundary), so lower() folds exactly.
+    let existing: Option<String> = tx
+        .query_row(
+            "SELECT name FROM boundaries WHERE lower(name) = lower(?1) \
+             ORDER BY name = ?1 DESC LIMIT 1",
+            params![name],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| VaultError::Storage(format!("look up boundary: {e}")))?;
+    match existing {
+        Some(found) if found == name => Ok(()),
+        Some(found) => Err(VaultError::InvalidInput(format!(
+            "an area named '{found}' already exists; use that name"
+        ))),
+        None => tx
+            .execute(
+                "INSERT INTO boundaries (name, description, created_at) VALUES (?1, NULL, ?2)",
+                params![name, Utc::now().to_rfc3339()],
+            )
+            .map(|_| ())
+            .map_err(|e| VaultError::Storage(format!("register boundary: {e}"))),
+    }
+}
+
 pub(crate) fn tx_insert_memory(tx: &Transaction<'_>, m: &Memory) -> VaultResult<()> {
+    tx_register_boundary(tx, &m.boundary)?;
     tx.execute(
         "INSERT INTO memories (
             id, content, memory_type, source_agent, boundary,
@@ -755,6 +794,7 @@ pub(crate) fn tx_get_memory(tx: &Transaction<'_>, id: &MemoryId) -> VaultResult<
 }
 
 pub(crate) fn tx_update_memory(tx: &Transaction<'_>, m: &Memory) -> VaultResult<usize> {
+    tx_register_boundary(tx, &m.boundary)?;
     tx.execute(
         "UPDATE memories SET
             content = ?2, memory_type = ?3, source_agent = ?4, boundary = ?5,
@@ -1267,6 +1307,103 @@ mod tests {
             .unwrap();
         let listed = store.list_boundaries().await.unwrap();
         assert!(listed.iter().any(|b| b.boundary.as_str() == "default"));
+    }
+
+    /// ADR-SEC-050 G3: a save registers its area, so an AI app granted every
+    /// area can never miss a memory because its area was never listed (the
+    /// s113 bug: `personal` held memories but was not in the registry).
+    #[tokio::test]
+    async fn a_save_registers_its_area() {
+        let (_tmp, store) = make_store().await;
+        store
+            .create_memory(&sample_memory("work", MemoryType::Semantic, "w"))
+            .await
+            .unwrap();
+        let work = store
+            .list_boundaries()
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|b| b.boundary.as_str() == "work")
+            .expect("a save into `work` must register `work`");
+        assert_eq!(work.memory_count, 1);
+    }
+
+    /// An edit that moves a memory to another area registers that area too.
+    #[tokio::test]
+    async fn an_edit_into_another_area_registers_it() {
+        let (_tmp, store) = make_store().await;
+        let mut m = sample_memory("work", MemoryType::Semantic, "w");
+        store.create_memory(&m).await.unwrap();
+        m.boundary = Boundary::new("Health").unwrap();
+        store.update_memory(&m).await.unwrap();
+        let listed = store.list_boundaries().await.unwrap();
+        let count = |name: &str| {
+            listed
+                .iter()
+                .find(|b| b.boundary.as_str() == name)
+                .map(|b| b.memory_count)
+        };
+        assert_eq!(count("Health"), Some(1));
+        assert_eq!(count("work"), Some(0), "the area stays listed, now empty");
+    }
+
+    /// ADR-115: two areas never differ only by capitals.
+    #[tokio::test]
+    async fn an_area_differing_only_by_capitals_is_not_created() {
+        let (_tmp, store) = make_store().await;
+        let b = |n: &str| Boundary::new(n).unwrap();
+        assert!(store.create_boundary(&b("Health"), None).await.unwrap());
+        assert!(!store.create_boundary(&b("health"), None).await.unwrap());
+        assert!(!store.create_boundary(&b("HEALTH"), None).await.unwrap());
+        assert!(!store.create_boundary(&b("Personal"), None).await.unwrap());
+        let names: Vec<String> = store
+            .list_boundaries()
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|i| i.boundary.as_str().to_string())
+            .collect();
+        assert_eq!(names, vec!["Health", "default", "personal"]);
+    }
+
+    /// Review s113: a save cannot slip a case-variant area past the rule
+    /// `create_boundary` enforces. The write fails whole: no memory, no area.
+    #[tokio::test]
+    async fn a_save_into_a_case_variant_of_an_area_is_refused() {
+        let (_tmp, store) = make_store().await;
+        store
+            .create_boundary(&Boundary::new("Health").unwrap(), None)
+            .await
+            .unwrap();
+        let m = sample_memory("health", MemoryType::Semantic, "back pain");
+        let err = store.create_memory(&m).await.unwrap_err();
+        assert!(matches!(err, VaultError::InvalidInput(_)), "{err:?}");
+        assert!(store.get_memory(&m.id).await.unwrap().is_none());
+        let names: Vec<String> = store
+            .list_boundaries()
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|i| i.boundary.as_str().to_string())
+            .collect();
+        assert_eq!(names, vec!["Health", "default", "personal"]);
+        // The exact name still saves.
+        store
+            .create_memory(&sample_memory("Health", MemoryType::Semantic, "ok"))
+            .await
+            .unwrap();
+    }
+
+    /// No cap on how many areas a user creates (founder s113).
+    #[tokio::test]
+    async fn there_is_no_limit_on_how_many_areas_exist() {
+        let (_tmp, store) = make_store().await;
+        for i in 0..100 {
+            let name = Boundary::new(format!("area-{i}")).unwrap();
+            assert!(store.create_boundary(&name, None).await.unwrap());
+        }
+        assert_eq!(store.list_boundaries().await.unwrap().len(), 102);
     }
 
     #[tokio::test]

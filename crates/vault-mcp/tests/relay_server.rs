@@ -131,6 +131,7 @@ async fn the_handshake_and_tool_list_never_touch_the_keeper() {
         names,
         [
             "memory_delete",
+            "memory_help",
             "memory_read",
             "memory_search",
             "memory_update",
@@ -157,11 +158,16 @@ async fn a_tool_call_is_forwarded_and_its_result_returned() {
     assert_eq!(upstream.forwarded(), ["memory_search"]);
 }
 
-/// Reads, searches and deletes are resent once after the connection died
-/// mid-call: repeating them changes nothing.
+/// Reads, searches, deletes and help are resent once after the connection
+/// died mid-call: repeating them changes nothing.
 #[tokio::test]
 async fn repeat_safe_tools_are_resent_once_after_a_lost_connection() {
-    for tool in ["memory_read", "memory_search", "memory_delete"] {
+    for tool in [
+        "memory_read",
+        "memory_search",
+        "memory_delete",
+        "memory_help",
+    ] {
         let upstream = ScriptedUpstream::with(vec![Err(UpstreamError::Lost), ok()]);
         let client = connect(upstream.clone()).await;
         let result = client

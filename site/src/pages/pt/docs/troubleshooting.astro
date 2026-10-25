@@ -27,7 +27,7 @@ const FIX_WORDS: Record<string, { where: string; fix: string }> = {
   },
   'request timed out (zaaheen: Tools: (none))': {
     where: 'Codex no terminal, depois de /mcp',
-    fix: 'Atualize o Codex (npm install -g @openai/codex@latest), depois rode codex de novo e digite /mcp: o zaaheen aparece como conectado, com 5 ferramentas.',
+    fix: 'Atualize o Codex (npm install -g @openai/codex@latest), depois rode codex de novo e digite /mcp: o zaaheen aparece como conectado, com 6 ferramentas.',
   },
   'The AI app saves to its own memory, or answers "I don\'t know", instead of using Zaaheen': {
     where: 'Claude Desktop, ChatGPT Desktop, Codex',
@@ -76,6 +76,8 @@ const OUTLINE = [
   { id: 'unknown-publisher', title: 'O Windows diz que o editor é desconhecido' },
   { id: 'mac-applications', title: 'O Mac pede para mover o Zaaheen para Aplicativos' },
   { id: 'mac-keychain', title: 'O Mac pergunta sobre as chaves (keychain)' },
+  { id: 'missing', title: 'Meu app de IA não encontra uma memória que adicionei no app Zaaheen' },
+  { id: 'no-area', title: 'Meu app de IA diz que uma área não existe' },
   { id: 'stopped', title: 'Meus apps pararam de usar o Zaaheen' },
   { id: 'else', title: 'Outra coisa deu errado' },
 ];
@@ -150,6 +152,23 @@ const OUTLINE = [
          de o Zaaheen lê-la. Escolha <em>Always Allow</em>. Se o Zaaheen disser que não conseguiu usar o
          armazenamento seguro deste computador, abra o Acesso às Chaves (Keychain Access), desbloqueie suas
          chaves de login (login keychain) e tente de novo.</p>
+    </Row>
+
+    <Row level={2} id="missing" title="Meu app de IA não encontra uma memória que adicionei no app Zaaheen" where="Memories">
+      <p>Atualize o Zaaheen para a versão 0.3.7 ou posterior em zaaheen.com. Antes da 0.3.7, uma memória
+         que você adicionava no app ia para a área <em>default</em>, que os apps de IA não conseguiam
+         ler. A partir da 0.3.7, todos os apps de IA leem todas as áreas, inclusive as memórias que você
+         adicionou antes da atualização. Se ainda não aparecer, confira se a memória está na aba
+         <em>Memories</em> (ou em <em>Recently deleted</em>), depois feche e abra de novo seu app de IA e
+         pergunte outra vez.</p>
+    </Row>
+
+    <Row level={2} id="no-area" title="Meu app de IA diz que uma área não existe" where="Boundaries">
+      <p>Os apps de IA não podem criar áreas; só você pode. Abra <em>Boundaries</em>, escolha <em>+ New
+         boundary</em>, digite o nome (letras, números, - ou _, sem espaços) e escolha <em>Create
+         boundary</em>. Depois peça ao seu app de IA para salvar de novo. Os nomes são exatos, inclusive
+         maiúsculas: se você já tem <em>Health</em>, peça Health. Veja
+         <a href={L('/docs/#areas')}>Como as áreas funcionam</a>.</p>
     </Row>
 
     <Row level={2} id="stopped" title="Meus apps pararam de usar o Zaaheen" where="Settings › Account">

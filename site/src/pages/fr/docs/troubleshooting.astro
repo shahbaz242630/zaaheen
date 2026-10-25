@@ -18,6 +18,8 @@ const OUTLINE = [
   { id: 'unknown-publisher', title: 'Windows indique que l’éditeur est inconnu' },
   { id: 'mac-applications', title: 'Le Mac demande de déplacer Zaaheen dans Applications' },
   { id: 'mac-keychain', title: 'Le Mac pose une question sur le trousseau' },
+  { id: 'missing', title: 'Mon application d’IA ne trouve pas un souvenir ajouté dans l’application Zaaheen' },
+  { id: 'no-area', title: 'Mon application d’IA dit qu’un espace n’existe pas' },
   { id: 'stopped', title: 'Mes applications n’utilisent plus Zaaheen' },
   { id: 'else', title: 'Un autre problème' },
 ];
@@ -42,7 +44,7 @@ const FIXES = [
   {
     error: 'request timed out (zaaheen: Tools: (none))',
     where: 'Codex dans le terminal, après /mcp',
-    fix: 'Mettez Codex à jour (npm install -g @openai/codex@latest), puis relancez codex et tapez /mcp : zaaheen apparaît comme connecté, avec 5 outils.',
+    fix: 'Mettez Codex à jour (npm install -g @openai/codex@latest), puis relancez codex et tapez /mcp : zaaheen apparaît comme connecté, avec 6 outils.',
   },
   {
     error: 'L’application d’IA enregistre dans sa propre mémoire, ou répond « I don\'t know », au lieu d’utiliser Zaaheen',
@@ -158,6 +160,24 @@ const FIXES = [
          avant que Zaaheen la lise. Choisissez <em>Always Allow</em>. Si Zaaheen indique qu’il n’a pas pu
          utiliser le stockage sécurisé de cet ordinateur, ouvrez Trousseaux d’accès (Keychain Access),
          déverrouillez votre trousseau de session, puis réessayez.</p>
+    </Row>
+
+    <Row level={2} id="missing" title="Mon application d’IA ne trouve pas un souvenir ajouté dans l’application Zaaheen" where="Memories">
+      <p>Mettez Zaaheen à jour vers la version 0.3.7 ou plus récente depuis zaaheen.com. Avant la 0.3.7,
+         un souvenir ajouté dans l’application allait dans l’espace <em>default</em>, que les
+         applications d’IA ne pouvaient pas lire. Depuis la 0.3.7, chaque application d’IA lit tous les
+         espaces, y compris les souvenirs ajoutés avant la mise à jour. S’il reste introuvable, vérifiez
+         que le souvenir figure dans l’onglet <em>Memories</em> (ou dans <em>Recently deleted</em>),
+         puis fermez et rouvrez votre application d’IA et redemandez.</p>
+    </Row>
+
+    <Row level={2} id="no-area" title="Mon application d’IA dit qu’un espace n’existe pas" where="Boundaries">
+      <p>Les applications d’IA ne peuvent pas créer d’espaces ; vous seul le pouvez. Ouvrez
+         <em>Boundaries</em>, choisissez <em>+ New boundary</em>, tapez le nom (lettres, chiffres, - ou _,
+         sans espaces) et choisissez <em>Create boundary</em>. Demandez ensuite à votre application d’IA
+         d’enregistrer à nouveau. Les noms sont exacts, majuscules comprises : si vous avez déjà
+         <em>Health</em>, demandez Health. Voir
+         <a href={L('/docs/#areas')}>Comment fonctionnent les espaces</a>.</p>
     </Row>
 
     <Row level={2} id="stopped" title="Mes applications n’utilisent plus Zaaheen" where="Settings › Account">

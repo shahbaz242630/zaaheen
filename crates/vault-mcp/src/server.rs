@@ -3,7 +3,7 @@
 //! ## Phase 1 (T0.1.9, this commit) — scaffold
 //!
 //! - `StdioServer` struct holds `Arc<dyn Adapter>` + the trusted
-//!   `authorized_boundaries: Vec<Boundary>` slice (per ADR-025).
+//!   [`Grant`] (per ADR-025; every area since ADR-SEC-050).
 //! - Four `#[tool]`-decorated methods (`search` / `write` / `update` /
 //!   `delete`) parse JSON-RPC params, construct domain types using the
 //!   TRUSTED authorization slice (never request-body data), and call
@@ -22,7 +22,7 @@
 //! such a key in its request body — `serde` will silently ignore it
 //! (extra fields are deserialised away). Even if it weren't ignored, the
 //! handler doesn't read it. The handler ALWAYS uses
-//! `self.authorized_boundaries.clone()`.
+//! the trusted grant (`self.grant`), resolved per call.
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -42,6 +42,7 @@ use vault_retrieval::{
     WarningCode, WarningSeverity,
 };
 
+use crate::areas::{self, Grant};
 use crate::audit::{ToolInvokeDetails, ToolInvokeError};
 use crate::desk::{Busy, ReadDesk, DESK_BUDGET, MSG_BUSY};
 use crate::gate::AccountNotice;
@@ -89,7 +90,7 @@ fn desk_cancelled() -> CallToolResult {
 /// **NOTE (ADR-025 trust boundary):** this schema deliberately does NOT
 /// contain an `authorized_boundaries` field. Any such key in the
 /// JSON-RPC request body is silently ignored by `serde` (extra fields
-/// drop). The handler uses `self.authorized_boundaries` (trusted, set at
+/// drop). The handler uses the trusted grant (`self.grant`) (trusted, set at
 /// `StdioServer::new` time) — request-body data NEVER influences the
 /// auth gate.
 ///
@@ -156,7 +157,7 @@ pub struct SearchResponse {
 ///
 /// **NOTE (ADR-025 trust boundary):** like `SearchToolParams`, this
 /// schema does NOT contain an `authorized_boundaries` field. The
-/// handler uses `self.authorized_boundaries` (trusted, set at
+/// handler uses the trusted grant (`self.grant`) (trusted, set at
 /// `StdioServer::new` time); request-body data NEVER influences the
 /// auth gate.
 #[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
@@ -171,7 +172,7 @@ pub struct ReadToolParams {
 ///
 /// **NOTE (ADR-025):** the `boundary` field IS user-controlled — the
 /// agent specifies which boundary to write to. The handler validates
-/// this field appears in `self.authorized_boundaries` BEFORE calling
+/// this field appears in the trusted grant (`self.grant`) BEFORE calling
 /// the adapter; if not, returns `VaultError::AccessDenied` (mapped to
 /// JSON-RPC `-32602 InvalidParams` with a generic message per ADR-024).
 ///
@@ -198,13 +199,13 @@ pub struct WriteToolParams {
     /// non-coder product owner who works with an AI partner; they
     /// prefer plain-English explanations."
     pub content: String,
-    /// Namespace this memory belongs to (e.g., "personal", "work.acme",
-    /// "project.memory-vault"). Must match one of the boundaries the
-    /// host application authorized for this session; requests with
-    /// unauthorized boundaries are rejected with AccessDenied. If you
-    /// don't know which boundary applies, ask the user or default to
-    /// the session's primary boundary as indicated by the host
-    /// application's setup.
+    /// The area to save into (the Zaaheen app calls areas boundaries). If
+    /// the user names no area, use "personal". If they name one ("save
+    /// this in my Health area"), use that area's exact name: capitals
+    /// matter. Call `memory_help` to see the user's areas. Only the user
+    /// creates areas, in the Zaaheen app; a save into an area that does
+    /// not exist saves nothing and tells you the user's areas, a close
+    /// match if there is one, and how the user creates a new area.
     pub boundary: String,
     /// Type of memory. Defaults to "semantic" — general facts about the
     /// user (preferences, identity, ongoing context — the most common
@@ -241,6 +242,17 @@ pub struct WriteToolParams {
     /// `memory_update` preserves the original date.
     #[serde(default)]
     pub as_of: Option<String>,
+}
+
+/// JSON-RPC parameters for the `memory_help` tool (ADR-SEC-050 G7).
+#[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
+pub struct HelpToolParams {
+    /// Optional topic: journey, areas, memories, install, update, uninstall,
+    /// connect, account, consolidation, settings, privacy, messages,
+    /// troubleshooting (the overview lists every topic). Omit it for the
+    /// overview and the user's areas right now.
+    #[serde(default)]
+    pub topic: Option<String>,
 }
 
 /// JSON-RPC parameters for the `memory_update` tool — combines the target
@@ -282,7 +294,9 @@ pub struct DeleteToolParams {
 #[derive(Clone)]
 pub struct StdioServer {
     adapter: Arc<dyn Adapter>,
-    authorized_boundaries: Vec<Boundary>,
+    /// Which areas this connection reaches (ADR-SEC-050), resolved to a
+    /// non-empty list at each call by [`Self::authorized`].
+    grant: Grant,
     /// Reads and searches take turns here (ADR-107, `desk.rs`). A keeper
     /// shares ONE desk across every connection ([`Self::with_desk`]).
     desk: Arc<ReadDesk>,
@@ -308,12 +322,90 @@ impl StdioServer {
     /// Construct a new server. Both arguments are application-supplied
     /// at startup and form the trust boundary per ADR-025.
     pub fn new(adapter: Arc<dyn Adapter>, authorized_boundaries: Vec<Boundary>) -> Self {
+        Self::with_grant(adapter, Grant::Only(authorized_boundaries))
+    }
+
+    /// A server that reaches every area in the user's registry, as it stands
+    /// at each call (ADR-115, ADR-SEC-050): what an AI app's connection gets
+    /// from 0.3.7 unless it asked for a fixed list.
+    pub fn every_area(adapter: Arc<dyn Adapter>) -> Self {
+        Self::with_grant(adapter, Grant::Every)
+    }
+
+    /// A server for `grant`. Host-supplied, like [`Self::new`].
+    pub fn with_grant(adapter: Arc<dyn Adapter>, grant: Grant) -> Self {
         Self {
             adapter,
-            authorized_boundaries,
+            grant,
             desk: ReadDesk::new(),
             tool_router: Self::tool_router(),
         }
+    }
+
+    /// The areas this connection reaches right now: the fixed list, or every
+    /// registered area. Never empty (`AccessDenied` instead).
+    async fn authorized(&self) -> VaultResult<Vec<Boundary>> {
+        areas::resolve(&self.grant, self.adapter.as_ref()).await
+    }
+
+    /// How many areas the call ran against, for the audit row (counts only,
+    /// never names). 0 when they could not be listed.
+    async fn boundary_count(&self) -> u32 {
+        match &self.grant {
+            Grant::Only(list) => list.len() as u32,
+            Grant::Every => self.authorized().await.map_or(0, |l| l.len() as u32),
+        }
+    }
+
+    /// Under the Every grant, a save or edit naming an area the user does not
+    /// have is answered readably, before any I/O (ADR-SEC-050 G5): nothing is
+    /// written, the app is told the user's areas, a case-insensitive match
+    /// and how the user creates one. The refusal is audited like any refused
+    /// call. Under a fixed grant this returns `None` and the handler's generic
+    /// `AccessDenied` stands (ADR-024: no detail to an app that cannot see the
+    /// other areas).
+    async fn refuse_unknown_area(
+        &self,
+        tool: &'static str,
+        asked: &str,
+    ) -> Result<Option<CallToolResult>, McpError> {
+        if self.grant != Grant::Every {
+            return Ok(None);
+        }
+        let areas = match self.authorized().await {
+            Ok(areas) => areas,
+            // No areas at all: the handler refuses it generically.
+            Err(_) => return Ok(None),
+        };
+        if Boundary::new(asked).is_ok_and(|b| areas.contains(&b)) {
+            return Ok(None);
+        }
+        let details = ToolInvokeDetails {
+            tool,
+            duration_ms: 0,
+            result_count: 0,
+            boundary_count: areas.len() as u32,
+            max_results: None,
+            score_threshold: None,
+            include_archived: None,
+            query_length: None,
+            error: Some(ToolInvokeError::from_vault_error(
+                &VaultError::InvalidInput("no such area".into()),
+            )),
+        };
+        tracing::info!(
+            target: "vault_mcp::tool_invoke",
+            tool,
+            boundary_count = details.boundary_count,
+            "refused: the named area does not exist; told the agent the areas"
+        );
+        self.adapter
+            .append_tool_invoke_audit(details)
+            .await
+            .map_err(vault_error_to_mcp)?;
+        Ok(Some(CallToolResult::error(vec![ContentBlock::text(
+            areas::unknown_area_text(asked, &areas),
+        )])))
     }
 
     /// Serve reads and searches at `desk`, shared with the other servers of
@@ -366,11 +458,20 @@ impl StdioServer {
         outcome
     }
 
-    /// Returns a clone of the trusted authorized-boundaries slice.
-    /// Test-only helper — production code uses the field directly.
+    /// The fixed list of a [`Grant::Only`] server; empty for [`Grant::Every`].
+    /// Test-only helper — production code resolves through `authorized`.
     #[doc(hidden)]
     pub fn authorized_boundaries(&self) -> &[Boundary] {
-        &self.authorized_boundaries
+        match &self.grant {
+            Grant::Only(list) => list,
+            Grant::Every => &[],
+        }
+    }
+
+    /// The trusted grant this server was built with. Test-only helper.
+    #[doc(hidden)]
+    pub fn grant(&self) -> &Grant {
+        &self.grant
     }
 
     // -------------------------------------------------------------------------
@@ -385,7 +486,7 @@ impl StdioServer {
     // -------------------------------------------------------------------------
 
     /// `memory_search` Phase 1 stub. Constructs the `RetrievalQuery`
-    /// using the TRUSTED `self.authorized_boundaries` (NEVER the request
+    /// using the TRUSTED the trusted grant (`self.grant`) (NEVER the request
     /// body), then calls `self.adapter.search()`. Phase 1's stub adapter
     /// panics with `unimplemented!()` — the trust-boundary tests assert
     /// the trusted slice was used by inspecting that panic site (or, in
@@ -397,9 +498,9 @@ impl StdioServer {
         };
         let query = RetrievalQuery {
             query_text: params.query,
-            // Trust boundary (ADR-025): the trusted slice goes here,
-            // NOT anything from the request body.
-            authorized_boundaries: self.authorized_boundaries.clone(),
+            // Trust boundary (ADR-025): the trusted grant, resolved now,
+            // goes here — NOT anything from the request body.
+            authorized_boundaries: self.authorized().await?,
             max_results: params.max_results.unwrap_or(10),
             options,
         };
@@ -416,7 +517,7 @@ impl StdioServer {
     }
 
     /// `memory_read` handler. Constructs the [`ReadQuery`] using the
-    /// TRUSTED `self.authorized_boundaries` (NEVER the request body),
+    /// TRUSTED the trusted grant (`self.grant`) (NEVER the request body),
     /// then dispatches to `self.adapter.read()`.
     ///
     /// Added at T0.2.7 Phase 4 (2026-05-20); response shape rewritten
@@ -428,9 +529,9 @@ impl StdioServer {
     pub async fn handle_read(&self, params: ReadToolParams) -> VaultResult<StructuredReadResponse> {
         let query = ReadQuery {
             query_text: params.query,
-            // Trust boundary (ADR-025): the trusted slice goes here,
-            // NOT anything from the request body.
-            authorized_boundaries: self.authorized_boundaries.clone(),
+            // Trust boundary (ADR-025): the trusted grant, resolved now,
+            // goes here — NOT anything from the request body.
+            authorized_boundaries: self.authorized().await?,
         };
         self.adapter.read(query).await
     }
@@ -443,7 +544,7 @@ impl StdioServer {
     pub async fn handle_write(&self, params: WriteToolParams) -> VaultResult<MemoryId> {
         let boundary = Boundary::new(&params.boundary)
             .map_err(|e| VaultError::InvalidInput(format!("boundary: {e}")))?;
-        if !self.authorized_boundaries.contains(&boundary) {
+        if !self.authorized().await?.contains(&boundary) {
             return Err(VaultError::AccessDenied(format!(
                 "boundary '{}' not in authorized set",
                 params.boundary
@@ -511,14 +612,15 @@ impl StdioServer {
         // names MUST be one we've authorized.
         let boundary = Boundary::new(&params.boundary)
             .map_err(|e| VaultError::InvalidInput(format!("boundary: {e}")))?;
-        if !self.authorized_boundaries.contains(&boundary) {
+        let authorized = self.authorized().await?;
+        if !authorized.contains(&boundary) {
             return Err(VaultError::AccessDenied(format!(
                 "boundary '{}' not in authorized set",
                 params.boundary
             )));
         }
         if let Some(stored_boundary) = self.adapter.lookup_boundary(id).await? {
-            if !self.authorized_boundaries.contains(&stored_boundary) {
+            if !authorized.contains(&stored_boundary) {
                 return Err(VaultError::AccessDenied(format!(
                     "memory {id} stored in boundary '{}' which is not in the authorized set",
                     stored_boundary.as_str()
@@ -579,7 +681,7 @@ impl StdioServer {
             return Ok(());
         };
 
-        if !self.authorized_boundaries.contains(&stored_boundary) {
+        if !self.authorized().await?.contains(&stored_boundary) {
             return Err(VaultError::AccessDenied(format!(
                 "memory {id} stored in boundary '{}' which is not in the authorized set",
                 stored_boundary.as_str()
@@ -661,7 +763,7 @@ impl StdioServer {
         let score_threshold_recorded: Option<f32> = p.score_threshold;
         let include_archived_recorded: bool = p.include_archived.unwrap_or(false);
         let query_length_recorded: u32 = p.query.len() as u32;
-        let boundary_count_recorded: u32 = self.authorized_boundaries.len() as u32;
+        let boundary_count_recorded: u32 = self.boundary_count().await;
 
         let start = Instant::now();
         let dispatch_result = match self
@@ -855,7 +957,7 @@ impl StdioServer {
     ) -> Result<CallToolResult, McpError> {
         let Parameters(p) = params;
         let query_length_recorded: u32 = p.query.len() as u32;
-        let boundary_count_recorded: u32 = self.authorized_boundaries.len() as u32;
+        let boundary_count_recorded: u32 = self.boundary_count().await;
 
         let start = Instant::now();
         let dispatch_result = match self.at_desk("memory_read", &ct, self.handle_read(p)).await {
@@ -984,8 +1086,14 @@ impl StdioServer {
                        embedding, so a whole dumped document is largely \
                        invisible to search. \
                        \n\n\
-                       The `boundary` field must name a boundary the host \
-                       application has authorized for this MCP session. \
+                       AREAS: the `boundary` field is the area to save into \
+                       (the Zaaheen app calls areas boundaries). If the user \
+                       names no area, use `personal`; if they name one, use its \
+                       exact name (capitals matter). Call `memory_help` to see \
+                       the user's areas. Only the user creates areas, in the \
+                       Zaaheen app: a save into an area that does not exist \
+                       saves nothing and tells you the user's areas and how the \
+                       user creates one. \
                        Authorization is mediated by the host application, not by \
                        this tool's parameters."
     )]
@@ -994,7 +1102,13 @@ impl StdioServer {
         params: Parameters<WriteToolParams>,
     ) -> Result<CallToolResult, McpError> {
         let Parameters(p) = params;
-        let boundary_count_recorded: u32 = self.authorized_boundaries.len() as u32;
+        if let Some(refused) = self
+            .refuse_unknown_area("memory_write", &p.boundary)
+            .await?
+        {
+            return Ok(refused);
+        }
+        let boundary_count_recorded: u32 = self.boundary_count().await;
 
         let start = Instant::now();
         let dispatch_result = self.handle_write(p).await;
@@ -1117,6 +1231,12 @@ impl StdioServer {
         // Pre-dispatch parse: not audited (handler-mediated audit
         // contract per Q7 a). Tracing-level visibility only.
         let id = parse_memory_id_traced(&p.id, "memory_update")?;
+        if let Some(refused) = self
+            .refuse_unknown_area("memory_update", &p.boundary)
+            .await?
+        {
+            return Ok(refused);
+        }
 
         let write_params = WriteToolParams {
             content: p.content,
@@ -1129,7 +1249,7 @@ impl StdioServer {
             as_of: None,
         };
 
-        let boundary_count_recorded: u32 = self.authorized_boundaries.len() as u32;
+        let boundary_count_recorded: u32 = self.boundary_count().await;
         let start = Instant::now();
         let dispatch_result = self.handle_update(id, write_params).await;
         let duration_ms: u64 = start.elapsed().as_millis() as u64;
@@ -1221,7 +1341,7 @@ impl StdioServer {
         let Parameters(p) = params;
         let id = parse_memory_id_traced(&p.id, "memory_delete")?;
 
-        let boundary_count_recorded: u32 = self.authorized_boundaries.len() as u32;
+        let boundary_count_recorded: u32 = self.boundary_count().await;
         let start = Instant::now();
         let dispatch_result = self.handle_delete(id).await;
         let duration_ms: u64 = start.elapsed().as_millis() as u64;
@@ -1265,6 +1385,75 @@ impl StdioServer {
         dispatch_result.map_err(vault_error_to_mcp)?;
         success_json_result(&serde_json::json!({ "deleted": p.id }))
     }
+
+    /// `memory_help` MCP tool (ADR-SEC-050 G7): the guide to Zaaheen for AI
+    /// apps, and the user's areas. Reads only area names, labels and counts
+    /// — no memory content — so it does not take a seat at the read desk and
+    /// is not rate-limited. Audited like every tool.
+    #[tool(
+        name = "memory_help",
+        description = "How Zaaheen works, step by step, and the user's areas. Call it \
+                       whenever the user asks how Zaaheen or its app works (installing, \
+                       updating, connecting an AI app, areas, adding or restoring a \
+                       memory, the account and subscription, settings, privacy, a \
+                       message Zaaheen gave you), when something seems missing, and \
+                       before telling the user that something does not exist. Never \
+                       answer that you do not know how Zaaheen works, and never send \
+                       the user to look it up: this tool has the answer. With no \
+                       `topic` it returns the overview, the list of topics and the \
+                       user's areas (names, labels, memory counts) as they are now; \
+                       with a `topic` it returns that topic's full steps."
+    )]
+    pub async fn tool_help(
+        &self,
+        params: Parameters<HelpToolParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let Parameters(p) = params;
+        let start = Instant::now();
+        let areas_result = match &self.grant {
+            Grant::Every => self.adapter.list_areas().await,
+            // A fixed grant shows only its own areas (ADR-024: no detail
+            // about areas the app cannot see).
+            Grant::Only(list) => self.adapter.list_areas().await.map(|all| {
+                all.into_iter()
+                    .filter(|a| list.contains(&a.name))
+                    .collect::<Vec<_>>()
+            }),
+        };
+        let duration_ms: u64 = start.elapsed().as_millis() as u64;
+        let (result_count, boundary_count, error_for_audit) = match &areas_result {
+            Ok(areas) => (1_u32, areas.len() as u32, None),
+            Err(e) => (0_u32, 0_u32, Some(ToolInvokeError::from_vault_error(e))),
+        };
+        let details = ToolInvokeDetails {
+            tool: "memory_help",
+            duration_ms,
+            result_count,
+            boundary_count,
+            max_results: None,
+            score_threshold: None,
+            include_archived: None,
+            query_length: None,
+            error: error_for_audit,
+        };
+        tracing::info!(
+            target: "vault_mcp::tool_invoke",
+            tool = details.tool,
+            duration_ms = details.duration_ms,
+            result_count = details.result_count,
+            boundary_count = details.boundary_count,
+            error = ?details.error,
+            "memory_help tool invocation completed"
+        );
+        self.adapter
+            .append_tool_invoke_audit(details)
+            .await
+            .map_err(vault_error_to_mcp)?;
+        let areas = areas_result.map_err(vault_error_to_mcp)?;
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            areas::help_text(p.topic.as_deref(), &areas),
+        )]))
+    }
 }
 
 // =============================================================================
@@ -1280,13 +1469,20 @@ impl ServerHandler for StdioServer {
                 env!("CARGO_PKG_VERSION"),
             ))
             .with_instructions(
-                "Zaaheen — a user-owned, cross-agent persistent memory layer. \
-                 Call memory_read FIRST for any question about the user — it returns \
-                 structured facts or an explicit abstain, and is more reliable than \
-                 judging a raw result list. Tools: memory_read (primary), \
-                 memory_search, memory_write, memory_update, memory_delete. \
-                 Authorization is host-mediated; tool args never override boundaries. \
-                 Setup help and fixes for error messages: https://zaaheen.com/llms.txt",
+                "Zaaheen — the user's own memory, encrypted on their computer and \
+                 shared by every AI app they connect. Call memory_read FIRST for any \
+                 question about the user — it returns structured facts or an explicit \
+                 abstain, and is more reliable than judging a raw result list. Tools: \
+                 memory_read (primary), memory_search, memory_write, memory_update, \
+                 memory_delete, memory_help. Memories are kept in areas (the Zaaheen \
+                 app calls them boundaries); you can read and save in every area the \
+                 user has; save into `personal` unless the user names an area. Call \
+                 memory_help for how Zaaheen and its app work, step by step (install, \
+                 update, connect, areas, undo, account, settings, messages, \
+                 troubleshooting) and for the user's areas. Never say you do not know \
+                 how Zaaheen works and never say something does not exist without \
+                 checking memory_help: say what you could not find. Authorization is \
+                 host-mediated; tool args never override boundaries.",
             )
     }
 }

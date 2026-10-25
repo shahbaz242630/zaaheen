@@ -101,17 +101,17 @@ export default {
   'Please follow both steps. If you skip one, your app may not use Zaaheen.':
     'Siga os dois passos. Se você pular um, seu app pode não usar o Zaaheen.',
   // ConnectSteps' own sentences ({placeholders} and markup kept)
-  'In Zaaheen, open the <em>Agents</em> tab and choose <em>+ Connect an AI app</em>.':
-    'No Zaaheen, abra a aba <em>Agents</em> e escolha <em>+ Connect an AI app</em>.',
+  'In Zaaheen, open the <em>Agents</em> tab and choose <em>Connect an app</em>.':
+    'No Zaaheen, abra a aba <em>Agents</em> e escolha <em>Connect an app</em>.',
   'Choose <em>{name}</em>, then <em>{button}</em>.': 'Escolha <em>{name}</em> e depois <em>{button}</em>.',
   "If {app} opens and asks you to install Zaaheen instead, click <em>Install</em>, and it's connected.":
     'Se o {app} abrir e pedir para instalar o Zaaheen, clique em <em>Install</em> e pronto, está conectado.',
-  "The easiest way to get the setting right: in Zaaheen, open <em>Agents</em>, choose <em>+ Connect an AI app</em>, then <em>{name}</em>. It shows the setting with this computer's own path, with a Copy button. Use the Copy buttons rather than selecting text by hand.":
-    'O jeito mais fácil de acertar a configuração: no Zaaheen, abra <em>Agents</em>, escolha <em>+ Connect an AI app</em> e depois <em>{name}</em>. Ele mostra a configuração com o caminho deste computador, com um botão Copy. Use os botões Copy em vez de selecionar o texto à mão.',
-  '<strong>The path below is an example.</strong> It will look like <code>{path}</code>, which is where Zaaheen usually installs on Windows. If you installed Zaaheen somewhere else, such as another drive or folder, your path is different, and this one will not work. Copy your exact path from Zaaheen: <em>Agents</em>, <em>+ Connect an AI app</em>, <em>{name}</em>, then <em>Copy</em>.':
-    '<strong>O caminho abaixo é um exemplo.</strong> Ele vai ser parecido com <code>{path}</code>, que é onde o Zaaheen costuma ser instalado no Windows. Se você instalou o Zaaheen em outro lugar, como outra unidade ou pasta, seu caminho é diferente, e este não vai funcionar. Copie o seu caminho exato no Zaaheen: <em>Agents</em>, <em>+ Connect an AI app</em>, <em>{name}</em> e depois <em>Copy</em>.',
-  '<strong>The path below is an example.</strong> It will look like <code>{path}</code>, which is where Zaaheen usually installs on a Mac. If you installed Zaaheen somewhere else, your path is different, and this one will not work. Copy your exact path from Zaaheen: <em>Agents</em>, <em>+ Connect an AI app</em>, <em>{name}</em>, then <em>Copy</em>.':
-    '<strong>O caminho abaixo é um exemplo.</strong> Ele vai ser parecido com <code>{path}</code>, que é onde o Zaaheen costuma ser instalado no Mac. Se você instalou o Zaaheen em outro lugar, seu caminho é diferente, e este não vai funcionar. Copie o seu caminho exato no Zaaheen: <em>Agents</em>, <em>+ Connect an AI app</em>, <em>{name}</em> e depois <em>Copy</em>.',
+  "The easiest way to get the setting right: in Zaaheen, open <em>Agents</em>, choose <em>Connect an app</em>, then <em>{name}</em>. It shows the setting with this computer's own path, with a Copy button. Use the Copy buttons rather than selecting text by hand.":
+    'O jeito mais fácil de acertar a configuração: no Zaaheen, abra <em>Agents</em>, escolha <em>Connect an app</em> e depois <em>{name}</em>. Ele mostra a configuração com o caminho deste computador, com um botão Copy. Use os botões Copy em vez de selecionar o texto à mão.',
+  '<strong>The path below is an example.</strong> It will look like <code>{path}</code>, which is where Zaaheen usually installs on Windows. If you installed Zaaheen somewhere else, such as another drive or folder, your path is different, and this one will not work. Copy your exact path from Zaaheen: <em>Agents</em>, <em>Connect an app</em>, <em>{name}</em>, then <em>Copy</em>.':
+    '<strong>O caminho abaixo é um exemplo.</strong> Ele vai ser parecido com <code>{path}</code>, que é onde o Zaaheen costuma ser instalado no Windows. Se você instalou o Zaaheen em outro lugar, como outra unidade ou pasta, seu caminho é diferente, e este não vai funcionar. Copie o seu caminho exato no Zaaheen: <em>Agents</em>, <em>Connect an app</em>, <em>{name}</em> e depois <em>Copy</em>.',
+  '<strong>The path below is an example.</strong> It will look like <code>{path}</code>, which is where Zaaheen usually installs on a Mac. If you installed Zaaheen somewhere else, your path is different, and this one will not work. Copy your exact path from Zaaheen: <em>Agents</em>, <em>Connect an app</em>, <em>{name}</em>, then <em>Copy</em>.':
+    '<strong>O caminho abaixo é um exemplo.</strong> Ele vai ser parecido com <code>{path}</code>, que é onde o Zaaheen costuma ser instalado no Mac. Se você instalou o Zaaheen em outro lugar, seu caminho é diferente, e este não vai funcionar. Copie o seu caminho exato no Zaaheen: <em>Agents</em>, <em>Connect an app</em>, <em>{name}</em> e depois <em>Copy</em>.',
   // Notes above the steps
   'Using the Cursor IDE? Connect Zaaheen here, through Cursor Desktop: the IDE has no MCP settings of its own, and it uses the ones you set in Cursor Desktop, so connecting once is enough for both.':
     'Usa o Cursor IDE? Conecte o Zaaheen aqui, pelo Cursor Desktop: o IDE não tem configurações de MCP próprias e usa as que você define no Cursor Desktop, então conectar uma vez basta para os dois.',
@@ -167,8 +167,8 @@ export default {
     'No Antigravity, abra Settings e depois Customization. Em Token usage, ao lado de MCP tools, clique em Show breakdown. O Zaaheen aparece com um círculo verde.',
   'In a terminal, run claude mcp list. Zaaheen shows as connected.':
     'Em um terminal, rode claude mcp list. O Zaaheen aparece como conectado.',
-  'In Codex, type /mcp and press Enter. zaaheen is listed as connected, with 5 tools. If it shows no tools or says it timed out, update Codex (npm install -g @openai/codex@latest) and try again.':
-    'No Codex, digite /mcp e pressione Enter. O zaaheen aparece como conectado, com 5 ferramentas. Se não aparecer nenhuma ferramenta ou disser que o tempo esgotou, atualize o Codex (npm install -g @openai/codex@latest) e tente de novo.',
+  'In Codex, type /mcp and press Enter. zaaheen is listed as connected, with 6 tools. If it shows no tools or says it timed out, update Codex (npm install -g @openai/codex@latest) and try again.':
+    'No Codex, digite /mcp e pressione Enter. O zaaheen aparece como conectado, com 6 ferramentas. Se não aparecer nenhuma ferramenta ou disser que o tempo esgotou, atualize o Codex (npm install -g @openai/codex@latest) e tente de novo.',
   "Your app's list of tools or MCP servers shows Zaaheen.":
     'A lista de ferramentas ou de servidores MCP do seu app mostra o Zaaheen.',
   // Making the app use Zaaheen

@@ -27,7 +27,7 @@ const FIXES_DE: Record<string, { where: string; fix: string }> = {
   },
   'request timed out (zaaheen: Tools: (none))': {
     where: 'Codex im Terminal, nach /mcp',
-    fix: 'Aktualisiere Codex (npm install -g @openai/codex@latest), starte dann codex erneut und tippe /mcp: zaaheen erscheint als verbunden, mit 5 Tools.',
+    fix: 'Aktualisiere Codex (npm install -g @openai/codex@latest), starte dann codex erneut und tippe /mcp: zaaheen erscheint als verbunden, mit 6 Tools.',
   },
   'The AI app saves to its own memory, or answers "I don\'t know", instead of using Zaaheen': {
     where: 'Claude Desktop, ChatGPT Desktop, Codex',
@@ -77,6 +77,8 @@ const OUTLINE = [
   { id: 'unknown-publisher', title: 'Windows sagt, der Herausgeber sei unbekannt' },
   { id: 'mac-applications', title: 'Der Mac will Zaaheen in Programme haben' },
   { id: 'mac-keychain', title: 'Der Mac fragt nach dem Schlüsselbund' },
+  { id: 'missing', title: 'Meine KI-App findet eine Erinnerung nicht, die ich in der Zaaheen-App hinzugefügt habe' },
+  { id: 'no-area', title: 'Meine KI-App sagt, ein Bereich existiert nicht' },
   { id: 'stopped', title: 'Meine Apps nutzen Zaaheen nicht mehr' },
   { id: 'else', title: 'Etwas anderes ist schiefgegangen' },
 ];
@@ -153,6 +155,23 @@ const OUTLINE = [
          bevor Zaaheen ihn liest. Wähle <em>Always Allow</em>. Sagt Zaaheen, es konnte den sicheren
          Speicher dieses Computers nicht nutzen, öffne die Schlüsselbundverwaltung, entsperre deinen
          Anmeldeschlüsselbund und versuch es noch einmal.</p>
+    </Row>
+
+    <Row level={2} id="missing" title="Meine KI-App findet eine Erinnerung nicht, die ich in der Zaaheen-App hinzugefügt habe" where="Memories">
+      <p>Aktualisiere Zaaheen auf Version 0.3.7 oder neuer von zaaheen.com. Vor 0.3.7 landete eine
+         Erinnerung, die du in der App hinzugefügt hast, im Bereich <em>default</em>, den KI-Apps nicht
+         lesen konnten. Ab 0.3.7 liest jede KI-App alle Bereiche, auch Erinnerungen von vor dem Update.
+         Wird sie dann noch nicht gefunden, prüfe, ob die Erinnerung im Tab <em>Memories</em> (oder unter
+         <em>Recently deleted</em>) steht, schließe deine KI-App, öffne sie wieder und frag noch
+         einmal.</p>
+    </Row>
+
+    <Row level={2} id="no-area" title="Meine KI-App sagt, ein Bereich existiert nicht" where="Boundaries">
+      <p>KI-Apps können keine Bereiche anlegen, nur du. Öffne <em>Boundaries</em>, wähle <em>+ New
+         boundary</em>, gib den Namen ein (Buchstaben, Ziffern, - oder _, ohne Leerzeichen) und wähle
+         <em>Create boundary</em>. Bitte deine KI-App dann, noch einmal zu speichern. Namen sind genau,
+         Großschreibung eingeschlossen: Hast du schon <em>Health</em>, frag nach Health. Siehe
+         <a href={L('/docs/#areas')}>So funktionieren Bereiche</a>.</p>
     </Row>
 
     <Row level={2} id="stopped" title="Meine Apps nutzen Zaaheen nicht mehr" where="Settings › Account">

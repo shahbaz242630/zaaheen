@@ -39,7 +39,7 @@ use tokio::sync::mpsc;
 use tokio::task::AbortHandle;
 use tokio::time::Instant;
 use vault_core::{VaultError, VaultResult};
-use vault_mcp::{Adapter, EntitlementCheck, Gate, InFlight, ReadDesk, StdioServer, Verdict};
+use vault_mcp::{Adapter, EntitlementCheck, Gate, Grant, InFlight, ReadDesk, StdioServer, Verdict};
 
 use crate::admin::{AdminGate, AdminHost, AdminServer, ADMIN_BUSY};
 use crate::entitlement::{Flip, LockModeCheck, ModeCheck};
@@ -529,13 +529,18 @@ async fn handle_connection(mut stream: ServerStream, ctx: ConnectionContext) {
     .await;
 
     match accepted {
-        Ok(KeeperAccept::Serve { boundaries }) => {
+        Ok(accept @ (KeeperAccept::Serve { .. } | KeeperAccept::ServeEvery)) => {
             ctx.authed.store(true, Ordering::SeqCst);
             ctx.active.fetch_add(1, Ordering::SeqCst);
             let _guard = ActiveGuard(ctx.active.clone());
             // Listed until the session ends, however it ends (the guard).
             let session = Arc::new(ctx.clients.connected());
-            let server = StdioServer::new(ctx.adapter, boundaries).with_desk(ctx.desk);
+            // The grant the relay proved it asked for (ADR-SEC-050 G2).
+            let grant = match accept {
+                KeeperAccept::Serve { boundaries } => Grant::Only(boundaries),
+                _ => Grant::Every,
+            };
+            let server = StdioServer::with_grant(ctx.adapter, grant).with_desk(ctx.desk);
             let service = Tracked::new(
                 vault_mcp::gated_or_counted(ctx.gate.as_ref(), &ctx.in_flight, server),
                 Arc::clone(&session),

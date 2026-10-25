@@ -202,7 +202,7 @@ async fn full_initialize_round_trip_lists_five_tools_with_expected_names() {
         .await
         .expect("list_tools succeeds");
 
-    assert_eq!(listed.tools.len(), 5, "expected exactly 5 tools advertised");
+    assert_eq!(listed.tools.len(), 6, "expected exactly 6 tools advertised");
 
     let names: BTreeSet<&str> = listed.tools.iter().map(|t| t.name.as_ref()).collect();
     let expected: BTreeSet<&str> = [
@@ -211,12 +211,13 @@ async fn full_initialize_round_trip_lists_five_tools_with_expected_names() {
         "memory_write",
         "memory_update",
         "memory_delete",
+        "memory_help",
     ]
     .into_iter()
     .collect();
     assert_eq!(
         names, expected,
-        "tool names must match the 5-tool contract — set comparison so emit order is not pinned"
+        "tool names must match the 6-tool contract — set comparison so emit order is not pinned"
     );
 
     // Drop the client to close the duplex; the spawned server task
@@ -344,10 +345,15 @@ async fn memory_write_description_contains_canonical_save_contract() {
         .and_then(|b| b.get("description"))
         .and_then(|d| d.as_str())
         .expect("boundary field has description");
-    assert!(
-        boundary_desc.contains("authorized"),
-        "boundary field description must mention authorization; got: {boundary_desc}"
-    );
+    // ADR-SEC-050 (s113): the field teaches areas — save into `personal`
+    // when the user names none, ask `memory_help` for the user's areas, and
+    // an unknown area saves nothing.
+    for phrase in ["\"personal\"", "memory_help", "not exist saves nothing"] {
+        assert!(
+            boundary_desc.contains(phrase),
+            "boundary field description must say {phrase:?}; got: {boundary_desc}"
+        );
+    }
 
     let confidence_desc = properties
         .get("confidence")

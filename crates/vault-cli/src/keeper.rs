@@ -34,8 +34,10 @@ use vault_app::keychain::{
 };
 use vault_app::model_fetch;
 use vault_app::{ConsolidatorLock, VAULT_LOCKFILE_NAME};
-use vault_core::{Boundary, VaultError};
-use vault_mcp::{EntitlementCheck, InFlight, NoVaultAdapter, RelayServer, Upstream, Verdict};
+use vault_core::VaultError;
+use vault_mcp::{
+    EntitlementCheck, Grant, InFlight, NoVaultAdapter, RelayServer, Upstream, Verdict,
+};
 
 // The keeper task's label, launcher and arguments are shared with the
 // desktop (ADR-108 D4), so both register the very same task.
@@ -464,7 +466,7 @@ fn stdin_eof_watcher() -> tokio::sync::oneshot::Receiver<()> {
 /// # Errors
 ///
 /// The stdio transport could not be bound.
-pub async fn run_relay(homes: vault_app::location::Homes, boundaries: Vec<Boundary>) -> Result<()> {
+pub async fn run_relay(homes: vault_app::location::Homes, grant: Grant) -> Result<()> {
     // Nothing that can fail runs before stdio is served: a relay that dies
     // before answering `initialize` is exactly the "Server disconnected" this
     // arc exists to remove. Folder hardening is the keeper's job (it runs it
@@ -481,7 +483,7 @@ pub async fn run_relay(homes: vault_app::location::Homes, boundaries: Vec<Bounda
         .map(|home| vault_app::account::account_dir_path(&home));
     let pool = KeeperPool::new(
         // ADR-105 L3: the recorded location, re-resolved on every round.
-        RelaySettings::recorded(homes, boundaries).with_account_dir(account_dir),
+        RelaySettings::recorded(homes, grant).with_account_dir(account_dir),
         starter,
         Arc::new(KeychainKeySource),
     );

@@ -248,6 +248,10 @@
         <h1>What should your AI apps know about you?</h1>
         <p class="sub">Start with one thing. Your AI apps will recall it whenever it helps.</p>
         <textarea id="mem-text" class="mv-input" placeholder="e.g. I prefer short, direct answers."></textarea>
+        <div class="chip-row">
+          <span class="chip-lbl">Area:</span>
+          <select id="mem-area" class="area-select unchosen" aria-label="Area"><option value="">Choose an area</option></select>
+        </div>
         <div id="mem-err" class="err-note" style="margin-top:16px"></div>
         <div class="onboard-foot">
           <button id="mem-save" class="btn-pill disabled">Keep this memory</button>
@@ -407,6 +411,10 @@
                 <span class="chip-lbl">This is:</span>
                 <span id="add-chips" class="chip-row" style="margin:0"></span>
               </div>
+              <div class="chip-row">
+                <span class="chip-lbl">Area:</span>
+                <select id="add-area" class="area-select unchosen" aria-label="Area"><option value="">Choose an area</option></select>
+              </div>
               <div class="actions">
                 <button id="add-save" class="btn-pill">Keep this memory</button>
                 <button id="add-cancel" class="link-quiet">cancel</button>
@@ -419,24 +427,25 @@
 
         <!-- boundaries tab -->
         <div id="tab-boundaries" class="tab-pane tab-body hidden">
-          <div class="headline">Who can see what.</div>
-          <p class="sub">Boundaries keep memories separated. An agent only reads the boundaries you grant it.</p>
+          <div class="headline">Your areas.</div>
+          <p class="sub">Areas keep your memories organised. Every AI app you connect can read and save in every area.</p>
           <div id="boundary-rows" class="tab-rows"></div>
           <div class="center-link">
             <button id="boundary-add-label" class="link-underline">+ New boundary</button>
           </div>
           <div id="boundary-add" class="inline-add hidden">
+            <p class="boundary-hint">Creates an empty area. To fill it, choose it when you add a memory, or ask your AI app to save into it.</p>
             <input id="boundary-name" class="mv-input" type="text" maxlength="64"
-                   placeholder="personal, work, health…" autocomplete="off" />
+                   placeholder="Name, e.g. Health" autocomplete="off" />
+            <p class="boundary-hint">Letters, numbers, - or _ (no spaces).</p>
             <input id="boundary-desc" class="mv-input" type="text" maxlength="256"
-                   placeholder="What goes in here? (optional)" autocomplete="off" />
+                   placeholder="Short label (optional), e.g. Doctor visits and medicines" autocomplete="off" />
             <div class="actions">
               <button id="boundary-save" class="btn-pill">Create boundary</button>
               <button id="boundary-cancel" class="link-quiet">cancel</button>
               <span id="boundary-err" class="err-note"></span>
             </div>
           </div>
-          <p class="boundary-note">Granting an agent access to a specific boundary arrives in the next update. For now an agent reads the boundaries its connection was set up with.</p>
         </div>
 
         <!-- agents tab -->

@@ -33,14 +33,13 @@ use rmcp::service::{Peer, PeerRequestOptions, RunningService, ServiceError};
 use rmcp::{RoleClient, ServiceExt};
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
-use vault_core::Boundary;
-use vault_mcp::{LockReason, Upstream, UpstreamError};
+use vault_mcp::{Grant, LockReason, Upstream, UpstreamError};
 use zeroize::Zeroizing;
 
 use super::discovery::{self, Role};
 use super::handshake::{
-    admin_handshake, relay_handshake, HandshakeError, HandshakeKeys, KeeperIdentity, RelayOutcome,
-    CHALLENGE_LEN, NONCE_LEN,
+    admin_handshake, relay_handshake, relay_handshake_every, HandshakeError, HandshakeKeys,
+    KeeperIdentity, RelayOutcome, CHALLENGE_LEN, NONCE_LEN,
 };
 use super::transport::{self, ConnectError};
 
@@ -205,7 +204,9 @@ impl RelayVault {
 #[derive(Clone, Debug)]
 pub struct RelaySettings {
     pub vault: RelayVault,
-    pub boundaries: Vec<Boundary>,
+    /// Which areas an AI app's session asks for (ADR-SEC-050): every area,
+    /// unless a fixed list was given. Unused by the admin purpose.
+    pub grant: Grant,
     pub resolve_budget: Duration,
     pub start_every: Duration,
     pub poll_every: Duration,
@@ -231,20 +232,20 @@ impl RelaySettings {
     /// Shipped values. At most 15 s of a call's deadline is spent finding or
     /// starting the keeper; the call itself runs until the deadline (ADR-103
     /// D1 — there is no separate call timeout any more).
-    pub fn production(vault_root: PathBuf, boundaries: Vec<Boundary>) -> Self {
-        Self::for_vault(RelayVault::Fixed(vault_root), boundaries)
+    pub fn production(vault_root: PathBuf, grant: Grant) -> Self {
+        Self::for_vault(RelayVault::Fixed(vault_root), grant)
     }
 
     /// Shipped values over the recorded location (ADR-105): what an AI app's
     /// `zaaheen mcp serve` uses.
-    pub fn recorded(homes: crate::location::Homes, boundaries: Vec<Boundary>) -> Self {
-        Self::for_vault(RelayVault::Recorded(homes), boundaries)
+    pub fn recorded(homes: crate::location::Homes, grant: Grant) -> Self {
+        Self::for_vault(RelayVault::Recorded(homes), grant)
     }
 
-    fn for_vault(vault: RelayVault, boundaries: Vec<Boundary>) -> Self {
+    fn for_vault(vault: RelayVault, grant: Grant) -> Self {
         Self {
             vault,
-            boundaries,
+            grant,
             resolve_budget: Duration::from_secs(15),
             start_every: Duration::from_millis(2500),
             poll_every: Duration::from_millis(200),
@@ -265,7 +266,7 @@ impl RelaySettings {
     /// client timeout to fit inside, and a cold start on a loaded laptop can
     /// take longer than 15 s (review B-M5).
     pub fn desktop(homes: crate::location::Homes) -> Self {
-        let mut settings = Self::for_vault(RelayVault::Recorded(homes), Vec::new());
+        let mut settings = Self::for_vault(RelayVault::Recorded(homes), Grant::Only(Vec::new()));
         settings.purpose = Purpose::Admin;
         settings.resolve_budget = DESKTOP_FIND_BUDGET;
         settings
@@ -641,13 +642,24 @@ impl KeeperPool {
         if getrandom::getrandom(&mut challenge).is_err() {
             return Attempt::Gone;
         }
-        let handshake = match self.settings.purpose {
-            Purpose::Serve => {
+        let handshake = match (self.settings.purpose, &self.settings.grant) {
+            (Purpose::Serve, Grant::Only(boundaries)) => {
                 relay_handshake(
                     &mut stream,
                     keys,
                     identity,
-                    &self.settings.boundaries,
+                    boundaries,
+                    challenge,
+                    self.settings.step_deadline,
+                )
+                .await
+            }
+            // ADR-SEC-050: every area, resolved by the keeper at each call.
+            (Purpose::Serve, Grant::Every) => {
+                relay_handshake_every(
+                    &mut stream,
+                    keys,
+                    identity,
                     challenge,
                     self.settings.step_deadline,
                 )
@@ -656,7 +668,7 @@ impl KeeperPool {
             // ADR-SEC-033: the desktop's admin connection. Version handling
             // is a relay's — an older keeper is asked to yield, never to hand
             // over; a newer one makes this link say "update needed".
-            Purpose::Admin => {
+            (Purpose::Admin, _) => {
                 admin_handshake(
                     &mut stream,
                     keys,
@@ -874,7 +886,7 @@ mod tests {
         // which vault-mcp pins under the client's 60 s. A resolution budget
         // near the call budget would leave a just-started keeper no time to
         // answer.
-        let s = RelaySettings::production(PathBuf::from("x"), vec![]);
+        let s = RelaySettings::production(PathBuf::from("x"), Grant::Every);
         assert!(
             s.resolve_budget * 3 <= vault_mcp::RELAY_CALL_BUDGET,
             "finding the keeper must leave most of the call budget for the call"
@@ -910,7 +922,7 @@ mod tests {
     /// A relay over the recorded location, with a short budget, counting
     /// the keeper starts it asks for.
     fn pool(homes: crate::location::Homes) -> (Arc<KeeperPool>, Arc<CountingStarter>) {
-        let mut settings = RelaySettings::recorded(homes, vec![]);
+        let mut settings = RelaySettings::recorded(homes, Grant::Every);
         settings.resolve_budget = Duration::from_millis(600);
         settings.poll_every = Duration::from_millis(50);
         settings.start_every = Duration::from_millis(100);

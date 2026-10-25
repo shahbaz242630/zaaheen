@@ -61,7 +61,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use vault_core::{Boundary, Memory, MemoryId, NewMemory, VaultError, VaultResult};
 use vault_embedding::EmbeddingProvider;
-use vault_mcp::{Adapter, ToolInvokeDetails};
+use vault_mcp::{Adapter, AreaInfo, ToolInvokeDetails};
 use vault_retrieval::{
     KeywordIndex, ReadQuery, RetrievalQuery, RetrievedMemory, Retriever, StructuredReadPipeline,
     StructuredReadResponse,
@@ -353,6 +353,22 @@ impl Adapter for VaultAdapter {
     /// `MetadataStore` handle used by `update`'s read-before-write path.
     async fn lookup_boundary(&self, id: MemoryId) -> VaultResult<Option<Boundary>> {
         Ok(self.metadata.get_memory(&id).await?.map(|m| m.boundary))
+    }
+
+    /// ADR-SEC-050: the registry, which every memory write keeps complete
+    /// (`tx_register_boundary`, migration 0010), resolves the Every grant.
+    async fn list_areas(&self) -> VaultResult<Vec<AreaInfo>> {
+        Ok(self
+            .metadata
+            .list_boundaries()
+            .await?
+            .into_iter()
+            .map(|b| AreaInfo {
+                name: b.boundary,
+                description: b.description,
+                memory_count: b.memory_count,
+            })
+            .collect())
     }
 
     /// ADR-SEC-001 D3/D4: resolve a presented capability token's hash to the
@@ -803,6 +819,58 @@ mod tests {
             hits.iter().any(|(hit_id, _score)| *hit_id == id),
             "freshly written memory must be searchable in the keyword index \
              without a restart; got {hits:?}"
+        );
+    }
+
+    /// The s113 bug, on a real vault: the desktop saves into `default`, and
+    /// an AI app granted every area (ADR-SEC-050) must search it — and an
+    /// area the user creates afterwards — with no reconnect.
+    #[tokio::test]
+    async fn an_every_area_app_searches_what_the_desktop_saved_and_new_areas() {
+        let fx = make_fixture(Vec::new()).await;
+        // What `admin::ops::memory_add` does for "+ Add a memory".
+        fx.adapter
+            .write(sample_new_memory(
+                "The user likes to play football.",
+                "default",
+            ))
+            .await
+            .unwrap();
+        let retriever = fx.retriever.clone();
+        let adapter = Arc::new(fx.adapter);
+        let server = vault_mcp::StdioServer::every_area(adapter.clone());
+        let search = || vault_mcp::SearchToolParams {
+            query: "what sports does the user play".into(),
+            max_results: None,
+            score_threshold: None,
+            include_archived: None,
+        };
+        server.handle_search(search()).await.unwrap();
+        adapter
+            .create_boundary(&Boundary::new("Health").unwrap(), None)
+            .await
+            .unwrap();
+        server.handle_search(search()).await.unwrap();
+
+        let scoped: Vec<Vec<String>> = retriever
+            .recorded_queries()
+            .into_iter()
+            .map(|q| {
+                let mut names: Vec<String> = q
+                    .authorized_boundaries
+                    .iter()
+                    .map(|b| b.as_str().to_string())
+                    .collect();
+                names.sort();
+                names
+            })
+            .collect();
+        assert_eq!(
+            scoped,
+            vec![
+                vec!["default", "personal"],
+                vec!["Health", "default", "personal"],
+            ]
         );
     }
 
