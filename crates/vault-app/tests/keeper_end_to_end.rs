@@ -764,7 +764,7 @@ async fn erasure_waits_out_and_reports_a_maintenance_run() {
 fn the_tool_contract_is_pinned_to_the_wire_version() {
     // Wire 8 (session 113, ADR-115 / ADR-SEC-050): every area, the
     // `memory_help` tool, and instructions that point to it instead of the
-    // website; recorded on CI. Wire 7 was
+    // website; recorded 2026-10-25 on CI (Linux and macOS agree). Wire 7 was
     // e1fc11ae9754329166276ba1ff6c16cf1051ff29ba8005a5dbb5cd5410b60b85
     // (session 109: `memory_delete` / `memory_update` describe Recently
     // deleted and the AI-app hourly limit, ADR-114, ADR-SEC-049; recorded
@@ -783,7 +783,7 @@ fn the_tool_contract_is_pinned_to_the_wire_version() {
     // 64bafc664287b3e09449bb4c093e38bfa87b287bbb769ce86e14967363a7d836 (CI,
     // Linux and macOS, ADR-SEC-021 D4c); wire 1 was
     // 2e062fb5bc6adb1a62b37ca9c33adb51dbfd2f59249e501d7fa6dfb9871309be.
-    const PINNED: &str = "to-be-recorded-on-ci";
+    const PINNED: &str = "bb7cf39e0f3b66bf78b82d6d28c854f08ffa4dcb72cc172dfad0c24e5a107aa1";
 
     let server = StdioServer::new(Arc::new(NoVaultAdapter), Vec::new());
     let instructions = server.get_info().instructions.unwrap_or_default();
