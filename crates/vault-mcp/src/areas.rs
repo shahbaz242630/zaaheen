@@ -208,14 +208,16 @@ mod tests {
     #[test]
     fn the_guide_names_no_supplier_or_engine() {
         // White label (founder 2026-07-11): no model, storage or supplier
-        // names anywhere an AI app may repeat to the user.
+        // names anywhere an AI app may repeat to the user. Whole words only,
+        // so "glance" is not "lance" (CI s113).
         let banned = [
             "bge",
             "qwen",
-            "phi-4",
+            "phi",
             "phi4",
             "onnx",
             "lance",
+            "lancedb",
             "duckdb",
             "sqlcipher",
             "sqlite",
@@ -231,10 +233,29 @@ mod tests {
         ];
         let all = std::iter::once(HELP_OVERVIEW).chain(HELP_TOPICS.iter().map(|(_, t)| *t));
         for text in all {
-            let lower = text.to_ascii_lowercase();
+            let words = whole_words(text);
             for word in banned {
-                assert!(!lower.contains(word), "the guide names {word:?}");
+                assert!(!words.iter().any(|w| w == word), "the guide names {word:?}");
             }
         }
+    }
+
+    /// The text's words, lower-cased, split at anything not a letter or digit.
+    fn whole_words(text: &str) -> Vec<String> {
+        text.to_ascii_lowercase()
+            .split(|c: char| !c.is_ascii_alphanumeric())
+            .filter(|w| !w.is_empty())
+            .map(str::to_string)
+            .collect()
+    }
+
+    /// The check above reads whole words: it must still catch a name, and
+    /// must not trip on an ordinary word that contains one.
+    #[test]
+    fn the_supplier_check_reads_whole_words() {
+        let has = |text: &str, word: &str| whole_words(text).iter().any(|w| w == word);
+        assert!(!has("The app at a glance", "lance"));
+        assert!(has("stored by LanceDB.", "lancedb"));
+        assert!(has("runs Phi-4 locally", "phi"));
     }
 }
