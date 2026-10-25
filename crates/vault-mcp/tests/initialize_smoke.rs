@@ -345,10 +345,15 @@ async fn memory_write_description_contains_canonical_save_contract() {
         .and_then(|b| b.get("description"))
         .and_then(|d| d.as_str())
         .expect("boundary field has description");
-    assert!(
-        boundary_desc.contains("authorized"),
-        "boundary field description must mention authorization; got: {boundary_desc}"
-    );
+    // ADR-SEC-050 (s113): the field teaches areas — save into `personal`
+    // when the user names none, ask `memory_help` for the user's areas, and
+    // an unknown area saves nothing.
+    for phrase in ["\"personal\"", "memory_help", "not exist saves nothing"] {
+        assert!(
+            boundary_desc.contains(phrase),
+            "boundary field description must say {phrase:?}; got: {boundary_desc}"
+        );
+    }
 
     let confidence_desc = properties
         .get("confidence")
