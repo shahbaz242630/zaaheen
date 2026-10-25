@@ -17,6 +17,22 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '0.3.7',
+    date: '2026-10-26',
+    summary: 'Memories you add in the Zaaheen app now reach your AI apps, and you choose an area for each one.',
+    added: [
+      'Every AI app you connect can now read and save in every area (Boundaries), including areas you create later.',
+      'When you add a memory, choose its area under "Area". "Keep this memory" stays off until you choose one.',
+      'The Boundaries page lists every area, including personal, where your AI apps save. "+ New boundary" explains that it creates an empty area and how to fill it.',
+      'AI apps can ask Zaaheen for a guide to the app and your list of areas, so they can walk you through anything step by step.',
+      'If you ask an AI app to save into an area that does not exist, it tells you and shows how to create it. AI apps cannot create areas themselves.',
+    ],
+    fixed: [
+      'A memory you added in the Zaaheen app could not be found by your AI apps, because it went into an area they could not read. They can now, including memories added before this update.',
+      "The app's own search did not include memories saved by your AI apps. It now searches every area.",
+    ],
+  },
+  {
     version: '0.3.6',
     date: '2026-10-24',
     summary: 'Undo a delete or an edit for 30 days, a limit on changes by AI apps, and fixes for the Mac.',
