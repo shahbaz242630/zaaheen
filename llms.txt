@@ -15,13 +15,22 @@ Zaaheen is a desktop app that gives AI assistants one private, persistent memory
 
 ## What Zaaheen gives a connected AI app
 
-Zaaheen runs a local MCP server with five tools:
+Zaaheen runs a local MCP server with six tools:
 
 - memory_read: the main tool. Ask one question in plain words and get the matching facts about the person, or a clear "nothing stored" answer.
 - memory_search: browse stored memories by free text, best matches first.
-- memory_write: save one fact about the person.
+- memory_write: save one fact about the person, into one of their areas.
 - memory_update: replace a stored memory with a corrected one.
 - memory_delete: forget a memory, when the person asks.
+- memory_help: the person's areas (names, labels, how many memories each holds) and the full guide to Zaaheen: areas, adding memories, undo, the hourly limit, connecting apps and what to do when something seems missing. Use it instead of guessing how the app works.
+
+## Areas
+
+- Memories are kept in areas; the Zaaheen app calls them boundaries (its Boundaries tab). Every memory is in exactly one area.
+- A connected AI app can read and save in every area the person has, including an area created after the app connected.
+- Two areas always exist: default (what the person adds in the app unless they choose another area) and personal (where AI apps save when the person does not name an area).
+- Save into personal unless the person names an area; then use its exact name (capitals included).
+- Only the person creates areas, in the Zaaheen app (Boundaries, then "+ New boundary"). Saving into an area that does not exist saves nothing and answers with the person's areas and the steps. Never tell the person something does not exist: call memory_help, which has the areas and the full guide.
 
 - Undo: a memory deleted or replaced through memory_delete or memory_update waits for 30 days in the Zaaheen app, under Memories, then "Recently deleted", where the person can restore it. AI apps cannot open or empty that list.
 - Limit: all connected AI apps together can delete or change at most 30 memories an hour. Past that, the tools answer that Zaaheen has paused deletes and edits; tell the person they can delete or edit in the Zaaheen app, or try again within the hour.
@@ -29,14 +38,14 @@ Zaaheen runs a local MCP server with five tools:
 ## Helping someone connect Zaaheen
 
 - First, the person opens Zaaheen on their computer and signs in; the first sign-in from the app starts the free trial.
-- In Zaaheen: the Agents tab, then "+ Connect an AI app", then the app. That tab shows the exact setting for their computer (its own install path), ready to copy: prefer it to the usual paths below (Windows C:\Program Files\Zaaheen\zaaheen.exe, Mac /Applications/Zaaheen.app/Contents/MacOS/zaaheen). Use the Copy buttons; a space typed before the command stops it working.
+- In Zaaheen: the Agents tab, then "Connect an app", then the app. That tab shows the exact setting for their computer (its own install path), ready to copy: prefer it to the usual paths below (Windows C:\Program Files\Zaaheen\zaaheen.exe, Mac /Applications/Zaaheen.app/Contents/MacOS/zaaheen). Use the Copy buttons; a space typed before the command stops it working.
 - Codex (terminal) and ChatGPT Desktop share one settings file (.codex/config.toml); the Cursor IDE uses Cursor Desktop's settings. Connect once.
 - Other apps: https://zaaheen.com/docs/connect-other-apps/. More fixes: https://zaaheen.com/docs/troubleshooting/.
 
 ### Claude Desktop
 
 Please follow all 3 steps. If you skip one, Claude Desktop may not use Zaaheen.
-- Step 1A: The quick way: in Zaaheen, Agents, "+ Connect an AI app", "Claude Desktop", then "Save the extension". Zaaheen saves a small Claude extension, and Claude asks you to install it. Zaaheen saved the extension to your Downloads folder. In Claude, open Settings, then Extensions, then Advanced settings, then Install Extension, and choose "Zaaheen for Claude.mcpb".
+- Step 1A: The quick way: in Zaaheen, Agents, "Connect an app", "Claude Desktop", then "Save the extension". Zaaheen saves a small Claude extension, and Claude asks you to install it. Zaaheen saved the extension to your Downloads folder. In Claude, open Settings, then Extensions, then Advanced settings, then Install Extension, and choose "Zaaheen for Claude.mcpb".
 - Step 1B: Or add it yourself (Windows): In Claude, open Settings, then Developer, then Edit Config. Add this to the file it shows you, save it, then quit Claude and open it again: { "mcpServers": { "zaaheen": { "command": "C:\\Program Files\\Zaaheen\\zaaheen.exe", "args": ["mcp", "serve"] } } }
 - Step 1B: Or add it yourself (Mac): In Claude, open Settings, then Developer, then Edit Config. Add this to the file it shows you, save it, then quit Claude and open it again: { "mcpServers": { "zaaheen": { "command": "/Applications/Zaaheen.app/Contents/MacOS/zaaheen", "args": ["mcp", "serve"] } } }
 - Step 2: Check it's connected: In Claude, open Settings, then Extensions. Zaaheen is listed there and switched on. If you added it yourself (Step 1B), it is listed under Settings, then Developer, instead.
@@ -47,7 +56,7 @@ Please follow all 3 steps. If you skip one, Claude Desktop may not use Zaaheen.
 
 Please follow both steps. If you skip one, Cursor Desktop may not use Zaaheen.
 Using the Cursor IDE? Connect Zaaheen here, through Cursor Desktop: the IDE has no MCP settings of its own, and it uses the ones you set in Cursor Desktop, so connecting once is enough for both.
-- Step 1A: The quick way: in Zaaheen, Agents, "+ Connect an AI app", "Cursor Desktop", then "Connect it for me". Zaaheen opens Cursor, and Cursor asks you to install Zaaheen. It can take up to a minute for Cursor to open and show its Install box, so please wait for it, then click Install. Cursor should now be showing its Install box. Click Install, and it's connected. If nothing has appeared, switch to the Cursor window: the box may be behind this one.
+- Step 1A: The quick way: in Zaaheen, Agents, "Connect an app", "Cursor Desktop", then "Connect it for me". Zaaheen opens Cursor, and Cursor asks you to install Zaaheen. It can take up to a minute for Cursor to open and show its Install box, so please wait for it, then click Install. Cursor should now be showing its Install box. Click Install, and it's connected. If nothing has appeared, switch to the Cursor window: the box may be behind this one.
 - Step 1B: Or add it yourself (Windows): In Cursor Desktop, choose Customize in the left bar, then MCPs. Scroll to the bottom, choose + New MCP server, and paste this in. Save it: { "mcpServers": { "zaaheen": { "command": "C:\\Program Files\\Zaaheen\\zaaheen.exe", "args": ["mcp", "serve"] } } }
 - Step 1B: Or add it yourself (Mac): In Cursor Desktop, choose Customize in the left bar, then MCPs. Scroll to the bottom, choose + New MCP server, and paste this in. Save it: { "mcpServers": { "zaaheen": { "command": "/Applications/Zaaheen.app/Contents/MacOS/zaaheen", "args": ["mcp", "serve"] } } }
 - Step 2: Check it's connected: In Cursor Desktop, choose Customize in the left bar, then MCPs. zaaheen is listed there and connected.
@@ -84,7 +93,7 @@ Please follow all 3 steps. If you skip one, Codex may not use Zaaheen.
 Already connected ChatGPT Desktop? Codex uses the same settings, so you don't need to add Zaaheen again. Just do Step 2 to check it's connected, then ask Codex to save or recall using Zaaheen.
 - Step 1: Add it yourself (Windows): Use an up-to-date Codex. Add this to Codex's settings file, config.toml, in the .codex folder in your home folder. If the file already has a [mcp_servers.zaaheen] section, don't add a second one. Save it, then restart Codex: [mcp_servers.zaaheen] command = "C:\\Program Files\\Zaaheen\\zaaheen.exe" args = ["mcp", "serve"]
 - Step 1: Add it yourself (Mac): Use an up-to-date Codex. Add this to Codex's settings file, config.toml, in the .codex folder in your home folder. If the file already has a [mcp_servers.zaaheen] section, don't add a second one. Save it, then restart Codex: [mcp_servers.zaaheen] command = "/Applications/Zaaheen.app/Contents/MacOS/zaaheen" args = ["mcp", "serve"]
-- Step 2: Check it's connected: In Codex, type /mcp and press Enter. zaaheen is listed as connected, with 5 tools. If it shows no tools or says it timed out, update Codex (npm install -g @openai/codex@latest) and try again.
+- Step 2: Check it's connected: In Codex, type /mcp and press Enter. zaaheen is listed as connected, with 6 tools. If it shows no tools or says it timed out, update Codex (npm install -g @openai/codex@latest) and try again.
 - Step 3: Tell Codex to use Zaaheen (don't skip this): Codex looks in its own knowledge first. Add this line to the file AGENTS.md in the .codex folder in your home folder (make the file if it isn't there): "When I ask you to remember something, save it in Zaaheen. Before answering anything about me, my preferences, my work or my plans, also check my Zaaheen memory, even when your own memory has nothing."
 - Guide: https://zaaheen.com/docs/connect-codex/
 
@@ -101,7 +110,7 @@ Please follow both steps. If you skip one, your app may not use Zaaheen.
 - "Invalid result for tools/call: missing required resultType" (Claude Code, when it calls Zaaheen): Update Zaaheen to the latest version from zaaheen.com: version 0.3.1 and later answer the newest apps correctly.
 - "The filename, directory name, or volume label syntax is incorrect. (os error 123)" (ChatGPT Desktop or Codex, in the app's log; ChatGPT itself only says Zaaheen isn't accessible): The Command has a space or quote marks before C:. Edit the MCP server so the Command starts exactly with C:\ (copy it with the Copy button in Zaaheen's Agents tab), save, and restart ChatGPT.
 - "Zaaheen isn't accessible in this chat" (ChatGPT Desktop): Use a Work or Codex chat (ChatGPT's Chat mode can't connect to apps on your computer), check the Command has no space before it, then quit ChatGPT completely and open it again.
-- "request timed out (zaaheen: Tools: (none))" (Codex in the terminal, after /mcp): Update Codex (npm install -g @openai/codex@latest), then run codex again and type /mcp: zaaheen shows as connected with 5 tools.
+- "request timed out (zaaheen: Tools: (none))" (Codex in the terminal, after /mcp): Update Codex (npm install -g @openai/codex@latest), then run codex again and type /mcp: zaaheen shows as connected with 6 tools.
 - "The AI app saves to its own memory, or answers "I don't know", instead of using Zaaheen" (Claude Desktop, ChatGPT Desktop, Codex): Add Zaaheen's line to the app's instructions (Claude: Settings, Account, Instructions for Claude; ChatGPT: Custom instructions; Codex: AGENTS.md in the .codex folder). The line is on this page and in each connect guide.
 - "Double-clicking "Zaaheen for Claude.mcpb" asks which app to open it with" (Windows, with Claude from the Microsoft Store): Cancel that box. In Claude, open Settings, then Extensions, then Advanced settings, then Install Extension, and choose "Zaaheen for Claude.mcpb".
 - "isn't commonly downloaded. Make sure you trust [the Zaaheen installer] before you open it." (Microsoft Edge, when downloading): Choose the three dots next to the download, then Keep, then Show more, then Keep anyway. The installer is new and not code-signed yet, so Edge has not seen it often.
