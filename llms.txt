@@ -4,8 +4,8 @@
 
 Zaaheen is a desktop app that gives AI assistants one private, persistent memory about the person using them. Memories are stored and encrypted on that person's own computer and are never uploaded. The account is only for signing in and the subscription; it never holds the memories.
 
-- Current version: 0.3.6, for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
-- Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.6_x64.msi (149 MB, SHA-256 f67efcdc7a2cffacffab947f78b4581cfba50f08d6e85a3748164aa1072c9cff); Mac https://dl.zaaheen.com/Zaaheen_0.3.6_aarch64.dmg (154 MB, SHA-256 558f4a4fc70f91d64e6fe95ece33a57fc82120a671a13dd398d9f2db186f7306), a disk image: drag Zaaheen into Applications and open it from there.
+- Current version: 0.3.7, for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
+- Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.7_x64.msi (149 MB, SHA-256 1b7f3a58205cba07b8f0ed62bd588151620c8bdc25675ca74c206d8a94b3d216); Mac https://dl.zaaheen.com/Zaaheen_0.3.7_aarch64.dmg (154 MB, SHA-256 73df647cc3242d73f3262c23e9a14c78b772b98588293f8e081d7b373af2edec), a disk image: drag Zaaheen into Applications and open it from there.
 - Free trial: 30 days, no card needed.
 - Price after the trial: $5 a month or $48 a year (US dollars, plus VAT or sales tax where it applies). Both plans include everything. Sold through our reseller Paddle.com.
 - Cancel any time in the app: Settings, then Account, then "Cancel subscription". A payment is refunded in full if asked within 14 days of it, once per person.
@@ -122,15 +122,14 @@ Please follow both steps. If you skip one, your app may not use Zaaheen.
 
 ## Release notes
 
-- Latest: 0.3.6, 2026-10-24. Undo a delete or an edit for 30 days, a limit on changes by AI apps, and fixes for the Mac.
-- New in 0.3.6: Recently deleted, in Memories. When you or an AI app deletes or changes a memory, the earlier version waits there for 30 days. "restore" brings it back; "delete now" or "Empty Recently deleted" erases it sooner. After 30 days it is erased for good.
-- New in 0.3.6: AI apps together can delete or change at most 30 memories an hour. After that Zaaheen tells the app to pause, and you can still delete or edit anything yourself in the Zaaheen app.
-- New in 0.3.6: Delete everything and Delete my account also empty Recently deleted.
-- New in 0.3.6: The links above your memories (Recently deleted, + Add a memory) are easier to see, and About Zaaheen now comes last in Settings.
-- Fixed in 0.3.6: On a Mac, Zaaheen left a crash report each time it closed in the background, and the nightly tidy-up was marked as failed even when it had finished. No memories were lost. Both are fixed.
-- Fixed in 0.3.6: When an AI app gave up waiting for an answer, Zaaheen could still finish that work, so the next question from your apps occasionally waited longer than it should. Zaaheen now drops it. Answers were always right; this only affected speed.
-- Fixed in 0.3.6: Two parts Zaaheen is built on had security fixes published while 0.3.6 was being prepared. This version includes them.
-- Fixed in 0.3.6: The installers are now built and signed under stricter checks, with the signing key used only after the app is fully built.
+- Latest: 0.3.7, 2026-10-26. Memories you add in the Zaaheen app now reach your AI apps, and you choose an area for each one.
+- New in 0.3.7: Every AI app you connect can now read and save in every area (Boundaries), including areas you create later.
+- New in 0.3.7: When you add a memory, choose its area under "Area". "Keep this memory" stays off until you choose one.
+- New in 0.3.7: The Boundaries page lists every area, including personal, where your AI apps save. "+ New boundary" explains that it creates an empty area and how to fill it.
+- New in 0.3.7: AI apps can ask Zaaheen for a guide to the app and your list of areas, so they can walk you through anything step by step.
+- New in 0.3.7: If you ask an AI app to save into an area that does not exist, it tells you and shows how to create it. AI apps cannot create areas themselves.
+- Fixed in 0.3.7: A memory you added in the Zaaheen app could not be found by your AI apps, because it went into an area they could not read. They can now, including memories added before this update.
+- Fixed in 0.3.7: The app's own search did not include memories saved by your AI apps. It now searches every area.
 - Every release, newest first: https://zaaheen.com/docs/release-notes/.
 
 ## Cancelling
