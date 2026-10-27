@@ -274,7 +274,9 @@ fn a_cancel_answer_without_a_link_opens_nothing_and_says_why() {
 #[test]
 fn a_cancel_ends_only_the_wait_for_the_browser() {
     const SOURCE: &str = include_str!("../account_ops.rs");
-    let body = SOURCE
+    // Checked out with CRLF on Windows.
+    let source = SOURCE.replace("\r\n", "\n");
+    let body = source
         .split_once("pub async fn sign_in(")
         .expect("sign_in is here")
         .1
