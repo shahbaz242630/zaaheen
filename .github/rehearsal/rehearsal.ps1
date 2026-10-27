@@ -7,6 +7,22 @@ $Install = 'C:\Program Files\Zaaheen'
 $LogDir = Join-Path $env:LOCALAPPDATA 'com.zaaheen.app\logs'
 $Pending = Join-Path $env:LOCALAPPDATA 'com.zaaheen.app\updates\pending.update'
 
+# The runner ends what a step started when that step ends (run 2 of s115:
+# the app's check met "connection refused"), so each scenario step starts
+# the stand-in itself. Certificates and the hosts file are made once.
+function Start-StandIn {
+    $tls = Join-Path $env:RUNNER_TEMP 'tls'
+    Start-Process node -ArgumentList '.github\rehearsal\server.mjs', $Served, "$tls\srv.crt", "$tls\srv.key", $Requests `
+        -RedirectStandardOutput (Join-Path $env:RUNNER_TEMP "server-$env:GITHUB_ACTION.out") `
+        -RedirectStandardError (Join-Path $env:RUNNER_TEMP "server-$env:GITHUB_ACTION.err") | Out-Null
+    for ($i = 0; $i -lt 20; $i++) {
+        $code = curl.exe -sS --ssl-no-revoke -o NUL -w '%{http_code}' https://dl.zaaheen.com/updates/latest.json 2>$null
+        if ($code -eq '200' -or $code -eq '404') { Write-Host "stand-in answers ($code)"; return }
+        Start-Sleep -Milliseconds 500
+    }
+    throw 'the stand-in server did not start'
+}
+
 function Write-Manifest([string]$Version, [string]$Url, [string]$SigFile) {
     $sig = (Get-Content $SigFile -Raw).Trim()
     $m = [ordered]@{
