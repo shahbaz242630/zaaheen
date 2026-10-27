@@ -186,6 +186,10 @@ jobs:
         run: |
           . .github/rehearsal/rehearsal.ps1
           Write-Manifest $env:N1 "https://dl2.zaaheen.com/Zaaheen_$env:N1.msi" "$Served\Zaaheen_$env:N1.msi.sig"
+          # Run 1 saw no request at all: prove the stand-in still answers
+          # after the install step, before the app is blamed.
+          Get-Process node -ErrorAction SilentlyContinue | Format-Table Id, StartTime
+          curl.exe -sS --ssl-no-revoke -o NUL -w "stand-in still answers: %{http_code}`n" https://dl.zaaheen.com/updates/latest.json
           Clear-Content $Requests -ErrorAction SilentlyContinue
           Start-Zaaheen | Out-Null
           $seen = Wait-AppLog @('an update from another address was refused', 'update downloaded and verified') 180
