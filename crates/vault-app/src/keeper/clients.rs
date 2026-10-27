@@ -196,7 +196,17 @@ impl Clients {
             pid: self.pid,
             apps,
         };
-        if let Err(e) = write_atomic(&self.vault_root, &file) {
+        // The write (and its short antivirus retry) blocks this thread. On
+        // the keeper's multi-thread runtime, say so, so the worker's other
+        // tasks move elsewhere meanwhile; it stays in place, under the lock,
+        // so a newer list can never land before an older one (s115 item 3).
+        let written = match tokio::runtime::Handle::try_current() {
+            Ok(h) if h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
+                tokio::task::block_in_place(|| write_atomic(&self.vault_root, &file))
+            }
+            _ => write_atomic(&self.vault_root, &file),
+        };
+        if let Err(e) = written {
             tracing::warn!(target: "vault_app::keeper", error = %e, "could not write the connected-apps file");
         }
     }
@@ -405,6 +415,31 @@ mod tests {
         assert_eq!(names(tmp.path()), ["cursor-vscode"]);
         drop(cursor);
         assert!(names(tmp.path()).is_empty());
+    }
+
+    /// s115 item 3: on the keeper's own kind of runtime (multi-thread) the
+    /// write steps aside for the worker's other tasks, and on a single-thread
+    /// one (most tests) it writes directly; both lists are the same.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn the_list_is_written_from_the_keepers_runtime_too() {
+        let tmp = TempDir::new().unwrap();
+        serving(tmp.path(), 42);
+        let clients = Clients::new(tmp.path().to_path_buf(), 42);
+        let app = clients.connected();
+        app.name("claude-ai");
+        assert_eq!(names(tmp.path()), ["claude-ai"]);
+        drop(app);
+        assert!(names(tmp.path()).is_empty());
+    }
+
+    #[tokio::test]
+    async fn the_list_is_written_from_a_single_thread_runtime() {
+        let tmp = TempDir::new().unwrap();
+        serving(tmp.path(), 42);
+        let clients = Clients::new(tmp.path().to_path_buf(), 42);
+        let app = clients.connected();
+        app.name("cursor-vscode");
+        assert_eq!(names(tmp.path()), ["cursor-vscode"]);
     }
 
     #[test]
