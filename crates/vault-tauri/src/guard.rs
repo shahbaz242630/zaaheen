@@ -967,13 +967,17 @@ mod tests {
                 "link_state",
                 "delete_account_start",
                 "delete_account_open",
+                "update_status",
+                "restart_to_update",
             ],
             "widening the allowlist is a founder decision, not a refactor. The six \
              account entries fill 8.26 6.4's existing `account` slot (steps 4b and \
              4d-1, 8.37 and 8.38); `export_memories` fills the `export` slot (4c); \
              `startup_state` is the founder-approved widening of session 55 \
              (ADR-SEC-030 amendment 1); `link_state` is ADR-108's (session 60); \
-             the two `delete_account_*` are ADR-112's (session 67, ADR-SEC-035)."
+             the two `delete_account_*` are ADR-112's (session 67, ADR-SEC-035); \
+             the two update commands are the update slot (founder s115, ADR-116, \
+             ADR-SEC-051)."
         );
     }
 
