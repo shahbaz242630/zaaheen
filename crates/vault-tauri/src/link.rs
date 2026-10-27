@@ -141,6 +141,12 @@ impl KeeperLink {
             .map(|dir| dir.path().to_path_buf())
     }
 
+    /// Whether the person asked to move the memories and the move waits for
+    /// the next start (ADR-105 L5).
+    pub fn move_waiting(&self) -> bool {
+        vault_app::location::moving::waiting_move(&self.homes).is_some()
+    }
+
     /// Whether a vault location was ever recorded on this computer
     /// (ACCOUNT-DELETION-DESIGN D2: with none there is nothing to erase).
     /// A record whose folder is missing still counts: that vault may be on
@@ -528,6 +534,12 @@ mod tests {
             Arc::new(KeychainKeySource),
         );
         KeeperLink::with_pool(pool, homes)
+    }
+
+    #[tokio::test]
+    async fn no_move_waits_on_a_computer_with_no_record() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        assert!(!link_in(&tmp).move_waiting());
     }
 
     // s87 H21: after Delete my account, setting up again in the same window

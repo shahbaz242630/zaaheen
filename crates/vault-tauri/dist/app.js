@@ -1829,7 +1829,9 @@ async function eraseEverything() {
     $("erase-status").classList.add("failed");
     $("erase-status").textContent = String(err).includes("erasure_busy")
       ? "Zaaheen is tidying up your memories right now, so nothing was deleted and your memories are still readable. Please try again in a few minutes."
-      : "Your memories were NOT deleted, and they are still readable. Nothing was changed. Please try again, or restart Zaaheen and retry.";
+      : String(err).includes("erasure_move_waiting")
+        ? ERASURE_MOVE_WAITING_TEXT
+        : "Your memories were NOT deleted, and they are still readable. Nothing was changed. Please try again, or restart Zaaheen and retry.";
     $("erase-cancel").disabled = false;
     $("erase-confirm-btn").disabled = false;
     return;
@@ -1904,9 +1906,14 @@ function onDeleteAccountExport() {
   exportMemories($("delete-account-export-status"), $("delete-account-export"));
 }
 
+// A move of the memories waits for the next start (s115 item 4): finish it first.
+const ERASURE_MOVE_WAITING_TEXT =
+  "Your memories are waiting to move to their new folder, so nothing was deleted and they are still readable. Restart Zaaheen to finish the move, then try again.";
+
 // The same honest lines as Delete everything: when the erasure failed,
 // nothing was deleted, the memories are still readable, and no page opened.
 function erasureFailureLine(raw) {
+  if (raw.includes("erasure_move_waiting")) return ERASURE_MOVE_WAITING_TEXT;
   if (raw.includes("erasure_busy")) {
     return "Zaaheen is tidying up your memories right now, so nothing was deleted and your memories are still readable. Please try again in a few minutes.";
   }
