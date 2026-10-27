@@ -171,6 +171,11 @@ description = "Allow invoking the account_sign_in command (open the person's bro
 commands.allow = ["account_sign_in"]
 
 [[permission]]
+identifier = "allow-account-cancel-sign-in"
+description = "Allow invoking the account_cancel_sign_in command (stop a sign-in that is waiting for the browser; one the browser already completed still finishes). Takes nothing and returns nothing. Never given the vault."
+commands.allow = ["account_cancel_sign_in"]
+
+[[permission]]
 identifier = "allow-account-sign-out"
 description = "Allow invoking the account_sign_out command (revoke this computer's token, delete it from the credential store, and clear the account folder). Never given the vault; signing out removes no memories."
 commands.allow = ["account_sign_out"]

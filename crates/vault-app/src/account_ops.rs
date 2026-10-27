@@ -170,6 +170,9 @@ pub struct AccountOps {
     config: AccountConfig,
     clock: Arc<dyn Clock>,
     limits: ListenerLimits,
+    /// "Cancel" while the browser is open (s115 item 6). Wakes only a
+    /// sign-in waiting now; it never cancels one that starts later.
+    cancel_sign_in: tokio::sync::Notify,
 }
 
 impl AccountOps {
@@ -183,7 +186,16 @@ impl AccountOps {
             config,
             clock,
             limits: ListenerLimits::default(),
+            cancel_sign_in: tokio::sync::Notify::new(),
         }
+    }
+
+    /// Stop a sign-in that is waiting for the browser. Only that wait ends:
+    /// once the browser has come back, the sign-in finishes as it would
+    /// have, so nothing is ever left half signed in. A no-op when nothing
+    /// waits.
+    pub fn cancel_sign_in(&self) {
+        self.cancel_sign_in.notify_waiters();
     }
 
     /// What is on disk. No network, no writes.
@@ -250,7 +262,15 @@ impl AccountOps {
         let pending = PendingSignIn::start(&self.config).await?;
         ExternalLink::sign_in(&pending.browser_url(entry))?.open()?;
 
-        match pending.wait(self.limits).await? {
+        // Dropping the wait closes the browser's return address.
+        let outcome = tokio::select! {
+            outcome = pending.wait(self.limits) => outcome?,
+            () = self.cancel_sign_in.notified() => {
+                tracing::info!("a sign-in was cancelled while the browser was open");
+                SignInOutcome::Cancelled
+            }
+        };
+        match outcome {
             SignInOutcome::Cancelled => Err(OpsError::SignInDidNotFinish),
             SignInOutcome::Authorized(code) => {
                 let now = self.clock.now();

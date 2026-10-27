@@ -36,6 +36,7 @@
     "allow-account-access",
     "allow-account-status",
     "allow-account-sign-in",
+    "allow-account-cancel-sign-in",
     "allow-account-sign-out",
     "allow-account-subscribe",
     "allow-account-cancel-subscription",

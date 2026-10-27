@@ -2475,6 +2475,36 @@ fn both_pages_are_offered_and_run_the_one_sign_in() {
     );
 }
 
+/// s115 tech-debt item 6: a sign-in waiting on the browser can be cancelled
+/// from both screens, the button shows only while it waits, and a cancel is
+/// not reported as a failure.
+#[test]
+fn a_sign_in_waiting_on_the_browser_can_be_cancelled() {
+    let code = js_code();
+    for id in ["signin-cancel", "lock-signin-cancel"] {
+        assert!(
+            INDEX_HTML.contains(&format!(
+                "<button id=\"{id}\" class=\"btn-quiet hidden\">Cancel</button>"
+            )),
+            "{id} is in the markup, hidden until a sign-in waits"
+        );
+        assert!(
+            code.contains(&format!(
+                "$(\"{id}\").addEventListener(\"click\", onCancelSignIn)"
+            )),
+            "{id} is wired"
+        );
+    }
+    let functions = top_level_functions(&code);
+    let begin = &js_function(&functions, "beginAccount").body;
+    assert!(begin.contains("cancel.classList.remove(\"hidden\")"));
+    assert!(begin.contains("cancel.classList.add(\"hidden\")"));
+    assert!(begin.contains("account.signInCancelled ? \"\" : String(err)"));
+    assert!(js_function(&functions, "onCancelSignIn")
+        .body
+        .contains("invoke(\"account_cancel_sign_in\")"));
+}
+
 /// No screen shows a long dash (founder, session 54: *"remove the dashes
 /// from all pages"*, so the app does not read as machine-written): not the
 /// markup outside its comments, not any string the screen code can show, and

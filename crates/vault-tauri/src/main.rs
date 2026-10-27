@@ -158,6 +158,7 @@ fn main() {
             vault_tauri::commands::account::account_access,
             vault_tauri::commands::account::account_status,
             vault_tauri::commands::account::account_sign_in,
+            vault_tauri::commands::account::account_cancel_sign_in,
             vault_tauri::commands::account::account_sign_out,
             vault_tauri::commands::account::account_subscribe,
             vault_tauri::commands::account::account_cancel_subscription,

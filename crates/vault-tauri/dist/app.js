@@ -557,6 +557,7 @@ const account = {
   view: null,          // the last account view (account_status and friends)
   ready: null,         // the first answer at open, for "Begin set up"
   signingIn: false,
+  signInCancelled: false,
   subscribing: false,
   cancelling: false,   // a "Cancel subscription" click in flight (§8.48)
   checkingPaid: false,
@@ -2336,8 +2337,11 @@ function setSignInBusy(busy) {
 async function beginAccount(entry) {
   if (account.signingIn) return;
   account.signingIn = true;
+  account.signInCancelled = false;
   const status = state.screen === "signin" ? $("signin-status") : $("lock-status");
+  const cancel = state.screen === "signin" ? $("signin-cancel") : $("lock-signin-cancel");
   setSignInBusy(true);
+  cancel.classList.remove("hidden");
   status.textContent = entry === "sign_up" ? LOCK_LINES.signingUp : LOCK_LINES.signingIn;
   let signedIn = false;
   try {
@@ -2345,12 +2349,26 @@ async function beginAccount(entry) {
     signedIn = true;
     status.textContent = "";
   } catch (err) {
-    status.textContent = String(err);
+    // Cancelled by the person: nothing went wrong, so nothing to say.
+    status.textContent = account.signInCancelled ? "" : String(err);
   } finally {
     account.signingIn = false;
+    cancel.classList.add("hidden");
     setSignInBusy(false);
   }
   if (signedIn) routeAfterAccess(await askAccess());
+}
+
+// "Cancel" while the browser is open (s115 item 6). Only the wait ends: a
+// sign-in the browser already finished still completes.
+async function onCancelSignIn() {
+  if (!account.signingIn) return;
+  account.signInCancelled = true;
+  try {
+    await invoke("account_cancel_sign_in");
+  } catch (_) {
+    // No account in this build: there is no sign-in to stop either.
+  }
 }
 
 function onSignIn() {
@@ -3592,6 +3610,8 @@ function init() {
   $("signup-btn").addEventListener("click", onSignUp);
   $("lock-signin-btn").addEventListener("click", onSignIn);
   $("lock-signup-btn").addEventListener("click", onSignUp);
+  $("signin-cancel").addEventListener("click", onCancelSignIn);
+  $("lock-signin-cancel").addEventListener("click", onCancelSignIn);
   $("lock-plans").addEventListener("click", onPlanClick);
   $("lock-paid").addEventListener("click", onPaid);
   $("lock-retry-btn").addEventListener("click", onRetry);
