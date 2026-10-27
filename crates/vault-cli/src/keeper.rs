@@ -490,10 +490,20 @@ pub async fn run_relay(homes: vault_app::location::Homes, grant: Grant) -> Resul
     let _reaper = pool.spawn_idle_reaper();
 
     let upstream: Arc<dyn Upstream> = pool;
-    let running = RelayServer::new(upstream)
+    let running = match RelayServer::new(upstream)
         .serve(rmcp::transport::stdio())
         .await
-        .context("MCP transport bind failed")?;
+    {
+        Ok(running) => running,
+        // An app that opens the connection and closes it without saying hello
+        // (Claude Desktop does at start-up) is a normal end, not a failure
+        // (s115 tech-debt item 7).
+        Err(rmcp::service::ServerInitializeError::ConnectionClosed(during)) => {
+            tracing::info!(during = %during, "the app closed the connection before initialize");
+            return Ok(());
+        }
+        Err(e) => return Err(e).context("MCP transport bind failed"),
+    };
     eprintln!("zaaheen mcp serve: ready (sharing the vault through the keeper)");
     running
         .waiting()

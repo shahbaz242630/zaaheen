@@ -48,6 +48,11 @@ pub const ERR_ERASURE_BUSY: &str = "erasure_busy";
 /// Opaque error code: erasure failed at the key step. Nothing was deleted.
 pub const ERR_ERASURE_FAILED: &str = "erasure_failed";
 
+/// Opaque error code: a move of the memories waits for the next start, so
+/// nothing was deleted (s115 tech-debt item 4). Erasing now would leave the
+/// move pointing at a folder that is gone; the page says to restart first.
+pub const ERR_ERASURE_MOVE_WAITING: &str = "erasure_move_waiting";
+
 /// How long to wait for the vault to be handed over. A serving keeper lets go
 /// in well under a second; one that is still opening the vault takes a few
 /// seconds; a maintenance run is not interrupted and exhausts this.
@@ -74,6 +79,10 @@ pub async fn erase_everything_inner(link: &KeeperLink) -> Result<serde_json::Val
         tracing::warn!(target: "vault_tauri::erasure", "erasure not started: the vault folder could not be found");
         return Err(ERR_ERASURE_FAILED.to_string());
     };
+    if link.move_waiting() {
+        tracing::warn!(target: "vault_tauri::erasure", "erasure not started: a move of the memories is waiting; nothing was deleted");
+        return Err(ERR_ERASURE_MOVE_WAITING.to_string());
+    }
     link.poison().await;
     let erased = erase_at(vault_root).await;
     if erased.is_err() {
@@ -363,6 +372,27 @@ mod tests {
         // s87 H21: the erasure itself never allows a resume; only a sign-out
         // that succeeded does (sign_out_then_allow_resume).
         assert!(!body.contains("mark_erased"));
+    }
+
+    /// s115 tech-debt item 4: a waiting move refuses the erasure before
+    /// anything is poisoned, taken or deleted (both erasing commands come
+    /// through this one inner function).
+    #[test]
+    fn a_waiting_move_refuses_the_erasure_before_anything_happens() {
+        let source = include_str!("erasure.rs").replace("\r\n", "\n");
+        let body = source
+            .split_once("pub async fn erase_everything_inner(")
+            .expect("the inner command is defined here")
+            .1
+            .split_once("\n}\n")
+            .expect("the inner command is closed")
+            .0;
+        let check = body.find("if link.move_waiting() {").expect("checked");
+        let refused = body
+            .find("return Err(ERR_ERASURE_MOVE_WAITING.to_string());")
+            .expect("refused");
+        let poison = body.find("link.poison().await;").expect("poisoned");
+        assert!(check < refused && refused < poison);
     }
 
     /// s87 H21 (ADR-SEC-044): a resume is allowed only after a sign-out that

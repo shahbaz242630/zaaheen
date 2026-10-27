@@ -49,6 +49,8 @@
           </div>
           <p class="lock-small">This opens your web browser. Signing in never shares your memories with us. They stay locked on this computer.</p>
           <p id="signin-status" class="lock-status"></p>
+          <!-- Shown only while the browser is open for a sign-in (s115). -->
+          <button id="signin-cancel" class="btn-quiet hidden">Cancel</button>
         </div>
       </div>
 
@@ -312,6 +314,7 @@
           </div>
 
           <p id="lock-status" class="lock-status"></p>
+          <button id="lock-signin-cancel" class="btn-quiet hidden">Cancel</button>
           <p id="lock-who" class="lock-who hidden">
             <span id="lock-email"></span>
             <button id="lock-signout" class="link-underline">Sign out</button>

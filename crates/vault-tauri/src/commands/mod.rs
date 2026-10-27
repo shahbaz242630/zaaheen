@@ -62,6 +62,7 @@ pub mod account;
 pub mod agent;
 pub mod boundary;
 pub mod connect;
+pub mod destination;
 pub mod documents;
 pub mod engine;
 pub mod erasure;
@@ -77,8 +78,8 @@ pub mod startup;
 pub mod update;
 
 pub use account::{
-    account_access, account_cancel_subscription, account_refresh_now, account_sign_in,
-    account_sign_out, account_status, account_subscribe, AccountSlot,
+    account_access, account_cancel_sign_in, account_cancel_subscription, account_refresh_now,
+    account_sign_in, account_sign_out, account_status, account_subscribe, AccountSlot,
 };
 pub use agent::{
     list_agents, list_agents_inner, list_connected_apps, list_connected_apps_inner, revoke_agent,

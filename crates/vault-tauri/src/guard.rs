@@ -341,6 +341,9 @@ pub const OPEN_COMMANDS: &[&str] = &[
     // given the vault: see `no_account_command_receives_the_vault` below.
     "account_status",
     "account_sign_in",
+    // "Cancel" while the browser is open (founder s115, tech-debt item 6):
+    // the same slot as the sign-in it stops; holds the account only.
+    "account_cancel_sign_in",
     "account_sign_out",
     "account_subscribe",
     "account_refresh_now",
@@ -957,6 +960,7 @@ mod tests {
                 "export_logs",
                 "account_status",
                 "account_sign_in",
+                "account_cancel_sign_in",
                 "account_sign_out",
                 "account_subscribe",
                 "account_refresh_now",
@@ -977,7 +981,8 @@ mod tests {
              (ADR-SEC-030 amendment 1); `link_state` is ADR-108's (session 60); \
              the two `delete_account_*` are ADR-112's (session 67, ADR-SEC-035); \
              the two update commands are the update slot (founder s115, ADR-116, \
-             ADR-SEC-051)."
+             ADR-SEC-051); `account_cancel_sign_in` is the account slot's Cancel \
+             (founder s115, tech-debt item 6)."
         );
     }
 

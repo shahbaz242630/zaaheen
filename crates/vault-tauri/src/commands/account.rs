@@ -282,6 +282,16 @@ pub async fn account_sign_in(
         .map_err(code_for)
 }
 
+/// "Cancel" while the browser is open for a sign-in (s115 tech-debt item 6):
+/// the waiting [`account_sign_in`] ends as a sign-in that did not finish.
+/// Only the wait ends; a sign-in the browser has already completed finishes.
+/// Holds the account and nothing else, like the commands around it.
+#[tauri::command]
+pub async fn account_cancel_sign_in(account: State<'_, AccountSlot>) -> Result<(), String> {
+    account.ops()?.cancel_sign_in();
+    Ok(())
+}
+
 /// Sign out: revoke, delete the token, clear the folder.
 #[tauri::command]
 pub async fn account_sign_out(

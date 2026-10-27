@@ -557,6 +557,7 @@ const account = {
   view: null,          // the last account view (account_status and friends)
   ready: null,         // the first answer at open, for "Begin set up"
   signingIn: false,
+  signInCancelled: false,
   subscribing: false,
   cancelling: false,   // a "Cancel subscription" click in flight (§8.48)
   checkingPaid: false,
@@ -1829,7 +1830,9 @@ async function eraseEverything() {
     $("erase-status").classList.add("failed");
     $("erase-status").textContent = String(err).includes("erasure_busy")
       ? "Zaaheen is tidying up your memories right now, so nothing was deleted and your memories are still readable. Please try again in a few minutes."
-      : "Your memories were NOT deleted, and they are still readable. Nothing was changed. Please try again, or restart Zaaheen and retry.";
+      : String(err).includes("erasure_move_waiting")
+        ? ERASURE_MOVE_WAITING_TEXT
+        : "Your memories were NOT deleted, and they are still readable. Nothing was changed. Please try again, or restart Zaaheen and retry.";
     $("erase-cancel").disabled = false;
     $("erase-confirm-btn").disabled = false;
     return;
@@ -1904,9 +1907,14 @@ function onDeleteAccountExport() {
   exportMemories($("delete-account-export-status"), $("delete-account-export"));
 }
 
+// A move of the memories waits for the next start (s115 item 4): finish it first.
+const ERASURE_MOVE_WAITING_TEXT =
+  "Your memories are waiting to move to their new folder, so nothing was deleted and they are still readable. Restart Zaaheen to finish the move, then try again.";
+
 // The same honest lines as Delete everything: when the erasure failed,
 // nothing was deleted, the memories are still readable, and no page opened.
 function erasureFailureLine(raw) {
+  if (raw.includes("erasure_move_waiting")) return ERASURE_MOVE_WAITING_TEXT;
   if (raw.includes("erasure_busy")) {
     return "Zaaheen is tidying up your memories right now, so nothing was deleted and your memories are still readable. Please try again in a few minutes.";
   }
@@ -2329,8 +2337,11 @@ function setSignInBusy(busy) {
 async function beginAccount(entry) {
   if (account.signingIn) return;
   account.signingIn = true;
+  account.signInCancelled = false;
   const status = state.screen === "signin" ? $("signin-status") : $("lock-status");
+  const cancel = state.screen === "signin" ? $("signin-cancel") : $("lock-signin-cancel");
   setSignInBusy(true);
+  cancel.classList.remove("hidden");
   status.textContent = entry === "sign_up" ? LOCK_LINES.signingUp : LOCK_LINES.signingIn;
   let signedIn = false;
   try {
@@ -2338,12 +2349,26 @@ async function beginAccount(entry) {
     signedIn = true;
     status.textContent = "";
   } catch (err) {
-    status.textContent = String(err);
+    // Cancelled by the person: nothing went wrong, so nothing to say.
+    status.textContent = account.signInCancelled ? "" : String(err);
   } finally {
     account.signingIn = false;
+    cancel.classList.add("hidden");
     setSignInBusy(false);
   }
   if (signedIn) routeAfterAccess(await askAccess());
+}
+
+// "Cancel" while the browser is open (s115 item 6). Only the wait ends: a
+// sign-in the browser already finished still completes.
+async function onCancelSignIn() {
+  if (!account.signingIn) return;
+  account.signInCancelled = true;
+  try {
+    await invoke("account_cancel_sign_in");
+  } catch (_) {
+    // No account in this build: there is no sign-in to stop either.
+  }
 }
 
 function onSignIn() {
@@ -3585,6 +3610,8 @@ function init() {
   $("signup-btn").addEventListener("click", onSignUp);
   $("lock-signin-btn").addEventListener("click", onSignIn);
   $("lock-signup-btn").addEventListener("click", onSignUp);
+  $("signin-cancel").addEventListener("click", onCancelSignIn);
+  $("lock-signin-cancel").addEventListener("click", onCancelSignIn);
   $("lock-plans").addEventListener("click", onPlanClick);
   $("lock-paid").addEventListener("click", onPaid);
   $("lock-retry-btn").addEventListener("click", onRetry);

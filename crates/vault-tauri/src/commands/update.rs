@@ -59,6 +59,10 @@ pub const UPDATE_ORIGIN: &str = "https://dl.zaaheen.com/";
 /// How often the check repeats after the one at open.
 const CHECK_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 
+/// After a check that could not reach the server (a laptop opened before its
+/// Wi-Fi connects), the next try is an hour away, not a day.
+const RETRY_AFTER_FAILED_CHECK: Duration = Duration::from_secs(60 * 60);
+
 /// The same waits as "Delete everything": a serving keeper lets go in well
 /// under a second; a nightly tidy-up is not interrupted and runs this out.
 const TAKE_WAIT: Duration = Duration::from_secs(20);
@@ -130,42 +134,66 @@ pub fn from_our_server(url: &Url) -> bool {
 pub async fn check_at_open_then_daily(app: AppHandle, slot: std::sync::Arc<UpdateSlot>) {
     clear_leftovers(&app);
     loop {
-        if !check_once(&app, &slot).await {
-            return;
-        }
-        tokio::time::sleep(CHECK_EVERY).await;
+        let wait = match check_once(&app, &slot).await {
+            Next::Stop => return,
+            Next::Daily => CHECK_EVERY,
+            Next::Soon => RETRY_AFTER_FAILED_CHECK,
+        };
+        tokio::time::sleep(wait).await;
     }
 }
 
-/// One check. Returns false when updates are off in this build.
-async fn check_once(app: &AppHandle, slot: &UpdateSlot) -> bool {
+/// When the next check runs.
+enum Next {
+    /// Updates are off in this build.
+    Stop,
+    Daily,
+    /// The server could not be reached.
+    Soon,
+}
+
+/// An error and every cause beneath it, so the log says why a check failed
+/// ("error sending request" alone does not).
+fn with_causes(e: &dyn std::error::Error) -> String {
+    let mut line = e.to_string();
+    let mut cause = e.source();
+    while let Some(c) = cause {
+        line.push_str(": ");
+        line.push_str(&c.to_string());
+        cause = c.source();
+    }
+    line
+}
+
+/// One check.
+async fn check_once(app: &AppHandle, slot: &UpdateSlot) -> Next {
     let updater = match app.updater() {
         Ok(updater) => updater,
         Err(tauri_plugin_updater::Error::EmptyEndpoints) => {
             tracing::info!(target: "vault_tauri::update", "updates are off in this build");
-            return false;
+            return Next::Stop;
         }
         Err(e) => {
-            tracing::warn!(target: "vault_tauri::update", error = %e, "update check could not start");
-            return true;
+            tracing::warn!(target: "vault_tauri::update", error = %with_causes(&e), "update check could not start");
+            return Next::Daily;
         }
     };
     let update = match updater.check().await {
         Ok(Some(update)) => update,
-        Ok(None) => return true,
+        Ok(None) => return Next::Daily,
         Err(e) => {
-            tracing::info!(target: "vault_tauri::update", error = %e, "update check failed; will retry");
-            return true;
+            tracing::info!(target: "vault_tauri::update", error = %with_causes(&e), "update check failed; will retry");
+            return Next::Soon;
         }
     };
     let running = env!("CARGO_PKG_VERSION");
     if !worth_offering(&update.version, running) {
         tracing::warn!(target: "vault_tauri::update", "an offered version was refused");
-        return true;
+        return Next::Daily;
     }
     if !from_our_server(&update.download_url) {
         tracing::warn!(target: "vault_tauri::update", "an update from another address was refused");
-        return true;
+        return Next::Daily;
     }
     if slot
         .ready
@@ -174,20 +202,20 @@ async fn check_once(app: &AppHandle, slot: &UpdateSlot) -> bool {
         .as_ref()
         .is_some_and(|ready| ready.version == update.version)
     {
-        return true;
+        return Next::Daily;
     }
     // The updater verifies the seal and the sealed version before it returns
     // the bytes; a failure here is a refused or broken download.
     let bytes = match update.download(|_, _| {}, || {}).await {
         Ok(bytes) => bytes,
         Err(e) => {
-            tracing::warn!(target: "vault_tauri::update", error = %e, "update download refused or failed; will retry");
-            return true;
+            tracing::warn!(target: "vault_tauri::update", error = %with_causes(&e), "update download refused or failed; will retry");
+            return Next::Daily;
         }
     };
     let Some(dir) = updates_dir(app) else {
         tracing::warn!(target: "vault_tauri::update", "no folder to keep the update in; will retry");
-        return true;
+        return Next::Daily;
     };
     match park(&dir, &bytes) {
         Ok(file) => {
@@ -199,10 +227,10 @@ async fn check_once(app: &AppHandle, slot: &UpdateSlot) -> bool {
             });
         }
         Err(e) => {
-            tracing::warn!(target: "vault_tauri::update", error = %e, "update could not be kept; will retry");
+            tracing::warn!(target: "vault_tauri::update", error = %with_causes(&e), "update could not be kept; will retry");
         }
     }
-    true
+    Next::Daily
 }
 
 /// `<app local data>/updates`, made if missing.
@@ -418,6 +446,34 @@ mod tests {
         // A second update replaces the first.
         park(dir.path(), b"newer").expect("parked again");
         assert_eq!(std::fs::read(&file).expect("read"), b"newer");
+    }
+
+    #[test]
+    fn a_failure_is_logged_with_every_cause() {
+        #[derive(Debug)]
+        struct Layer(&'static str, Option<Box<Layer>>);
+        impl std::fmt::Display for Layer {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.0)
+            }
+        }
+        impl std::error::Error for Layer {
+            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+                self.1.as_deref().map(|e| e as _)
+            }
+        }
+        let e = Layer(
+            "error sending request",
+            Some(Box::new(Layer(
+                "client error (Connect)",
+                Some(Box::new(Layer("invalid peer certificate", None))),
+            ))),
+        );
+        assert_eq!(
+            with_causes(&e),
+            "error sending request: client error (Connect): invalid peer certificate"
+        );
+        assert_eq!(with_causes(&Layer("alone", None)), "alone");
     }
 
     #[test]
