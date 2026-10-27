@@ -57,6 +57,11 @@ const COMMAND_SOURCES: &[(&str, &str)] = &[
     ("keeper.rs", include_str!("../src/commands/keeper.rs")),
     ("documents.rs", include_str!("../src/commands/documents.rs")),
     ("update.rs", include_str!("../src/commands/update.rs")),
+    // No commands: the save-destination rule export.rs and logs.rs share.
+    (
+        "destination.rs",
+        include_str!("../src/commands/destination.rs"),
+    ),
 ];
 
 /// The command modules' list, to hold [`COMMAND_SOURCES`] to it.

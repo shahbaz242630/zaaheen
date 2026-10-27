@@ -55,6 +55,7 @@ use serde_json::json;
 use tauri::State;
 use vault_app::logging::{LOG_FILENAME, LOG_FILENAME_PREVIOUS};
 
+use super::destination::local_destination;
 use crate::link::{KeeperLink, KeyState, Kind};
 
 /// Opaque error codes (§11.7.2 — no internals cross the IPC boundary).
@@ -152,21 +153,10 @@ fn export_logs_inner(log_dir: &Path, destination: &str) -> Result<u64, String> {
 
 /// Validate the destination the UI supplied (§11.7.1 — every input is
 /// adversarial, including one that came from our own save dialog).
+/// The memory export's rule ([`super::destination`]), network shares refused
+/// here too (s115 tech-debt item 2).
 fn validate_destination(destination: &str) -> Result<PathBuf, String> {
-    if destination.trim().is_empty() || destination.contains('\0') {
-        return Err(ERR_LOG_EXPORT_BAD_DESTINATION.to_string());
-    }
-    let path = PathBuf::from(destination);
-    // Absolute only. A relative path would resolve against whatever directory
-    // the app happens to have been launched from, and the user would never
-    // find the file they just asked us to save.
-    if !path.is_absolute() {
-        return Err(ERR_LOG_EXPORT_BAD_DESTINATION.to_string());
-    }
-    match path.parent() {
-        Some(dir) if dir.is_dir() => Ok(path),
-        _ => Err(ERR_LOG_EXPORT_BAD_DESTINATION.to_string()),
-    }
+    local_destination(destination).ok_or_else(|| ERR_LOG_EXPORT_BAD_DESTINATION.to_string())
 }
 
 /// Read a log generation, treating "not there" as "nothing to include".
@@ -294,6 +284,17 @@ mod tests {
         let head = header();
         assert!(!head.contains('/'), "no unix paths: {head}");
         assert!(!head.contains('\\'), "no windows paths: {head}");
+    }
+
+    /// s115 tech-debt item 2: the log export follows the memory export's rule.
+    #[test]
+    fn a_network_share_destination_is_rejected() {
+        for unc in [r"\\host\share\logs.txt", "//host/share/logs.txt"] {
+            assert_eq!(
+                validate_destination(unc).expect_err("must reject"),
+                ERR_LOG_EXPORT_BAD_DESTINATION
+            );
+        }
     }
 
     #[test]
