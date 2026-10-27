@@ -38,10 +38,21 @@
       "THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
     },
     "windows": {
+      "allowDowngrades": false,
       "wix": {
         "upgradeCode": "813e4161-efe5-592d-b228-70483c861bef",
         "fragmentPaths": ["./windows/fragments/installer.wxs"],
         "componentRefs": ["SetLanceMemPoolEnv", "VaultCliBinary", "VaultMaintenanceBinary", "AddInstallDirToPath"]
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc5MDMyMkE0QkRFNzkwMkIKUldRcmtPZTlwQ0lEZWYxNWZGSWdCaVRJYThxSE9GNTMybDFwMEZJRW4zNkIwYW9jcXV6S1E5akMK",
+      "endpoints": ["https://dl.zaaheen.com/updates/latest.json"],
+      "requireSignedVersion": true,
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

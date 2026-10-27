@@ -55,7 +55,7 @@ jobs:
         run: cargo build --release --locked -p vault-cli --bins
 
       - name: Install the Tauri CLI (the version the Windows build uses)
-        run: cargo install tauri-cli --version 2.11.0 --locked
+        run: cargo install tauri-cli --version 2.11.5 --locked
 
       # Every compile finishes before the signing key is unlocked (security
       # audit s104 SUP-1), as in release-build.yml.
@@ -69,7 +69,7 @@ jobs:
           ZAAHEEN_LEASE_PRIMARY_KEY: ${{ secrets.MAC_TEST_LEASE_PRIMARY_KEY }}
           ZAAHEEN_LEASE_BACKUP_KID: ${{ secrets.MAC_TEST_LEASE_BACKUP_KID }}
           ZAAHEEN_LEASE_BACKUP_KEY: ${{ secrets.MAC_TEST_LEASE_BACKUP_KEY }}
-        run: cargo tauri build --config tauri.mac-test.conf.json --no-bundle -- --locked
+        run: cargo tauri build --config tauri.mac-test.conf.json --config tauri.sandbox.conf.json --no-bundle -- --locked
 
       # The Mac app ships its own open-source notices (launch checklist A11):
       # never a copy that differs from the committed, reviewed file.
@@ -141,7 +141,7 @@ jobs:
           export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
           printf '%s\n' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY_PATH"
           unset APPLE_API_KEY_P8
-          cargo tauri build --config tauri.mac-test.conf.json -- --locked 2>&1 | tee "$RUNNER_TEMP/tauri-sign.log"
+          cargo tauri build --config tauri.mac-test.conf.json --config tauri.sandbox.conf.json -- --locked 2>&1 | tee "$RUNNER_TEMP/tauri-sign.log"
           status=${PIPESTATUS[0]}
           rm -f "$APPLE_API_KEY_PATH"
           [ "$status" = 0 ] || exit "$status"

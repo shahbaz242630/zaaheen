@@ -52,6 +52,8 @@
     "allow-server-command",
     "allow-startup-state",
     "allow-link-state",
-    "allow-open-document"
+    "allow-open-document",
+    "allow-update-status",
+    "allow-restart-to-update"
   ]
 }

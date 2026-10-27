@@ -225,6 +225,12 @@ clap = { version = "=4.6.1", features = ["derive"] }
 tauri = { version = "=2.11.6", features = [] }
 tauri-build = "=2.6.3"
 tauri-plugin-dialog = "=2.5.0"
+# Automatic updates (s115, ADR-116, ADR-SEC-051, notes AUTO-UPDATE-DESIGN.md): 2.12.0 is the
+# newest release accepting tauri ^2.10 (2.13+ need tauri ^2.12, see above: move the family
+# together). Its reqwest 0.13 is the one tauri already brings.
+# Default features minus `zip`: on Windows we publish the bare .msi, so the zip 4 extractor is
+# not compiled there; the Mac turns `zip` back on (vault-tauri) for its .app.tar.gz (tar + flate2).
+tauri-plugin-updater = { version = "=2.12.0", default-features = false, features = ["rustls-tls", "system-proxy"] }
 
 # Security primitives (BRD §11.5.3)
 zeroize = { version = "=1.8.2", features = ["derive"] }

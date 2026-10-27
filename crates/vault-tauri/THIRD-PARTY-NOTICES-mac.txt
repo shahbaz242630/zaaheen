@@ -7,7 +7,7 @@ https://zaaheen.com/licences/
 PART 1. RUST LIBRARIES COMPILED INTO THE ZAAHEEN PROGRAMS
 
 Licences in use:
-  MIT License (MIT): 551 libraries
+  MIT License (MIT): 558 libraries
   Apache License 2.0 (Apache-2.0): 122 libraries
   ISC License (ISC): 22 libraries
   Unicode License v3 (Unicode-3.0): 19 libraries
@@ -4014,6 +4014,7 @@ DEALINGS IN THE SOFTWARE.
 MIT License (MIT)
 Used by:
   cfg-if 1.0.4 <https://github.com/rust-lang/cfg-if>
+  filetime 0.2.27 <https://github.com/alexcrichton/filetime>
   openssl-sys 0.9.117 <https://github.com/rust-openssl/rust-openssl>
   socket2 0.6.3 <https://github.com/rust-lang/socket2>
 
@@ -4616,6 +4617,7 @@ DEALINGS IN THE SOFTWARE.
 MIT License (MIT)
 Used by:
   tempfile 3.27.0 <https://github.com/Stebalien/tempfile>
+  xattr 1.6.1 <https://github.com/Stebalien/xattr>
 
 Copyright (c) 2015 Steven Allen
 
@@ -4649,7 +4651,6 @@ MIT License (MIT)
 Used by:
   fs4 0.13.1 <https://github.com/al8n/fs4-rs>
   fs4 0.8.4 <https://github.com/al8n/fs4-rs>
-  heck 0.4.1 <https://github.com/withoutboats/heck>
   heck 0.5.0 <https://github.com/withoutboats/heck>
   unicode-normalization-alignments 0.1.12 <https://github.com/n1t0/unicode-normalization>
   unicode-segmentation 1.13.2 <https://github.com/unicode-rs/unicode-segmentation>
@@ -5398,6 +5399,33 @@ Used by:
   reqwest 0.12.28 <https://github.com/seanmonstar/reqwest>
 
 Copyright (c) 2016-2025 Sean McArthur
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+
+
+------------------------------------------------------------------------------
+MIT License (MIT)
+Used by:
+  reqwest 0.13.3 <https://github.com/seanmonstar/reqwest>
+
+Copyright (c) 2016-2026 Sean McArthur
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -7721,6 +7749,38 @@ SOFTWARE.
 ------------------------------------------------------------------------------
 MIT License (MIT)
 Used by:
+  osakit 0.3.1 <https://github.com/mdevils/rust-osakit>
+
+Copyright (c) 2024 Marat Dulin
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+
+------------------------------------------------------------------------------
+MIT License (MIT)
+Used by:
   system-configuration-sys 0.6.0 <https://github.com/mullvad/system-configuration-rs>
   system-configuration 0.7.0 <https://github.com/mullvad/system-configuration-rs>
 
@@ -7825,8 +7885,8 @@ Used by:
   colorchoice 1.0.5 <https://github.com/rust-cli/anstyle.git>
   is_terminal_polyfill 1.70.2 <https://github.com/polyfill-rs/is_terminal_polyfill>
   serde_spanned 1.1.1 <https://github.com/toml-rs/toml>
-  toml 0.9.12+spec-1.1.0 <https://github.com/toml-rs/toml>
-  toml_datetime 0.7.5+spec-1.1.0 <https://github.com/toml-rs/toml>
+  toml 1.1.2+spec-1.1.0 <https://github.com/toml-rs/toml>
+  toml_datetime 1.1.1+spec-1.1.0 <https://github.com/toml-rs/toml>
   toml_parser 1.1.2+spec-1.1.0 <https://github.com/toml-rs/toml>
   toml_writer 1.1.1+spec-1.1.0 <https://github.com/toml-rs/toml>
 
@@ -7943,6 +8003,38 @@ Used by:
   idna_adapter 1.2.2 <https://github.com/hsivonen/idna_adapter>
 
 Copyright (c) The rust-url developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+
+------------------------------------------------------------------------------
+MIT License (MIT)
+Used by:
+  tar 0.4.46 <https://github.com/composefs/tar-rs>
+
+Copyright (c) The tar-rs Project Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -9262,6 +9354,34 @@ SOFTWARE.
 ------------------------------------------------------------------------------
 MIT License (MIT)
 Used by:
+  rustls-platform-verifier 0.7.1 <https://github.com/rustls/rustls-platform-verifier>
+
+MIT License
+
+Copyright (c) 2022 1Password
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+------------------------------------------------------------------------------
+MIT License (MIT)
+Used by:
   rfd 0.16.0 <https://github.com/PolyMeilex/rfd>
 
 MIT License
@@ -9476,11 +9596,13 @@ Used by:
   htmlescape 0.3.1 <https://github.com/veddan/rust-htmlescape>
   libm 0.2.16 <https://github.com/rust-lang/compiler-builtins>
   llama-cpp-2 0.1.146 <https://github.com/utilityai/llama-cpp-rs>
+  minisign-verify 0.2.5 <https://github.com/jedisct1/rust-minisign-verify>
   objc2-app-kit 0.3.2 <https://github.com/madsmtm/objc2>
   objc2-core-foundation 0.3.2 <https://github.com/madsmtm/objc2>
   objc2-encode 4.1.0 <https://github.com/madsmtm/objc2>
   objc2-exception-helper 0.1.1 <https://github.com/madsmtm/objc2>
   objc2-foundation 0.3.2 <https://github.com/madsmtm/objc2>
+  objc2-osa-kit 0.3.2 <https://github.com/madsmtm/objc2>
   objc2-web-kit 0.3.2 <https://github.com/madsmtm/objc2>
   objc2 0.6.4 <https://github.com/madsmtm/objc2>
   object_store 0.12.5 <https://github.com/apache/arrow-rs-object-store>
@@ -9506,6 +9628,7 @@ Used by:
   tauri-macros 2.6.3 <https://github.com/tauri-apps/tauri>
   tauri-plugin-dialog 2.5.0 <https://github.com/tauri-apps/plugins-workspace>
   tauri-plugin-fs 2.5.1 <https://github.com/tauri-apps/plugins-workspace>
+  tauri-plugin-updater 2.12.0 <https://github.com/tauri-apps/plugins-workspace>
   tauri-runtime-wry 2.11.4 <https://github.com/tauri-apps/tauri>
   tauri-runtime 2.11.3 <https://github.com/tauri-apps/tauri>
   tauri-utils 2.9.3 <https://github.com/tauri-apps/tauri>
@@ -9932,7 +10055,6 @@ DEALINGS IN THE SOFTWARE.
 ------------------------------------------------------------------------------
 MIT License (MIT)
 Used by:
-  winnow 0.7.15 <https://github.com/winnow-rs/winnow>
   winnow 1.0.2 <https://github.com/winnow-rs/winnow>
 
 Permission is hereby granted, free of charge, to any person obtaining

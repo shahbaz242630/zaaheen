@@ -43,6 +43,10 @@ jobs:
     # which waits for the founder's approval (security audit s101 #19 / s104
     # SUP-2): a push to a test branch or an edited workflow cannot read them.
     environment: release
+    # The update-signing job checks the file it signs against this hash.
+    outputs:
+      msi: ${{ steps.msi.outputs.name }}
+      msi_sha256: ${{ steps.msi.outputs.sha256 }}
     env:
       # The seven account settings, baked in at compile time (option_env!).
       ZAAHEEN_ACCOUNT_ISSUER: ${{ inputs.account == 'production' && secrets.PROD_ACCOUNT_ISSUER || secrets.MAC_TEST_ACCOUNT_ISSUER }}
@@ -59,6 +63,8 @@ jobs:
       SANDBOX_ZAAHEEN_LEASE_BACKUP_KID: ${{ secrets.MAC_TEST_LEASE_BACKUP_KID }}
       SANDBOX_ZAAHEEN_LEASE_BACKUP_KEY: ${{ secrets.MAC_TEST_LEASE_BACKUP_KEY }}
       LANCE_MEM_POOL_SIZE: '268435456'
+      # Every build that is not production gets the overlay with no update address (ADR-116).
+      SANDBOX_CONFIG: ${{ inputs.account != 'production' && 'tauri.sandbox.conf.json' || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -73,6 +79,17 @@ jobs:
           $conf = Get-Content crates/vault-tauri/tauri.conf.json -Raw
           if ($conf -notmatch ('"version":\s*"' + [regex]::Escape($env:RELEASE_VERSION) + '"')) {
             Write-Host "ABORTED: tauri.conf.json is not at version $env:RELEASE_VERSION"; exit 1
+          }
+
+      # ADR-SEC-051: the s115 rehearsal key (ID 790322A4BDE7902B) never ships.
+      # Its public half is base64 text in tauri.conf.json; this is that text.
+      - name: A production build does not carry the rehearsal update key
+        if: inputs.account == 'production'
+        shell: pwsh
+        run: |
+          $conf = Get-Content crates/vault-tauri/tauri.conf.json -Raw
+          if ($conf.Contains('IDc5MDMyMkE0QkRFNzkwMkIK')) {
+            Write-Host 'ABORTED: tauri.conf.json still holds the rehearsal update key; put the real public key in first'; exit 1
           }
 
       # The same machine set-up as CI's Windows build job (ci.yml), which is
@@ -148,11 +165,14 @@ jobs:
           Get-ChildItem $dest | Format-Table Name, Length
 
       - name: Install the Tauri CLI (the version the local build uses)
-        run: cargo install tauri-cli --version 2.11.0 --locked
+        run: cargo install tauri-cli --version 2.11.5 --locked
 
       - name: Build the installer (MSI)
         working-directory: crates/vault-tauri
-        run: cargo tauri build -- --locked
+        run: |
+          # A sandbox build has no update address (ADR-116): it can never pull a production build.
+          if ($env:SANDBOX_CONFIG) { cargo tauri build --config $env:SANDBOX_CONFIG -- --locked } else { cargo tauri build -- --locked }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Name the installer for what it carries
         id: msi
@@ -166,6 +186,7 @@ jobs:
           $hash = (Get-FileHash $name -Algorithm SHA256).Hash
           Write-Host "$name  $([math]::Round((Get-Item $name).Length / 1MB, 1)) MB  SHA256 $hash  commit $env:GITHUB_SHA"
           "name=$name" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "sha256=$($hash.ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "$hash  $name  commit $env:GITHUB_SHA  account ${{ inputs.account || 'sandbox' }}" | Out-File -FilePath "$name.sha256.txt" -Encoding ascii
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -182,8 +203,12 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 240
     environment: release
+    outputs:
+      update: ${{ steps.update.outputs.name }}
+      update_sha256: ${{ steps.update.outputs.sha256 }}
     env:
       MACOSX_DEPLOYMENT_TARGET: '13.0'
+      SANDBOX_CONFIG: ${{ inputs.account != 'production' && 'tauri.sandbox.conf.json' || '' }}
       # The same seven settings and sandbox copies as the Windows job.
       ZAAHEEN_ACCOUNT_ISSUER: ${{ inputs.account == 'production' && secrets.PROD_ACCOUNT_ISSUER || secrets.MAC_TEST_ACCOUNT_ISSUER }}
       ZAAHEEN_ACCOUNT_CLIENT_ID: ${{ inputs.account == 'production' && secrets.PROD_ACCOUNT_CLIENT_ID || secrets.MAC_TEST_ACCOUNT_CLIENT_ID }}
@@ -234,7 +259,7 @@ jobs:
         run: cargo build --release --locked -p vault-cli --bins
 
       - name: Install the Tauri CLI (the version the Windows build uses)
-        run: cargo install tauri-cli --version 2.11.0 --locked
+        run: cargo install tauri-cli --version 2.11.5 --locked
 
       # Every compile finishes BEFORE the signing key is unlocked or the
       # notarisation key written (security audit s104 SUP-1); the signing
@@ -242,7 +267,7 @@ jobs:
       # anything compiles while the keys are out.
       - name: Compile the desktop app (no signing key yet)
         working-directory: crates/vault-tauri
-        run: cargo tauri build --config tauri.mac-test.conf.json --no-bundle -- --locked
+        run: cargo tauri build --config tauri.mac-test.conf.json ${SANDBOX_CONFIG:+--config "$SANDBOX_CONFIG"} --no-bundle -- --locked
 
       - name: Import the Developer ID certificate
         env:
@@ -287,7 +312,7 @@ jobs:
           export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
           printf '%s\n' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY_PATH"
           unset APPLE_API_KEY_P8
-          cargo tauri build --config tauri.mac-test.conf.json -- --locked 2>&1 | tee "$RUNNER_TEMP/tauri-sign.log"
+          cargo tauri build --config tauri.mac-test.conf.json ${SANDBOX_CONFIG:+--config "$SANDBOX_CONFIG"} -- --locked 2>&1 | tee "$RUNNER_TEMP/tauri-sign.log"
           status=${PIPESTATUS[0]}
           rm -f "$APPLE_API_KEY_PATH"
           [ "$status" = 0 ] || exit "$status"
@@ -325,6 +350,24 @@ jobs:
           "$APP/Contents/MacOS/zaaheen" --version
           exit $bad
 
+      # ADR-116 / ADR-SEC-051: the automatic update for the Mac is this same
+      # notarised, stapled app packed as .tar.gz (the updater swaps the bundle).
+      # Signed later, in the update-signing job; the key is never here.
+      - name: Pack the update (.app.tar.gz) from the stapled app
+        id: update
+        run: |
+          UPDATE="Zaaheen_${RELEASE_VERSION}_aarch64.app.tar.gz"
+          tar -czf "$UPDATE" -C target/release/bundle/macos Zaaheen.app
+          CHECK="$RUNNER_TEMP/update-check"
+          mkdir -p "$CHECK"
+          tar -xzf "$UPDATE" -C "$CHECK"
+          xcrun stapler validate "$CHECK/Zaaheen.app"
+          codesign --verify --deep --strict "$CHECK/Zaaheen.app"
+          HASH=$(shasum -a 256 "$UPDATE" | cut -d' ' -f1)
+          echo "$UPDATE  $(du -m "$UPDATE" | cut -f1) MB  SHA256 $HASH  commit $GITHUB_SHA"
+          echo "name=$UPDATE" >> "$GITHUB_OUTPUT"
+          echo "sha256=$HASH" >> "$GITHUB_OUTPUT"
+
       - name: Make the download (.dmg), signed, notarised and stapled
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -357,6 +400,7 @@ jobs:
           path: |
             ${{ env.DMG }}
             ${{ env.DMG }}.sha256.txt
+            ${{ steps.update.outputs.name }}
           retention-days: 7
           if-no-files-found: error
 
@@ -365,3 +409,88 @@ jobs:
         run: |
           security delete-keychain "$RUNNER_TEMP/zaaheen-signing.keychain-db" 2>/dev/null || true
           rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/cert.p12"
+
+  # Automatic updates (ADR-116, ADR-SEC-051, notes AUTO-UPDATE-DESIGN.md §3).
+  # The ONLY job that holds the update signing key, in its own environment
+  # (`update-signing`: main only, the founder approves). It compiles nothing of
+  # ours and checks out nothing: it takes the two update files the build jobs
+  # made, checks each against the hash its job printed, installs one pinned
+  # tool in a step with no secret, and signs in the one step that gets the key.
+  # It writes latest.json but publishes nothing: users receive the update only
+  # when the founder uploads latest.json at the end of go-live.
+  update-signing:
+    name: Sign the update (production)
+    needs: [windows, mac]
+    if: inputs.account == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: update-signing
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: Zaaheen-windows-production
+          path: windows
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: Zaaheen-mac-production
+          path: mac
+
+      - name: The files are the ones the build jobs made
+        env:
+          MSI: ${{ needs.windows.outputs.msi }}
+          MSI_SHA256: ${{ needs.windows.outputs.msi_sha256 }}
+          UPDATE: ${{ needs.mac.outputs.update }}
+          UPDATE_SHA256: ${{ needs.mac.outputs.update_sha256 }}
+        run: |
+          test "$MSI" = "Zaaheen_${RELEASE_VERSION}_x64.msi" || { echo "ABORTED: unexpected installer name $MSI"; exit 1; }
+          test "$UPDATE" = "Zaaheen_${RELEASE_VERSION}_aarch64.app.tar.gz" || { echo "ABORTED: unexpected update name $UPDATE"; exit 1; }
+          echo "$MSI_SHA256  windows/$MSI" | sha256sum --check --strict
+          echo "$UPDATE_SHA256  mac/$UPDATE" | sha256sum --check --strict
+
+      # No secret in this step: whatever the install runs never sees the key.
+      - name: Install the Tauri CLI (the signer; 2.11.5 seals the version)
+        run: cargo install tauri-cli --version 2.11.5 --locked
+
+      - name: Seal both update files with the version
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          MSI: ${{ needs.windows.outputs.msi }}
+          UPDATE: ${{ needs.mac.outputs.update }}
+        run: |
+          test -n "$TAURI_SIGNING_PRIVATE_KEY" || { echo "ABORTED: the update-signing environment has no key"; exit 1; }
+          cargo tauri signer sign --app-version "$RELEASE_VERSION" "windows/$MSI"
+          cargo tauri signer sign --app-version "$RELEASE_VERSION" "mac/$UPDATE"
+          test -s "windows/$MSI.sig" && test -s "mac/$UPDATE.sig"
+
+      # The manifest the app asks for (https://dl.zaaheen.com/updates/latest.json).
+      # `signature` is the text of each .sig; the files sit beside the downloads.
+      - name: Write latest.json
+        env:
+          MSI: ${{ needs.windows.outputs.msi }}
+          UPDATE: ${{ needs.mac.outputs.update }}
+        run: |
+          jq -n \
+            --arg version "$RELEASE_VERSION" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg win_url "https://dl.zaaheen.com/$MSI" \
+            --arg win_sig "$(cat "windows/$MSI.sig")" \
+            --arg mac_url "https://dl.zaaheen.com/$UPDATE" \
+            --arg mac_sig "$(cat "mac/$UPDATE.sig")" \
+            '{version: $version,
+              notes: "https://zaaheen.com/docs/release-notes/",
+              pub_date: $date,
+              platforms: {
+                "windows-x86_64": {url: $win_url, signature: $win_sig},
+                "darwin-aarch64": {url: $mac_url, signature: $mac_sig}}}' > latest.json
+          cat latest.json
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Zaaheen-update-production
+          path: |
+            windows/${{ needs.windows.outputs.msi }}.sig
+            mac/${{ needs.mac.outputs.update }}.sig
+            latest.json
+          retention-days: 7
+          if-no-files-found: error

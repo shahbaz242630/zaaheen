@@ -376,6 +376,15 @@ pub const OPEN_COMMANDS: &[&str] = &[
     // (already open) runs, through the same keeper path.
     "delete_account_start",
     "delete_account_open",
+    // A **widening**, the **update** slot (founder s115: "yes add it";
+    // ADR-116, ADR-SEC-051): someone whose trial or subscription has ended
+    // must still receive security fixes. `update_status` holds no vault and
+    // no account. `restart_to_update` reads no memory: its one vault effect
+    // is taking the vault from the keeper before the installer runs, through
+    // the same `take_exclusive` that `erase_everything` (already open) uses.
+    // See `commands/update.rs` and its source test below.
+    "update_status",
+    "restart_to_update",
 ];
 
 #[cfg(test)]
@@ -787,6 +796,7 @@ mod tests {
             ("account.rs", include_str!("commands/account.rs")),
             ("erasure.rs", include_str!("commands/erasure.rs")),
             ("export.rs", include_str!("commands/export.rs")),
+            ("update.rs", include_str!("commands/update.rs")),
         ];
 
         for (name, src) in SOURCES {
@@ -847,6 +857,55 @@ mod tests {
                 "commands/account.rs names `{forbidden}`. These commands are ungated by                  design, and what makes that safe is that they cannot reach a memory.                  Handing them the vault removes the guarantee, whatever the list says."
             );
         }
+    }
+
+    /// The update slot (s115) is open because it reads no memory. Pin that:
+    /// no store, adapter or key, and of the keeper link only the three calls
+    /// that find the vault folder and hold the keeper off it, never a call
+    /// that asks the keeper for data.
+    #[test]
+    fn the_update_commands_read_no_memory() {
+        const UPDATE_RS: &str = include_str!("commands/update.rs");
+        let code: String = UPDATE_RS
+            .lines()
+            .map(|line| line.split("//").next().unwrap_or(line))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        for forbidden in [
+            "Application",
+            "Adapter",
+            "MasterKey",
+            "adapter()",
+            ".call(",
+            ".call_search(",
+            "Entitled",
+        ] {
+            assert!(
+                !code.contains(forbidden),
+                "commands/update.rs names `{forbidden}`. The update commands are open \
+                 so that an ended trial still gets security fixes; that is safe only \
+                 while they cannot reach a memory."
+            );
+        }
+        let link_calls: Vec<&str> = code
+            .match_indices("link.")
+            .map(|(at, _)| {
+                let rest = &code[at + "link.".len()..];
+                &rest[..rest.find('(').unwrap_or(rest.len())]
+            })
+            .collect();
+        for call in &link_calls {
+            assert!(
+                ["vault_root", "poison", "clear_poison"].contains(call),
+                "commands/update.rs calls `link.{call}`; only vault_root, poison and \
+                 clear_poison are allowed"
+            );
+        }
+        assert!(
+            !link_calls.is_empty(),
+            "the scan found no link calls at all"
+        );
     }
 
     /// The export is the one ungated command that reads the vault, so it

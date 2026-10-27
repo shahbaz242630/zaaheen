@@ -74,6 +74,7 @@ pub mod memory;
 pub mod recently_deleted;
 pub mod settings;
 pub mod startup;
+pub mod update;
 
 pub use account::{
     account_access, account_cancel_subscription, account_refresh_now, account_sign_in,
