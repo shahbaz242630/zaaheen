@@ -87,6 +87,29 @@ ignore = [
     "RUSTSEC-2026-0367", # zip -- SUID/SGID bits kept on extract
     "RUSTSEC-2026-0368", # zip -- extract creates symlinks outside the target
     "RUSTSEC-2026-0369", # zip -- extract applies permissions through symlinks
+
+    # -- zstd 0.13 / zstd-safe 7: fixed only in new majors (triaged 2026-10-27, s115)
+    # Fixed in zstd >= 0.14.3 and zstd-safe >= 8.2.0, but every user requires
+    # zstd ^0.13: arrow-ipc 57/56, lance-encoding 4, tantivy-sstable 0.5/0.7
+    # (all via lancedb / duckdb -> vault-storage). Their fourth sibling,
+    # RUSTSEC-2026-0410 (zstd-sys, wasm allocator), IS fixed: zstd-sys 2.1.2.
+    #   - 0391: only the stream `with_context` constructors carried a dead
+    #     stream into the next. No user calls them: arrow-ipc decodes with
+    #     `Decoder::with_buffer`, lance-encoding with stream::copy_decode,
+    #     tantivy with zstd::bulk, each on a context of its own.
+    #   - 0398: `Seekable` exists only with the `seekable` feature, which
+    #     nothing in our tree enables; the code is not compiled.
+    #   - 0403: REACHABLE IN PRINCIPLE: the `legacy` feature is on (zstd's
+    #     default) and arrow-ipc and lance-encoding decode through the stream
+    #     API. The input is the vault's own files, written by our own keeper
+    #     on the user's own disk; a crafted legacy frame there needs write
+    #     access to the vault folder, which already beats the app. We
+    #     decompress no downloaded or received data with zstd.
+    # Resolved when arrow, lance and tantivy move to zstd 0.14: drop these
+    # three. Re-triage at once if zstd ever decodes data from outside the vault.
+    "RUSTSEC-2026-0391", # zstd -- abandoned stream leaks into the next
+    "RUSTSEC-2026-0398", # zstd-safe -- Seekable::decompress set_len past capacity
+    "RUSTSEC-2026-0403", # zstd-safe -- legacy-frame error exposes uninit memory
 ]
 
 [licenses]
