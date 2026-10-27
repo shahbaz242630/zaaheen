@@ -7048,6 +7048,7 @@ version = "0.11.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a9746dbde176634f4f2f1faf2404e30a31b2bc1e9cafb5329c95d8177a18c9fc"
 dependencies = [
+ "aws-lc-rs",
  "bytes",
  "getrandom 0.4.2",
  "lru-slab",
@@ -7484,6 +7485,7 @@ dependencies = [
  "log",
  "percent-encoding",
  "pin-project-lite",
+ "quinn",
  "rustls",
  "rustls-pki-types",
  "rustls-platform-verifier",
@@ -10399,7 +10401,10 @@ name = "vault-tauri"
 version = "0.3.7"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "chrono",
+ "minisign-verify",
+ "reqwest 0.13.3",
  "rmcp",
  "serde",
  "serde_json",

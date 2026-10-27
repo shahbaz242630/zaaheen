@@ -13,9 +13,10 @@
 //! - the offered version must be a plain `x.y.z` and higher than this one;
 //! - the file must come from `https://dl.zaaheen.com/`, whatever the
 //!   manifest says (its per-platform address is not sealed);
-//! - the verified bytes stay in memory until the click: the updater does not
-//!   verify again at install, so they are never parked in a file another
-//!   program could swap;
+//! - the verified file waits on disk in the app's own folder (not ~155 MB in
+//!   memory all day: founder s115), and at the click its seal is checked
+//!   AGAIN on the exact bytes about to be installed ([`seal`]), because the
+//!   updater itself checks only once, at download;
 //! - on a Mac, the new app must also satisfy the running app's own Apple
 //!   signing requirement (a downloaded update is never checked by Gatekeeper).
 //!
@@ -29,9 +30,12 @@
 //! trial or subscription has ended still receives security fixes. Neither
 //! reads a memory.
 
+mod seal;
+
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use tauri::{AppHandle, State, Url};
+use tauri::{AppHandle, Manager, State, Url};
 use tauri_plugin_updater::{Update, UpdaterExt};
 use tokio::sync::Mutex;
 use vault_app::keeper::exclusive::take_exclusive;
@@ -60,11 +64,18 @@ const CHECK_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 const TAKE_WAIT: Duration = Duration::from_secs(20);
 const TAKE_STEP: Duration = Duration::from_secs(5);
 
-/// A downloaded, verified update waiting for the click.
+/// The folder under the app's local data where a verified update waits.
+const UPDATES_DIR: &str = "updates";
+/// The waiting file, and the name it is written under before it is complete.
+const PENDING: &str = "pending.update";
+const PENDING_PART: &str = "pending.update.part";
+
+/// A downloaded, verified update waiting for the click. The bytes are in
+/// `file`; `update` carries the signature they are checked against again.
 struct Ready {
     version: String,
     update: Update,
-    bytes: Vec<u8>,
+    file: PathBuf,
 }
 
 /// The update waiting for the click, if any. Managed by the app.
@@ -117,6 +128,7 @@ pub fn from_our_server(url: &Url) -> bool {
 /// The check at open, then daily. Ends quietly when this build has no update
 /// address (a sandbox build, ADR-116).
 pub async fn check_at_open_then_daily(app: AppHandle, slot: std::sync::Arc<UpdateSlot>) {
+    clear_leftovers(&app);
     loop {
         if !check_once(&app, &slot).await {
             return;
@@ -166,20 +178,90 @@ async fn check_once(app: &AppHandle, slot: &UpdateSlot) -> bool {
     }
     // The updater verifies the seal and the sealed version before it returns
     // the bytes; a failure here is a refused or broken download.
-    match update.download(|_, _| {}, || {}).await {
-        Ok(bytes) => {
+    let bytes = match update.download(|_, _| {}, || {}).await {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            tracing::warn!(target: "vault_tauri::update", error = %e, "update download refused or failed; will retry");
+            return true;
+        }
+    };
+    let Some(dir) = updates_dir(app) else {
+        tracing::warn!(target: "vault_tauri::update", "no folder to keep the update in; will retry");
+        return true;
+    };
+    match park(&dir, &bytes) {
+        Ok(file) => {
             tracing::info!(target: "vault_tauri::update", version = %update.version, "update downloaded and verified");
             *slot.ready.lock().await = Some(Ready {
                 version: update.version.clone(),
                 update,
-                bytes,
+                file,
             });
         }
         Err(e) => {
-            tracing::warn!(target: "vault_tauri::update", error = %e, "update download refused or failed; will retry");
+            tracing::warn!(target: "vault_tauri::update", error = %e, "update could not be kept; will retry");
         }
     }
     true
+}
+
+/// `<app local data>/updates`, made if missing.
+fn updates_dir(app: &AppHandle) -> Option<PathBuf> {
+    let dir = app.path().app_local_data_dir().ok()?.join(UPDATES_DIR);
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
+/// Write the verified bytes under a temporary name, then rename: a waiting
+/// file is always complete. Returns where it waits.
+fn park(dir: &Path, bytes: &[u8]) -> std::io::Result<PathBuf> {
+    let part = dir.join(PENDING_PART);
+    let file = dir.join(PENDING);
+    std::fs::write(&part, bytes)?;
+    std::fs::rename(&part, &file)?;
+    Ok(file)
+}
+
+/// At start: nothing is waiting (the wait lives in this process), so remove
+/// what an earlier run left: our own waiting file, and on Windows the
+/// updater's own installer folders, which it never deletes (~155 MB each).
+fn clear_leftovers(app: &AppHandle) {
+    if let Some(dir) = updates_dir(app) {
+        for name in [PENDING, PENDING_PART] {
+            let _ = std::fs::remove_file(dir.join(name));
+        }
+    }
+    #[cfg(windows)]
+    {
+        let product = app.package_info().name.clone();
+        if let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) {
+            for entry in entries.filter_map(Result::ok) {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                if is_updater_leftover(&name, &product) {
+                    let _ = std::fs::remove_dir_all(entry.path());
+                }
+            }
+        }
+    }
+}
+
+/// The updater's Windows folder: `%TEMP%\<product>-<version>-updater-<random>`.
+pub fn is_updater_leftover(name: &str, product: &str) -> bool {
+    name.strip_prefix(product)
+        .and_then(|rest| rest.strip_prefix('-'))
+        .and_then(|rest| rest.split_once("-updater-"))
+        .is_some_and(|(version, random)| plain_version(version).is_some() && !random.is_empty())
+}
+
+/// The public key compiled into this app (`plugins.updater.pubkey`).
+fn compiled_pubkey(app: &AppHandle) -> Option<String> {
+    app.config()
+        .plugins
+        .0
+        .get("updater")?
+        .get("pubkey")?
+        .as_str()
+        .map(str::to_string)
 }
 
 /// `{ "ready": bool, "version": "x.y.z" | null }` for the banner.
@@ -206,9 +288,29 @@ pub async fn restart_to_update(
         return Err(ERR_UPDATE_NOT_READY.to_string());
     };
 
+    // The seal again, on the exact bytes about to be installed: the file
+    // waited on disk, and the updater will not check it a second time. A
+    // refusal drops the update; the next daily check downloads it afresh.
+    let bytes = match std::fs::read(&ready.file) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            tracing::warn!(target: "vault_tauri::update", error = %e, "the waiting update could not be read");
+            return Err(ERR_UPDATE_FAILED.to_string());
+        }
+    };
+    let Some(pubkey) = compiled_pubkey(&app) else {
+        tracing::error!(target: "vault_tauri::update", "no update key compiled in");
+        return Err(ERR_UPDATE_FAILED.to_string());
+    };
+    if let Err(why) = seal::verify(&bytes, &ready.update.signature, &pubkey, &ready.version) {
+        tracing::error!(target: "vault_tauri::update", reason = ?why, "update refused at the click: the waiting file failed its seal");
+        let _ = std::fs::remove_file(&ready.file);
+        return Err(ERR_UPDATE_FAILED.to_string());
+    }
+
     #[cfg(target_os = "macos")]
     {
-        if let Err(e) = mac_seal::check(&ready.bytes) {
+        if let Err(e) = mac_seal::check(&bytes) {
             tracing::error!(target: "vault_tauri::update", error = %e, "update refused: the Apple signature check failed");
             return Err(ERR_UPDATE_FAILED.to_string());
         }
@@ -232,7 +334,7 @@ pub async fn restart_to_update(
     };
 
     tracing::info!(target: "vault_tauri::update", version = %ready.version, "installing update");
-    if let Err(e) = ready.update.install(&ready.bytes) {
+    if let Err(e) = ready.update.install(&bytes) {
         tracing::error!(target: "vault_tauri::update", error = %e, "update install did not start; nothing changed");
         drop(held);
         link.clear_poison();
@@ -245,96 +347,7 @@ pub async fn restart_to_update(
 }
 
 #[cfg(target_os = "macos")]
-mod mac_seal {
-    //! The Mac's second seal (ADR-SEC-051): the new app must satisfy the
-    //! running app's own designated requirement (our Apple team), checked
-    //! with the system's `codesign` on a private unpacked copy.
-
-    use std::path::{Path, PathBuf};
-    use std::process::Command;
-
-    const CODESIGN: &str = "/usr/bin/codesign";
-    const TAR: &str = "/usr/bin/tar";
-
-    pub fn check(bytes: &[u8]) -> Result<(), String> {
-        let running = running_bundle()?;
-        let requirement = designated_requirement(&running)?;
-        let dir = private_dir()?;
-        let result = unpack_and_verify(bytes, &dir, &requirement);
-        let _ = std::fs::remove_dir_all(&dir);
-        result
-    }
-
-    fn running_bundle() -> Result<PathBuf, String> {
-        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-        // <bundle>.app/Contents/MacOS/<program>
-        exe.ancestors()
-            .nth(3)
-            .filter(|p| p.extension().is_some_and(|ext| ext == "app"))
-            .map(Path::to_path_buf)
-            .ok_or_else(|| "not running from an app bundle".to_string())
-    }
-
-    fn designated_requirement(bundle: &Path) -> Result<String, String> {
-        let out = Command::new(CODESIGN)
-            .args(["-d", "-r-"])
-            .arg(bundle)
-            .output()
-            .map_err(|e| e.to_string())?;
-        let text = String::from_utf8_lossy(&out.stdout).into_owned()
-            + &String::from_utf8_lossy(&out.stderr);
-        text.lines()
-            .find_map(|line| line.strip_prefix("designated => "))
-            .map(str::to_string)
-            .filter(|req| req.contains("anchor apple generic"))
-            .ok_or_else(|| "the running app is not signed by a Developer ID".to_string())
-    }
-
-    fn private_dir() -> Result<PathBuf, String> {
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|e| e.to_string())?
-            .as_nanos();
-        let dir = std::env::temp_dir().join(format!(
-            "zaaheen-update-check-{}-{stamp}",
-            std::process::id()
-        ));
-        std::fs::create_dir(&dir).map_err(|e| e.to_string())?;
-        Ok(dir)
-    }
-
-    fn unpack_and_verify(bytes: &[u8], dir: &Path, requirement: &str) -> Result<(), String> {
-        let archive = dir.join("update.tar.gz");
-        std::fs::write(&archive, bytes).map_err(|e| e.to_string())?;
-        let unpacked = Command::new(TAR)
-            .arg("-xzf")
-            .arg(&archive)
-            .arg("-C")
-            .arg(dir)
-            .status()
-            .map_err(|e| e.to_string())?;
-        if !unpacked.success() {
-            return Err("the update could not be unpacked".to_string());
-        }
-        let app = std::fs::read_dir(dir)
-            .map_err(|e| e.to_string())?
-            .filter_map(Result::ok)
-            .map(|entry| entry.path())
-            .find(|p| p.extension().is_some_and(|ext| ext == "app"))
-            .ok_or_else(|| "the update holds no app".to_string())?;
-        let verified = Command::new(CODESIGN)
-            .args(["--verify", "--deep", "--strict"])
-            .arg(format!("--test-requirement=={requirement}"))
-            .arg(&app)
-            .status()
-            .map_err(|e| e.to_string())?;
-        if verified.success() {
-            Ok(())
-        } else {
-            Err("the update is not signed by our Apple team".to_string())
-        }
-    }
-}
+mod mac_seal;
 
 #[cfg(test)]
 mod tests {
@@ -371,6 +384,40 @@ mod tests {
         assert!(!worth_offering("0.3.7", "0.3.8"));
         assert!(!worth_offering("0.3.9-rc1", "0.3.8"));
         assert!(!worth_offering("0.3.9", "not a version"));
+    }
+
+    #[test]
+    fn only_the_updaters_own_folders_are_cleared() {
+        assert!(is_updater_leftover(
+            "Zaaheen-0.3.9-updater-a1B2c3",
+            "Zaaheen"
+        ));
+        for keep in [
+            "Zaaheen",
+            "Zaaheen-0.3.9-updater-",
+            "Zaaheen-latest-updater-x",
+            "Zaaheen-0.3.9-backup-x",
+            "Other-0.3.9-updater-x",
+            "ZaaheenX-0.3.9-updater-x",
+            "zaaheen-update-check-1-2",
+        ] {
+            assert!(
+                !is_updater_leftover(keep, "Zaaheen"),
+                "{keep} must be left alone"
+            );
+        }
+    }
+
+    #[test]
+    fn a_waiting_update_is_whole_or_absent() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let file = park(dir.path(), b"verified bytes").expect("parked");
+        assert_eq!(file, dir.path().join(PENDING));
+        assert_eq!(std::fs::read(&file).expect("read"), b"verified bytes");
+        assert!(!dir.path().join(PENDING_PART).exists());
+        // A second update replaces the first.
+        park(dir.path(), b"newer").expect("parked again");
+        assert_eq!(std::fs::read(&file).expect("read"), b"newer");
     }
 
     #[test]

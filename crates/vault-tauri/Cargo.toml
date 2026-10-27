@@ -43,6 +43,15 @@ tauri-build = { workspace = true, features = [] }
 tauri = { workspace = true }
 tauri-plugin-dialog = { workspace = true }
 tauri-plugin-updater = { workspace = true }
+minisign-verify = { workspace = true }
+base64 = { workspace = true }
+# Never named in code: it exists to switch a feature on (s115). The updater
+# turns on reqwest 0.13's `rustls-no-provider`, and features add up across
+# every package built together, so every reqwest 0.13 client in that build
+# (rmcp's, in vault-mcp's tests) then panicked "No provider set" at
+# `Client::new()`. `rustls` gives reqwest its default provider back (aws-lc,
+# already compiled in through rustls 0.23). Same version as the lock.
+reqwest-tls-provider = { package = "reqwest", version = "=0.13.3", default-features = false, features = ["rustls"] }
 
 # Workspace types we wire through.
 vault-core = { path = "../vault-core" }
