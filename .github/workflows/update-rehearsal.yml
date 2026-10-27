@@ -1,0 +1,277 @@
+name: Update rehearsal
+
+# Automatic updates, rehearsed on GitHub's Windows machine before any real key
+# exists (s115, notes AUTO-UPDATE-DESIGN.md section 5: S1 and S4). THROWAWAY
+# BRANCH ONLY: never merged. No secrets: a key is made here for this run, its
+# public half replaces the one in tauri.conf.json, and the production update
+# address is kept, pointed by the hosts file at a stand-in server on this
+# machine whose certificate a rehearsal-only root (trusted here) signs.
+#
+#   S4b  an update whose file sits on another address is refused, unfetched
+#   S4a  an old signed file offered as a newer version is refused
+#   S1   0.3.90 -> 0.3.91 through "Restart to update", with an AI app's relay
+#        connected: the install runs, the app comes back on 0.3.91
+
+on:
+  push:
+    branches: ['spike/update-rehearsal-s115']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-rehearsal-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  N: '0.3.90'
+  N1: '0.3.91'
+
+jobs:
+  windows:
+    name: Windows update rehearsal
+    runs-on: windows-2025
+    timeout-minutes: 300
+    env:
+      LANCE_MEM_POOL_SIZE: '268435456'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The same machine set-up as release-build.yml's Windows job.
+      - name: Free disk space on the Windows machine
+        shell: pwsh
+        run: |
+          foreach ($p in @("C:\Android", "C:\Program Files\Android", "C:\hostedtoolcache\windows\AndroidSdk",
+                           "C:\Program Files\dotnet", "C:\Program Files\Java", "C:\hostedtoolcache\windows\go",
+                           "C:\hostedtoolcache\windows\Ruby", "C:\hostedtoolcache\windows\PyPy", "C:\miniconda",
+                           "C:\selenium", "C:\Program Files\MongoDB")) {
+            if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue }
+          }
+      - uses: ./.github/actions/setup-protoc
+      - name: Install LLVM and set LIBCLANG_PATH
+        shell: pwsh
+        run: |
+          choco install llvm --version 20.1.8 --allow-downgrade -y --no-progress
+          $clang = (Get-Command clang.exe -ErrorAction SilentlyContinue).Source
+          if (-not $clang) { $clang = "C:\Program Files\LLVM\bin\clang.exe" }
+          "LIBCLANG_PATH=$(Split-Path $clang -Parent)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Install the Vulkan SDK and Ninja
+        shell: pwsh
+        env:
+          VULKAN_VERSION: 1.4.313.2
+        run: |
+          curl.exe -o $env:RUNNER_TEMP/VulkanSDK-Installer.exe -L `
+            "https://sdk.lunarg.com/sdk/download/${env:VULKAN_VERSION}/windows/vulkansdk-windows-X64-${env:VULKAN_VERSION}.exe"
+            $vk = (Get-FileHash "$env:RUNNER_TEMP/VulkanSDK-Installer.exe" -Algorithm SHA256).Hash.ToLower()
+            if ($vk -ne "34a921d951858274ca8e470e9d0a3b7624db41216b3908ccea9f73c8a1b7500e") { throw "Vulkan SDK installer SHA-256 mismatch: $vk" }
+          & "$env:RUNNER_TEMP\VulkanSDK-Installer.exe" --accept-licenses --default-answer --confirm-command install
+          Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\${env:VULKAN_VERSION}"
+          Add-Content $env:GITHUB_PATH "C:\VulkanSDK\${env:VULKAN_VERSION}\bin"
+          Add-Content $env:GITHUB_ENV "CMAKE_TRY_COMPILE_CONFIGURATION=Release"
+          choco install ninja --version 1.13.2 --allow-downgrade -y --no-progress
+          Add-Content $env:GITHUB_ENV "CMAKE_GENERATOR=Ninja"
+          Add-Content $env:GITHUB_ENV "CARGO_TARGET_DIR=D:\t"
+          Add-Content $env:GITHUB_ENV "CARGO_BUILD_JOBS=2"
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: stable
+      - name: Provision the embedder model and ONNX Runtime
+        shell: pwsh
+        run: ./scripts/setup-dev-env.ps1
+      - name: Pin MSVC toolset to v143 (14.44), as CI
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+        with:
+          arch: x64
+          toolset: '14.44'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.23.4'
+
+      - name: Build the command-line programs (release)
+        run: cargo build --release --locked -p vault-cli
+      - name: Place the programs where the installer recipe looks for them
+        shell: pwsh
+        run: |
+          $dest = 'C:\Projects\GitHub\Memory Vault\target\release'
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item 'D:\t\release\zaaheen.exe', 'D:\t\release\zaaheen-maintenance.exe' $dest
+      - name: Install the Tauri CLI (the release version)
+        run: cargo install tauri-cli --version 2.11.5 --locked
+
+      - name: Make this run's update key; its public half goes into the app
+        shell: pwsh
+        run: |
+          $key = "$env:RUNNER_TEMP\rehearsal.key"
+          cargo tauri signer generate --ci -p rehearsal -w $key
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $pub = (Get-Content "$key.pub" -Raw).Trim()
+          $path = 'crates/vault-tauri/tauri.conf.json'
+          $conf = Get-Content $path -Raw
+          $old = ([regex]::Match($conf, '"pubkey":\s*"([^"]+)"')).Groups[1].Value
+          if (-not $old) { throw 'no pubkey in tauri.conf.json' }
+          $conf.Replace($old, $pub) | Set-Content $path -NoNewline -Encoding utf8
+          Select-String -Path $path -Pattern '"pubkey"|"endpoints"|requireSignedVersion'
+
+      - name: Build two versions (0.3.90 and 0.3.91), production config, this key
+        shell: pwsh
+        run: |
+          $out = "$env:RUNNER_TEMP\served"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          $cur = ([regex]::Match((Get-Content Cargo.toml -Raw), '(?m)^version = "([^"]+)"')).Groups[1].Value
+          foreach ($v in $env:N, $env:N1) {
+            # Both version sources: the updater uses tauri.conf.json, the app's
+            # own "is it newer" check uses the crate version.
+            (Get-Content Cargo.toml -Raw) -replace '(?m)^version = "[^"]+"', "version = `"$v`"" | Set-Content Cargo.toml -NoNewline
+            (Get-Content crates/vault-tauri/tauri.conf.json -Raw) -replace '"version":\s*"[^"]+"', "`"version`": `"$v`"" |
+              Set-Content crates/vault-tauri/tauri.conf.json -NoNewline -Encoding utf8
+            cargo update --workspace
+            Push-Location crates/vault-tauri
+            cargo tauri build
+            $code = $LASTEXITCODE
+            Pop-Location
+            if ($code -ne 0) { exit $code }
+            $msi = Get-ChildItem 'D:\t\release\bundle\msi' -Filter "*$v*.msi" | Select-Object -First 1
+            if (-not $msi) { throw "no MSI for $v" }
+            Copy-Item $msi.FullName "$out\Zaaheen_$v.msi"
+            Write-Host "built $v ($([math]::Round($msi.Length / 1MB, 1)) MB), was $cur"
+          }
+
+      - name: Seal both with their versions
+        shell: pwsh
+        run: |
+          foreach ($v in $env:N, $env:N1) {
+            cargo tauri signer sign -f "$env:RUNNER_TEMP\rehearsal.key" -p rehearsal --app-version $v "$env:RUNNER_TEMP\served\Zaaheen_$v.msi"
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          Get-ChildItem "$env:RUNNER_TEMP\served"
+
+      - name: Stand in for dl.zaaheen.com on this machine
+        shell: pwsh
+        run: |
+          $ssl = 'C:\Program Files\Git\usr\bin\openssl.exe'
+          $d = "$env:RUNNER_TEMP\tls"
+          New-Item -ItemType Directory -Force $d | Out-Null
+          & $ssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj '/CN=Zaaheen update rehearsal root' `
+            -addext 'basicConstraints=critical,CA:TRUE' -addext 'keyUsage=critical,keyCertSign,cRLSign' `
+            -keyout "$d\ca.key" -out "$d\ca.crt"
+          & $ssl req -newkey rsa:2048 -nodes -subj '/CN=dl.zaaheen.com' -keyout "$d\srv.key" -out "$d\srv.csr"
+          "subjectAltName=DNS:dl.zaaheen.com,DNS:dl2.zaaheen.com`nextendedKeyUsage=serverAuth`nbasicConstraints=CA:FALSE`nkeyUsage=critical,digitalSignature,keyEncipherment" |
+            Set-Content "$d\ext.cnf" -Encoding ascii
+          & $ssl x509 -req -days 2 -in "$d\srv.csr" -CA "$d\ca.crt" -CAkey "$d\ca.key" -CAcreateserial -extfile "$d\ext.cnf" -out "$d\srv.crt"
+          Import-Certificate -FilePath "$d\ca.crt" -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+          Add-Content "$env:windir\System32\drivers\etc\hosts" "`r`n127.0.0.1 dl.zaaheen.com`r`n127.0.0.1 dl2.zaaheen.com"
+          ipconfig /flushdns | Out-Null
+          Start-Process node -ArgumentList ".github\rehearsal\server.mjs", "$env:RUNNER_TEMP\served", "$d\srv.crt", "$d\srv.key", "$env:RUNNER_TEMP\requests.log" `
+            -RedirectStandardOutput "$env:RUNNER_TEMP\server.out" -RedirectStandardError "$env:RUNNER_TEMP\server.err"
+          Start-Sleep -Seconds 3
+          # Schannel trusts the machine's roots, as the app's verifier does.
+          curl.exe -sS -o NUL -w "stand-in reachable over trusted https: %{http_code}`n" https://dl.zaaheen.com/Zaaheen_$env:N.msi
+          if ($LASTEXITCODE -ne 0) { Get-Content "$env:RUNNER_TEMP\server.err"; exit 1 }
+
+      - name: Install 0.3.90
+        shell: pwsh
+        run: |
+          . .github/rehearsal/rehearsal.ps1
+          $p = Start-Process msiexec.exe -ArgumentList '/i', "`"$Served\Zaaheen_$env:N.msi`"", '/qn', '/l*v', "`"$env:RUNNER_TEMP\install-n.log`"" -Wait -PassThru
+          Write-Host "msiexec exit $($p.ExitCode); installed version: $(Get-InstalledVersion)"
+          if ((Get-InstalledVersion) -ne $env:N) { exit 1 }
+          Get-ChildItem $Install | Format-Table Name, Length
+
+      - name: S4b - a file on another address is refused before download
+        shell: pwsh
+        timeout-minutes: 10
+        run: |
+          . .github/rehearsal/rehearsal.ps1
+          Write-Manifest $env:N1 "https://dl2.zaaheen.com/Zaaheen_$env:N1.msi" "$Served\Zaaheen_$env:N1.msi.sig"
+          Clear-Content $Requests -ErrorAction SilentlyContinue
+          Start-Zaaheen | Out-Null
+          $seen = Wait-AppLog @('an update from another address was refused', 'update downloaded and verified') 180
+          Show-UpdateLog
+          Stop-Zaaheen
+          $fetched = (Test-Path $Requests) -and (Select-String -Path $Requests -Pattern '\.msi' -Quiet)
+          Write-Host "log: $seen; installer fetched: $fetched; waiting file: $(Test-Path $Pending)"
+          if ($seen -ne 'an update from another address was refused' -or $fetched -or (Test-Path $Pending)) { Write-Host 'S4b FAILED'; exit 1 }
+          Write-Host 'S4b PASSED'
+
+      - name: S4a - an old signed file offered as newer is refused
+        shell: pwsh
+        timeout-minutes: 10
+        run: |
+          . .github/rehearsal/rehearsal.ps1
+          # 0.3.90's own file and seal, offered as 0.3.92.
+          Write-Manifest '0.3.92' "https://dl.zaaheen.com/Zaaheen_$env:N.msi" "$Served\Zaaheen_$env:N.msi.sig"
+          Clear-Content $Requests -ErrorAction SilentlyContinue
+          Start-Zaaheen | Out-Null
+          $seen = Wait-AppLog @('update download refused or failed', 'update downloaded and verified') 300
+          Show-UpdateLog
+          Stop-Zaaheen
+          Write-Host "log: $seen; waiting file: $(Test-Path $Pending); installed: $(Get-InstalledVersion)"
+          if ($seen -ne 'update download refused or failed' -or (Test-Path $Pending) -or (Get-InstalledVersion) -ne $env:N) { Write-Host 'S4a FAILED'; exit 1 }
+          Write-Host 'S4a PASSED'
+
+      - name: S1 - 0.3.90 to 0.3.91 through "Restart to update", an AI app connected
+        shell: pwsh
+        timeout-minutes: 25
+        run: |
+          . .github/rehearsal/rehearsal.ps1
+          Write-Manifest $env:N1 "https://dl.zaaheen.com/Zaaheen_$env:N1.msi" "$Served\Zaaheen_$env:N1.msi.sig"
+          $app = Start-Zaaheen
+          Write-Host "app before: $([System.Diagnostics.Process]::GetProcessById($app.Id).MainModule.FileVersionInfo.ProductVersion), $([Elevation]::Of($app.Id))"
+
+          # An AI app's relay, as Claude Desktop starts it, kept open on stdin.
+          $si = New-Object System.Diagnostics.ProcessStartInfo (Join-Path $Install 'zaaheen.exe'), 'mcp serve'
+          $si.UseShellExecute = $false; $si.RedirectStandardInput = $true
+          $si.RedirectStandardOutput = $true; $si.RedirectStandardError = $true
+          $relay = [System.Diagnostics.Process]::Start($si)
+          $relay.StandardInput.WriteLine('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"rehearsal","version":"1"}}}')
+          $relay.StandardInput.Flush()
+          $outTask = $relay.StandardOutput.ReadLineAsync()
+          Start-Sleep -Seconds 15
+          Write-Host "relay pid $($relay.Id), exited: $($relay.HasExited), first answer: $(if ($outTask.IsCompleted) { $outTask.Result } else { '(none yet)' })"
+          Get-Process zaaheen, zaaheen-maintenance -ErrorAction SilentlyContinue | Format-Table Id, ProcessName, StartTime
+
+          $seen = Wait-AppLog @('update downloaded and verified', 'update download refused or failed') 300
+          Show-UpdateLog
+          if ($seen -ne 'update downloaded and verified') { Write-Host 'S1 FAILED: no verified download'; exit 1 }
+          Write-Host "waiting file: $(Test-Path $Pending) ($([math]::Round((Get-Item $Pending).Length / 1MB, 1)) MB)"
+
+          $clickAt = Get-Date
+          node .github/rehearsal/click.mjs
+          if ($LASTEXITCODE -ne 0) { Write-Host 'S1 FAILED: could not press the button'; exit 1 }
+
+          $until = (Get-Date).AddMinutes(10)
+          while ((Get-Date) -lt $until -and (Get-InstalledVersion) -ne $env:N1) { Start-Sleep -Seconds 10 }
+          Write-Host "installed after the click: $(Get-InstalledVersion) ($([int]((Get-Date) - $clickAt).TotalSeconds) s)"
+          Write-Host "relay exited: $($relay.HasExited)$(if ($relay.HasExited) { " (code $($relay.ExitCode))" })"
+          if (-not $relay.HasExited) { Write-Host "relay stderr so far skipped (still running)" } else { Write-Host "relay stderr: $($relay.StandardError.ReadToEnd())" }
+
+          $until = (Get-Date).AddMinutes(3)
+          $back = $null
+          while ((Get-Date) -lt $until -and -not $back) {
+            $back = Get-Process zaaheen-desktop -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt $clickAt } | Select-Object -First 1
+            if (-not $back) { Start-Sleep -Seconds 5 }
+          }
+          if ($back) {
+            Write-Host "app after: pid $($back.Id), $($back.MainModule.FileVersionInfo.ProductVersion), $([Elevation]::Of($back.Id))"
+          } else { Write-Host 'the app did not come back on its own' }
+          Get-Process zaaheen, zaaheen-maintenance -ErrorAction SilentlyContinue | Format-Table Id, ProcessName, StartTime
+          Get-ChildItem $env:TEMP -Directory -Filter 'Zaaheen-*-updater-*' -ErrorAction SilentlyContinue | Format-Table Name
+          Write-Host "waiting file after: $(Test-Path $Pending)"
+          if ((Get-InstalledVersion) -ne $env:N1 -or -not $back) { Write-Host 'S1 FAILED'; exit 1 }
+          Write-Host 'S1 PASSED'
+
+      - name: Keep the logs
+        if: always()
+        shell: pwsh
+        run: |
+          $k = "$env:RUNNER_TEMP\keep"
+          New-Item -ItemType Directory -Force $k | Out-Null
+          Copy-Item "$env:LOCALAPPDATA\com.zaaheen.app\logs" "$k\app-logs" -Recurse -ErrorAction SilentlyContinue
+          Copy-Item "$env:RUNNER_TEMP\requests.log", "$env:RUNNER_TEMP\server.*", "$env:RUNNER_TEMP\install-n.log" $k -ErrorAction SilentlyContinue
+          Copy-Item "$env:RUNNER_TEMP\served\updates\latest.json" $k -ErrorAction SilentlyContinue
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: update-rehearsal-windows
+          path: ${{ runner.temp }}/keep
+          retention-days: 3
