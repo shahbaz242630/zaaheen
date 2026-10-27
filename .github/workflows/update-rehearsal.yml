@@ -164,8 +164,11 @@ jobs:
           Start-Process node -ArgumentList ".github\rehearsal\server.mjs", "$env:RUNNER_TEMP\served", "$d\srv.crt", "$d\srv.key", "$env:RUNNER_TEMP\requests.log" `
             -RedirectStandardOutput "$env:RUNNER_TEMP\server.out" -RedirectStandardError "$env:RUNNER_TEMP\server.err"
           Start-Sleep -Seconds 3
-          # Schannel trusts the machine's roots, as the app's verifier does.
-          curl.exe -sS -o NUL -w "stand-in reachable over trusted https: %{http_code}`n" https://dl.zaaheen.com/Zaaheen_$env:N.msi
+          # Schannel trusts the machine's roots, as the app's verifier does. The
+          # rehearsal root publishes no revocation list; the app ignores an
+          # unknown revocation status (CERT_CHAIN_POLICY_IGNORE_ALL_REV_UNKNOWN_FLAGS),
+          # curl does not unless told.
+          curl.exe -sS --ssl-no-revoke -o NUL -w "stand-in reachable over trusted https: %{http_code}`n" https://dl.zaaheen.com/Zaaheen_$env:N.msi
           if ($LASTEXITCODE -ne 0) { Get-Content "$env:RUNNER_TEMP\server.err"; exit 1 }
 
       - name: Install 0.3.90
@@ -269,9 +272,11 @@ jobs:
           Copy-Item "$env:LOCALAPPDATA\com.zaaheen.app\logs" "$k\app-logs" -Recurse -ErrorAction SilentlyContinue
           Copy-Item "$env:RUNNER_TEMP\requests.log", "$env:RUNNER_TEMP\server.*", "$env:RUNNER_TEMP\install-n.log" $k -ErrorAction SilentlyContinue
           Copy-Item "$env:RUNNER_TEMP\served\updates\latest.json" $k -ErrorAction SilentlyContinue
+          # The two installers, for the founder laptop check (release recipe).
+          Copy-Item "$env:RUNNER_TEMP\served\*.msi" $k -ErrorAction SilentlyContinue
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: update-rehearsal-windows
           path: ${{ runner.temp }}/keep
-          retention-days: 3
+          retention-days: 7
