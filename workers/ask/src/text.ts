@@ -9,7 +9,7 @@ export const TURNED_AWAY =
 /** Shown at a daily limit (budget.ts); no call to the model is made. */
 export const RESTING = "The question box is resting for now. Please email customerservice@zaaheen.com and we'll help.";
 
-/** Shown when the model or our pages cannot be reached (wording to confirm with the founder). */
+/** Shown when the model or our pages cannot be reached (founder-approved s116). */
 export const UNAVAILABLE =
   "The question box can't answer right now. Please try again in a few minutes, or email customerservice@zaaheen.com.";
 
