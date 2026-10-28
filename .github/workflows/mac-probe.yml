@@ -32,7 +32,7 @@ jobs:
           osascript -e 'tell application "System Events" to get name of every process whose background only is false' || echo "PROCESS LIST REFUSED"
           osascript -e 'tell application "System Events" to tell process "TextEdit" to get name of every button of every window' || echo "UI READ REFUSED"
           osascript -e 'tell application "System Events" to tell process "TextEdit" to get entire contents of front window' 2>&1 | head -c 1500 || echo "UI TREE REFUSED"
-          osascript -e 'tell application "System Events" to tell process "TextEdit" to click menu item "New Document" of menu "File" of menu bar 1' && echo "CLICK OK" || echo "CLICK REFUSED"
+          osascript -e 'tell application "System Events" to tell process "TextEdit" to click menu item "New" of menu "File" of menu bar 1' && echo "CLICK OK" || echo "CLICK REFUSED"
 
       - name: 2 and 3 - trusted root, hosts, port 443
         continue-on-error: true
@@ -59,7 +59,10 @@ jobs:
           createServer({ cert: readFileSync(cert), key: readFileSync(key) }, (q, r) => r.end("ok\n"))
             .listen(443, "127.0.0.1", () => console.log("listening on 443"));
           EOF
-          (node "$RUNNER_TEMP/s.mjs" "$D/srv.crt" "$D/srv.key" > "$RUNNER_TEMP/s.out" 2>&1 &)
+          echo "--- s.mjs:"; cat "$RUNNER_TEMP/s.mjs"; node --version
+          nohup node "$RUNNER_TEMP/s.mjs" "$D/srv.crt" "$D/srv.key" > "$RUNNER_TEMP/s.out" 2>&1 &
+          sleep 5; cat "$RUNNER_TEMP/s.out"; sudo lsof -nP -iTCP:443 -sTCP:LISTEN || echo "nothing listens on 443"
+          if ! grep -q listening "$RUNNER_TEMP/s.out"; then echo "as root:"; sudo nohup node "$RUNNER_TEMP/s.mjs" "$D/srv.crt" "$D/srv.key" > "$RUNNER_TEMP/s2.out" 2>&1 & sleep 5; cat "$RUNNER_TEMP/s2.out"; fi
           sleep 2; cat "$RUNNER_TEMP/s.out"
           curl -sS -w " http %{http_code}\n" https://dl.zaaheen.com/updates/latest.json && echo "SYSTEM TRUST OK (curl, Secure Transport)" || echo "CURL REFUSED"
           security verify-cert -c "$D/srv.crt" -p ssl -s dl.zaaheen.com && echo "VERIFY-CERT OK" || echo "VERIFY-CERT REFUSED"
