@@ -287,6 +287,14 @@ jobs:
           Write-Host "waiting file: $(Test-Path $Pending) ($([math]::Round((Get-Item $Pending).Length / 1MB, 1)) MB)"
 
           $clickAt = Get-Date
+          # Run 4: the debugging port refused the connection. Show whether
+          # the app's web view runs, with which switches, and who listens.
+          Get-CimInstance Win32_Process -Filter "Name='msedgewebview2.exe'" |
+            Where-Object { $_.CommandLine -notmatch '--type=' } |
+            ForEach-Object { Write-Host "web view $($_.ProcessId) session $($_.SessionId): $($_.CommandLine)" }
+          Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object LocalPort -eq 9222 |
+            ForEach-Object { Write-Host "9222 listened on $($_.LocalAddress) by $($_.OwningProcess)" }
+          Write-Host "this step's session: $((Get-Process -Id $PID).SessionId)"
           node .github/rehearsal/click.mjs
           if ($LASTEXITCODE -ne 0) { Write-Host 'S1 FAILED: could not press the button'; exit 1 }
 

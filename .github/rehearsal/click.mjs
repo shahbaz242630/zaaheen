@@ -2,7 +2,12 @@
 // person would, through WebView2's debugging port (the app is started with
 // --remote-debugging-port=9222). The page polls every 10 minutes, so it is
 // asked to look again first. Prints what it found and did.
-const pages = await (await fetch("http://127.0.0.1:9222/json")).json();
+// The port can open after the app's own work starts: try for a minute.
+let pages;
+for (let i = 0; ; i++) {
+  try { pages = await (await fetch("http://127.0.0.1:9222/json")).json(); break; }
+  catch (e) { if (i >= 30) throw e; await new Promise((r) => setTimeout(r, 2000)); }
+}
 const page = pages.find((p) => p.type === "page");
 if (!page) throw new Error("no page on the debugging port: " + JSON.stringify(pages));
 
