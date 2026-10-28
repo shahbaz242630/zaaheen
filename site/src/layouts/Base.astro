@@ -7,6 +7,7 @@ import '@fontsource/ibm-plex-mono/600.css';
 import '../styles/global.css';
 import Logo from '../components/Logo.astro';
 import Footer from '../components/Footer.astro';
+import AskBubble from '../components/AskBubble.astro';
 import { SITE, NAV, ACCOUNT, RELEASE, absolute, type PageEntry } from '../data/site';
 import { lastModified, publishedDate } from '../lib/lastmod';
 import { graphFor } from '../lib/seo';
@@ -119,6 +120,9 @@ const L = (href: string) => localize(href, lang);
 </main>
 
 <Footer variant={footer} updated={modified} />
+
+{/* Not on noindex pages (404, /pay): /pay keeps its own pinned policy, with no frame. */}
+{!noindex && <AskBubble lang={lang} />}
 
 </body>
 </html>
