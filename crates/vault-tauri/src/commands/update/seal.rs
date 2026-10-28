@@ -61,8 +61,8 @@ fn decode(text: &str) -> Result<String, Refused> {
 mod tests {
     use super::*;
 
-    /// The throwaway rehearsal key's public half (the one in tauri.conf.json
-    /// until the founder makes the real key).
+    /// The s115 throwaway rehearsal key's public half: a test key only (the app
+    /// carries the real key since s116), kept because it signed the fixture.
     const PUBKEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc5MDMyMkE0QkRFNzkwMkIKUldRcmtPZTlwQ0lEZWYxNWZGSWdCaVRJYThxSE9GNTMybDFwMEZJRW4zNkIwYW9jcXV6S1E5akMK";
 
     /// A file signed with the throwaway key by tauri-cli 2.11.0, which writes

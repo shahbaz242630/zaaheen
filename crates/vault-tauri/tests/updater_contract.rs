@@ -18,12 +18,11 @@ const ENDPOINT: &str = "https://dl.zaaheen.com/updates/latest.json";
 
 /// The public half of the update signing key compiled into the app.
 ///
-/// **Today this is the THROWAWAY rehearsal key (key ID 790322A4BDE7902B, made
-/// s115 for the spikes; its private half was never stored anywhere but a
-/// scratch folder).** The founder makes the real key before 0.3.8 ships;
-/// then this constant, `tauri.conf.json` and the release build's refusal of
-/// the throwaway ID change together.
-const PUBKEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc5MDMyMkE0QkRFNzkwMkIKUldRcmtPZTlwQ0lEZWYxNWZGSWdCaVRJYThxSE9GNTMybDFwMEZJRW4zNkIwYW9jcXV6S1E5akMK";
+/// The real key (key ID A6B6220B582FCA5D), made by the founder in s116 with no
+/// AI open; its private half lives only in his password manager and the
+/// `update-signing` environment (ADR-SEC-051 key custody). The s115 rehearsal
+/// key (790322A4BDE7902B) is refused by the release build.
+const PUBKEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE2QjYyMjBCNTgyRkNBNUQKUldSZHlpOVlDeUsycGdWYkF1V0Q0OXh6MWUvM3FBeHV3bFZxUTQ2UG9OOWJ1REtTWXcyUlpTaGgK";
 
 fn json(text: &str, name: &str) -> serde_json::Value {
     serde_json::from_str(text).unwrap_or_else(|e| panic!("{name} is not JSON: {e}"))
