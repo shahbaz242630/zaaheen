@@ -37,7 +37,7 @@ function stand_in(reply: Anthropic.Message | Error) {
   return { model, sent };
 }
 
-const ON_TOPIC = { on_topic: true, answer: "The trial is 30 days.", pages: ["https://zaaheen.com/pricing/"] };
+const ON_TOPIC = { on_topic: true, known: true, answer: "The trial is 30 days.", pages: ["https://zaaheen.com/pricing/"] };
 
 describe("answer", () => {
   it("asks the chosen model with low effort, no tools, thinking off and the fixed reply shape", async () => {
@@ -71,13 +71,13 @@ describe("answer", () => {
     ]);
   });
 
-  it("the reply shape allows exactly the three fields", () => {
+  it("the reply shape allows exactly the four fields", () => {
     expect(REPLY_SCHEMA).toMatchObject({
       type: "object",
       additionalProperties: false,
-      required: ["on_topic", "answer", "pages"],
+      required: ["on_topic", "known", "answer", "pages"],
     });
-    expect(Object.keys(REPLY_SCHEMA.properties).sort()).toEqual(["answer", "on_topic", "pages"]);
+    expect(Object.keys(REPLY_SCHEMA.properties).sort()).toEqual(["answer", "known", "on_topic", "pages"]);
   });
 
   it("returns a checked answer", async () => {
@@ -86,6 +86,7 @@ describe("answer", () => {
       kind: "answer",
       text: "The trial is 30 days.",
       pages: ["https://zaaheen.com/pricing/"],
+      known: true,
     });
   });
 
@@ -97,7 +98,7 @@ describe("answer", () => {
   });
 
   it("an off-topic reply comes back turned away", async () => {
-    const { model } = stand_in(message([json({ on_topic: false, answer: "A poem.", pages: [] })]));
+    const { model } = stand_in(message([json({ on_topic: false, known: false, answer: "A poem.", pages: [] })]));
     expect(await answer(model, KNOWLEDGE, [{ role: "user", text: "Write a poem" }])).toEqual({
       kind: "turned_away",
       reason: "off_topic",
