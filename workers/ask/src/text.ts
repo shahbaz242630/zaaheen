@@ -6,6 +6,9 @@
 export const TURNED_AWAY =
   "I can only help with questions about Zaaheen. For anything else, please email customerservice@zaaheen.com.";
 
+/** Shown at a daily limit (budget.ts); no call to the model is made. */
+export const RESTING = "The question box is resting for now. Please email customerservice@zaaheen.com and we'll help.";
+
 /** The first message when the bubble opens. */
 export const GREETING = "Hi! Ask me anything about Zaaheen: how it works, connecting your AI apps, pricing or your trial.";
 
