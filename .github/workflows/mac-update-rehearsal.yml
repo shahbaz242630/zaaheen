@@ -206,7 +206,8 @@ jobs:
     needs: [plan, build]
     if: always() && needs.plan.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: macos-latest
-    timeout-minutes: 90
+    # The scenarios' own limits add up to 80 minutes; keep + upload 10 more.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -383,13 +384,17 @@ jobs:
 
       - name: Keep the logs
         if: always()
+        timeout-minutes: 5
         run: |
           K="$RUNNER_TEMP/keep"; mkdir -p "$K"
           cp -R "$HOME/Library/Logs/com.zaaheen.app" "$K/app-logs" 2>/dev/null || true
-          cp "$RUNNER_TEMP"/requests.log "$RUNNER_TEMP"/server.* "$RUNNER_TEMP"/relay.* "$K" 2>/dev/null || true
+          # Regular files only: relay.in is S2's pipe, and reading it waits forever.
+          find "$RUNNER_TEMP" -maxdepth 1 -type f \( -name requests.log -o -name 'server.*' -o -name 'relay.*' \) \
+            -exec cp {} "$K" \; 2>/dev/null || true
           cp "$RUNNER_TEMP/served/updates/latest.json" "$K" 2>/dev/null || true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
+        timeout-minutes: 5
         with:
           name: mac-rehearsal-logs
           path: ${{ runner.temp }}/keep
