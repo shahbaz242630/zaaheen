@@ -49,7 +49,13 @@ $LogMark = 0
 
 function Start-Zaaheen {
     $script:LogMark = (Get-AppLog).Length
+    # Run 5: the app passes its own browser switches, and the environment
+    # variable alone did not reach the web view. The machine-wide WebView2
+    # policy for this one program is also set.
     $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
+    $pol = 'HKLM:\SOFTWARE\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
+    New-Item -Path $pol -Force | Out-Null
+    New-ItemProperty -Path $pol -Name 'zaaheen-desktop.exe' -Value '--remote-debugging-port=9222' -PropertyType String -Force | Out-Null
     $p = Start-Process -FilePath (Join-Path $Install 'zaaheen-desktop.exe') -PassThru
     Write-Host "started zaaheen-desktop pid $($p.Id)"
     $p
