@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Ask Zaaheen</title>
+<link rel="stylesheet" href="/chat/chat.css">
+<script src="/chat/chat.js" defer></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+</head>
+<body>
+<main class="chat" aria-label="Ask Zaaheen">
+  <header class="bar">
+    <h1>Ask Zaaheen</h1>
+    <button type="button" id="close" class="close" aria-label="Close">×</button>
+  </header>
+  <ol id="log" class="log" aria-live="polite">
+    <li class="msg from-box">Hi! Ask me anything about Zaaheen: how it works, connecting your AI apps, pricing or your trial.</li>
+  </ol>
+  <form id="ask" class="ask">
+    <label for="question" class="hidden">Your question</label>
+    <textarea id="question" rows="2" maxlength="500" required placeholder="Type your question"></textarea>
+    <button type="submit" id="send">Send</button>
+  </form>
+  <!-- Turnstile's check (ADR-SEC-052 §3.3) runs here, shown only if it needs the visitor. -->
+  <div id="check" class="check" data-sitekey="__TURNSTILE_SITE_KEY__"></div>
+  <p class="note">Answers come from our website and can be wrong. For anything important, check the linked page or email customerservice@zaaheen.com.</p>
+</main>
+</body>
+</html>

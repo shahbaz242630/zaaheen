@@ -13,6 +13,14 @@
   "workers_dev": false,
   "preview_urls": false,
   "routes": [{ "pattern": "ask.zaaheen.com", "custom_domain": true }],
+  // The chat page (public/chat/) and its headers (public/_headers) are served
+  // as static files; only /v1/* runs the Worker.
+  "assets": {
+    "directory": "./public",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/v1/*"]
+  },
   // Counts and kept questions (src/store.ts, migrations/). The id is set when
   // the database is created; tests use a local, simulated database.
   "d1_databases": [
