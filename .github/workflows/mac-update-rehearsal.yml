@@ -1,0 +1,399 @@
+name: Mac update rehearsal
+
+# Automatic updates on the Mac, rehearsed on GitHub's Mac machine before any
+# real key exists (s115, notes AUTO-UPDATE-DESIGN.md section 5: S2 and S4).
+# THROWAWAY BRANCH ONLY: never merged. A key is made here for this run; its
+# public half replaces the one in tauri.conf.json; the production update
+# address is kept, pointed by /etc/hosts at a stand-in server on this machine
+# whose certificate a rehearsal-only root (trusted here) signs. No account
+# settings: the app has no sign-in, as the Windows rehearsal.
+#
+# build (the `release` environment: the Apple certificate and notarisation
+# key; the founder approves) makes two notarised apps, 0.3.90 and 0.3.91, and
+# a copy of 0.3.91 re-signed by someone else, each packed and sealed.
+# rehearse (no secrets) then runs, on a fresh machine:
+#   S4b  an update whose file sits on another address is refused, unfetched
+#   S4a  an old sealed file offered as a newer version is refused
+#   S2r  a correctly sealed 0.3.91 re-signed by another Apple identity is
+#        refused at the click (the second seal), and 0.3.90 stays
+#   S2   0.3.90 -> 0.3.91 by pressing "Restart to update", with an AI app's
+#        relay running from inside the app: the app is swapped, reopens on
+#        0.3.91, still carries our Apple signature, and passes Gatekeeper
+#
+# A commit message containing REUSE_RUN=<run id> skips the build and uses
+# that run's files (a change to the rehearsal itself; no approval needed).
+
+on:
+  push:
+    branches: ['mac-test/update-rehearsal-s115']
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: mac-update-rehearsal
+  cancel-in-progress: true
+
+env:
+  N: '0.3.90'
+  N1: '0.3.91'
+
+jobs:
+  build:
+    name: Build, sign and notarise the two versions
+    if: "!contains(github.event.head_commit.message, 'REUSE_RUN=')"
+    runs-on: macos-latest
+    timeout-minutes: 300
+    environment: release
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The release build's Mac steps (release-build.yml), with no account
+      # settings and no sandbox overlay (which removes the update address).
+      - uses: ./.github/actions/setup-protoc
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: stable
+      - name: Provision the embedder model and ONNX Runtime (arm64 dylib)
+        run: bash scripts/setup-dev-env.sh
+      - name: Placeholder onnxruntime.dll for the base config's resource check
+        run: touch crates/vault-embedding/test-fixtures/bge-small-en-v1.5/onnxruntime.dll
+      - name: Build the command-line programs (release)
+        run: cargo build --release --locked -p vault-cli --bins
+      - name: Install the Tauri CLI (the release version)
+        run: cargo install tauri-cli --version 2.11.5 --locked
+
+      - name: Make this run's update key; its public half goes into the app
+        run: |
+          KEY="$RUNNER_TEMP/rehearsal.key"
+          cargo tauri signer generate --ci -p rehearsal -w "$KEY"
+          PUB=$(tr -d '\n' < "$KEY.pub")
+          perl -0pi -e "s{\"pubkey\":\s*\"[^\"]+\"}{\"pubkey\": \"$PUB\"}" crates/vault-tauri/tauri.conf.json
+          grep -n '"pubkey"\|"endpoints"\|requireSignedVersion' crates/vault-tauri/tauri.conf.json | cut -c1-120
+
+      # Every compile finishes before the signing key is unlocked (SUP-1).
+      # Each version gets its own copy of the source and its own target
+      # folder, and nothing in a copy is touched after it compiles, so the
+      # signing step below only bundles, signs and notarises.
+      - name: Compile both versions (no signing key yet)
+        run: |
+          for v in "$N" "$N1"; do
+            SRC="$RUNNER_TEMP/src-$v"
+            rsync -a --exclude target --exclude .git ./ "$SRC/"
+            (
+              cd "$SRC"
+              perl -pi -e "s/^version = \"[^\"]+\"/version = \"$v\"/" Cargo.toml
+              perl -pi -e "s/\"version\":\s*\"[^\"]+\"/\"version\": \"$v\"/" crates/vault-tauri/tauri.conf.json
+              cargo update --workspace
+              mkdir -p target/release && cp -p "$GITHUB_WORKSPACE"/target/release/zaaheen "$GITHUB_WORKSPACE"/target/release/zaaheen-maintenance target/release/
+              cd crates/vault-tauri
+              CARGO_TARGET_DIR="$RUNNER_TEMP/t-$v" cargo tauri build --config tauri.mac-test.conf.json --no-bundle
+            )
+          done
+
+      - name: Import the Developer ID certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KC="$RUNNER_TEMP/zaaheen-signing.keychain-db"
+          KC_PASS="$(openssl rand -hex 24)"
+          echo "::add-mask::$KC_PASS"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KC_PASS" "$KC"
+          security set-keychain-settings -lut 7200 "$KC"
+          security unlock-keychain -p "$KC_PASS" "$KC"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KC_PASS" "$KC" > /dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security find-identity -v -p codesigning "$KC"
+
+      - name: Sign the command-line programs and ONNX Runtime
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          for f in target/release/zaaheen target/release/zaaheen-maintenance; do
+            codesign --force --options runtime --timestamp --identifier com.zaaheen.app \
+              --sign "$APPLE_SIGNING_IDENTITY" "$f"
+          done
+          DYLIB=crates/vault-embedding/test-fixtures/bge-small-en-v1.5/libonnxruntime.dylib
+          codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$DYLIB"
+          # Into each version's copy, where its bundle takes them from.
+          for v in "$N" "$N1"; do
+            cp -p target/release/zaaheen target/release/zaaheen-maintenance "$RUNNER_TEMP/src-$v/target/release/"
+            cp -p "$DYLIB" "$RUNNER_TEMP/src-$v/$DYLIB"
+          done
+
+      - name: Bundle, sign and notarise both versions
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s\n' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY_PATH"
+          unset APPLE_API_KEY_P8
+          OUT="$RUNNER_TEMP/served"; mkdir -p "$OUT"
+          for v in "$N" "$N1"; do
+            (cd "$RUNNER_TEMP/src-$v/crates/vault-tauri" && CARGO_TARGET_DIR="$RUNNER_TEMP/t-$v" cargo tauri build --config tauri.mac-test.conf.json 2>&1 | tee "$RUNNER_TEMP/sign-$v.log"; exit "${PIPESTATUS[0]}") \
+              || { rm -f "$APPLE_API_KEY_PATH"; exit 1; }
+            if grep -E 'Compiling [A-Za-z0-9_-]+ v[0-9]' "$RUNNER_TEMP/sign-$v.log"; then
+              rm -f "$APPLE_API_KEY_PATH"; echo "ABORTED: code compiled while the signing key was unlocked (SUP-1)"; exit 1
+            fi
+            APPDIR="$RUNNER_TEMP/t-$v/release/bundle/macos"
+            xcrun stapler validate "$APPDIR/Zaaheen.app"
+            codesign --verify --deep --strict "$APPDIR/Zaaheen.app"
+            tar -czf "$OUT/Zaaheen_${v}_aarch64.app.tar.gz" -C "$APPDIR" Zaaheen.app
+          done
+          rm -f "$APPLE_API_KEY_PATH"
+          ls -la "$OUT"
+
+      - name: Remove the signing keychain
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/zaaheen-signing.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/cert.p12"
+
+      # The second seal's test file: our own 0.3.91, re-signed by an identity
+      # that is not ours (an ad-hoc signature), then sealed with OUR update
+      # key. The first seal accepts it; only the Apple check can refuse it.
+      - name: Make a 0.3.91 re-signed by someone else
+        run: |
+          W="$RUNNER_TEMP/resign"; rm -rf "$W"; mkdir -p "$W"
+          tar -xzf "$RUNNER_TEMP/served/Zaaheen_${N1}_aarch64.app.tar.gz" -C "$W"
+          codesign --force --deep --sign - "$W/Zaaheen.app"
+          codesign -d -r- "$W/Zaaheen.app" 2>&1 | grep designated || true
+          tar -czf "$RUNNER_TEMP/served/Zaaheen_${N1}_resigned.app.tar.gz" -C "$W" Zaaheen.app
+
+      - name: Seal the three files with their versions
+        run: |
+          S="$RUNNER_TEMP/served"
+          cargo tauri signer sign -f "$RUNNER_TEMP/rehearsal.key" -p rehearsal --app-version "$N" "$S/Zaaheen_${N}_aarch64.app.tar.gz"
+          cargo tauri signer sign -f "$RUNNER_TEMP/rehearsal.key" -p rehearsal --app-version "$N1" "$S/Zaaheen_${N1}_aarch64.app.tar.gz"
+          cargo tauri signer sign -f "$RUNNER_TEMP/rehearsal.key" -p rehearsal --app-version "$N1" "$S/Zaaheen_${N1}_resigned.app.tar.gz"
+          ls -la "$S"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mac-rehearsal-files
+          path: ${{ runner.temp }}/served
+          retention-days: 7
+          if-no-files-found: error
+
+  rehearse:
+    name: Rehearse the update on a fresh Mac
+    needs: build
+    if: always() && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.23.4'
+
+      - name: Which run's files
+        id: files
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          RUN=$(printf '%s' "$MESSAGE" | sed -n 's/.*REUSE_RUN=\([0-9][0-9]*\).*/\1/p' | head -1)
+          echo "run=${RUN:-$GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "files from run ${RUN:-$GITHUB_RUN_ID}"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mac-rehearsal-files
+          run-id: ${{ steps.files.outputs.run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/served
+
+      # Root may listen on 443 and its server outlives the step (mac-probe).
+      - name: Stand in for dl.zaaheen.com on this machine
+        run: |
+          D="$RUNNER_TEMP/tls"; mkdir -p "$D"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj '/CN=Zaaheen update rehearsal root' \
+            -addext 'basicConstraints=critical,CA:TRUE' -addext 'keyUsage=critical,keyCertSign,cRLSign' \
+            -keyout "$D/ca.key" -out "$D/ca.crt" 2>/dev/null
+          openssl req -newkey rsa:2048 -nodes -subj '/CN=dl.zaaheen.com' -keyout "$D/srv.key" -out "$D/srv.csr" 2>/dev/null
+          printf 'subjectAltName=DNS:dl.zaaheen.com,DNS:dl2.zaaheen.com\nextendedKeyUsage=serverAuth\nbasicConstraints=CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\n' > "$D/ext.cnf"
+          openssl x509 -req -days 2 -in "$D/srv.csr" -CA "$D/ca.crt" -CAkey "$D/ca.key" -CAcreateserial -extfile "$D/ext.cnf" -out "$D/srv.crt"
+          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$D/ca.crt"
+          printf '127.0.0.1 dl.zaaheen.com\n127.0.0.1 dl2.zaaheen.com\n' | sudo tee -a /etc/hosts
+          sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder || true
+          touch "$RUNNER_TEMP/requests.log"; chmod 666 "$RUNNER_TEMP/requests.log"
+          sudo nohup node .github/rehearsal/server.mjs "$RUNNER_TEMP/served" "$D/srv.crt" "$D/srv.key" "$RUNNER_TEMP/requests.log" \
+            > "$RUNNER_TEMP/server.out" 2> "$RUNNER_TEMP/server.err" &
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://dl.zaaheen.com/Zaaheen_${N}_aarch64.app.tar.gz" || true)
+            [ "$code" = 200 ] && { echo "stand-in answers over trusted https: 200"; exit 0; }
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/server.err"; exit 1
+
+      - name: Install 0.3.90 in /Applications
+        run: |
+          . .github/rehearsal/mac-rehearsal.sh
+          sudo rm -rf "$APP"
+          tar -xzf "$SERVED/Zaaheen_${N}_aarch64.app.tar.gz" -C /Applications
+          echo "installed: $(installed_version)"
+          codesign --verify --deep --strict "$APP"
+          spctl --assess --type execute --verbose=4 "$APP"
+          test "$(installed_version)" = "$N"
+
+      # Each scenario runs even when an earlier one failed; "Verdict" fails
+      # the run at the end if any did.
+      - name: S4b - a file on another address is refused before download
+        id: s4b
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          . .github/rehearsal/mac-rehearsal.sh
+          write_manifest "$N1" "https://dl2.zaaheen.com/Zaaheen_${N1}_aarch64.app.tar.gz" "$SERVED/Zaaheen_${N1}_aarch64.app.tar.gz.sig"
+          : > "$REQUESTS"
+          start_app
+          seen=$(wait_log 180 'an update from another address was refused' 'update downloaded and verified')
+          show_log
+          fetched=$(grep -c 'tar.gz' "$REQUESTS" || true)
+          echo "log: $seen; installer requests: $fetched; waiting file: $([ -e "$PENDING" ] && echo yes || echo no)"
+          [ "$seen" = 'an update from another address was refused' ] && [ "$fetched" = 0 ] && [ ! -e "$PENDING" ] \
+            || { echo 'S4b FAILED'; exit 1; }
+          echo 'S4b PASSED'
+
+      - name: S4a - an old sealed file offered as newer is refused
+        id: s4a
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          . .github/rehearsal/mac-rehearsal.sh
+          stop_app
+          write_manifest '0.3.92' "https://dl.zaaheen.com/Zaaheen_${N}_aarch64.app.tar.gz" "$SERVED/Zaaheen_${N}_aarch64.app.tar.gz.sig"
+          : > "$REQUESTS"
+          start_app
+          seen=$(wait_log 300 'update download refused or failed' 'update downloaded and verified')
+          show_log
+          echo "log: $seen; waiting file: $([ -e "$PENDING" ] && echo yes || echo no); installed: $(installed_version)"
+          [ "$seen" = 'update download refused or failed' ] && [ ! -e "$PENDING" ] && [ "$(installed_version)" = "$N" ] \
+            || { echo 'S4a FAILED'; exit 1; }
+          echo 'S4a PASSED'
+
+      # The update line shows on the home screen, after set-up (as a person
+      # would get there: buttons pressed through Accessibility).
+      - name: Set up the app as a person would
+        id: setup
+        continue-on-error: true
+        timeout-minutes: 15
+        run: |
+          . .github/rehearsal/mac-rehearsal.sh
+          stop_app
+          write_manifest "$N" "https://dl.zaaheen.com/Zaaheen_${N}_aarch64.app.tar.gz" "$SERVED/Zaaheen_${N}_aarch64.app.tar.gz.sig"
+          start_app
+          ax advance 'Begin set up' 180 'Continue'
+          ax advance 'Continue' 120 "I'll connect one later"
+          ax advance "I'll connect one later" 60 'Skip for now'
+          ax advance 'Skip for now' 60 'Finish setup'
+          ax click 'Not now' 30
+          ax click 'Finish setup' 30
+          ax gone 'Finish setup' 120
+          sleep 5
+          ax dump | head -60
+
+      - name: S2r - 0.3.91 re-signed by someone else is refused at the click
+        id: s2r
+        continue-on-error: true
+        timeout-minutes: 20
+        run: |
+          . .github/rehearsal/mac-rehearsal.sh
+          stop_app
+          write_manifest "$N1" "https://dl.zaaheen.com/Zaaheen_${N1}_resigned.app.tar.gz" "$SERVED/Zaaheen_${N1}_resigned.app.tar.gz.sig"
+          start_app
+          seen=$(wait_log 300 'update downloaded and verified' 'update download refused or failed')
+          echo "download: $seen"
+          [ "$seen" = 'update downloaded and verified' ] || { show_log; echo 'S2r FAILED: no verified download'; exit 1; }
+          # The page asks again every 10 minutes.
+          ax wait 'Restart to update' 660
+          ax click 'Restart to update' 10
+          seen=$(wait_log 60 'update refused: the Apple signature check failed' 'installing update')
+          sleep 5
+          show_log
+          ax dump | grep -i 'update\|nothing was changed' || true
+          echo "log: $seen; installed: $(installed_version)"
+          codesign --verify --deep --strict "$APP" && echo "installed app still ours"
+          [ "$seen" = 'update refused: the Apple signature check failed' ] && [ "$(installed_version)" = "$N" ] \
+            || { echo 'S2r FAILED'; exit 1; }
+          echo 'S2r PASSED'
+
+      - name: S2 - 0.3.90 to 0.3.91 by pressing "Restart to update", an AI app connected
+        id: s2
+        continue-on-error: true
+        timeout-minutes: 25
+        run: |
+          . .github/rehearsal/mac-rehearsal.sh
+          stop_app
+          write_manifest "$N1" "https://dl.zaaheen.com/Zaaheen_${N1}_aarch64.app.tar.gz" "$SERVED/Zaaheen_${N1}_aarch64.app.tar.gz.sig"
+          start_app
+          before=$(pgrep -x zaaheen-desktop | head -1)
+          # An AI app's relay, as Claude Desktop starts it from inside the app, kept open on stdin.
+          FIFO="$RUNNER_TEMP/relay.in"; rm -f "$FIFO"; mkfifo "$FIFO"
+          "$APP/Contents/MacOS/zaaheen" mcp serve < "$FIFO" > "$RUNNER_TEMP/relay.out" 2> "$RUNNER_TEMP/relay.err" &
+          RELAY=$!
+          exec 3> "$FIFO"
+          echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"rehearsal","version":"1"}}}' >&3
+          sleep 15
+          echo "relay pid $RELAY, first answer: $(head -c 200 "$RUNNER_TEMP/relay.out")"
+          ps -axo pid,lstart,comm | grep -i '[z]aaheen'
+          seen=$(wait_log 300 'update downloaded and verified' 'update download refused or failed')
+          echo "download: $seen"
+          [ "$seen" = 'update downloaded and verified' ] || { show_log; echo 'S2 FAILED: no verified download'; exit 1; }
+          ax wait 'Restart to update' 660
+          ax click 'Restart to update' 10
+          end=$((SECONDS + 300))
+          while [ $SECONDS -lt $end ] && [ "$(installed_version)" != "$N1" ]; do sleep 5; done
+          echo "installed after the click: $(installed_version)"
+          back=""
+          end=$((SECONDS + 120))
+          while [ $SECONDS -lt $end ] && [ -z "$back" ]; do
+            back=$(pgrep -x zaaheen-desktop | grep -vx "${before:-none}" | head -1 || true); sleep 3
+          done
+          echo "app before: ${before:-none}; app after: ${back:-did not come back}"
+          ps -axo pid,lstart,comm | grep -i '[z]aaheen' || true
+          if kill -0 "$RELAY" 2>/dev/null; then echo "relay still running"; else wait "$RELAY"; echo "relay ended (code $?)"; fi
+          echo "relay stderr: $(cat "$RUNNER_TEMP/relay.err")"
+          exec 3>&-
+          show_log
+          codesign --verify --deep --strict "$APP" && echo "new app carries our signature"
+          codesign -d -r- "$APP" 2>&1 | grep designated
+          spctl --assess --type execute --verbose=4 "$APP" && echo "Gatekeeper accepts the new app"
+          echo "waiting file after: $([ -e "$PENDING" ] && echo yes || echo no)"
+          [ "$(installed_version)" = "$N1" ] && [ -n "$back" ] && codesign --verify --deep --strict "$APP" \
+            || { echo 'S2 FAILED'; exit 1; }
+          echo 'S2 PASSED'
+
+      - name: Keep the logs
+        if: always()
+        run: |
+          K="$RUNNER_TEMP/keep"; mkdir -p "$K"
+          cp -R "$HOME/Library/Logs/com.zaaheen.app" "$K/app-logs" 2>/dev/null || true
+          cp "$RUNNER_TEMP"/requests.log "$RUNNER_TEMP"/server.* "$RUNNER_TEMP"/relay.* "$K" 2>/dev/null || true
+          cp "$RUNNER_TEMP/served/updates/latest.json" "$K" 2>/dev/null || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mac-rehearsal-logs
+          path: ${{ runner.temp }}/keep
+          retention-days: 7
+
+      - name: Verdict
+        run: |
+          echo "S4b: ${{ steps.s4b.outcome }}"
+          echo "S4a: ${{ steps.s4a.outcome }}"
+          echo "set-up: ${{ steps.setup.outcome }}"
+          echo "S2r: ${{ steps.s2r.outcome }}"
+          echo "S2: ${{ steps.s2.outcome }}"
+          for o in "${{ steps.s4b.outcome }}" "${{ steps.s4a.outcome }}" "${{ steps.s2r.outcome }}" "${{ steps.s2.outcome }}"; do
+            [ "$o" = success ] || exit 1
+          done
