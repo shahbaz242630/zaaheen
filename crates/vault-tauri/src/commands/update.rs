@@ -340,6 +340,7 @@ pub async fn restart_to_update(
     {
         if let Err(e) = mac_seal::check(&bytes) {
             tracing::error!(target: "vault_tauri::update", error = %e, "update refused: the Apple signature check failed");
+            let _ = std::fs::remove_file(&ready.file);
             return Err(ERR_UPDATE_FAILED.to_string());
         }
     }
