@@ -43,7 +43,12 @@ function Stop-Zaaheen {
     Start-Sleep -Seconds 3
 }
 
+# The log carries over between scenarios: Wait-AppLog reads only what this
+# start of the app wrote (run 3 of s115: S1 matched S4a's refusal line).
+$LogMark = 0
+
 function Start-Zaaheen {
+    $script:LogMark = (Get-AppLog).Length
     $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
     $p = Start-Process -FilePath (Join-Path $Install 'zaaheen-desktop.exe') -PassThru
     Write-Host "started zaaheen-desktop pid $($p.Id)"
@@ -59,7 +64,8 @@ function Get-AppLog {
 function Wait-AppLog([string[]]$Patterns, [int]$Seconds) {
     $until = (Get-Date).AddSeconds($Seconds)
     while ((Get-Date) -lt $until) {
-        $log = Get-AppLog
+        $all = Get-AppLog
+        $log = if ($all.Length -ge $LogMark) { $all.Substring($LogMark) } else { $all }
         foreach ($p in $Patterns) { if ($log -match [regex]::Escape($p)) { return $p } }
         Start-Sleep -Seconds 5
     }

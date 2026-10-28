@@ -30,7 +30,7 @@ env:
   # A run id whose kept installers and seals to use instead of building
   # (about 15 minutes instead of 1.5 hours). Empty: build both versions.
   # Only for a change to the rehearsal itself; an app change needs a build.
-  REUSE_RUN: ''
+  REUSE_RUN: '40587392180'
 
 jobs:
   windows:
