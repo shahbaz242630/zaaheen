@@ -1,25 +1,11 @@
 // ADR-SEC-052 §3.4a: our own limits come before the monthly spend limit, so
 // a flood costs at most one day's share and the box comes back the next day.
 import { describe, expect, it } from "vitest";
-import { DAILY_QUESTIONS, PER_VISITOR_DAILY, allowQuestion, dayOf, visitorKey } from "../src/budget";
+import { DAILY_QUESTIONS, PER_VISITOR_DAILY, dayOf, visitorKey } from "../src/budget";
 import { RESTING } from "../src/text";
 
-describe("allowQuestion", () => {
-  it("allows a question under both limits", () => {
-    expect(allowQuestion({ visitorToday: 0, everyoneToday: 0 })).toEqual({ ok: true });
-    expect(allowQuestion({ visitorToday: PER_VISITOR_DAILY - 1, everyoneToday: DAILY_QUESTIONS - 1 })).toEqual({
-      ok: true,
-    });
-  });
-
-  it("stops one visitor at their daily limit", () => {
-    expect(allowQuestion({ visitorToday: PER_VISITOR_DAILY, everyoneToday: 0 })).toEqual({ ok: false, reason: "visitor" });
-  });
-
-  it("stops everyone at the daily budget", () => {
-    expect(allowQuestion({ visitorToday: 0, everyoneToday: DAILY_QUESTIONS })).toEqual({ ok: false, reason: "daily" });
-  });
-
+// Counting against the limits is tested in store.test.ts, on a real database.
+describe("limits", () => {
   it("the limits are the agreed ones", () => {
     expect(PER_VISITOR_DAILY).toBe(30);
     expect(DAILY_QUESTIONS).toBe(500);

@@ -1,21 +1,12 @@
 // Our own limits, before the monthly spend limit (ADR-SEC-052 §3.4a, founder
 // s116). A flood costs at most one day's share; the box comes back the next
-// UTC day by itself. The counts are kept by the caller (D1); this file only
-// decides.
+// UTC day by itself. store.ts counts against them.
 
 /** Questions one visitor may ask in a UTC day. Real visitors ask 2 to 5. */
 export const PER_VISITOR_DAILY = 30;
 
 /** Questions everyone together may ask in a UTC day: about a thirtieth of the monthly limit. */
 export const DAILY_QUESTIONS = 500;
-
-export type Allowance = { ok: true } | { ok: false; reason: "visitor" | "daily" };
-
-export function allowQuestion(counts: { visitorToday: number; everyoneToday: number }): Allowance {
-  if (counts.everyoneToday >= DAILY_QUESTIONS) return { ok: false, reason: "daily" };
-  if (counts.visitorToday >= PER_VISITOR_DAILY) return { ok: false, reason: "visitor" };
-  return { ok: true };
-}
 
 /** The UTC day a time (ms) falls in, as YYYY-MM-DD. */
 export function dayOf(ms: number): string {
