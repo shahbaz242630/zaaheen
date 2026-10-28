@@ -1,0 +1,16 @@
+// Ask Zaaheen (notes ASK-ZAAHEEN-DESIGN.md, ADR-117 + ADR-SEC-052): the
+// question box's own Worker. The key and every account value are Cloudflare
+// secrets, never this file.
+//
+// Its name must never be another Worker's: a publish under a reused name
+// REPLACES that Worker (session 108 took api.zaaheen.com down that way).
+// Custom domain only: no workers.dev copy, no preview URLs.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zaaheen-ask",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "ask.zaaheen.com", "custom_domain": true }]
+}

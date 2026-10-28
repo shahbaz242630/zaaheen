@@ -1,0 +1,27 @@
+{
+  "name": "zaaheen-ask-worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Ask Zaaheen (ask.zaaheen.com): the website question box. Answers only from llms.txt. ADR-117 + ADR-SEC-052, notes ASK-ZAAHEEN-DESIGN.md.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "types": "wrangler types",
+    "types:check": "wrangler types --check"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.4.7",
+    "typescript": "7.0.2",
+    "vitest": "4.1.12",
+    "wrangler": "4.152.0"
+  },
+  "overrides": {
+    "sharp": "0.35.5",
+    "undici": "7.30.1",
+    "zod": "4.6.7"
+  }
+}
