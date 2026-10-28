@@ -29,6 +29,7 @@ const OUTLINE: Outline[] = [
   { id: 'websites', title: 'Our websites', topics: [
     { id: 'zaaheen-com', title: 'zaaheen.com' },
     { id: 'account-site', title: 'account.zaaheen.com' },
+    { id: 'ask-zaaheen', title: 'Ask Zaaheen, the question box' },
   ] },
   { id: 'sharing', title: 'Who we share it with', topics: [
     { id: 'providers', title: 'The companies that run Zaaheen with us' },
@@ -221,6 +222,18 @@ const topic = (id: string) =>
          that you are a person and not a bot, which means it looks at information about your
          browser.</p>
     </Row>
+
+    <!-- Founder-approved wording (s116, notes ASK-ZAAHEEN-DESIGN §3.8); the
+         workers/ask Worker keeps exactly this: src/keep.ts, src/scrub.ts, src/budget.ts. -->
+    <Row id="ask-zaaheen" title={topic('ask-zaaheen')} where="On ask.zaaheen.com">
+      <p>When you ask a question, it is sent to an AI service to be answered from our own help
+         pages. Before your first question, Cloudflare Turnstile checks you are a person. We do
+         not keep your questions, except ones the box could not answer or turned away: we keep
+         those for 30 days to improve our help pages, with email addresses and phone and card
+         numbers removed, and nothing that identifies you. To limit misuse, we count questions
+         per visitor for one day using a scrambled code that cannot be turned back into your
+         internet address.</p>
+    </Row>
   </section>
 
   <section id="sharing" class="docs-section">
@@ -238,7 +251,7 @@ const topic = (id: string) =>
               <td>Your name, email address, how you sign in, and your account record</td></tr>
           <tr><td>Paddle</td><td>Our reseller: payments, tax and invoices (its own data controller)</td>
               <td>Your email address, payment details, country and billing history</td></tr>
-          <tr><td>Cloudflare</td><td>Runs our account service, hosts and delivers our websites, and the bot check at sign-up</td>
+          <tr><td>Cloudflare</td><td>Runs our account service, hosts and delivers our websites, and the bot check at sign-up and in our question box</td>
               <td>Your IP address and the requests the app and your browser send</td></tr>
           <tr><td>Hostinger</td><td>Keeps a backup copy of our websites, used only if we switch back to it</td>
               <td>Your IP address, in standard server logs, only while it serves the site</td></tr>
@@ -298,6 +311,9 @@ const topic = (id: string) =>
             under its own policy.</li>
         <li><strong>Emails with us:</strong> for as long as we need them to help you, and no
             more than two years after the conversation ends.</li>
+        <li><strong>Questions to Ask Zaaheen:</strong> not kept, except ones it could not answer
+            or turned away, kept for 30 days without anything that identifies you. The count per
+            visitor is deleted the next day.</li>
       </ul>
       <p><em>Delete everything</em> in the app deletes your memories and leaves your account in
          place. The <a href={ACCOUNT.deleteAccount}><em>Delete my account</em> page</a> on our website deletes your account and leaves
