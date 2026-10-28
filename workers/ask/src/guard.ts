@@ -1,5 +1,5 @@
 // The one door between the model's reply and the visitor (ADR-SEC-052 §3.9).
-// The model answers in a fixed shape { on_topic, answer, pages }; this code,
+// The model answers in a fixed shape { on_topic, known, answer, pages }; this code,
 // not the model, decides what is shown. Anything it cannot vouch for becomes
 // our own sentence (src/text.ts).
 
@@ -14,7 +14,8 @@ const SITE = "https://zaaheen.com";
 export type TurnAwayReason = "stop" | "shape" | "off_topic" | "empty" | "too_long" | "supplier" | "code";
 
 export type Reply =
-  | { kind: "answer"; text: string; pages: string[] }
+  // known: false = on topic, but our pages did not answer it (the question is kept, §3.8).
+  | { kind: "answer"; text: string; pages: string[]; known: boolean }
   | { kind: "turned_away"; reason: TurnAwayReason };
 
 // White label: the box never names the model behind it. "Claude" alone is not
@@ -43,14 +44,14 @@ export function checkReply(raw: string, stopReason: string | null, knowledge: st
   if (SUPPLIER.some((pattern) => pattern.test(text))) return away("supplier");
   if (!codeIsOurs(text, knowledge)) return away("code");
 
-  return { kind: "answer", text, pages: ourPages(parsed.pages, knowledge) };
+  return { kind: "answer", text, pages: ourPages(parsed.pages, knowledge), known: parsed.known };
 }
 
 function away(reason: TurnAwayReason): Reply {
   return { kind: "turned_away", reason };
 }
 
-function parse(raw: string): { onTopic: boolean; answer: string; pages: unknown[] } | null {
+function parse(raw: string): { onTopic: boolean; known: boolean; answer: string; pages: unknown[] } | null {
   let value: unknown;
   try {
     value = JSON.parse(raw);
@@ -58,9 +59,10 @@ function parse(raw: string): { onTopic: boolean; answer: string; pages: unknown[
     return null;
   }
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
-  const { on_topic: onTopic, answer, pages } = value as Record<string, unknown>;
-  if (typeof onTopic !== "boolean" || typeof answer !== "string" || !Array.isArray(pages)) return null;
-  return { onTopic, answer, pages };
+  const { on_topic: onTopic, known, answer, pages } = value as Record<string, unknown>;
+  if (typeof onTopic !== "boolean" || typeof known !== "boolean") return null;
+  if (typeof answer !== "string" || !Array.isArray(pages)) return null;
+  return { onTopic, known, answer, pages };
 }
 
 /** Every code fence and inline code span must be copied from our pages. */

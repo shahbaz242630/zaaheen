@@ -15,7 +15,7 @@ const KNOWLEDGE = [
 ].join("\n");
 
 const reply = (fields: Record<string, unknown>) =>
-  JSON.stringify({ on_topic: true, answer: "The trial is 30 days.", pages: [], ...fields });
+  JSON.stringify({ on_topic: true, known: true, answer: "The trial is 30 days.", pages: [], ...fields });
 
 describe("checkReply", () => {
   it("passes an on-topic answer and keeps our pages", () => {
@@ -28,6 +28,17 @@ describe("checkReply", () => {
       kind: "answer",
       text: "The trial is 30 days, no card needed.",
       pages: ["https://zaaheen.com/pricing/"],
+      known: true,
+    });
+  });
+
+  it("shows an on-topic 'I don't know' answer, marked as not known, so the question is kept", () => {
+    const answer = "I don't know that one. Please email customerservice@zaaheen.com.";
+    expect(checkReply(reply({ known: false, answer }), "end_turn", KNOWLEDGE)).toEqual({
+      kind: "answer",
+      text: answer,
+      pages: [],
+      known: false,
     });
   });
 
@@ -42,10 +53,12 @@ describe("checkReply", () => {
 
   it.each([
     ["not JSON", "The trial is 30 days."],
-    ["no on_topic", JSON.stringify({ answer: "x", pages: [] })],
-    ["on_topic not boolean", JSON.stringify({ on_topic: "yes", answer: "x", pages: [] })],
-    ["answer not text", JSON.stringify({ on_topic: true, answer: 5, pages: [] })],
-    ["pages not a list", JSON.stringify({ on_topic: true, answer: "x", pages: "https://zaaheen.com/" })],
+    ["no on_topic", JSON.stringify({ known: true, answer: "x", pages: [] })],
+    ["no known", JSON.stringify({ on_topic: true, answer: "x", pages: [] })],
+    ["known not boolean", JSON.stringify({ on_topic: true, known: "no", answer: "x", pages: [] })],
+    ["on_topic not boolean", JSON.stringify({ on_topic: "yes", known: true, answer: "x", pages: [] })],
+    ["answer not text", JSON.stringify({ on_topic: true, known: true, answer: 5, pages: [] })],
+    ["pages not a list", JSON.stringify({ on_topic: true, known: true, answer: "x", pages: "https://zaaheen.com/" })],
     ["a list, not an object", "[]"],
   ])("turns away a malformed reply (%s)", (_name, raw) => {
     expect(checkReply(raw, "end_turn", KNOWLEDGE)).toEqual({ kind: "turned_away", reason: "shape" });

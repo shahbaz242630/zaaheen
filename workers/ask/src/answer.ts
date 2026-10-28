@@ -16,9 +16,10 @@ export const MAX_OUTPUT_TOKENS = 1024;
 export const REPLY_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["on_topic", "answer", "pages"],
+  required: ["on_topic", "known", "answer", "pages"],
   properties: {
     on_topic: { type: "boolean" },
+    known: { type: "boolean" },
     answer: { type: "string" },
     pages: { type: "array", items: { type: "string" } },
   },
