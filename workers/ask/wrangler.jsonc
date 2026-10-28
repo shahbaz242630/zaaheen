@@ -12,5 +12,18 @@
   "compatibility_date": "2026-09-01",
   "workers_dev": false,
   "preview_urls": false,
-  "routes": [{ "pattern": "ask.zaaheen.com", "custom_domain": true }]
+  "routes": [{ "pattern": "ask.zaaheen.com", "custom_domain": true }],
+  // Counts and kept questions (src/store.ts, migrations/). The id is set when
+  // the database is created; tests use a local, simulated database.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "zaaheen-ask",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // The daily sweep (src/store.ts): yesterday's visitor counts and questions
+  // kept over 30 days are deleted, at 00:10 UTC.
+  "triggers": { "crons": ["10 0 * * *"] }
 }
