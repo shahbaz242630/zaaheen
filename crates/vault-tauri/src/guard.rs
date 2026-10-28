@@ -341,6 +341,9 @@ pub const OPEN_COMMANDS: &[&str] = &[
     // given the vault: see `no_account_command_receives_the_vault` below.
     "account_status",
     "account_sign_in",
+    // "Cancel" while the browser is open (founder s115, tech-debt item 6):
+    // the same slot as the sign-in it stops; holds the account only.
+    "account_cancel_sign_in",
     "account_sign_out",
     "account_subscribe",
     "account_refresh_now",
@@ -376,6 +379,15 @@ pub const OPEN_COMMANDS: &[&str] = &[
     // (already open) runs, through the same keeper path.
     "delete_account_start",
     "delete_account_open",
+    // A **widening**, the **update** slot (founder s115: "yes add it";
+    // ADR-116, ADR-SEC-051): someone whose trial or subscription has ended
+    // must still receive security fixes. `update_status` holds no vault and
+    // no account. `restart_to_update` reads no memory: its one vault effect
+    // is taking the vault from the keeper before the installer runs, through
+    // the same `take_exclusive` that `erase_everything` (already open) uses.
+    // See `commands/update.rs` and its source test below.
+    "update_status",
+    "restart_to_update",
 ];
 
 #[cfg(test)]
@@ -787,6 +799,7 @@ mod tests {
             ("account.rs", include_str!("commands/account.rs")),
             ("erasure.rs", include_str!("commands/erasure.rs")),
             ("export.rs", include_str!("commands/export.rs")),
+            ("update.rs", include_str!("commands/update.rs")),
         ];
 
         for (name, src) in SOURCES {
@@ -849,6 +862,55 @@ mod tests {
         }
     }
 
+    /// The update slot (s115) is open because it reads no memory. Pin that:
+    /// no store, adapter or key, and of the keeper link only the three calls
+    /// that find the vault folder and hold the keeper off it, never a call
+    /// that asks the keeper for data.
+    #[test]
+    fn the_update_commands_read_no_memory() {
+        const UPDATE_RS: &str = include_str!("commands/update.rs");
+        let code: String = UPDATE_RS
+            .lines()
+            .map(|line| line.split("//").next().unwrap_or(line))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        for forbidden in [
+            "Application",
+            "Adapter",
+            "MasterKey",
+            "adapter()",
+            ".call(",
+            ".call_search(",
+            "Entitled",
+        ] {
+            assert!(
+                !code.contains(forbidden),
+                "commands/update.rs names `{forbidden}`. The update commands are open \
+                 so that an ended trial still gets security fixes; that is safe only \
+                 while they cannot reach a memory."
+            );
+        }
+        let link_calls: Vec<&str> = code
+            .match_indices("link.")
+            .map(|(at, _)| {
+                let rest = &code[at + "link.".len()..];
+                &rest[..rest.find('(').unwrap_or(rest.len())]
+            })
+            .collect();
+        for call in &link_calls {
+            assert!(
+                ["vault_root", "poison", "clear_poison"].contains(call),
+                "commands/update.rs calls `link.{call}`; only vault_root, poison and \
+                 clear_poison are allowed"
+            );
+        }
+        assert!(
+            !link_calls.is_empty(),
+            "the scan found no link calls at all"
+        );
+    }
+
     /// The export is the one ungated command that reads the vault, so it
     /// carries its own reasoning rather than the account commands'.
     ///
@@ -898,6 +960,7 @@ mod tests {
                 "export_logs",
                 "account_status",
                 "account_sign_in",
+                "account_cancel_sign_in",
                 "account_sign_out",
                 "account_subscribe",
                 "account_refresh_now",
@@ -908,13 +971,18 @@ mod tests {
                 "link_state",
                 "delete_account_start",
                 "delete_account_open",
+                "update_status",
+                "restart_to_update",
             ],
             "widening the allowlist is a founder decision, not a refactor. The six \
              account entries fill 8.26 6.4's existing `account` slot (steps 4b and \
              4d-1, 8.37 and 8.38); `export_memories` fills the `export` slot (4c); \
              `startup_state` is the founder-approved widening of session 55 \
              (ADR-SEC-030 amendment 1); `link_state` is ADR-108's (session 60); \
-             the two `delete_account_*` are ADR-112's (session 67, ADR-SEC-035)."
+             the two `delete_account_*` are ADR-112's (session 67, ADR-SEC-035); \
+             the two update commands are the update slot (founder s115, ADR-116, \
+             ADR-SEC-051); `account_cancel_sign_in` is the account slot's Cancel \
+             (founder s115, tech-debt item 6)."
         );
     }
 

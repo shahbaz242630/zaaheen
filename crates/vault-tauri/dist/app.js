@@ -557,6 +557,7 @@ const account = {
   view: null,          // the last account view (account_status and friends)
   ready: null,         // the first answer at open, for "Begin set up"
   signingIn: false,
+  signInCancelled: false,
   subscribing: false,
   cancelling: false,   // a "Cancel subscription" click in flight (§8.48)
   checkingPaid: false,
@@ -1829,7 +1830,9 @@ async function eraseEverything() {
     $("erase-status").classList.add("failed");
     $("erase-status").textContent = String(err).includes("erasure_busy")
       ? "Zaaheen is tidying up your memories right now, so nothing was deleted and your memories are still readable. Please try again in a few minutes."
-      : "Your memories were NOT deleted, and they are still readable. Nothing was changed. Please try again, or restart Zaaheen and retry.";
+      : String(err).includes("erasure_move_waiting")
+        ? ERASURE_MOVE_WAITING_TEXT
+        : "Your memories were NOT deleted, and they are still readable. Nothing was changed. Please try again, or restart Zaaheen and retry.";
     $("erase-cancel").disabled = false;
     $("erase-confirm-btn").disabled = false;
     return;
@@ -1904,9 +1907,14 @@ function onDeleteAccountExport() {
   exportMemories($("delete-account-export-status"), $("delete-account-export"));
 }
 
+// A move of the memories waits for the next start (s115 item 4): finish it first.
+const ERASURE_MOVE_WAITING_TEXT =
+  "Your memories are waiting to move to their new folder, so nothing was deleted and they are still readable. Restart Zaaheen to finish the move, then try again.";
+
 // The same honest lines as Delete everything: when the erasure failed,
 // nothing was deleted, the memories are still readable, and no page opened.
 function erasureFailureLine(raw) {
+  if (raw.includes("erasure_move_waiting")) return ERASURE_MOVE_WAITING_TEXT;
   if (raw.includes("erasure_busy")) {
     return "Zaaheen is tidying up your memories right now, so nothing was deleted and your memories are still readable. Please try again in a few minutes.";
   }
@@ -2329,8 +2337,11 @@ function setSignInBusy(busy) {
 async function beginAccount(entry) {
   if (account.signingIn) return;
   account.signingIn = true;
+  account.signInCancelled = false;
   const status = state.screen === "signin" ? $("signin-status") : $("lock-status");
+  const cancel = state.screen === "signin" ? $("signin-cancel") : $("lock-signin-cancel");
   setSignInBusy(true);
+  cancel.classList.remove("hidden");
   status.textContent = entry === "sign_up" ? LOCK_LINES.signingUp : LOCK_LINES.signingIn;
   let signedIn = false;
   try {
@@ -2338,12 +2349,26 @@ async function beginAccount(entry) {
     signedIn = true;
     status.textContent = "";
   } catch (err) {
-    status.textContent = String(err);
+    // Cancelled by the person: nothing went wrong, so nothing to say.
+    status.textContent = account.signInCancelled ? "" : String(err);
   } finally {
     account.signingIn = false;
+    cancel.classList.add("hidden");
     setSignInBusy(false);
   }
   if (signedIn) routeAfterAccess(await askAccess());
+}
+
+// "Cancel" while the browser is open (s115 item 6). Only the wait ends: a
+// sign-in the browser already finished still completes.
+async function onCancelSignIn() {
+  if (!account.signingIn) return;
+  account.signInCancelled = true;
+  try {
+    await invoke("account_cancel_sign_in");
+  } catch (_) {
+    // No account in this build: there is no sign-in to stop either.
+  }
 }
 
 function onSignIn() {
@@ -2685,10 +2710,55 @@ function bannerLines(view) {
   // Launch checklist B6: the button opens our own getting-started page, which
   // holds the download; the address comes from the app's closed list, never
   // from the account service.
-  if (view.update_available) {
+  // A verified update waiting to install replaces this line (ADR-116).
+  if (view.update_available && !updates.ready) {
     lines.push({ text: "A new version of Zaaheen is available.", action: "download_update", label: "Download" });
   }
   return lines;
+}
+
+// -- automatic updates (ADR-116, ADR-SEC-051) --------------------------------
+
+// The app downloads and verifies an update by itself; the page only asks
+// whether one is waiting and, on the click, asks for it to be installed. The
+// version shown is a plain x.y.z checked in the app, and is set as text.
+const UPDATE_POLL_MS = 10 * 60 * 1000;
+const UPDATE_BUSY_TEXT = "Zaaheen is tidying up your memories right now. Please try again in a few minutes.";
+const UPDATE_FAILED_TEXT = "The update could not start. Nothing was changed. Please try again later.";
+const updates = { ready: false, version: null, note: "", installing: false };
+
+function updateLines() {
+  const lines = [];
+  if (updates.ready && updates.version) {
+    lines.push({ text: `Zaaheen ${updates.version} is ready.`, action: "restart_to_update", label: "Restart to update" });
+  }
+  if (updates.note) lines.push({ text: updates.note, warn: true });
+  return lines;
+}
+
+async function refreshUpdateStatus() {
+  if (!(window.__TAURI__ && window.__TAURI__.core)) return;
+  try {
+    const status = await invoke("update_status");
+    updates.ready = status.ready === true && typeof status.version === "string";
+    updates.version = updates.ready ? status.version : null;
+  } catch (_) {
+    // Asked before the app has finished opening: asked again on the next poll.
+  }
+  renderBanners();
+}
+
+function restartToUpdate(button) {
+  if (updates.installing) return;
+  updates.installing = true;
+  updates.note = "";
+  button.disabled = true;
+  // On success the app closes and the new version opens: nothing comes back.
+  invoke("restart_to_update").catch((err) => {
+    updates.installing = false;
+    updates.note = String(err).includes("update_busy") ? UPDATE_BUSY_TEXT : UPDATE_FAILED_TEXT;
+    refreshUpdateStatus();
+  });
 }
 
 function bannerElement(line) {
@@ -2709,13 +2779,19 @@ function bannerElement(line) {
 
 function renderBanners() {
   const host = $("account-banner");
-  if (!account.signIn) {
-    host.classList.add("hidden");
-    return;
-  }
-  const lines = bannerLines(account.view);
+  // §8.38: a build without sign-in shows no account lines. The update line
+  // is not an account surface: it shows in every build that has updates.
+  let accountLines = bannerLines(account.view);
+  if (!account.signIn) accountLines = [];
+  const lines = [...accountLines, ...updateLines()];
   host.replaceChildren(...lines.map(bannerElement));
   host.classList.toggle("hidden", lines.length === 0);
+  // The lock screen carries the update line too: an ended trial still gets
+  // security fixes (founder s115).
+  const lockHost = $("lock-update");
+  const lockLines = updateLines();
+  lockHost.replaceChildren(...lockLines.map(bannerElement));
+  lockHost.classList.toggle("hidden", lockLines.length === 0);
 }
 
 function onBannerClick(e) {
@@ -2727,6 +2803,10 @@ function onBannerClick(e) {
   }
   if (button.dataset.action === "download_update") {
     invoke("open_document", { doc: "getting-started" }).catch(() => {});
+    return;
+  }
+  if (button.dataset.action === "restart_to_update") {
+    restartToUpdate(button);
     return;
   }
   // Subscribing from the trial banner happens in Settings, beside the plans.
@@ -3530,6 +3610,8 @@ function init() {
   $("signup-btn").addEventListener("click", onSignUp);
   $("lock-signin-btn").addEventListener("click", onSignIn);
   $("lock-signup-btn").addEventListener("click", onSignUp);
+  $("signin-cancel").addEventListener("click", onCancelSignIn);
+  $("lock-signin-cancel").addEventListener("click", onCancelSignIn);
   $("lock-plans").addEventListener("click", onPlanClick);
   $("lock-paid").addEventListener("click", onPaid);
   $("lock-retry-btn").addEventListener("click", onRetry);
@@ -3539,6 +3621,7 @@ function init() {
 
   // home — the account notices, and Settings' account panel
   $("account-banner").addEventListener("click", onBannerClick);
+  $("lock-update").addEventListener("click", onBannerClick);
   $("account-signout").addEventListener("click", onSignOut);
   $("account-plans").addEventListener("click", onPlanClick);
   $("account-manage-btn").addEventListener("click", onManage);
@@ -3743,4 +3826,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   init();
   await untilStarted();
   enterApp();
+  refreshUpdateStatus();
+  setInterval(refreshUpdateStatus, UPDATE_POLL_MS);
 });

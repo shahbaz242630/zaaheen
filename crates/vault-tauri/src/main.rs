@@ -119,6 +119,9 @@ fn main() {
 
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        // Driven from Rust only (commands::update); the page holds no
+        // `updater:` permission (ADR-SEC-051, tests/updater_contract.rs).
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             // Commands are referenced by their DEFINING module, not through
             // the `commands` re-exports: `#[tauri::command]` emits hidden
@@ -155,6 +158,7 @@ fn main() {
             vault_tauri::commands::account::account_access,
             vault_tauri::commands::account::account_status,
             vault_tauri::commands::account::account_sign_in,
+            vault_tauri::commands::account::account_cancel_sign_in,
             vault_tauri::commands::account::account_sign_out,
             vault_tauri::commands::account::account_subscribe,
             vault_tauri::commands::account::account_cancel_subscription,
@@ -182,6 +186,10 @@ fn main() {
             vault_tauri::commands::keeper::link_state,
             // Settings › Documents (ADR-SEC-036). Gated: see the module.
             vault_tauri::commands::documents::open_document,
+            // Automatic updates (ADR-116, ADR-SEC-051). Open, the update
+            // slot (founder s115): see the module.
+            vault_tauri::commands::update::update_status,
+            vault_tauri::commands::update::restart_to_update,
         ])
         .setup(|app| {
             // 0. File logging FIRST, so every later step in this closure --
@@ -527,6 +535,17 @@ fn open_the_vault(app: &tauri::AppHandle, start: Start, moved: MoveOutcome, star
     let link_homes = homes.clone();
     let link = tauri::async_runtime::block_on(async move { KeeperLink::new(link_homes) });
     app.manage(link);
+
+    // 5b. Automatic updates (ADR-116, ADR-SEC-051): the check at open and
+    // then daily, downloading and verifying in the background. Nothing
+    // installs until the user clicks "Restart to update". A sandbox build has
+    // no update address and the check ends at once.
+    let updates = std::sync::Arc::new(vault_tauri::commands::update::UpdateSlot::default());
+    tauri::async_runtime::spawn(vault_tauri::commands::update::check_at_open_then_daily(
+        app.clone(),
+        updates.clone(),
+    ));
+    app.manage(updates);
 
     // 6. Automatic-maintenance context (ADR-092/093): what the windowless
     // runner is started with. Paths only: the runner opens the vault itself.

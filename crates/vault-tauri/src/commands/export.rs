@@ -35,6 +35,7 @@ use serde_json::json;
 use tauri::State;
 use vault_core::{Memory, VaultError, VaultKeyFailure};
 
+use super::destination::local_destination;
 use crate::link::{decoded, KeeperLink, KeyState, Kind};
 
 /// Opaque error code: the destination was not a usable file path.
@@ -64,35 +65,12 @@ const MAX_EXPORTED: usize = 100_000;
 /// message).
 const PAGE: usize = 2_000;
 
-/// Same rules as the log export: absolute, real parent, no NUL. A relative
-/// path would resolve against whatever directory the app was launched from,
-/// and the person would never find the file they just asked us to save.
+/// The one destination rule the log export also uses
+/// ([`super::destination`]): absolute, real parent, no NUL, never a network
+/// share (refusing UNC is what makes "sends nothing anywhere" true; found by
+/// step 4c's independent review).
 fn validate_destination(destination: &str) -> Result<PathBuf, String> {
-    if destination.trim().is_empty() || destination.contains('\0') {
-        return Err(ERR_EXPORT_BAD_DESTINATION.to_string());
-    }
-    // A UNC path (`\host\share\...`) is "absolute" and its parent can be a
-    // real directory, so the checks below would pass and the whole vault
-    // would be written over SMB to another machine. This module's own docs
-    // promise it "sends nothing anywhere"; refusing UNC is what makes that
-    // sentence true rather than nearly true. Found by step 4c's independent
-    // review.
-    //
-    // Note the shared gap: `export_logs` validates the same way and does not
-    // refuse UNC. Logged as tech debt rather than changed here, because a
-    // log export going to a share is a different (and much smaller) fact than
-    // a memory export doing so.
-    if destination.starts_with("\\\\") || destination.starts_with("//") {
-        return Err(ERR_EXPORT_BAD_DESTINATION.to_string());
-    }
-    let path = PathBuf::from(destination);
-    if !path.is_absolute() {
-        return Err(ERR_EXPORT_BAD_DESTINATION.to_string());
-    }
-    match path.parent() {
-        Some(dir) if dir.is_dir() => Ok(path),
-        _ => Err(ERR_EXPORT_BAD_DESTINATION.to_string()),
-    }
+    local_destination(destination).ok_or_else(|| ERR_EXPORT_BAD_DESTINATION.to_string())
 }
 
 /// Inner implementation, over the keeper link so it is testable without a

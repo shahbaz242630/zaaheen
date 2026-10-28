@@ -1,3 +1,7 @@
 # Vendored third-party file pinned by its SHA-256 (site/account/scripts/clerk-pin.js):
 # stored and checked out byte for byte, never line-ending converted.
 site/account-public/clerk/*.js -text
+
+# The signed update fixture (s115): its signature covers these exact bytes,
+# so never line-ending converted.
+crates/vault-tauri/tests/fixtures/update/* -text

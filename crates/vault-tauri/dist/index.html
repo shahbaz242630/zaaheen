@@ -49,6 +49,8 @@
           </div>
           <p class="lock-small">This opens your web browser. Signing in never shares your memories with us. They stay locked on this computer.</p>
           <p id="signin-status" class="lock-status"></p>
+          <!-- Shown only while the browser is open for a sign-in (s115). -->
+          <button id="signin-cancel" class="btn-quiet hidden">Cancel</button>
         </div>
       </div>
 
@@ -277,6 +279,8 @@
         <div class="lock-body">
           <h1 id="lock-heading"></h1>
           <p id="lock-text" class="sub"></p>
+          <!-- Automatic updates reach a locked app too (founder s115). -->
+          <div id="lock-update" class="account-banner hidden"></div>
 
           <div id="lock-signin" class="lock-actions hidden">
             <div class="signin-choices">
@@ -310,6 +314,7 @@
           </div>
 
           <p id="lock-status" class="lock-status"></p>
+          <button id="lock-signin-cancel" class="btn-quiet hidden">Cancel</button>
           <p id="lock-who" class="lock-who hidden">
             <span id="lock-email"></span>
             <button id="lock-signout" class="link-underline">Sign out</button>

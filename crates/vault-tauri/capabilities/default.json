@@ -36,6 +36,7 @@
     "allow-account-access",
     "allow-account-status",
     "allow-account-sign-in",
+    "allow-account-cancel-sign-in",
     "allow-account-sign-out",
     "allow-account-subscribe",
     "allow-account-cancel-subscription",
@@ -52,6 +53,8 @@
     "allow-server-command",
     "allow-startup-state",
     "allow-link-state",
-    "allow-open-document"
+    "allow-open-document",
+    "allow-update-status",
+    "allow-restart-to-update"
   ]
 }

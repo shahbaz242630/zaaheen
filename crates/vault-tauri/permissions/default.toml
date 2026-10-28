@@ -171,6 +171,11 @@ description = "Allow invoking the account_sign_in command (open the person's bro
 commands.allow = ["account_sign_in"]
 
 [[permission]]
+identifier = "allow-account-cancel-sign-in"
+description = "Allow invoking the account_cancel_sign_in command (stop a sign-in that is waiting for the browser; one the browser already completed still finishes). Takes nothing and returns nothing. Never given the vault."
+commands.allow = ["account_cancel_sign_in"]
+
+[[permission]]
 identifier = "allow-account-sign-out"
 description = "Allow invoking the account_sign_out command (revoke this computer's token, delete it from the credential store, and clear the account folder). Never given the vault; signing out removes no memories."
 commands.allow = ["account_sign_out"]
@@ -268,3 +273,16 @@ commands.allow = ["startup_state"]
 identifier = "allow-link-state"
 description = "Allow invoking the link_state command (whether the part of Zaaheen that holds the memories is connecting, serving, tidying, or could not start, with the startup message if so). Reads files only; never the vault, an account or the key, and never starts anything. Takes no argument."
 commands.allow = ["link_state"]
+
+# Automatic updates (ADR-116, ADR-SEC-051). Open: the update slot,
+# founder-approved s115, so an ended trial still receives security fixes.
+
+[[permission]]
+identifier = "allow-update-status"
+description = "Allow invoking the update_status command (whether a downloaded, verified update is waiting, and its version). Holds no vault, account or key. Takes no argument."
+commands.allow = ["update_status"]
+
+[[permission]]
+identifier = "allow-restart-to-update"
+description = "Allow invoking the restart_to_update command (install the verified update waiting in memory: the vault is taken from the keeper as for Delete everything, then the installer runs and Zaaheen reopens). Reads no memory. Takes no argument; the update and its address never come from the page."
+commands.allow = ["restart_to_update"]

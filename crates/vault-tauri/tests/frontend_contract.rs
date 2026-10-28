@@ -56,6 +56,12 @@ const COMMAND_SOURCES: &[(&str, &str)] = &[
     ("startup.rs", include_str!("../src/commands/startup.rs")),
     ("keeper.rs", include_str!("../src/commands/keeper.rs")),
     ("documents.rs", include_str!("../src/commands/documents.rs")),
+    ("update.rs", include_str!("../src/commands/update.rs")),
+    // No commands: the save-destination rule export.rs and logs.rs share.
+    (
+        "destination.rs",
+        include_str!("../src/commands/destination.rs"),
+    ),
 ];
 
 /// The command modules' list, to hold [`COMMAND_SOURCES`] to it.
@@ -2469,6 +2475,36 @@ fn both_pages_are_offered_and_run_the_one_sign_in() {
     );
 }
 
+/// s115 tech-debt item 6: a sign-in waiting on the browser can be cancelled
+/// from both screens, the button shows only while it waits, and a cancel is
+/// not reported as a failure.
+#[test]
+fn a_sign_in_waiting_on_the_browser_can_be_cancelled() {
+    let code = js_code();
+    for id in ["signin-cancel", "lock-signin-cancel"] {
+        assert!(
+            INDEX_HTML.contains(&format!(
+                "<button id=\"{id}\" class=\"btn-quiet hidden\">Cancel</button>"
+            )),
+            "{id} is in the markup, hidden until a sign-in waits"
+        );
+        assert!(
+            code.contains(&format!(
+                "$(\"{id}\").addEventListener(\"click\", onCancelSignIn)"
+            )),
+            "{id} is wired"
+        );
+    }
+    let functions = top_level_functions(&code);
+    let begin = &js_function(&functions, "beginAccount").body;
+    assert!(begin.contains("cancel.classList.remove(\"hidden\")"));
+    assert!(begin.contains("cancel.classList.add(\"hidden\")"));
+    assert!(begin.contains("account.signInCancelled ? \"\" : String(err)"));
+    assert!(js_function(&functions, "onCancelSignIn")
+        .body
+        .contains("invoke(\"account_cancel_sign_in\")"));
+}
+
 /// No screen shows a long dash (founder, session 54: *"remove the dashes
 /// from all pages"*, so the app does not read as machine-written): not the
 /// markup outside its comments, not any string the screen code can show, and
@@ -2823,7 +2859,10 @@ fn a_newer_version_shows_one_notice_that_opens_our_own_page() {
     let code = js_code();
     let functions = top_level_functions(&code);
     let lines = js_function(&functions, "bannerLines");
-    assert!(lines.body.contains("if (view.update_available)"));
+    // Since 0.3.8 (ADR-116) a verified update waiting to install replaces it.
+    assert!(lines
+        .body
+        .contains("if (view.update_available && !updates.ready)"));
     assert!(lines
         .body
         .contains("\"A new version of Zaaheen is available.\", action: \"download_update\""));
@@ -2834,6 +2873,41 @@ fn a_newer_version_shows_one_notice_that_opens_our_own_page() {
     assert!(
         !code.contains("latest_version"),
         "the page never sees a version or address from the service"
+    );
+}
+
+/// ADR-116 (s115): "Zaaheen 0.3.9 is ready. [Restart to update]" (founder-
+/// approved wording) shows only when the app reports a verified update, on
+/// the banner and on the lock screen, and the click asks the app to install;
+/// the page never names an address or a file.
+#[test]
+fn a_verified_update_offers_restart_to_update_everywhere() {
+    let code = js_code();
+    let functions = top_level_functions(&code);
+    let lines = js_function(&functions, "updateLines");
+    assert!(lines.body.contains("if (updates.ready && updates.version)"));
+    assert!(lines.body.contains(
+        "text: `Zaaheen ${updates.version} is ready.`, action: \"restart_to_update\", label: \"Restart to update\""
+    ));
+    let refresh = js_function(&functions, "refreshUpdateStatus");
+    assert!(refresh.body.contains("invoke(\"update_status\")"));
+    assert!(refresh
+        .body
+        .contains("status.ready === true && typeof status.version === \"string\""));
+    let render = js_function(&functions, "renderBanners");
+    assert!(render.body.contains("$(\"lock-update\")"));
+    assert!(render.body.contains("...updateLines()"));
+    let click = js_function(&functions, "onBannerClick");
+    assert!(click.body.contains("restartToUpdate(button)"));
+    let restart = js_function(&functions, "restartToUpdate");
+    assert!(restart.body.contains("invoke(\"restart_to_update\")"));
+    assert!(code.contains(
+        "\"Zaaheen is tidying up your memories right now. Please try again in a few minutes.\""
+    ));
+    assert!(code.contains("$(\"lock-update\").addEventListener(\"click\", onBannerClick);"));
+    assert!(
+        !code.contains("dl.zaaheen.com"),
+        "the page never names the update address; the app holds it"
     );
 }
 

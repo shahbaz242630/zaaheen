@@ -82,8 +82,13 @@ ignore = [
     #   - libduckdb-sys uses zip as a BUILD dependency to unpack its own
     #     bundled sources on the build machine; it requires zip "6", so we
     #     cannot move to 9 until duckdb does.
+    #   - zip 4.6.1 is in Cargo.lock for tauri-plugin-updater 2.12.0 (s115,
+    #     ADR-SEC-051) but COMPILED NOWHERE: it is the plugin's Windows-only
+    #     dependency behind its `zip` feature, which we turn on for the Mac
+    #     only (for tar + flate2). Windows takes the bare .msi.
     # Resolved when duckdb's build moves to zip >= 9: then bump vault-app's pin
-    # and drop these. Re-evaluate at once if we ever extract a user's zip.
+    # and drop these. Re-evaluate at once if we ever extract a user's zip, or
+    # turn the updater's `zip` feature on for Windows.
     "RUSTSEC-2026-0367", # zip -- SUID/SGID bits kept on extract
     "RUSTSEC-2026-0368", # zip -- extract creates symlinks outside the target
     "RUSTSEC-2026-0369", # zip -- extract applies permissions through symlinks

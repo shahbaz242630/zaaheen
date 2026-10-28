@@ -267,3 +267,35 @@ fn a_cancel_answer_without_a_link_opens_nothing_and_says_why() {
     .collect();
     assert_eq!(words, ["opened", "nothing_to_cancel", "already_ending"]);
 }
+
+/// s115 tech-debt item 6: "Cancel" races only the wait for the browser. Once
+/// the browser has come back, the exchange runs outside the race, so a
+/// cancel can never leave a half-finished sign-in.
+#[test]
+fn a_cancel_ends_only_the_wait_for_the_browser() {
+    const SOURCE: &str = include_str!("../account_ops.rs");
+    // Checked out with CRLF on Windows.
+    let source = SOURCE.replace("\r\n", "\n");
+    let body = source
+        .split_once("pub async fn sign_in(")
+        .expect("sign_in is here")
+        .1
+        .split_once("\n    }\n")
+        .expect("sign_in is closed")
+        .0;
+    let race = body.find("tokio::select!").expect("the wait is raced");
+    let cancel = body
+        .find("self.cancel_sign_in.notified()")
+        .expect("against the cancel");
+    let exchange = body.find("complete_sign_in(").expect("then the exchange");
+    let race_end = body[race..].find("};").expect("the race ends") + race;
+    assert!(race < cancel && cancel < race_end && race_end < exchange);
+}
+
+#[tokio::test]
+async fn a_cancel_with_no_sign_in_waiting_does_nothing() {
+    let notify = tokio::sync::Notify::new();
+    notify.notify_waiters();
+    let later = tokio::time::timeout(std::time::Duration::from_millis(50), notify.notified()).await;
+    assert!(later.is_err(), "a cancel before a sign-in must not stop it");
+}
