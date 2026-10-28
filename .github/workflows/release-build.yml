@@ -22,7 +22,8 @@ on:
   # run needs this file on main, and the launch batch reaches main only at
   # the end. Never production from a push (inputs are empty there).
   push:
-    branches: ['release-test/**']
+    # Throwaway laptop-check branch only (never merged): its own workflow builds.
+    branches: ['release-test/**', '!release-test/laptop-check-*']
 
 permissions:
   contents: read
