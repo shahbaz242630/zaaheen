@@ -14,6 +14,7 @@ export default {
   'Get started': 'Loslegen',
   'Coming soon for Windows and Mac': 'Bald für Windows und Mac',
   'Coming soon': 'Bald verfügbar',
+  'Ask Zaaheen': 'Zaaheen fragen',
   // Footer
   'English': 'auf Englisch',
   'Product': 'Produkt',
