@@ -11,7 +11,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "types": "wrangler types",
-    "types:check": "wrangler types --check"
+    "types:check": "wrangler types --check",
+    "kept": "wrangler d1 execute zaaheen-ask --remote --command \"SELECT date(stored_at/1000,'unixepoch') AS day, reason, question FROM kept_questions ORDER BY stored_at DESC\""
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "1.4.7",
