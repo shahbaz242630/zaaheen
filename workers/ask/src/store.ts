@@ -8,7 +8,9 @@ import { scrub } from "./scrub";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type Claim = { ok: true } | { ok: false; reason: "visitor" | "daily" };
+// first: this is the refusal that crossed the limit. Later refusals write
+// nothing at all, so hammering past a limit cannot wear out the database.
+export type Claim = { ok: true } | { ok: false; reason: "visitor" | "daily"; first: boolean };
 
 export type Outcome = "answered" | "turned_away" | "unavailable" | "resting";
 
@@ -17,26 +19,29 @@ export type Outcome = "answered" | "turned_away" | "unavailable" | "resting";
  * order. Each count is one statement (insert or add one, returning the new
  * total), so two requests at once cannot both slip under a limit. A visitor
  * over their limit never touches the day's budget, so one flooder cannot use
- * up everyone else's share.
+ * up everyone else's share. A count stops one past its limit: once over,
+ * the update matches no row and returns nothing.
  */
 export async function claimQuestion(db: D1Database, day: string, visitor: string): Promise<Claim> {
   const mine = await db
     .prepare(
       "INSERT INTO visitor_counts (day, visitor, n) VALUES (?, ?, 1) " +
-        "ON CONFLICT (day, visitor) DO UPDATE SET n = n + 1 RETURNING n",
+        "ON CONFLICT (day, visitor) DO UPDATE SET n = n + 1 WHERE n <= ? RETURNING n",
     )
-    .bind(day, visitor)
+    .bind(day, visitor, PER_VISITOR_DAILY)
     .first<{ n: number }>();
-  if (!mine || mine.n > PER_VISITOR_DAILY) return { ok: false, reason: "visitor" };
+  if (!mine) return { ok: false, reason: "visitor", first: false };
+  if (mine.n > PER_VISITOR_DAILY) return { ok: false, reason: "visitor", first: true };
 
   const everyone = await db
     .prepare(
       "INSERT INTO daily_counts (day, kind, n) VALUES (?, 'asked', 1) " +
-        "ON CONFLICT (day, kind) DO UPDATE SET n = n + 1 RETURNING n",
+        "ON CONFLICT (day, kind) DO UPDATE SET n = n + 1 WHERE n <= ? RETURNING n",
     )
-    .bind(day)
+    .bind(day, DAILY_QUESTIONS)
     .first<{ n: number }>();
-  if (!everyone || everyone.n > DAILY_QUESTIONS) return { ok: false, reason: "daily" };
+  if (!everyone) return { ok: false, reason: "daily", first: false };
+  if (everyone.n > DAILY_QUESTIONS) return { ok: false, reason: "daily", first: true };
 
   return { ok: true };
 }

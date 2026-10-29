@@ -6,6 +6,7 @@ import { SESSION_MS, SITEVERIFY, issueSession, verifySession, verifyTurnstile } 
 
 const SECRET = "test-only-session-secret";
 const NOW = Date.UTC(2026, 9, 28, 12, 0, 0);
+const VISITOR = "visitor-key-a";
 
 function siteverify(reply: unknown, status = 200) {
   const calls: { url: string; body: string }[] = [];
@@ -54,10 +55,10 @@ describe("verifyTurnstile", () => {
 
 describe("sessions", () => {
   it("a session we issued is valid until it expires", async () => {
-    const token = await issueSession(NOW, SECRET);
-    expect(await verifySession(token, NOW, SECRET)).toBe(true);
-    expect(await verifySession(token, NOW + SESSION_MS, SECRET)).toBe(true);
-    expect(await verifySession(token, NOW + SESSION_MS + 1, SECRET)).toBe(false);
+    const token = await issueSession(NOW, SECRET, VISITOR);
+    expect(await verifySession(token, NOW, SECRET, VISITOR)).toBe(true);
+    expect(await verifySession(token, NOW + SESSION_MS, SECRET, VISITOR)).toBe(true);
+    expect(await verifySession(token, NOW + SESSION_MS + 1, SECRET, VISITOR)).toBe(false);
   });
 
   it("lasts 30 minutes", () => {
@@ -65,24 +66,29 @@ describe("sessions", () => {
   });
 
   it("two sessions are never the same", async () => {
-    expect(await issueSession(NOW, SECRET)).not.toBe(await issueSession(NOW, SECRET));
+    expect(await issueSession(NOW, SECRET, VISITOR)).not.toBe(await issueSession(NOW, SECRET, VISITOR));
+  });
+
+  it("belongs to the visitor it was issued to: another visitor needs their own check", async () => {
+    const token = await issueSession(NOW, SECRET, VISITOR);
+    expect(await verifySession(token, NOW, SECRET, "visitor-key-b")).toBe(false);
   });
 
   it("refuses a session signed with another secret", async () => {
-    expect(await verifySession(await issueSession(NOW, "other"), NOW, SECRET)).toBe(false);
+    expect(await verifySession(await issueSession(NOW, "other", VISITOR), NOW, SECRET, VISITOR)).toBe(false);
   });
 
   it("refuses a session whose expiry was changed", async () => {
-    const token = await issueSession(NOW, SECRET);
+    const token = await issueSession(NOW, SECRET, VISITOR);
     const [version, , nonce, mac] = token.split(".");
     const later = String(NOW + 365 * 24 * 60 * 60 * 1000);
-    expect(await verifySession([version, later, nonce, mac].join("."), NOW, SECRET)).toBe(false);
+    expect(await verifySession([version, later, nonce, mac].join("."), NOW, SECRET, VISITOR)).toBe(false);
   });
 
   it.each(["", "garbage", "v1.notanumber.abc.def", "v1.1.2", "v2.1.2.3", "v1.9999999999999.n.zz"])(
     "refuses a malformed session %j",
     async (token) => {
-      expect(await verifySession(token, NOW, SECRET)).toBe(false);
+      expect(await verifySession(token, NOW, SECRET, VISITOR)).toBe(false);
     },
   );
 });

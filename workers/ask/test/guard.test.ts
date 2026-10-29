@@ -2,7 +2,7 @@
 // checkReply. Anything off-topic, malformed, too long, carrying code we did
 // not publish, or naming the model becomes our own fixed sentence.
 import { describe, expect, it } from "vitest";
-import { MAX_ANSWER_WORDS, checkReply } from "../src/guard";
+import { MAX_ANSWER_CHARS, MAX_ANSWER_WORDS, checkReply } from "../src/guard";
 import { TURNED_AWAY } from "../src/text";
 
 const KNOWLEDGE = [
@@ -78,6 +78,17 @@ describe("checkReply", () => {
     expect(checkReply(reply({ answer: atCap }), "end_turn", KNOWLEDGE).kind).toBe("answer");
   });
 
+  it("keeps an answer that names a product our pages compare us with", () => {
+    const answer = "Anthropic's reference server keeps memories in a plain file; Zaaheen encrypts them.";
+    expect(checkReply(reply({ answer }), "end_turn", KNOWLEDGE).kind).toBe("answer");
+  });
+
+  it("replaces an answer over the character cap (languages without spaces between words)", () => {
+    const long = "字".repeat(MAX_ANSWER_CHARS + 1);
+    expect(checkReply(reply({ answer: long }), "end_turn", KNOWLEDGE)).toEqual({ kind: "turned_away", reason: "too_long" });
+    expect(checkReply(reply({ answer: "字".repeat(MAX_ANSWER_CHARS) }), "end_turn", KNOWLEDGE).kind).toBe("answer");
+  });
+
   describe("code", () => {
     it("turns away a code block we never published", () => {
       const answer = "Try this:\n```python\nprint('hello')\n```";
@@ -100,8 +111,19 @@ describe("checkReply", () => {
     });
   });
 
-  it.each(["I am Claude Haiku.", "I run on HAIKU 5.5", "model claude-haiku-5-5"])(
-    "turns away an answer naming the model (%s)",
+  it.each([
+    "I am Claude Haiku.",
+    "I run on HAIKU 5.5",
+    "model claude-haiku-5-5",
+    "I was made by Anthropic.",
+    "I come from ANTHROPIC.",
+    "I'm Anthropic's AI assistant.",
+    "I am Anthropic’s model.",
+    "I am Hai​ku.",
+    "I am Ｈａｉｋｕ.",
+    "made by Anth­ropic",
+  ])(
+    "turns away an answer naming the model or its maker (%s)",
     (answer) => {
       expect(checkReply(reply({ answer }), "end_turn", KNOWLEDGE)).toEqual({ kind: "turned_away", reason: "supplier" });
     },
@@ -126,6 +148,17 @@ describe("checkReply", () => {
         KNOWLEDGE,
       );
       expect(r).toMatchObject({ kind: "answer", pages: ["https://zaaheen.com/pricing/"] });
+    });
+
+    it("drops a page that is only the start of one our pages name", () => {
+      const r = checkReply(reply({ pages: ["https://zaaheen.com/pri", "https://zaaheen.com/docs/"] }), "end_turn", KNOWLEDGE);
+      expect(r).toMatchObject({ kind: "answer", pages: [] });
+    });
+
+    it("keeps a page our pages name at the end of a sentence", () => {
+      const knowledge = `${KNOWLEDGE}\nSee https://zaaheen.com/docs/troubleshooting/.`;
+      const r = checkReply(reply({ pages: ["https://zaaheen.com/docs/troubleshooting/"] }), "end_turn", knowledge);
+      expect(r).toMatchObject({ kind: "answer", pages: ["https://zaaheen.com/docs/troubleshooting/"] });
     });
 
     it("keeps at most three pages", () => {

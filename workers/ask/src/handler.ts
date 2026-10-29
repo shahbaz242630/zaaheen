@@ -44,22 +44,26 @@ export async function handleAsk(request: Request, env: AskEnv, deps: Deps): Prom
     return reply(503, { kind: "unavailable", text: UNAVAILABLE });
   }
 
-  const raw = await request.text();
-  if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) return reply(413, { kind: "invalid" });
+  if (Number(request.headers.get("Content-Length")) > MAX_BODY_BYTES) return reply(413, { kind: "invalid" });
+  const raw = await readCapped(request, MAX_BODY_BYTES);
+  if (raw === null) return reply(413, { kind: "invalid" });
   const body = parseBody(raw);
   if (!body) return reply(400, { kind: "invalid" });
 
   const now = deps.now();
+  const day = dayOf(now);
   const address = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const visitor = await visitorKey(address, day, env.VISITOR_SECRET);
 
-  // The check: a session we signed, or a Turnstile token Cloudflare accepts.
+  // The check: a session we signed for this visitor, or a Turnstile token Cloudflare accepts.
   let session: string | undefined;
-  const inSession = body.session !== undefined && (await verifySession(body.session, now, env.SESSION_SECRET));
+  const inSession =
+    body.session !== undefined && (await verifySession(body.session, now, env.SESSION_SECRET, visitor));
   if (!inSession) {
     const passed =
       body.turnstile !== undefined && (await verifyTurnstile(body.turnstile, address, env.TURNSTILE_SECRET, deps.fetch));
     if (!passed) return reply(401, { kind: "challenge" });
-    session = await issueSession(now, env.SESSION_SECRET);
+    session = await issueSession(now, env.SESSION_SECRET, visitor);
   }
   const withSession = (fields: Record<string, unknown>) => (session ? { ...fields, session } : fields);
 
@@ -67,10 +71,9 @@ export async function handleAsk(request: Request, env: AskEnv, deps: Deps): Prom
   if (!conversation.ok) return reply(400, { kind: "invalid" });
   const question = lastQuestion(conversation.turns);
 
-  const day = dayOf(now);
-  const claim = await claimQuestion(env.DB, day, await visitorKey(address, day, env.VISITOR_SECRET));
+  const claim = await claimQuestion(env.DB, day, visitor);
   if (!claim.ok) {
-    await countOutcome(env.DB, day, "resting");
+    if (claim.first) await countOutcome(env.DB, day, "resting");
     return reply(200, withSession({ kind: "resting", text: RESTING }));
   }
 
@@ -114,6 +117,31 @@ function parseBody(raw: string): Body | null {
     ...(session === undefined ? {} : { session }),
     ...(turnstile === undefined ? {} : { turnstile }),
   };
+}
+
+/** The body as text, or null as soon as it passes `max` bytes: an over-large body is never read whole. */
+async function readCapped(request: Request, max: number): Promise<string | null> {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, at);
+    at += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 function lastQuestion(turns: Turn[]): string {

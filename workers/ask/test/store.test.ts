@@ -32,8 +32,8 @@ describe("claimQuestion", () => {
 
   it("stops a visitor after their daily limit, without using the day's budget", async () => {
     for (let i = 0; i < PER_VISITOR_DAILY; i++) expect((await claimQuestion(env.DB, "2026-10-28", "v1")).ok).toBe(true);
-    expect(await claimQuestion(env.DB, "2026-10-28", "v1")).toEqual({ ok: false, reason: "visitor" });
-    expect(await claimQuestion(env.DB, "2026-10-28", "v1")).toEqual({ ok: false, reason: "visitor" });
+    expect(await claimQuestion(env.DB, "2026-10-28", "v1")).toEqual({ ok: false, reason: "visitor", first: true });
+    expect(await claimQuestion(env.DB, "2026-10-28", "v1")).toEqual({ ok: false, reason: "visitor", first: false });
     // Their extra attempts did not eat everyone else's budget.
     expect(await count("2026-10-28", "asked")).toBe(PER_VISITOR_DAILY);
     expect(await claimQuestion(env.DB, "2026-10-28", "v2")).toEqual({ ok: true });
@@ -43,8 +43,23 @@ describe("claimQuestion", () => {
     await env.DB.prepare("INSERT INTO daily_counts (day, kind, n) VALUES (?, 'asked', ?)")
       .bind("2026-10-28", DAILY_QUESTIONS)
       .run();
-    expect(await claimQuestion(env.DB, "2026-10-28", "fresh")).toEqual({ ok: false, reason: "daily" });
+    expect(await claimQuestion(env.DB, "2026-10-28", "fresh")).toEqual({ ok: false, reason: "daily", first: true });
+    expect(await claimQuestion(env.DB, "2026-10-28", "fresh2")).toEqual({ ok: false, reason: "daily", first: false });
     expect(await claimQuestion(env.DB, "2026-10-29", "fresh")).toEqual({ ok: true });
+  });
+});
+
+describe("claimQuestion past the limits", () => {
+  it("stops counting once over: the visitor's and the day's totals stay one past the limit", async () => {
+    for (let i = 0; i < PER_VISITOR_DAILY + 10; i++) await claimQuestion(env.DB, "2026-10-28", "v1");
+    const mine = await env.DB.prepare("SELECT n FROM visitor_counts WHERE visitor = 'v1'").first<{ n: number }>();
+    expect(mine?.n).toBe(PER_VISITOR_DAILY + 1);
+
+    await env.DB.prepare("INSERT INTO daily_counts (day, kind, n) VALUES (?, 'asked', ?)")
+      .bind("2026-10-29", DAILY_QUESTIONS)
+      .run();
+    for (let i = 0; i < 5; i++) await claimQuestion(env.DB, "2026-10-29", `x${i}`);
+    expect(await count("2026-10-29", "asked")).toBe(DAILY_QUESTIONS + 1);
   });
 });
 

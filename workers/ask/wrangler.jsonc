@@ -27,7 +27,7 @@
     {
       "binding": "DB",
       "database_name": "zaaheen-ask",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "78fc3a98-b3a5-4e6f-a027-fe062fb48d70",
       "migrations_dir": "migrations"
     }
   ],

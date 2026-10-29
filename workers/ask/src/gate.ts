@@ -32,15 +32,21 @@ export async function verifyTurnstile(token: string, address: string, secret: st
   }
 }
 
-/** A session: v1.<expiry ms>.<random>.<HMAC of the first three parts>. */
-export async function issueSession(now: number, secret: string): Promise<string> {
+/**
+ * A session: v1.<expiry ms>.<random>.<HMAC of the first three parts and the
+ * visitor>. Bound to the visitor (budget.ts visitorKey: their network and
+ * the day), so one passed check cannot be spent from many addresses.
+ */
+export async function issueSession(now: number, secret: string, visitor: string): Promise<string> {
   const nonce = hex(crypto.getRandomValues(new Uint8Array(16)));
   const body = `v1.${now + SESSION_MS}.${nonce}`;
-  const mac = new Uint8Array(await crypto.subtle.sign("HMAC", await hmacKey(secret), new TextEncoder().encode(body)));
+  const mac = new Uint8Array(
+    await crypto.subtle.sign("HMAC", await hmacKey(secret), new TextEncoder().encode(`${body}\n${visitor}`)),
+  );
   return `${body}.${hex(mac)}`;
 }
 
-export async function verifySession(token: string, now: number, secret: string): Promise<boolean> {
+export async function verifySession(token: string, now: number, secret: string, visitor: string): Promise<boolean> {
   const parts = token.split(".");
   if (parts.length !== 4) return false;
   const [version, expiry, nonce, mac] = parts as [string, string, string, string];
@@ -52,7 +58,7 @@ export async function verifySession(token: string, now: number, secret: string):
     "HMAC",
     await hmacKey(secret),
     unhex(mac),
-    new TextEncoder().encode(`${version}.${expiry}.${nonce}`),
+    new TextEncoder().encode(`${version}.${expiry}.${nonce}\n${visitor}`),
   );
   return valid && Number(expiry) >= now;
 }

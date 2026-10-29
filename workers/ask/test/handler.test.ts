@@ -58,9 +58,13 @@ function setup(opts: { reply?: Reply | Error; turnstile?: boolean; site?: string
   return { deps, askEnv, calls };
 }
 
-function ask(body: unknown, init: { origin?: string | null; method?: string; raw?: string } = {}) {
-  const headers = new Headers({ "Content-Type": "application/json", "CF-Connecting-IP": "203.0.113.7" });
+function ask(
+  body: unknown,
+  init: { origin?: string | null; method?: string; raw?: string; ip?: string; length?: string } = {},
+) {
+  const headers = new Headers({ "Content-Type": "application/json", "CF-Connecting-IP": init.ip ?? "203.0.113.7" });
   if (init.origin !== null) headers.set("Origin", init.origin ?? ORIGIN);
+  if (init.length !== undefined) headers.set("Content-Length", init.length);
   return new Request(`${ORIGIN}/v1/ask`, {
     method: init.method ?? "POST",
     headers,
@@ -113,6 +117,34 @@ describe("who may call", () => {
     const { deps, askEnv } = setup();
     const res = await handleAsk(ask(null, { raw: "x".repeat(MAX_BODY_BYTES + 1) }), askEnv, deps);
     expect(res.status).toBe(413);
+  });
+
+  it("refuses a body declared over-large before reading it", async () => {
+    const { deps, askEnv, calls } = setup();
+    const req = ask(first(), { length: String(MAX_BODY_BYTES * 1000) });
+    expect((await handleAsk(req, askEnv, deps)).status).toBe(413);
+    expect(req.bodyUsed).toBe(false);
+    expect(calls.siteverify).toBe(0);
+  });
+
+  it("refuses an over-large body that came without a length, reading no more than the limit", async () => {
+    const { deps, askEnv } = setup();
+    const chunk = new TextEncoder().encode("x".repeat(1024));
+    let sent = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        sent++;
+        if (sent > 1000) controller.close();
+        else controller.enqueue(chunk);
+      },
+    });
+    const req = new Request(`${ORIGIN}/v1/ask`, {
+      method: "POST",
+      headers: { Origin: ORIGIN, "CF-Connecting-IP": "203.0.113.7" },
+      body: stream,
+    });
+    expect((await handleAsk(req, askEnv, deps)).status).toBe(413);
+    expect(sent).toBeLessThan(MAX_BODY_BYTES / 1024 + 5);
   });
 
   it.each([
@@ -168,9 +200,22 @@ describe("the check", () => {
     expect(calls.siteverify).toBe(1);
   });
 
+  it("a session works only from the network that passed the check", async () => {
+    const { deps, askEnv, calls } = setup();
+    const res = await handleAsk(ask(first(), { ip: "2001:db8:1:2::7" }), askEnv, deps);
+    const { session } = (await res.json()) as { session: string };
+    const again = { turns: first().turns, session };
+    // Same /64: the same visitor, no new check.
+    expect((await handleAsk(ask(again, { ip: "2001:db8:1:2::99" }), askEnv, deps)).status).toBe(200);
+    // Another network: a new check.
+    expect((await handleAsk(ask(again, { ip: "2001:db8:9:9::7" }), askEnv, deps)).status).toBe(401);
+    expect((await handleAsk(ask(again, { ip: "198.51.100.1" }), askEnv, deps)).status).toBe(401);
+    expect(calls.siteverify).toBe(1);
+  });
+
   it("refuses a session signed with another secret", async () => {
     const { deps, askEnv } = setup();
-    const forged = await issueSession(NOW, "not-our-secret");
+    const forged = await issueSession(NOW, "not-our-secret", "any-visitor");
     expect((await handleAsk(ask({ turns: first().turns, session: forged }), askEnv, deps)).status).toBe(401);
   });
 });
@@ -237,6 +282,20 @@ describe("limits", () => {
     const res = await handleAsk(ask(first()), askEnv, deps);
     expect(await res.json()).toMatchObject({ kind: "resting", text: RESTING });
     expect(calls.model).toBe(modelCalls);
+    expect(await total("resting")).toBe(1);
+  });
+
+  it("past the limit, more attempts write nothing (they cannot wear out the database)", async () => {
+    const { deps, askEnv } = setup();
+    for (let i = 0; i < PER_VISITOR_DAILY + 1; i++) await handleAsk(ask(first()), askEnv, deps);
+    const before = await env.DB.prepare("SELECT (SELECT sum(n) FROM visitor_counts) + (SELECT sum(n) FROM daily_counts) AS s")
+      .first<{ s: number }>();
+    for (let i = 0; i < 5; i++) {
+      expect(await (await handleAsk(ask(first()), askEnv, deps)).json()).toMatchObject({ kind: "resting" });
+    }
+    const after = await env.DB.prepare("SELECT (SELECT sum(n) FROM visitor_counts) + (SELECT sum(n) FROM daily_counts) AS s")
+      .first<{ s: number }>();
+    expect(after?.s).toBe(before?.s);
     expect(await total("resting")).toBe(1);
   });
 

@@ -18,9 +18,24 @@ export type Reply =
   | { kind: "answer"; text: string; pages: string[]; known: boolean }
   | { kind: "turned_away"; reason: TurnAwayReason };
 
-// White label: the box never names the model behind it. "Claude" alone is not
-// here: Claude Desktop and Claude Code are apps our pages tell people to connect.
-const SUPPLIER = [/\bhaiku\b/i, /\bclaude-[a-z]+-\d/i];
+/** Also a cap in characters, for languages that do not put spaces between words. */
+export const MAX_ANSWER_CHARS = 2500;
+
+// White label: the box never names the model behind it or its maker. "Claude"
+// alone is not here: Claude Desktop and Claude Code are apps our pages tell
+// people to connect. "Anthropic" alone is not here either: our comparison
+// pages name Anthropic's reference memory server; only the ways an assistant
+// names its own maker are.
+const SUPPLIER = [
+  /\bhaiku\b/i,
+  /\bclaude-[a-z]+-\d/i,
+  /\b(?:by|from)\s+anthropic\b/i,
+  /\banthropic(?:'s|’s)?\s+(?:ai|model|assistant|llm|claude)\b/i,
+];
+
+// Characters that hide inside a word without showing: zero-width spaces and
+// joiners, word joiner, byte-order mark, soft hyphen.
+const INVISIBLE = /[­​-‍⁠﻿]/g;
 
 const FENCE = "```";
 const FENCED = /```[^\n]*\n?([\s\S]*?)```/g;
@@ -40,8 +55,10 @@ export function checkReply(raw: string, stopReason: string | null, knowledge: st
 
   const text = parsed.answer.trim();
   if (text === "") return away("empty");
-  if (text.split(/\s+/).length > MAX_ANSWER_WORDS) return away("too_long");
-  if (SUPPLIER.some((pattern) => pattern.test(text))) return away("supplier");
+  // The checks read the text as it looks: full-width letters folded, hidden characters gone.
+  const plain = text.normalize("NFKC").replace(INVISIBLE, "");
+  if (plain.split(/\s+/).length > MAX_ANSWER_WORDS || plain.length > MAX_ANSWER_CHARS) return away("too_long");
+  if (SUPPLIER.some((pattern) => pattern.test(plain))) return away("supplier");
   if (!codeIsOurs(text, knowledge)) return away("code");
 
   return { kind: "answer", text, pages: ourPages(parsed.pages, knowledge), known: parsed.known };
@@ -79,8 +96,9 @@ function codeIsOurs(text: string, knowledge: string): boolean {
   return true;
 }
 
-/** Only https://zaaheen.com pages that our knowledge names, once each. */
+/** Only https://zaaheen.com pages that our knowledge names in full, once each. */
 function ourPages(pages: unknown[], knowledge: string): string[] {
+  const named = pagesIn(knowledge);
   const kept: string[] = [];
   for (const page of pages) {
     if (typeof page !== "string" || kept.includes(page)) continue;
@@ -90,9 +108,15 @@ function ourPages(pages: unknown[], knowledge: string): string[] {
     } catch {
       continue;
     }
-    if (url.origin !== SITE || url.href !== page || !knowledge.includes(page)) continue;
+    if (url.origin !== SITE || url.href !== page || !named.has(page)) continue;
     kept.push(page);
     if (kept.length === MAX_PAGES) break;
   }
   return kept;
+}
+
+/** Every whole https://zaaheen.com address in the knowledge, without a sentence's closing punctuation. */
+function pagesIn(knowledge: string): Set<string> {
+  const found = knowledge.match(/https:\/\/zaaheen\.com\/[^\s<>"'()[\]]*/g) ?? [];
+  return new Set(found.map((page) => page.replace(/[.,;:!?]+$/, "")));
 }

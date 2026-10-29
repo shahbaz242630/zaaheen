@@ -8,7 +8,7 @@
   const MAX_QUESTIONS = 6;
   const SITE = "https://zaaheen.com/";
   // The pages that may embed this one, and so may be told to close it.
-  const PARENTS = ["https://zaaheen.com", "https://coaching.zaaheen.com"];
+  const PARENTS = ["https://zaaheen.com"];
   const ERROR = "The question box can't answer right now. Please try again in a few minutes, or email customerservice@zaaheen.com.";
 
   const log = document.getElementById("log");
