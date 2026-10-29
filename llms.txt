@@ -6,6 +6,7 @@ Zaaheen is a desktop app that gives AI assistants one private, persistent memory
 
 - Current version: 0.3.8, for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
 - Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.8_x64.msi (150 MB, SHA-256 50147fc643b9e8d4e743c60acbd5c21a34e6672d211534d7add288f28c20d0e4); Mac https://dl.zaaheen.com/Zaaheen_0.3.8_aarch64.dmg (156 MB, SHA-256 ae694d3d02ef0d38b591c70db3b4710673f3549c5c9a0d6956d145ce39ed12ab), a disk image: drag Zaaheen into Applications and open it from there.
+- Can't find Applications on a Mac? Open Finder (the blue and white face at the left of the Dock) and choose Applications in the sidebar on the left. Or, with Finder open, press Shift-Command-A.
 - Free trial: 30 days, no card needed.
 - Price after the trial: $5 a month or $48 a year (US dollars, plus VAT or sales tax where it applies). Both plans include everything. Sold through our reseller Paddle.com.
 - Cancel any time in the app: Settings, then Account, then "Cancel subscription". A payment is refunded in full if asked within 14 days of it, once per person.
