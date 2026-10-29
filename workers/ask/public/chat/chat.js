@@ -10,6 +10,7 @@
   // The pages that may embed this one, and so may be told to close it.
   const PARENTS = ["https://zaaheen.com"];
   const ERROR = "The question box can't answer right now. Please try again in a few minutes, or email customerservice@zaaheen.com.";
+  const END = "That's the most questions for one chat. To ask more, close this box and open it again, or email customerservice@zaaheen.com.";
 
   const log = document.getElementById("log");
   const form = document.getElementById("ask");
@@ -124,7 +125,11 @@
     }
 
     const asked = turns.length / 2;
-    if (data.kind === "resting" || asked >= MAX_QUESTIONS) return;
+    if (data.kind === "resting") return;
+    if (asked >= MAX_QUESTIONS) {
+      add(END, "box");
+      return;
+    }
     input.disabled = send.disabled = false;
     input.focus();
   });

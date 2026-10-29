@@ -13,6 +13,10 @@ export const RESTING = "The question box is resting for now. Please email custom
 export const UNAVAILABLE =
   "The question box can't answer right now. Please try again in a few minutes, or email customerservice@zaaheen.com.";
 
+/** After a chat's last question (limits.ts MAX_QUESTIONS), so the box never just goes quiet (founder-approved s117). */
+export const END_OF_CHAT =
+  "That's the most questions for one chat. To ask more, close this box and open it again, or email customerservice@zaaheen.com.";
+
 /** The first message when the bubble opens. */
 export const GREETING = "Hi! Ask me anything about Zaaheen: how it works, connecting your AI apps, pricing or your trial.";
 

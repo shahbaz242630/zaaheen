@@ -4,3 +4,9 @@ declare namespace Cloudflare {
     TEST_MIGRATIONS: import("cloudflare:test").D1Migration[];
   }
 }
+
+// Vite's raw imports: a file's text, for tests that read the chat page.
+declare module "*?raw" {
+  const text: string;
+  export default text;
+}
