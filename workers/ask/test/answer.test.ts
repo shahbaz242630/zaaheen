@@ -127,6 +127,11 @@ describe("RULES", () => {
     expect(RULES).toContain("customerservice@zaaheen.com");
   });
 
+  it("is friendly: greetings and thanks are answered warmly, not turned away (founder s117)", () => {
+    expect(RULES).toMatch(/friendly, helpful person/);
+    expect(RULES).toMatch(/Greetings, thanks, goodbyes and small talk about this chat .* are on topic/);
+  });
+
   it("holds nothing that changes per request (so the cache keeps working)", () => {
     expect(RULES).not.toMatch(/\d{4}-\d{2}-\d{2}/);
   });
