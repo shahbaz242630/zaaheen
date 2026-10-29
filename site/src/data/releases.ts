@@ -17,6 +17,22 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '0.3.8',
+    date: '2026-10-29',
+    summary: 'Zaaheen now updates itself: it downloads new versions quietly, and you choose when to restart.',
+    added: [
+      'Automatic updates. Zaaheen checks for a new version when it starts and once a day. It downloads it in the background, checks that it really comes from us, and then shows "Zaaheen [version] is ready" with a "Restart to update" button. Nothing is installed until you press it.',
+      'When you press "Restart to update", Zaaheen safely closes your memories, installs the new version and opens again by itself.',
+      'On Windows, Windows asks once whether to allow the change. On a Mac with a standard (non-administrator) account, your Mac asks for an administrator\'s password.',
+      'One last time by hand: install this version from zaaheen.com yourself. From then on, new versions come to you.',
+      'A Cancel button while you sign in, in case you change your mind while the browser is open.',
+    ],
+    fixed: [
+      '"Delete everything" and "Delete my account" now wait if your memories are about to move to a new folder, and the page asks you to restart Zaaheen first. Before, deleting at that moment could leave the move pointing at a folder that no longer exists.',
+      'Saving the app\'s logs to a network folder is now refused, the same rule that already keeps "Download my memories" on your own computer.',
+    ],
+  },
+  {
     version: '0.3.7',
     date: '2026-10-26',
     summary: 'Memories you add in the Zaaheen app now reach your AI apps, and you choose an area for each one.',
