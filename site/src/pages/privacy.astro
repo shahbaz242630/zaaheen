@@ -227,16 +227,19 @@ const topic = (id: string) =>
          browser.</p>
     </Row>
 
-    <!-- Founder-approved wording (s116, notes ASK-ZAAHEEN-DESIGN §3.8); the
-         workers/ask Worker keeps exactly this: src/keep.ts, src/scrub.ts, src/budget.ts. -->
+    <!-- Founder-approved wording (s117, after the security review; notes
+         ASK-ZAAHEEN-DESIGN §3.8 and §7); the workers/ask Worker keeps exactly
+         this: src/keep.ts, src/scrub.ts, src/budget.ts. The 7 days are D1's
+         Time Travel on the Workers Free plan. -->
     <Row id="ask-zaaheen" title={topic('ask-zaaheen')} where="On ask.zaaheen.com">
-      <p>When you ask a question, it is sent to an AI service to be answered from our own help
-         pages. Before your first question, Cloudflare Turnstile checks you are a person. We do
-         not keep your questions, except ones the box could not answer or turned away: we keep
-         those for 30 days to improve our help pages, with email addresses and phone and card
-         numbers removed, and nothing that identifies you. To limit misuse, we count questions
-         per visitor for one day using a scrambled code that cannot be turned back into your
-         internet address.</p>
+      <p>When you ask a question, it is sent to Anthropic, an AI company, to be answered from
+         our own help pages. Before your first question, Cloudflare Turnstile checks you are a
+         person. We do not keep your questions, except ones the box could not answer or turned
+         away: we keep those for 30 days to improve our help pages, with email addresses and
+         phone and card numbers removed and no record of who asked. Please don't type personal
+         details into the box. Deleted questions can remain in our database's automatic backups
+         for up to 7 more days. To limit misuse, we count questions per visitor for one day
+         using a scrambled code that cannot be turned back into your internet address.</p>
     </Row>
   </section>
 
@@ -265,6 +268,8 @@ const topic = (id: string) =>
               <td>Your sign-in, under Google's own privacy policy</td></tr>
           <tr><td>Hugging Face</td><td>Where the app downloads its AI models</td>
               <td>Your IP address, during the download</td></tr>
+          <tr><td>Anthropic</td><td>Answers the questions typed into Ask Zaaheen</td>
+              <td>The question and the earlier messages in that conversation</td></tr>
         </tbody>
       </table>
       <p>We may also share information if the law requires it, or to protect Zaaheen and its
@@ -316,8 +321,10 @@ const topic = (id: string) =>
         <li><strong>Emails with us:</strong> for as long as we need them to help you, and no
             more than two years after the conversation ends.</li>
         <li><strong>Questions to Ask Zaaheen:</strong> not kept, except ones it could not answer
-            or turned away, kept for 30 days without anything that identifies you. The count per
-            visitor is deleted the next day.</li>
+            or turned away, kept for 30 days with no record of who asked (and up to 7 more days
+            in automatic backups). The count per visitor is deleted the next day. Anthropic does
+            not use the questions to train its models, and deletes them within 30 days, unless
+            the law requires it to keep them or its safety checks flag one.</li>
       </ul>
       <p><em>Delete everything</em> in the app deletes your memories and leaves your account in
          place. The <a href={ACCOUNT.deleteAccount}><em>Delete my account</em> page</a> on our website deletes your account and leaves
