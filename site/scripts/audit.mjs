@@ -41,6 +41,11 @@ const PAY_CSP =
   "default-src 'self'; script-src 'self' https://cdn.paddle.com; style-src 'self' 'unsafe-inline' https://*.paddle.com; img-src 'self' data:; " +
   "font-src 'self'; connect-src 'self' https://*.paddle.com; frame-src https://*.paddle.com; object-src 'none'; " +
   "frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+// Every other page's CSP (public/.htaccess), pinned the same way. Only the
+// Ask Zaaheen frame is allowed beyond 'self' (ADR-SEC-052 §3.5).
+const SITE_CSP =
+  "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; " +
+  "frame-src https://ask.zaaheen.com; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 // The policy pages (founder, session 67: each on its own address). Every page's
 // footer links to each one: Paddle's domain review wants the Terms, Refund and
 // Privacy pages clearly reachable, and Google and Clerk link to them directly.
@@ -182,6 +187,8 @@ for (const rel of files.filter((f) => f.endsWith('.html'))) {
 if (files.includes('.htaccess')) {
   const forward = 'RewriteRule ^sign-(in|up)/?$ https://account.zaaheen.com/sign-$1/? [R=302,L]';
   const lines = read('.htaccess').split(/\r?\n/).map((l) => l.trim());
+  const siteCsps = [...read('.htaccess').matchAll(/^\s*Header\s+always\s+set\s+Content-Security-Policy\s+"([^"]*)"\s*$/gim)].map((m) => m[1]);
+  if (siteCsps.length !== 1 || siteCsps[0] !== SITE_CSP) fail('.htaccess', 'the site CSP is not the pinned policy (SITE_CSP in scripts/audit.mjs)');
   const accountHost = new URL(ACCOUNT_ORIGIN).host;
   const hostsIn = (l) => [...l.matchAll(/https?:\/\/([^/\s?#]+)/gi)].map((m) => m[1].toLowerCase());
   const mentions = lines.filter((l) => !l.startsWith('#') && hostsIn(l).some((h) => h === accountHost));

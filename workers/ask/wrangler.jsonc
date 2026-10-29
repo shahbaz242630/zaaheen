@@ -1,0 +1,37 @@
+// Ask Zaaheen (notes ASK-ZAAHEEN-DESIGN.md, ADR-117 + ADR-SEC-052): the
+// question box's own Worker. The key and every account value are Cloudflare
+// secrets, never this file.
+//
+// Its name must never be another Worker's: a publish under a reused name
+// REPLACES that Worker (session 108 took api.zaaheen.com down that way).
+// Custom domain only: no workers.dev copy, no preview URLs.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zaaheen-ask",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "ask.zaaheen.com", "custom_domain": true }],
+  // The chat page (public/chat/) and its headers (public/_headers) are served
+  // as static files; only /v1/* runs the Worker.
+  "assets": {
+    "directory": "./public",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/v1/*"]
+  },
+  // Counts and kept questions (src/store.ts, migrations/). The id is set when
+  // the database is created; tests use a local, simulated database.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "zaaheen-ask",
+      "database_id": "78fc3a98-b3a5-4e6f-a027-fe062fb48d70",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // The daily sweep (src/store.ts): yesterday's visitor counts and questions
+  // kept over 30 days are deleted, at 00:10 UTC.
+  "triggers": { "crons": ["10 0 * * *"] }
+}

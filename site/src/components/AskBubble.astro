@@ -1,0 +1,20 @@
+---
+// Ask Zaaheen, the question bubble (notes ASK-ZAAHEEN-DESIGN.md, ADR-117,
+// ADR-SEC-052 §3.5). Only the button lives in our page; the chat opens in a
+// frame from ask.zaaheen.com, created by scripts/ask-bubble.js on the first
+// click, so nothing loads (and nothing is spent) until someone asks. The site
+// policy allows exactly that one frame (public/.htaccess frame-src). Hidden
+// until the script runs: without scripts there is no bubble.
+import type { Lang } from '../i18n/locales';
+import { t } from '../i18n/ui';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+---
+<div class="ask-bubble" data-ask-lang={lang} data-ask-title={t(lang, 'Ask Zaaheen')} hidden>
+  <div class="ask-box" id="ask-box" hidden></div>
+  <button type="button" class="ask-open" aria-expanded="false" aria-controls="ask-box">{t(lang, 'Ask Zaaheen')}</button>
+</div>
+<script src="../scripts/ask-bubble.js"></script>
