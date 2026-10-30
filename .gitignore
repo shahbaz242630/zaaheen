@@ -223,6 +223,11 @@ CLAUDE.md
 # app IDs are kept in this file and never committed.
 /OPS-HANDOFF.md
 
+# The founder's own link tracker (session 119), and the lock file Excel makes
+# beside it while it is open. Local only.
+/Details.xlsx
+/~$Details.xlsx
+
 # Wrangler local state (Cloudflare CLI cache + auth scratch). Never committed.
 .wrangler/
 

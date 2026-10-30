@@ -1,0 +1,110 @@
+name: Ask Zaaheen deploy
+
+# The question box's Worker, zaaheen-ask (notes ASK-ZAAHEEN-DESIGN.md §8,
+# ADR-118 + ADR-SEC-053): merging a change under workers/ask to main publishes
+# it, after the same types + tests as ci.yml's ask-worker job. Those run here
+# too because that job is not a required check on main, and without the token.
+#
+# Database changes are never automatic: a push that touches workers/ask/migrations
+# stops here, because new code on the old database would break the chat. No
+# workflow_dispatch for the same reason: it has no earlier commit to compare with.
+# To retry a failed publish, re-run the failed job.
+
+on:
+  push:
+    branches: [main]
+    paths: ['workers/ask/**', '.github/workflows/ask-deploy.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ask Worker (types + tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: workers/ask
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.19.0'
+      - run: npm ci --no-fund --no-audit
+      - run: npm run types
+      - run: npm run typecheck
+      - run: npm test
+
+  deploy:
+    name: Publish ask.zaaheen.com to Cloudflare
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The token lives in this environment, which only main can use: a workflow
+    # pushed on any other branch cannot read it.
+    environment: cloudflare-sites
+    concurrency:
+      group: cloudflare-ask
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            workers/ask
+          # Every commit of the push, whichever way it was merged; trees only.
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.19.0'
+      - name: Refuse a database change or another Worker's name
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          # Assigned first: a failed comparison stops the job, not passes it.
+          changed="$(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- workers/ask/migrations)"
+          if [ -n "$changed" ]; then
+            echo "::error::Database change: apply the migration and deploy by hand."
+            exit 1
+          fi
+          # A publish under a reused name REPLACES that Worker (session 108).
+          grep -Eq '^  "name": "zaaheen-ask",$' workers/ask/wrangler.jsonc || {
+            echo "::error::workers/ask/wrangler.jsonc does not name zaaheen-ask"
+            exit 1
+          }
+      # npm 11 (Node 24) runs no dependency install scripts by default; said
+      # again here, since this job holds a deploy credential.
+      - name: Install wrangler from the ask Worker's lockfile
+        working-directory: workers/ask
+        run: npm ci --ignore-scripts --no-fund --no-audit
+      # Files and code go up together, so this marker proves the code too, even
+      # when no page changed. Under /chat/ for that path's no-cache header.
+      - name: Mark the build
+        working-directory: workers/ask
+        run: echo "$GITHUB_SHA" > public/chat/build.txt
+      - name: Publish to Cloudflare
+        working-directory: workers/ask
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_SITES_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --no-install wrangler deploy --message "ask.zaaheen.com from $GITHUB_SHA"
+      - name: Check the live chat is this build
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            got="$(curl -fsS https://ask.zaaheen.com/chat/build.txt)" || got=""
+            if [ "$got" = "$GITHUB_SHA" ]; then
+              echo "Live chat is this build."
+              exit 0
+            fi
+            echo "Attempt $attempt: not live yet."
+            sleep 15
+          done
+          echo "::error::ask.zaaheen.com is not serving this build"
+          exit 1
