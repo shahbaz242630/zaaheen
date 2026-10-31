@@ -103,6 +103,8 @@
 
   const turns = [];
   const CHECK_WAIT_MS = 15000;
+  // Long enough for a visitor to answer a check Cloudflare chooses to show.
+  const CHECK_ANSWER_MS = 60000;
   let session = null;
   let widget = null;
 
@@ -178,7 +180,12 @@
   async function token() {
     if (!(await checkReady())) return null;
     return new Promise((resolve) => {
-      const done = (value) => resolve(value || null);
+      // A stalled check must not leave the visitor watching "…" for ever.
+      const limit = setTimeout(() => resolve(null), CHECK_ANSWER_MS);
+      const done = (value) => {
+        clearTimeout(limit);
+        resolve(value || null);
+      };
       if (widget === null) {
         widget = window.turnstile.render(check, {
           sitekey: check.dataset.sitekey,

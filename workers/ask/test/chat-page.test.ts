@@ -88,6 +88,7 @@ describe("the chat page in the site's languages", () => {
   it("waits for the check to load, and never gives up without telling the Worker", () => {
     expect(chatJs).toMatch(/!window\.turnstile && waited < CHECK_WAIT_MS/);
     expect(chatJs).not.toMatch(/if \(!passed\) return \{ kind: "error" \}/);
+    expect(chatJs).toMatch(/setTimeout\(\(\) => resolve\(null\), CHECK_ANSWER_MS\)/);
     expect(chatJs).toMatch(/passed \? \{ turns: conversation, turnstile: passed \} : \{ turns: conversation \}/);
   });
 
