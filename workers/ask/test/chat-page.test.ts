@@ -12,7 +12,7 @@ import siteEs from "../../../site/src/i18n/ui/es.ts?raw";
 import siteFr from "../../../site/src/i18n/ui/fr.ts?raw";
 import sitePt from "../../../site/src/i18n/ui/pt.ts?raw";
 import { MAX_QUESTIONS } from "../src/limits";
-import { DISCLAIMER, END_OF_CHAT, GREETING, RESTING, TURNED_AWAY, UNAVAILABLE } from "../src/text";
+import { DISCLAIMER, END_OF_CHAT, GREETING, REGION, RESTING, TURNED_AWAY, UNAVAILABLE } from "../src/text";
 
 const js = (name: string) => new RegExp(`const ${name} = ([^;]+);`).exec(chatJs)?.[1];
 // The two tables are written as JSON inside chat.js, so they parse as written.
@@ -32,6 +32,7 @@ describe("the chat page", () => {
     expect(WORDS.en.end).toBe(END_OF_CHAT);
     expect(WORDS.en.turned_away).toBe(TURNED_AWAY);
     expect(WORDS.en.resting).toBe(RESTING);
+    expect(WORDS.en.region).toBe(REGION);
     // Before the script runs, and without it, the page is the English one.
     expect(chatHtml).toContain(GREETING);
     expect(chatHtml).toContain(DISCLAIMER);
@@ -80,7 +81,7 @@ describe("the chat page in the site's languages", () => {
   });
 
   it("shows our own sentences, never the model's text, for every fixed reply", () => {
-    expect(js("FIXED")).toBe('["turned_away", "resting", "unavailable"]');
+    expect(js("FIXED")).toBe('["turned_away", "resting", "unavailable", "region"]');
     expect(chatJs).toMatch(/data\.kind === "answer" && typeof data\.text === "string"/);
   });
 

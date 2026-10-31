@@ -25,7 +25,8 @@
       "unavailable": "The question box can't answer right now. Please try again in a few minutes, or email customerservice@zaaheen.com.",
       "end": "That's the most questions for one chat. To ask more, close this box and open it again, or email customerservice@zaaheen.com.",
       "turned_away": "I can only help with questions about Zaaheen. For anything else, please email customerservice@zaaheen.com.",
-      "resting": "The question box is resting for now. Please email customerservice@zaaheen.com and we'll help."
+      "resting": "The question box is resting for now. Please email customerservice@zaaheen.com and we'll help.",
+      "region": "The question box isn't available in your region. Please email customerservice@zaaheen.com and we'll help."
     },
     "es": {
       "title": "Pregunta a Zaaheen",
@@ -38,7 +39,8 @@
       "unavailable": "El cuadro de preguntas no puede responder ahora. Vuelve a intentarlo en unos minutos o escribe a customerservice@zaaheen.com.",
       "end": "Has llegado al máximo de preguntas en un chat. Para preguntar más, cierra este cuadro y vuelve a abrirlo, o escribe a customerservice@zaaheen.com.",
       "turned_away": "Solo puedo ayudarte con preguntas sobre Zaaheen. Para cualquier otra cosa, escribe a customerservice@zaaheen.com.",
-      "resting": "El cuadro de preguntas está descansando por ahora. Escribe a customerservice@zaaheen.com y te ayudaremos."
+      "resting": "El cuadro de preguntas está descansando por ahora. Escribe a customerservice@zaaheen.com y te ayudaremos.",
+      "region": "El cuadro de preguntas no está disponible en tu región. Escribe a customerservice@zaaheen.com y te ayudaremos."
     },
     "pt": {
       "title": "Pergunte ao Zaaheen",
@@ -51,7 +53,8 @@
       "unavailable": "A caixa de perguntas não consegue responder agora. Tente de novo em alguns minutos ou escreva para customerservice@zaaheen.com.",
       "end": "Você chegou ao máximo de perguntas em um chat. Para perguntar mais, feche esta caixa e abra de novo, ou escreva para customerservice@zaaheen.com.",
       "turned_away": "Só posso ajudar com perguntas sobre o Zaaheen. Para qualquer outra coisa, escreva para customerservice@zaaheen.com.",
-      "resting": "A caixa de perguntas está descansando por enquanto. Escreva para customerservice@zaaheen.com e nós ajudamos."
+      "resting": "A caixa de perguntas está descansando por enquanto. Escreva para customerservice@zaaheen.com e nós ajudamos.",
+      "region": "A caixa de perguntas não está disponível na sua região. Escreva para customerservice@zaaheen.com e nós ajudamos."
     },
     "de": {
       "title": "Zaaheen fragen",
@@ -64,7 +67,8 @@
       "unavailable": "Das Fragefeld kann gerade nicht antworten. Versuch es in ein paar Minuten noch einmal oder schreib an customerservice@zaaheen.com.",
       "end": "Mehr Fragen gehen in diesem Chat nicht. Um weiter zu fragen, schließ dieses Feld und öffne es erneut, oder schreib an customerservice@zaaheen.com.",
       "turned_away": "Ich kann nur bei Fragen zu Zaaheen helfen. Für alles andere schreib bitte an customerservice@zaaheen.com.",
-      "resting": "Das Fragefeld macht gerade Pause. Schreib an customerservice@zaaheen.com, dann helfen wir dir."
+      "resting": "Das Fragefeld macht gerade Pause. Schreib an customerservice@zaaheen.com, dann helfen wir dir.",
+      "region": "Das Fragefeld ist in deiner Region nicht verfügbar. Schreib an customerservice@zaaheen.com, dann helfen wir dir."
     },
     "fr": {
       "title": "Demander à Zaaheen",
@@ -77,11 +81,12 @@
       "unavailable": "La boîte à questions ne peut pas répondre pour le moment. Réessayez dans quelques minutes ou écrivez à customerservice@zaaheen.com.",
       "end": "Vous avez atteint le nombre maximum de questions pour une discussion. Pour en poser d’autres, fermez cette boîte et rouvrez-la, ou écrivez à customerservice@zaaheen.com.",
       "turned_away": "Je ne peux répondre qu’aux questions sur Zaaheen. Pour tout le reste, écrivez à customerservice@zaaheen.com.",
-      "resting": "La boîte à questions fait une pause pour l’instant. Écrivez à customerservice@zaaheen.com et nous vous aiderons."
+      "resting": "La boîte à questions fait une pause pour l’instant. Écrivez à customerservice@zaaheen.com et nous vous aiderons.",
+      "region": "La boîte à questions n’est pas disponible dans votre région. Écrivez à customerservice@zaaheen.com et nous vous aiderons."
     }
   };
   // The Worker's reply kinds that carry one of our own sentences (src/text.ts).
-  const FIXED = ["turned_away", "resting", "unavailable"];
+  const FIXED = ["turned_away", "resting", "unavailable", "region"];
   // zaaheen.com's pages that exist in every language (site/src/i18n/locales.ts
   // TRANSLATED): a link to one opens it in the visitor's language.
   const TRANSLATED = [
@@ -231,7 +236,7 @@
     }
 
     const asked = turns.length / 2;
-    if (data.kind === "resting") return;
+    if (data.kind === "resting" || data.kind === "region") return;
     if (asked >= MAX_QUESTIONS) {
       add(t.end, "box");
       return;

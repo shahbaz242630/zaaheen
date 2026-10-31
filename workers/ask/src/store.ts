@@ -12,7 +12,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // nothing at all, so hammering past a limit cannot wear out the database.
 export type Claim = { ok: true } | { ok: false; reason: "visitor" | "daily"; first: boolean };
 
-export type Outcome = "answered" | "turned_away" | "unavailable" | "resting";
+export type Outcome = "answered" | "turned_away" | "unavailable" | "resting" | "region";
 
 /**
  * Count a question against the visitor's and the day's limits, in that
