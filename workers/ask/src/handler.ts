@@ -152,11 +152,18 @@ function lastQuestion(turns: Turn[]): string {
 async function loadKnowledge(fetcher: Fetcher): Promise<string | null> {
   try {
     const response = await fetcher(KNOWLEDGE_URL, { cf: { cacheTtl: 3600, cacheEverything: true } });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn("ask_unavailable", "pages", "status", response.status);
+      return null;
+    }
     const text = await response.text();
-    if (text.length > MAX_KNOWLEDGE_CHARS || !text.startsWith("# Zaaheen")) return null;
+    if (text.length > MAX_KNOWLEDGE_CHARS || !text.startsWith("# Zaaheen")) {
+      console.warn("ask_unavailable", "pages", "not_ours", text.length);
+      return null;
+    }
     return text;
   } catch {
+    console.warn("ask_unavailable", "pages", "error");
     return null;
   }
 }
