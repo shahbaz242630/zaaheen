@@ -673,3 +673,17 @@ code.hash{font-family:var(--mono);font-size:13px;word-break:break-all}
 .ask-box{width:min(380px,calc(100vw - 40px));height:min(560px,calc(100vh - 110px));height:min(560px,calc(100dvh - 110px));border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--paper);box-shadow:var(--shadow-win)}
 .ask-frame{display:block;width:100%;height:100%;border:0}
 @media (max-width:600px){.ask-bubble{right:12px;bottom:12px}.ask-box{width:calc(100vw - 24px);height:calc(100vh - 90px);height:calc(100dvh - 90px)}}
+
+/* Narrow phones: the top bar must fit, so Get started is never cut off. The
+   language button keeps its globe and its spoken name. Below 350px the logo
+   stands alone; its link keeps the name for screen readers. */
+@media (max-width:400px){
+  .bar{padding-left:16px;padding-right:16px;gap:10px 8px}
+  .bar-left{gap:8px}
+  .lang-menu summary span{display:none}
+  .bar-signin{padding:8px 6px}
+  .bar-start{padding:8px 12px}
+}
+@media (max-width:350px){
+  .brand span{display:none}
+}
