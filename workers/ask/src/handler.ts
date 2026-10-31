@@ -69,7 +69,11 @@ export async function handleAsk(request: Request, env: AskEnv, deps: Deps): Prom
   if (!inSession) {
     const passed =
       body.turnstile !== undefined && (await verifyTurnstile(body.turnstile, address, env.TURNSTILE_SECRET, deps.fetch));
-    if (!passed) return reply(401, { kind: "challenge" });
+    if (!passed) {
+      // Which of the two: the page had no pass to send, or Cloudflare refused it. Never the token.
+      console.warn("ask_refused", "check", body.turnstile === undefined ? "no_pass" : "not_accepted");
+      return reply(401, { kind: "challenge" });
+    }
     session = await issueSession(now, env.SESSION_SECRET, visitor);
   }
   const withSession = (fields: Record<string, unknown>) => (session ? { ...fields, session } : fields);
