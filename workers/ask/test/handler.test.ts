@@ -10,7 +10,7 @@ import { PER_VISITOR_DAILY, dayOf } from "../src/budget";
 import { SITEVERIFY, issueSession } from "../src/gate";
 import { KNOWLEDGE_URL, MAX_BODY_BYTES, ORIGIN, handleAsk, type AskEnv, type Deps } from "../src/handler";
 import { REMOVED } from "../src/scrub";
-import { RESTING, TURNED_AWAY, UNAVAILABLE } from "../src/text";
+import { REGION, RESTING, TURNED_AWAY, UNAVAILABLE } from "../src/text";
 
 const NOW = Date.UTC(2026, 9, 28, 12, 0, 0);
 const KNOWLEDGE = "# Zaaheen\n- Free trial: 30 days, no card needed.\n- Pricing: https://zaaheen.com/pricing/";
@@ -283,6 +283,48 @@ describe("answers", () => {
     expect(reasons[0]).toMatch(/^ask_unavailable pages (status|error)/);
     expect(reasons[1]).toBe("ask_unavailable pages not_ours");
     warn.mockRestore();
+  });
+});
+
+describe("regions", () => {
+  /** A request as Cloudflare hands it over: `cf` cannot be set on a plain Request. */
+  const from = (country: string | undefined) => {
+    const request = ask(first());
+    Object.defineProperty(request, "cf", { value: country === undefined ? undefined : { country } });
+    return request;
+  };
+
+  it("from an unsupported region: our sentence, no check, no model, no question counted", async () => {
+    const { deps, askEnv, calls } = setup();
+    const res = await handleAsk(from("HK"), askEnv, deps);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ kind: "region", text: REGION });
+    expect(calls.model).toBe(0);
+    expect(calls.siteverify).toBe(0);
+    expect(calls.site).toBe(0);
+    expect(await total("region")).toBe(1);
+    expect(await total("asked")).toBe(0);
+  });
+
+  it("from the United Arab Emirates, and through any Cloudflare location: answered", async () => {
+    const { deps, askEnv, calls } = setup();
+    const res = await handleAsk(from("AE"), askEnv, deps);
+    expect(await res.json()).toMatchObject({ kind: "answer" });
+    expect(calls.model).toBe(1);
+  });
+
+  it("with no known country: answered, never refused by accident", async () => {
+    const { deps, askEnv, calls } = setup();
+    const res = await handleAsk(from(undefined), askEnv, deps);
+    expect(await res.json()).toMatchObject({ kind: "answer" });
+    expect(calls.model).toBe(1);
+  });
+
+  it("still refuses a foreign page first", async () => {
+    const { deps, askEnv } = setup();
+    const request = ask(first(), { origin: "https://example.com" });
+    Object.defineProperty(request, "cf", { value: { country: "HK" } });
+    expect((await handleAsk(request, askEnv, deps)).status).toBe(403);
   });
 });
 

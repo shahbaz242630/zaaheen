@@ -7,8 +7,9 @@ import { answer, type AskModel } from "./answer";
 import { dayOf, visitorKey } from "./budget";
 import { issueSession, verifySession, verifyTurnstile, type Fetcher } from "./gate";
 import { checkConversation, type Turn } from "./limits";
+import { isUnsupportedRegion } from "./regions";
 import { claimQuestion, countOutcome, keepQuestion } from "./store";
-import { RESTING, TURNED_AWAY, UNAVAILABLE } from "./text";
+import { REGION, RESTING, TURNED_AWAY, UNAVAILABLE } from "./text";
 
 /** The chat page's own address: the only Origin allowed to ask. */
 export const ORIGIN = "https://ask.zaaheen.com";
@@ -42,6 +43,12 @@ export async function handleAsk(request: Request, env: AskEnv, deps: Deps): Prom
   if (request.headers.get("Origin") !== ORIGIN) return reply(403, { kind: "forbidden" });
   if (!env.ANTHROPIC_API_KEY || !env.TURNSTILE_SECRET || !env.SESSION_SECRET || !env.VISITOR_SECRET) {
     return reply(503, { kind: "unavailable", text: UNAVAILABLE });
+  }
+
+  // Before anything is read, checked or sent. The country is not kept; only the count is.
+  if (isUnsupportedRegion(request.cf?.country)) {
+    await countOutcome(env.DB, dayOf(deps.now()), "region");
+    return reply(200, { kind: "region", text: REGION });
   }
 
   if (Number(request.headers.get("Content-Length")) > MAX_BODY_BYTES) return reply(413, { kind: "invalid" });
