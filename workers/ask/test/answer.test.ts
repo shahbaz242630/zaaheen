@@ -3,7 +3,7 @@
 // the fixed reply shape, our pages as cached knowledge) and that every reply
 // still goes through checkReply.
 import type Anthropic from "@anthropic-ai/sdk";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MAX_OUTPUT_TOKENS, MODEL, REPLY_SCHEMA, answer, type AskModel } from "../src/answer";
 import { RULES } from "../src/prompt";
 
@@ -116,6 +116,30 @@ describe("answer", () => {
   it("any failure to reach the model is 'unavailable', with nothing from the error", async () => {
     const { model } = stand_in(new Error("401 invalid x-api-key sk-ant-secret"));
     expect(await answer(model, KNOWLEDGE, [{ role: "user", text: "x" }])).toEqual({ kind: "unavailable" });
+  });
+
+  it("logs the kind of failure for us: status and error type, never the message", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const failure = Object.assign(new Error("401 invalid x-api-key sk-ant-secret"), {
+      status: 401,
+      error: { type: "error", error: { type: "authentication_error", message: "sk-ant-secret" } },
+    });
+    await answer(stand_in(failure).model, KNOWLEDGE, [{ role: "user", text: "my private question" }]);
+    expect(warn).toHaveBeenCalledWith("ask_unavailable", "model", 401, "authentication_error");
+    expect(JSON.stringify(warn.mock.calls)).not.toMatch(/sk-ant|private question/);
+    warn.mockRestore();
+  });
+
+  it("a failure with no status or a strange type logs only safe values", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const failure = Object.assign(new Error("network sk-ant-secret"), {
+      status: "sk-ant-secret",
+      error: { error: { type: "sk-ant-secret and more words" } },
+    });
+    await answer(stand_in(failure).model, KNOWLEDGE, [{ role: "user", text: "x" }]);
+    expect(warn).toHaveBeenCalledWith("ask_unavailable", "model", 0, "none");
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("sk-ant");
+    warn.mockRestore();
   });
 });
 

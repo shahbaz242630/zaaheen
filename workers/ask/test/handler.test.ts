@@ -4,7 +4,7 @@
 // for Turnstile, the site and the model: no network, no cost. D1 is local.
 import type Anthropic from "@anthropic-ai/sdk";
 import { applyD1Migrations, env } from "cloudflare:test";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AskModel } from "../src/answer";
 import { PER_VISITOR_DAILY, dayOf } from "../src/budget";
 import { SITEVERIFY, issueSession } from "../src/gate";
@@ -271,6 +271,18 @@ describe("answers", () => {
     const { deps, askEnv, calls } = setup({ site: "<html>Some error page</html>" });
     expect(await (await handleAsk(ask(first()), askEnv, deps)).json()).toMatchObject({ kind: "unavailable" });
     expect(calls.model).toBe(0);
+  });
+
+  it("logs which part of our pages failed, and nothing the visitor wrote", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const missing = setup({ site: null });
+    await handleAsk(ask(first()), missing.askEnv, missing.deps);
+    const wrong = setup({ site: "<html>Some error page</html>" });
+    await handleAsk(ask(first()), wrong.askEnv, wrong.deps);
+    const reasons = warn.mock.calls.map((call) => `${call[0]} ${call[1]} ${call[2]}`);
+    expect(reasons[0]).toMatch(/^ask_unavailable pages (status|error)/);
+    expect(reasons[1]).toBe("ask_unavailable pages not_ours");
+    warn.mockRestore();
   });
 });
 

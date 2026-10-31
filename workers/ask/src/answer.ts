@@ -32,6 +32,16 @@ export interface AskModel {
 
 export type AskResult = Reply | { kind: "unavailable" };
 
+/** An error's HTTP status and API error type, and nothing else; anything unexpected is 0 and "none". */
+function failureKind(error: unknown): { status: number; type: string } {
+  const { status, error: body } = (error ?? {}) as { status?: unknown; error?: { error?: { type?: unknown } } };
+  const type = body?.error?.type;
+  return {
+    status: typeof status === "number" ? status : 0,
+    type: typeof type === "string" && /^[a-z_]{1,40}$/.test(type) ? type : "none",
+  };
+}
+
 export async function answer(model: AskModel, knowledge: string, turns: Turn[]): Promise<AskResult> {
   let message: Anthropic.Message;
   try {
@@ -47,8 +57,11 @@ export async function answer(model: AskModel, knowledge: string, turns: Turn[]):
       ],
       messages: turns.map((turn) => ({ role: turn.role, content: turn.text })),
     });
-  } catch {
+  } catch (error) {
     // Nothing from the error reaches the visitor or the reply: it can name the key.
+    // Our log gets only its kind, so an outage can be told apart (s120).
+    const { status, type } = failureKind(error);
+    console.warn("ask_unavailable", "model", status, type);
     return { kind: "unavailable" };
   }
 
