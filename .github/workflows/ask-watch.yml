@@ -1,0 +1,63 @@
+name: Ask Zaaheen watch
+
+# Hourly: fails, so GitHub emails the owner, when the question box cannot be
+# reached or today's "could not answer" count has risen (ADR-120, ADR-SEC-055).
+# Reads only the public /v1/status and holds no credential. One alert per new
+# count: the cache entry stops a repeat for a count already reported. The box's
+# own failures only: a visitor's browser that never sends a question leaves no
+# count here.
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ask-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    name: Is the box failing?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read the box's status
+        id: status
+        run: |
+          set -euo pipefail
+          body="$(curl -fsS --retry 3 --retry-all-errors --retry-delay 20 -m 20 https://ask.zaaheen.com/v1/status)" || {
+            echo "::error::ask.zaaheen.com/v1/status cannot be reached: the box may be down"
+            exit 1
+          }
+          day="$(jq -er '.day' <<<"$body")"
+          n="$(jq -er '.unavailable' <<<"$body")"
+          echo "Today ($day): $n could not be answered."
+          echo "key=ask-alert-$day-$n" >> "$GITHUB_OUTPUT"
+          echo "n=$n" >> "$GITHUB_OUTPUT"
+      - name: Was this count already reported?
+        id: seen
+        if: steps.status.outputs.n != '0'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ask-alert
+          key: ${{ steps.status.outputs.key }}
+      - name: Remember this count
+        if: steps.status.outputs.n != '0' && steps.seen.outputs.cache-hit != 'true'
+        run: mkdir -p .ask-alert && touch .ask-alert/reported
+      - name: Save it
+        if: steps.status.outputs.n != '0' && steps.seen.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ask-alert
+          key: ${{ steps.status.outputs.key }}
+      - name: Alert
+        if: steps.status.outputs.n != '0' && steps.seen.outputs.cache-hit != 'true'
+        env:
+          N: ${{ steps.status.outputs.n }}
+        run: |
+          echo "::error::The question box could not answer $N question(s) today. Read the ask_unavailable lines in Workers Logs."
+          exit 1
