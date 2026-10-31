@@ -172,10 +172,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git fetch -q --depth=1 "$remote" site-deploy 2>/dev/null; then
             git checkout -q -b site-deploy FETCH_HEAD
-            first=false
           else
             git checkout -q --orphan site-deploy
-            first=true
           fi
 
           # Replace the whole tree with the new build, so deleted pages are
@@ -189,11 +187,8 @@ jobs:
             exit 0
           fi
           git commit -q -m "Deploy zaaheen.com from ${GITHUB_SHA}"
-          if [ "$first" = true ]; then
-            git ls-files > "$GITHUB_WORKSPACE/changed.txt"
-          else
-            git diff --name-only HEAD~1 HEAD > "$GITHUB_WORKSPACE/changed.txt"
-          fi
+          # Pages whose only difference is a renamed shared asset are left out.
+          bash "$GITHUB_WORKSPACE/site/scripts/changed-pages.sh" > "$GITHUB_WORKSPACE/changed.txt"
           git push -q "$remote" site-deploy
           echo "pushed=true" >> "$GITHUB_OUTPUT"
           echo "Published $(wc -l < "$GITHUB_WORKSPACE/changed.txt") changed file(s)."
