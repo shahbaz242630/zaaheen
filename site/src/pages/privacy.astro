@@ -234,7 +234,9 @@ const topic = (id: string) =>
     <Row id="ask-zaaheen" title={topic('ask-zaaheen')} where="On ask.zaaheen.com">
       <p>When you ask a question, it is sent to Anthropic, an AI company, to be answered from
          our own help pages. Before your first question, Cloudflare Turnstile checks you are a
-         person. We do not keep your questions, except ones the box could not answer or turned
+         person. We also check which country your request comes from, as Cloudflare reports it,
+         so the box can tell you if it isn't available in your region. We do not keep that. We
+         do not keep your questions, except ones the box could not answer or turned
          away: we keep those for 30 days to improve our help pages, with email addresses and
          phone and card numbers removed and no record of who asked. Please don't type personal
          details into the box. Deleted questions can remain in our database's automatic backups
