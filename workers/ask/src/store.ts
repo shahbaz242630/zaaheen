@@ -67,3 +67,9 @@ export async function sweep(db: D1Database, now: number): Promise<void> {
     db.prepare("DELETE FROM visitor_counts WHERE day < ?").bind(dayOf(now)),
   ]);
 }
+
+/** Today's "could not answer" total, for the watch (ADR-120). A count only: nothing about any visitor. */
+export async function unavailableOn(db: D1Database, day: string): Promise<number> {
+  const row = await db.prepare("SELECT n FROM daily_counts WHERE day = ? AND kind = 'unavailable'").bind(day).first<{ n: number }>();
+  return row?.n ?? 0;
+}
