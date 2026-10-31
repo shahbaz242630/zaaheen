@@ -102,6 +102,7 @@
   const check = document.getElementById("check");
 
   const turns = [];
+  const CHECK_WAIT_MS = 15000;
   let session = null;
   let widget = null;
 
@@ -163,10 +164,20 @@
     if (list.childElementCount > 0) item.appendChild(list);
   }
 
+  // The check's script loads by itself, and a quick first question can get here
+  // before it does (2026-10-31: the box said "can't answer" with no check and no
+  // request). Wait for it; give up only if it never comes.
+  async function checkReady() {
+    for (let waited = 0; !window.turnstile && waited < CHECK_WAIT_MS; waited += 100) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return Boolean(window.turnstile);
+  }
+
   // A Turnstile token, asked for only when there is no session yet.
-  function token() {
+  async function token() {
+    if (!(await checkReady())) return null;
     return new Promise((resolve) => {
-      if (!window.turnstile) return resolve(null);
       const done = (value) => resolve(value || null);
       if (widget === null) {
         widget = window.turnstile.render(check, {
@@ -200,8 +211,8 @@
     if (!result || result.status === 401) {
       session = null;
       const passed = await token();
-      if (!passed) return { kind: "error" };
-      result = await post({ turns: conversation, turnstile: passed });
+      // With no pass, still ask: the Worker refuses it and its log records why.
+      result = await post(passed ? { turns: conversation, turnstile: passed } : { turns: conversation });
     }
     if (typeof result.data.session === "string") session = result.data.session;
     return result.status === 200 ? result.data : { kind: "error" };

@@ -328,6 +328,28 @@ describe("regions", () => {
   });
 });
 
+describe("the check's log", () => {
+  it("says the page had no pass to send", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { deps, askEnv, calls } = setup();
+    const { turnstile: _, ...noPass } = first();
+    expect((await handleAsk(ask(noPass), askEnv, deps)).status).toBe(401);
+    expect(warn).toHaveBeenCalledWith("ask_refused", "check", "no_pass");
+    expect(calls.model).toBe(0);
+    warn.mockRestore();
+  });
+
+  it("says Cloudflare refused the pass, and never logs the token", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { deps, askEnv } = setup({ turnstile: false });
+    const body = first();
+    expect((await handleAsk(ask(body), askEnv, deps)).status).toBe(401);
+    expect(warn).toHaveBeenCalledWith("ask_refused", "check", "not_accepted");
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(body.turnstile);
+    warn.mockRestore();
+  });
+});
+
 describe("limits", () => {
   it("at the visitor's limit: resting, no model call", async () => {
     const { deps, askEnv, calls } = setup();
