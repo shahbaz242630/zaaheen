@@ -72,7 +72,7 @@ a{color:inherit}
 .chip-dot.is-pulse{animation:zPulse 1.2s ease-in-out infinite}
 .wrap{max-width:1180px;margin:0 auto;padding:0 32px}
 .section-head{display:flex;flex-direction:column;gap:14px;max-width:620px}
-.section-head .eyebrow{font-size:20px;font-weight:600}
+.section-head .eyebrow{font-size:clamp(24px,2.8vw,30px);font-weight:600;line-height:1.2}
 .section-head.is-centred{max-width:700px;margin:0 auto;text-align:center;align-items:center}
 .section-head h2{font:450 clamp(32px,4vw,44px)/1.12 var(--serif);letter-spacing:-.015em;
   margin:0;text-wrap:balance}
