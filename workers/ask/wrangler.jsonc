@@ -13,6 +13,15 @@
   "workers_dev": false,
   "preview_urls": false,
   "routes": [{ "pattern": "ask.zaaheen.com", "custom_domain": true }],
+  // Run in Europe, never at the location nearest the visitor (ADR-119, s120).
+  // Anthropic refuses calls from unsupported regions: every chat failure of
+  // 2026-10-30 and 10-31 was a 403 from Cloudflare's Hong Kong location, and a
+  // visitor in Dubai can be routed there. Also next to the database (WEUR).
+  "placement": { "region": "aws:eu-central-1" },
+  // Keep our own log lines (ask_unavailable, src/answer.ts) so a failure can be
+  // read afterwards: 3 days on the free plan. Invocation logs stay off: they
+  // describe each visitor's request, and we only need our failure lines.
+  "observability": { "enabled": true, "logs": { "invocation_logs": false } },
   // The chat page (public/chat/) and its headers (public/_headers) are served
   // as static files; only /v1/* runs the Worker.
   "assets": {
