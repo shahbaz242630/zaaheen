@@ -203,7 +203,17 @@ reqwest = { version = "=0.12.28", features = ["json", "rustls-tls", "stream"] }
 # answers `server/discover`, no longer waits for `initialized`, and keeps
 # the `initialize` handshake for every older client (3.2.0). No advisory
 # affects 3.x; 3.4.1 still carries the #947 line-reader fix.
-rmcp = "=3.4.1"
+#
+# s121 (2026-11-09): 3.4.1 -> 3.9.0 for three advisories published that day.
+# RUSTSEC-2026-0461 (unbounded tool-name cache in the Streamable HTTP SERVER
+# transport, fixed 3.6.0) is the one in our tree: `zaaheen daemon` serves
+# StreamableHttpService (vault-cli). 0457 (OAuth client SSRF, fixed 3.7.0)
+# needs the `auth` feature, not enabled; 0462 (unbounded response body in the
+# Streamable HTTP CLIENT, fixed 3.9.0) is only in test builds (vault-app and
+# vault-mcp dev-dependencies).
+# Taken all the way to 3.9.0 so none stays ignored. Same 2026-07-28 wire
+# spec as 3.4.1; the stdio and keeper-pipe paths are tested in CI.
+rmcp = "=3.9.0"
 
 # CLI (T0.1.6 Phase C1b — vault-cli operator binary). Exact-pinned per
 # BRD §2.9 from Cargo.lock at first build. `clap` parses subcommands.
