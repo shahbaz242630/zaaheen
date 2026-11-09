@@ -108,6 +108,17 @@ test('a cross-origin read permission is always dropped', () => {
   }
 });
 
+test('llms.txt is kept out of Google search only, never out of other search or AI crawlers', () => {
+  const rules = parse(siteHeaders(ROOT_HT, PAY_HT));
+  assert.deepEqual(rules['/llms.txt'], ['X-Robots-Tag: googlebot: noindex']);
+  // No other rule may add a robots header to it, and no page gets this one.
+  const got = effective(rules, ['/*', '/*.txt', '/llms.txt']);
+  assert.equal(got.get('x-robots-tag'), 'googlebot: noindex');
+  assert.equal(effective(rules, ['/*']).get('x-robots-tag'), undefined);
+  assert.equal(effective(rules, ['/*', '/*.txt']).get('x-robots-tag'), undefined);
+  assert.equal(parse(accountHeaders(ACCOUNT_HT))['/llms.txt'], undefined);
+});
+
 test('the workers.dev test copies are never indexed', () => {
   for (const text of [siteHeaders(ROOT_HT, PAY_HT), accountHeaders(ACCOUNT_HT)]) {
     const rules = parse(text);

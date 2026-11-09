@@ -117,9 +117,18 @@ for (const ua of [
   'Claude-SearchBot/1.0', 'ClaudeBot/1.0; +claudebot@anthropic.com', 'PerplexityBot/1.0',
   'Applebot/0.1; +http://www.apple.com/go/applebot',
 ]) {
-  await expect(`reachable as ${ua.split('/')[0]}`, `${ORIGIN}/`, (r) => (r.status !== 200 ? `HTTP ${r.status}` : ''),
-    { headers: { 'User-Agent': `Mozilla/5.0 (compatible; ${ua})`, 'Cache-Control': 'no-cache' } });
+  for (const path of ['/', '/llms.txt']) {
+    await expect(`${path} reachable as ${ua.split('/')[0]}`, `${ORIGIN}${path}`, (r) => (r.status !== 200 ? `HTTP ${r.status}` : ''),
+      { headers: { 'User-Agent': `Mozilla/5.0 (compatible; ${ua})`, 'Cache-Control': 'no-cache' } });
+  }
 }
+// s121: llms.txt stays out of Google's results only (scripts/cloudflare-files.mjs).
+// A plain "noindex" here would drop it from Bing too, which ChatGPT search and
+// Copilot draw on; the founder's rule is never to block AI apps finding us.
+await expect('llms.txt is kept out of Google search only', `${ORIGIN}/llms.txt`, (r) => {
+  const tag = r.headers.get('x-robots-tag');
+  return r.status !== 200 ? `HTTP ${r.status}` : tag !== 'googlebot: noindex' ? `X-Robots-Tag ${tag}` : '';
+});
 
 // 2b. The security headers arrive exactly as public/.htaccess sets them
 // (live-headers.mjs: Hostinger's CDN was measured replacing a CSP). /pay only

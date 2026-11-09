@@ -118,6 +118,15 @@ function canonicalRedirects(folders) {
   return out;
 }
 
+// llms.txt is for AI apps, not a page for people: after indexing opened (s120)
+// Google listed it as a search result for "zaaheen.com" (founder, s121). Only
+// Google's search is told not to list it. Every crawler can still fetch it
+// (robots.txt allows all), and Bing, which ChatGPT search and Copilot draw on,
+// keeps it (founder: never block AI apps or agents finding us). Cloudflare
+// only: Hostinger is the unserved backup, and a new .htaccess directive there
+// risks a 500 on every path.
+export const LLMS_TXT_ROBOTS = 'X-Robots-Tag: googlebot: noindex';
+
 /**
  * zaaheen.com: the root .htaccess for every path, /pay's own on top of it
  * (null when /pay is not published), and the cache rules of its FilesMatch
@@ -134,6 +143,7 @@ export function siteHeaders(rootHtaccess, payHtaccess) {
   ]));
   lines.push(...block('/_astro/*', ['! Cache-Control', 'Cache-Control: public, max-age=31536000, immutable']));
   lines.push(...charsetRules(rootHtaccess));
+  lines.push(...block('/llms.txt', [LLMS_TXT_ROBOTS]));
   if (payHtaccess !== null) {
     const rootNames = new Set(root.map(([n]) => n.toLowerCase()));
     const pay = alwaysSet(payHtaccess);
