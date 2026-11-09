@@ -27,7 +27,8 @@
 //! any more; ADR-SEC-032.)
 //!
 //! **Deny by default.** The `match` names every `ClientRequest` variant rmcp
-//! 3.4.1 has. rmcp 3 made the enum `#[non_exhaustive]`, so the one catch-all
+//! 3.9.0 has (re-read s121: 3.9.0 added the skills and resource-directory
+//! requests, all three asking). rmcp 3 made the enum `#[non_exhaustive]`, so the one catch-all
 //! arm the compiler now requires sends any future kind to [`Kind::Other`]:
 //! asked, and refused while locked. §6.1's "a future rmcp variant fails to
 //! compile" became "a future variant fails closed" (ADR-SEC-032), and the
@@ -330,12 +331,18 @@ fn classify(request: &ClientRequest) -> Kind {
         | ClientRequest::GetTaskRequest(_)
         | ClientRequest::UpdateTaskRequest(_)
         | ClientRequest::CancelTaskRequest(_)
+        // rmcp 3.9.0 (s121): skills and resource directories. We serve
+        // neither, so these ask and are refused while locked like every
+        // other non-tool request; never Open, though `skills/list` is a list.
+        | ClientRequest::ListSkillsRequest(_)
+        | ClientRequest::GetSkillRequest(_)
+        | ClientRequest::ReadResourceDirectoryRequest(_)
         | ClientRequest::CustomRequest(_) => Kind::Other,
         // rmcp 3 marks `ClientRequest` `#[non_exhaustive]`, so the compiler
         // insists on this arm and a new variant no longer fails to compile
         // here (§6.1's alarm; ADR-SEC-032). It fails CLOSED instead: an
         // unknown kind asks the check and is refused while locked. Every kind
-        // rmcp 3.4.1 has is still named above, and the exact `=3.4.1` pin
+        // rmcp 3.9.0 has is still named above, and the exact `=3.9.0` pin
         // means a new one arrives only through an upgrade that re-reads this
         // list (`the_gate_names_every_request_kind_and_fails_closed_on_new_ones`).
         _ => Kind::Other,
