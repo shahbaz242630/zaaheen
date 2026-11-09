@@ -119,6 +119,39 @@ ignore = [
     "RUSTSEC-2026-0391", # zstd -- abandoned stream leaks into the next
     "RUSTSEC-2026-0398", # zstd-safe -- Seekable::decompress set_len past capacity
     "RUSTSEC-2026-0403", # zstd-safe -- legacy-frame error exposes uninit memory
+
+    # -- SQLite < 3.54.0, wal page-size mismatch (triaged 2026-11-09, s121) --
+    # A crafted database + sibling `-wal` with differing page sizes can make
+    # queries return stale page-cache memory. Local vector: the victim must
+    # open files a less trusted party wrote. Our only SQLite is SQLCipher
+    # (rusqlite `bundled-sqlcipher-vendored-openssl` -> libsqlite3-sys 0.30.1,
+    # vault-storage). Every open (metadata_store.rs, graph_store.rs legacy
+    # read) is the vault's own file under the vault folder, written by our
+    # keeper; we import or open no database from outside the vault. Planting
+    # a crafted pair there needs write access to the vault folder, which
+    # already beats the app (same reasoning as zstd 0403 above).
+    # NOT fixable by upgrading: per the advisory, libsqlite3-sys 0.39.x with
+    # `bundled-sqlcipher` uses sqlcipher-src =419.0.6, which bundles SQLite
+    # 3.53.4 and is still affected. Resolved when a SQLCipher release bundles
+    # SQLite >= 3.54.0: then move rusqlite (0.41+) and drop this. Re-triage at
+    # once if the app ever opens or restores a database file from elsewhere
+    # (a backup import, sync, or a vault handed over by another person).
+    "RUSTSEC-2026-0459", # libsqlite3-sys -- bundled SQLite wal page-size leak
+
+    # -- zip: extract aborts on a symlink entry (triaged 2026-11-09, s121) ---
+    # The fourth extraction flaw in zip < 9.0.0; same users and the same
+    # reasoning as the zip block above (0367-0369): we never call extract on
+    # any archive, and duckdb's build pins zip "6". Drop with those.
+    "RUSTSEC-2026-0429", # zip -- extract aborts the process on a large symlink
+
+    # -- pin-utils 0.1.0: unmaintained (triaged 2026-11-09, s121) ------------
+    # A notice, not a flaw; no successor version exists. Arrives only through
+    #   aws-smithy-http -> aws-config -> lance-io -> lance -> lancedb ->
+    #   vault-storage,
+    # the cloud object-store path we compile but never run (see the reqsign
+    # block above). It is a pair of pinning macros with no I/O. Drop when
+    # lance's AWS chain stops pulling it.
+    "RUSTSEC-2026-0441", # pin-utils -- unmaintained, no safe upgrade
 ]
 
 [licenses]

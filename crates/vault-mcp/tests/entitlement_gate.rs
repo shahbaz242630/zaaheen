@@ -1227,7 +1227,7 @@ async fn a_refused_call_is_logged_with_its_reason_and_without_its_arguments() {
 
 /// §6.1 as amended by ADR-SEC-032. rmcp 3 made `ClientRequest`
 /// `#[non_exhaustive]`, so "a future rmcp variant fails to compile" is no
-/// longer possible. What holds instead: every variant rmcp 3.4.1 has is named,
+/// longer possible. What holds instead: every variant rmcp 3.9.0 has is named,
 /// the one catch-all the compiler requires fails CLOSED (asks, refused while
 /// locked), and the exact version pin keeps a new variant from arriving
 /// without an upgrade that re-reads this list.
@@ -1263,6 +1263,10 @@ fn the_gate_names_every_request_kind_and_fails_closed_on_new_ones() {
         "GetTaskRequest",
         "UpdateTaskRequest",
         "CancelTaskRequest",
+        // rmcp 3.9.0 (s121): re-read on the upgrade, all three ask.
+        "ListSkillsRequest",
+        "GetSkillRequest",
+        "ReadResourceDirectoryRequest",
         "CustomRequest",
     ] {
         assert!(
@@ -1272,7 +1276,7 @@ fn the_gate_names_every_request_kind_and_fails_closed_on_new_ones() {
     }
     let workspace = include_str!("../../../Cargo.toml");
     assert!(
-        workspace.contains("rmcp = \"=3.4.1\""),
+        workspace.contains("rmcp = \"=3.9.0\""),
         "a new rmcp may add request kinds: re-read the gate's list when this pin moves"
     );
 }

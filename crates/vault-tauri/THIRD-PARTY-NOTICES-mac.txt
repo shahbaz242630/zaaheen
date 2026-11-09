@@ -2312,8 +2312,8 @@ Used by:
   lance 4.0.0 <https://github.com/lance-format/lance>
   lancedb 0.27.2 <https://github.com/lancedb/lancedb>
   object_store_opendal 0.55.0 <https://github.com/apache/opendal>
-  rmcp-macros 3.4.1 <https://github.com/modelcontextprotocol/rust-sdk/>
-  rmcp 3.4.1 <https://github.com/modelcontextprotocol/rust-sdk/>
+  rmcp-macros 3.9.0 <https://github.com/modelcontextprotocol/rust-sdk/>
+  rmcp 3.9.0 <https://github.com/modelcontextprotocol/rust-sdk/>
   ryu 1.0.23 <https://github.com/dtolnay/ryu>
   sync_wrapper 1.0.2 <https://github.com/Actyx/sync_wrapper>
 
