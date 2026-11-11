@@ -81,6 +81,9 @@ export const GET: APIRoute = () => {
     '- Cancel any time in the app: Settings, then Account, then "Cancel subscription". A payment is refunded in full if asked within 14 days of it, once per person.',
     `- Tested with: ${verifiedAppList()}. Other apps that support MCP should work the same way.`,
     '- Delete everything: one button destroys the encryption key and the files, leaving what remains on disk unreadable.',
+    // Founder s122: Google's AI called Zaaheen closed source. The code is public
+    // to read and review (the repo's LICENSE), not open source: no running a copy.
+    '- Public code: the source is published at https://github.com/shahbaz242630/zaaheen so anyone can read how memories are encrypted and check that nothing sends them anywhere. It is for reading and security review, not open source: the licence does not allow running or sharing your own version.',
     '- Linux and phones: not available yet.',
     '',
     // What a connected app gets, by the server's own tool names (SEO audit,
