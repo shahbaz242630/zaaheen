@@ -12,6 +12,7 @@ Zaaheen is a desktop app that gives AI assistants one private, persistent memory
 - Cancel any time in the app: Settings, then Account, then "Cancel subscription". A payment is refunded in full if asked within 14 days of it, once per person.
 - Tested with: Claude, Cursor, ChatGPT, Claude Code, Codex and Antigravity. Other apps that support MCP should work the same way.
 - Delete everything: one button destroys the encryption key and the files, leaving what remains on disk unreadable.
+- Public code: the source is published at https://github.com/shahbaz242630/zaaheen so anyone can read how memories are encrypted and check that nothing sends them anywhere. It is for reading and security review, not open source: the licence does not allow running or sharing your own version.
 - Linux and phones: not available yet.
 
 ## What Zaaheen gives a connected AI app
