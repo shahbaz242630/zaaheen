@@ -1,0 +1,139 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../data/site';
+
+// Learn comparison page 6 (s122; founder: Google's AI named Membase among
+// Zaaheen's competitors). Rules: see ai-memory-apps-compared.astro and
+// data/pricing.ts. English only for now (not in i18n TRANSLATED). Facts read
+// on 2026-11-11:
+// - membase.com: "the memory layer for AI agents and the people who use them";
+//   built by Unibase, "not affiliated with membase.so"; Chrome extension for
+//   ChatGPT, Claude, Gemini, Grok, DeepSeek and Kimi; Claude Code, Cursor and
+//   Codex through its MCP server; desktop "Coming soon"; "The hosted service
+//   is not end-to-end encrypted"; SDKs, CLI and MCP server on GitHub, "The core
+//   memory engine is proprietary and ships as a compiled package". No prices.
+// - membase.com/privacy (updated 2026-11-09): "Data is stored and processed on
+//   Amazon Web Services in Singapore (ap-southeast-1)"; content is sent to "the
+//   model provider we use (currently OpenAI)"; "encrypted at rest".
+// - github.com/unibaseio/membase: local mode `pip install
+//   'unibaseio-membase[local]'`, "Python 3.12 or 3.13 · needs OPENAI_API_KEY",
+//   memory in ~/.membase; MIT for the SDK, the compiled engine under its own
+//   Unibase licence; 140 stars.
+// Chart: the 2026-06-05 Cursor test, as on the other comparison pages.
+const CHECKED = '11 November 2026';
+const OUTLINE = [
+  { id: 'what', title: 'What Membase is' },
+  { id: 'differ', title: 'Where Zaaheen differs' },
+  { id: 'table', title: 'Side by side' },
+  { id: 'better', title: 'Where Membase is the better choice' },
+  { id: 'limits', title: 'Where Zaaheen falls short' },
+];
+const MB_HOME = 'https://membase.com/';
+const MB_PRIVACY = 'https://membase.com/privacy';
+const MB_GITHUB = 'https://github.com/unibaseio/membase';
+---
+<Learn
+  path="/learn/membase-alternative/"
+  lede="Membase is a hosted memory for AI apps and agents, with a browser extension, an MCP server and tools for developers. Its own site says the hosted service is not end-to-end encrypted. If you want one memory for ChatGPT, Claude and Cursor that stays encrypted on your own computer and needs no API key, Zaaheen is built for that instead."
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>What Membase is</h2>
+    <p>This page is about Membase at membase.com, made by a company called Unibase. A different
+       product, at membase.so, also uses the name; the two are not connected
+       (<a href={MB_HOME}>Membase's site</a>).</p>
+    <p>Membase builds one long-term memory from your chats and files. Its browser extension works
+       with ChatGPT, Claude, Gemini, Grok, DeepSeek and Kimi in Chrome, and Claude Code, Cursor and
+       Codex connect through its MCP server. Developers can also use it from code. A desktop app is
+       listed as coming soon (<a href={MB_HOME}>its home page</a>).</p>
+    <p>Your memory is kept on Membase's service, which its privacy policy says runs on Amazon Web
+       Services in Singapore, and the relevant parts of what you save are sent to its AI provider,
+       currently OpenAI (<a href={MB_PRIVACY}>its privacy policy</a>). There is also a local mode for
+       people who use Python, which keeps the memory in a folder on your computer but needs your own
+       OpenAI API key (<a href={MB_GITHUB}>its GitHub page</a>).</p>
+  </section>
+
+  <section id="differ">
+    <h2>Where Zaaheen differs</h2>
+    <ul>
+      <li><strong>Encrypted on your computer, by default.</strong> Zaaheen keeps your memories
+          encrypted on your own computer, and our servers never receive them. Membase's hosted
+          service, its default, is not end-to-end encrypted, in its own words.</li>
+      <li><strong>No API key, no outside AI service.</strong> Zaaheen runs its own AI models on your
+          computer, so your memories are never sent to an AI company to be sorted or searched.
+          Membase's local mode still needs an OpenAI key.</li>
+      <li><strong>A finished app for Windows and Mac.</strong> Zaaheen installs like any other app,
+          and you connect each AI app from its Agents tab. Membase's desktop app is not out yet.</li>
+      <li><strong>Code you can read.</strong> All of Zaaheen's code is public to read, so anyone can
+          check how your memories are handled. Membase publishes its tools, but its memory engine
+          ships as a closed, compiled package.</li>
+    </ul>
+
+    <MemoryFlow
+      id="flow-membase"
+      from="Claude"
+      to="Cursor"
+      fact="Prefers TypeScript"
+      others={['ChatGPT', 'Codex']}
+      caption="Something you tell Claude is saved once to the encrypted memory on your computer, and Cursor and your other apps can recall it later."
+    />
+  </section>
+
+  <section id="table">
+    <h2>Side by side</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">Membase</th><th scope="col">Zaaheen</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Where memories are kept</th><td>Its hosted service in Singapore; or a local folder with the Python local mode</td><td>Your computer, encrypted</td></tr>
+        <tr><th scope="row">Encryption</th><td>Encrypted at rest; the hosted service is not end-to-end encrypted, in its own words</td><td>Encrypted on your computer; our servers never receive your memories</td></tr>
+        <tr><th scope="row">Sorted and searched by</th><td>OpenAI, hosted or local</td><td>AI models running on your computer</td></tr>
+        <tr><th scope="row">Setup</th><td>Browser extension, MCP server, or Python for local mode</td><td>An installer, then connect each app</td></tr>
+        <tr><th scope="row">Desktop app</th><td>Coming soon</td><td>Windows and Mac</td></tr>
+        <tr><th scope="row">Price</th><td>No prices on its site when we checked</td><td>{TRIAL.days} days free, then ${PRICES.monthly} a month or ${PRICES.yearly} a year</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">As of {CHECKED}, from Membase's own pages, and may change. Check the
+       links above for the latest.</p>
+    <p>What matters most in any memory is whether the right answer comes back, and whether the app
+       admits it when the memory doesn't hold one. We asked Cursor five questions about facts another
+       app had saved to a shared Zaaheen memory.</p>
+
+    <BarChart
+      id="chart-membase-cursor"
+      title="5 questions to Cursor about facts saved by another app"
+      measure="Questions"
+      max={5}
+      bars={[
+        { label: 'Recalled the fact', value: 3, note: 'of 5' },
+        { label: "Said it didn't know", value: 1, note: 'of 5' },
+        { label: 'Avoided the trick', value: 1, note: 'of 5' },
+      ]}
+      source={{ text: "Zaaheen's own test, 5 June 2026, a development version of Zaaheen on Windows. Didn't know, correctly: a blood type the memory didn't hold. The trick: asked about the person's cat, it said they have a dog." }}
+    />
+  </section>
+
+  <section id="better">
+    <h2>Where Membase is the better choice</h2>
+    <p>If you mostly use AI in a web browser, Membase's extension reaches ChatGPT, Gemini, Grok and
+       others there, which Zaaheen doesn't. It can also build memory from files and pages you save,
+       and developers get an API and tools to build with. And if you're happy for your memory to live
+       online, it follows you to any computer.</p>
+  </section>
+
+  <section id="limits">
+    <h2>Where Zaaheen falls short</h2>
+    <ul>
+      <li>It runs on Windows and on Macs with Apple chips only, with no Linux or phone version.</li>
+      <li>ChatGPT connects through the ChatGPT app for your computer, not in a web browser.</li>
+      <li>Your memory lives on one computer; there is no sync between computers yet.</li>
+      <li>It isn't open source, and after the {TRIAL.days}-day trial there is no free plan.</li>
+    </ul>
+    <p class="learn-note">Membase is a name of its owner. We have no link with Membase or Unibase.
+       Facts checked on {CHECKED}; if anything here is wrong or out of date, tell us at
+       <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> and we'll correct it.</p>
+  </section>
+</Learn>

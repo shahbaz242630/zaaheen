@@ -98,6 +98,16 @@ export default {
     summary:
       'MemoryPlugin llega a más de 21 herramientas de IA desde su propio servicio. Cuándo importa más guardar los recuerdos en tu computadora.',
   },
+  // s122: the page itself is English only (not in TRANSLATED); the hubs list it.
+  '/learn/membase-alternative/': {
+    crumb: 'Alternativa a Membase',
+    heading: 'Una alternativa a Membase que guarda tu memoria cifrada en tu computadora',
+    title: 'Alternativa a Membase: cifrada en tu computadora · Zaaheen',
+    description:
+      'Membase guarda la memoria en su servicio, que según Membase no tiene cifrado de extremo a extremo. En qué se diferencia Zaaheen y dónde es mejor cada uno.',
+    summary:
+      'Membase guarda la memoria en su servicio en Singapur, ordenada por OpenAI. Cuándo te conviene más una app cifrada en tu propia computadora.',
+  },
   '/learn/best-memory-mcp-server-for-claude-code/': {
     crumb: 'Servidores de memoria para Claude Code',
     heading: '¿Qué servidor MCP de memoria usar con Claude Code?',

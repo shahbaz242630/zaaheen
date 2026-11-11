@@ -98,6 +98,16 @@ export default {
     summary:
       'MemoryPlugin erreicht 21+ KI-Tools von seinem eigenen Dienst aus. Wann es wichtiger ist, Erinnerungen auf deinem Computer zu behalten.',
   },
+  // s122: the page itself is English only (not in TRANSLATED); the hubs list it.
+  '/learn/membase-alternative/': {
+    crumb: 'Membase-Alternative',
+    heading: 'Eine Membase-Alternative, die dein Gedächtnis verschlüsselt auf deinem Computer behält',
+    title: 'Membase-Alternative: verschlüsselt auf deinem Computer · Zaaheen',
+    description:
+      'Membase hält das Gedächtnis auf seinem Dienst, der laut Membase nicht Ende-zu-Ende-verschlüsselt ist. Wie Zaaheen sich unterscheidet und wo welches besser ist.',
+    summary:
+      'Membase speichert das Gedächtnis auf seinem Dienst in Singapur, sortiert von OpenAI. Wann eine verschlüsselte App auf deinem Computer besser passt.',
+  },
   '/learn/best-memory-mcp-server-for-claude-code/': {
     crumb: 'Gedächtnis-Server für Claude Code',
     heading: 'Welchen Gedächtnis-MCP-Server solltest du mit Claude Code nutzen?',

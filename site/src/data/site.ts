@@ -656,6 +656,15 @@ export const PAGES: PageEntry[] = [
       'Obsidian is notes you write; a memory app is written by your AI apps as you talk. What each is good at, what they cost, and using both.',
     sources: ['src/pages/learn/obsidian-vs-ai-memory-app.astro', 'src/layouts/Learn.astro'],
   },
+  {
+    path: '/learn/membase-alternative/',
+    crumb: 'Membase alternative',
+    heading: 'A Membase alternative that keeps your memory encrypted on your computer',
+    title: 'Membase alternative: encrypted on your computer · Zaaheen',
+    description:
+      'Membase keeps memory on its hosted service, which it says is not end-to-end encrypted. How Zaaheen differs, and where each one is better.',
+    sources: ['src/pages/learn/membase-alternative.astro', 'src/layouts/Learn.astro'],
+  },
 ];
 
 // The Learn articles, newest last, for the /learn/ hub and the "People also
@@ -733,6 +742,11 @@ export const LEARN: readonly LearnArticle[] = [
     summary: 'Notes you write versus a memory your AI apps write as you talk. What each is good at, the cost, and using both.',
     related: ['/learn/ai-memory-tool-or-notes-file/', '/learn/ai-memory-apps-compared/'],
   },
+  {
+    path: '/learn/membase-alternative/',
+    summary: 'Membase keeps memory on its service in Singapore, sorted by OpenAI. When an encrypted app on your own computer suits you better.',
+    related: ['/learn/ai-memory-apps-compared/', '/learn/supermemory-alternative/'],
+  },
 ];
 
 // The comparison pages (s94), listed under the Pricing page's comparison table,
@@ -743,6 +757,7 @@ export const COMPARE_PAGES = [
   { path: '/learn/mem0-alternative/', label: 'Mem0' },
   { path: '/learn/supermemory-alternative/', label: 'Supermemory' },
   { path: '/learn/memoryplugin-alternative/', label: 'MemoryPlugin' },
+  { path: '/learn/membase-alternative/', label: 'Membase' },
   { path: '/learn/best-memory-mcp-server-for-claude-code/', label: 'Memory servers for Claude Code' },
   { path: '/learn/obsidian-vs-ai-memory-app/', label: 'Obsidian' },
 ] as const;
