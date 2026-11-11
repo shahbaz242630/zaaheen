@@ -84,9 +84,14 @@ pub const ROTATE_AT_BYTES: u64 = 5 * 1024 * 1024;
 /// could not tell when the keeper's ranking model finished loading, because
 /// its load and warm-up lines were filtered out. They carry no memory text
 /// (static messages; every span on that crate skips its text arguments).
+///
+/// The two shipped programs log under their BINARY names, `zaaheen` and
+/// `zaaheen_maintenance` (vault-cli has no library, so `vault_cli` matches
+/// nothing; s122). Pinned against vault-cli's manifest by
+/// `the_filter_covers_the_windowless_maintenance_path`.
 pub const DEFAULT_FILTER: &str = "warn,vault_app=info,vault_tauri=info,vault_storage=info,\
                                   vault_retrieval=info,vault_consolidator=info,vault_mcp=info,\
-                                  vault_scheduler=info,vault_cli=info,vault_maintenance=info,\
+                                  vault_scheduler=info,zaaheen=info,zaaheen_maintenance=info,\
                                   vault_embedding=info";
 
 /// Environment variable that redirects a console binary's logs into the shared
@@ -289,12 +294,52 @@ mod tests {
         // only output. If these two are filtered out, a nightly failure leaves
         // no trace anywhere -- which is the situation ADR-SEC-014 existed to
         // end.
-        for crate_name in ["vault_cli", "vault_maintenance"] {
+        //
+        // s122: this test used to name the CRATE (`vault_cli`) and a made-up
+        // `vault_maintenance`. An event's target is the BINARY's crate name
+        // (`zaaheen`, `zaaheen_maintenance`: vault-cli has no library), so
+        // every info line of both programs was dropped, including "maintenance
+        // is paused until the subscription is active" -- the founder's locked
+        // laptop logged nothing about why the nightly run stopped. Read the
+        // binary names from vault-cli's own manifest, so a rename cannot
+        // silently do this again.
+        let manifest = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../vault-cli/Cargo.toml"
+        ))
+        .expect("read vault-cli's manifest");
+        let bins = bin_names(&manifest);
+        assert_eq!(
+            bins,
+            ["zaaheen", "zaaheen-maintenance"],
+            "vault-cli's programs changed: check this filter covers them"
+        );
+        for bin in bins {
+            let target = bin.replace('-', "_");
             assert!(
-                DEFAULT_FILTER.contains(&format!("{crate_name}=info")),
-                "{crate_name} must log at info -- it is the unattended path"
+                DEFAULT_FILTER
+                    .split(',')
+                    .any(|d| d.trim() == format!("{target}=info")),
+                "{target} must log at info -- it is the unattended path"
             );
         }
+    }
+
+    /// The `name` of every `[[bin]]` table, in order.
+    fn bin_names(manifest: &str) -> Vec<String> {
+        let mut names = Vec::new();
+        let mut in_bin = false;
+        for line in manifest.lines().map(str::trim) {
+            if line.starts_with('[') {
+                in_bin = line == "[[bin]]";
+            } else if in_bin {
+                if let Some(value) = line.strip_prefix("name") {
+                    let value = value.trim_start().trim_start_matches('=').trim();
+                    names.push(value.trim_matches('"').to_owned());
+                }
+            }
+        }
+        names
     }
 
     #[test]
