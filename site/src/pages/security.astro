@@ -18,6 +18,7 @@ const OUTLINE: Outline[] = [
     { id: 'key', title: 'The key never leaves your computer' },
     { id: 'local-only', title: 'Only apps on your computer can connect' },
     { id: 'erase', title: 'Delete everything means everything' },
+    { id: 'code', title: 'Anyone can read our code' },
   ] },
   { id: 'online', title: 'Online', topics: [
     { id: 'sign-in', title: 'Signing in' },
@@ -31,6 +32,11 @@ const OUTLINE: Outline[] = [
 const topic = (id: string) =>
   OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
 const mail = `mailto:${COMPANY.email}`;
+// The public repository (founder, s122: Google's AI called Zaaheen closed
+// source, "users have to blindly trust it"). The repo's LICENSE: "published so
+// that anyone can see how Zaaheen handles their memories"; read and review
+// only, never build, run or share.
+const CODE_URL = 'https://github.com/shahbaz242630/zaaheen';
 const lede = `${SITE.name} is built so that your memories are safe even if something goes wrong at our end, because they are never there. Here is how it protects them.`;
 ---
 <Policy path="/security/" heading="Security" lede={lede} outline={OUTLINE}>
@@ -41,6 +47,7 @@ const lede = `${SITE.name} is built so that your memories are safe even if somet
     <li>Our server holds no memories, so a break-in there could not expose them.</li>
     <li><em>Delete everything</em> destroys the key, so the encrypted files can never be
         unlocked again, even from a backup of your computer.</li>
+    <li>Our code is public, so you do not have to take our word for any of this.</li>
   </ul>
 
   <section id="computer" class="docs-section">
@@ -73,6 +80,14 @@ const lede = `${SITE.name} is built so that your memories are safe even if somet
          key, any encrypted copy of those files left on the disk or in a backup of your computer
          can never be unlocked again. Files you saved with <em>Download my memories</em> are
          readable copies that are not affected, so delete them yourself.</p>
+    </Row>
+
+    <Row id="code" title={topic('code')} where="Public code">
+      <p>{SITE.name}'s code is public at <a href={CODE_URL}>{CODE_URL.replace('https://', '')}</a>,
+         so anyone can read exactly how your memories are encrypted and check that nothing sends
+         them anywhere. It is published to be read and checked, including by security
+         researchers, not copied: its licence does not allow running or sharing your own
+         version.</p>
     </Row>
   </section>
 
