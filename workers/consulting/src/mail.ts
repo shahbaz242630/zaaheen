@@ -2,17 +2,23 @@
 // Graph sendMail with an app-only token. The app registration holds only
 // Mail.Send, and an Exchange Application Access Policy limits it to the
 // consulting@ mailbox, so these credentials can send as nobody else.
-// Plain text, a fixed subject, JSON fields only: nothing typed by the
-// visitor reaches a mail header. Failures log a reason and a status code,
-// never the enquiry.
+// Plain text, fixed subjects, JSON fields only: nothing typed by the visitor
+// reaches a mail header, and the visitor's message is quoted line by line
+// between fixed markers, so it cannot pose as our own lines. Failures log a
+// reason and a status code, never the enquiry. Alerts carry counts only.
 import type { Fetcher } from "./gate";
 import type { Enquiry } from "./validate";
 
 export const MAILBOX = "consulting@zaaheen.com";
 export const GRAPH_SEND = `https://graph.microsoft.com/v1.0/users/${MAILBOX}/sendMail`;
 export const SUBJECT = "New enquiry: AI Opportunity Assessment";
-/** Emails a day at most; enquiries above it are stored and read from the database. */
+export const CAP_SUBJECT = "Enquiry emails paused for today";
+export const NIGHTLY_SUBJECT = "Enquiries waiting in the database";
+/** Enquiry emails a day at most; enquiries above it are stored and read from the database. */
 export const MAIL_DAILY_CAP = 50;
+
+export const MESSAGE_START = "----- Message typed by the visitor (each line starts with >) -----";
+export const MESSAGE_END = "----- End of the visitor's message -----";
 
 export const tokenUrl = (tenant: string) =>
   `https://login.microsoftonline.com/${encodeURIComponent(tenant)}/oauth2/v2.0/token`;
@@ -36,6 +42,7 @@ const COUNTRY_NAMES: Record<Enquiry["country"], string> = {
 export function mailText(id: number, e: Enquiry, receivedAt: number): string {
   return [
     `Enquiry #${id}, received ${new Date(receivedAt).toISOString()}`,
+    "They agreed to be contacted about this enquiry. Reply to this email to answer them.",
     "",
     `Name: ${e.name}`,
     `Company: ${e.company}`,
@@ -46,15 +53,29 @@ export function mailText(id: number, e: Enquiry, receivedAt: number): string {
     `Departments: ${e.departments.length ? e.departments.join(", ") : "not stated"}`,
     `Updates by email: ${e.marketingConsent ? "yes" : "no"}`,
     "",
-    "Message:",
-    e.message || "(none)",
-    "",
-    "They agreed to be contacted about this enquiry. Reply to this email to answer them.",
+    MESSAGE_START,
+    ...(e.message ? e.message.split("\n").map((l) => `> ${l}`) : ["> (none)"]),
+    MESSAGE_END,
   ].join("\n");
 }
 
-/** True when Microsoft accepted the email. Never throws. */
-export async function sendEnquiryMail(env: MailEnv, fetcher: Fetcher, id: number, e: Enquiry, receivedAt: number): Promise<boolean> {
+export function capAlertText(cap: number): string {
+  return [
+    `Today's limit of ${cap} enquiry emails has been reached.`,
+    "Further enquiries today are stored in the enquiry database but not emailed.",
+    "Read them there, and check whether the form is being flooded.",
+  ].join("\n");
+}
+
+export function nightlyAlertText(unmailed: number, storedYesterday: number, storedCap: number): string {
+  const lines = [`Enquiries in the last 24 hours that were not emailed: ${unmailed}. Read them in the enquiry database.`];
+  if (storedYesterday >= storedCap) lines.push(`Yesterday the form reached its limit of ${storedCap} enquiries; later visitors were asked to email us.`);
+  lines.push("A failed email often means the mail credential has expired: check its expiry date.");
+  return lines.join("\n");
+}
+
+/** One plain-text email to consulting@. True when Microsoft accepted it. Never throws. */
+export async function sendMail(env: MailEnv, fetcher: Fetcher, subject: string, text: string, replyTo?: string): Promise<boolean> {
   try {
     const tokenResponse = await fetcher(tokenUrl(env.MS_TENANT_ID), {
       method: "POST",
@@ -81,10 +102,10 @@ export async function sendEnquiryMail(env: MailEnv, fetcher: Fetcher, id: number
       headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         message: {
-          subject: SUBJECT,
-          body: { contentType: "Text", content: mailText(id, e, receivedAt) },
+          subject,
+          body: { contentType: "Text", content: text },
           toRecipients: [{ emailAddress: { address: MAILBOX } }],
-          replyTo: [{ emailAddress: { address: e.email } }],
+          ...(replyTo ? { replyTo: [{ emailAddress: { address: replyTo } }] } : {}),
         },
         saveToSentItems: false,
       }),
@@ -98,4 +119,8 @@ export async function sendEnquiryMail(env: MailEnv, fetcher: Fetcher, id: number
     console.warn("consulting_mail_failed", "network");
     return false;
   }
+}
+
+export function sendEnquiryMail(env: MailEnv, fetcher: Fetcher, id: number, e: Enquiry, receivedAt: number): Promise<boolean> {
+  return sendMail(env, fetcher, SUBJECT, mailText(id, e, receivedAt), e.email);
 }

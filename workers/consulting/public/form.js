@@ -15,6 +15,7 @@
     received: "Thank you. We have your enquiry and will call you within one working day.",
     challenge: "We could not confirm you are a person. Please try again.",
     failed: "Something went wrong. Please try again, or email consulting@zaaheen.com.",
+    limit: "We can't take more enquiries from here today. Please email consulting@zaaheen.com and we'll reply.",
   };
 
   let widget = null;
@@ -87,7 +88,8 @@
         form.parentElement.insertBefore(Object.assign(document.createElement("p"), { className: "done", textContent: TEXT.received }), form);
         return;
       }
-      status.textContent = result.kind === "challenge" ? TEXT.challenge : TEXT.failed;
+      status.textContent =
+        result.kind === "challenge" ? TEXT.challenge : result.kind === "limit" ? TEXT.limit : TEXT.failed;
     } catch {
       status.textContent = TEXT.failed;
     } finally {

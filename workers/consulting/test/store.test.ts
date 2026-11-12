@@ -9,7 +9,24 @@ const NOW = Date.UTC(2026, 10, 12, 12, 0, 0);
 
 beforeEach(async () => {
   await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
-  await env.DB.batch([env.DB.prepare("DELETE FROM enquiries"), env.DB.prepare("DELETE FROM daily_mail")]);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM enquiries"),
+    env.DB.prepare("DELETE FROM daily_mail"),
+    env.DB.prepare("DELETE FROM visitor_counts"),
+    env.DB.prepare("DELETE FROM daily_counts"),
+  ]);
+});
+
+describe("counts", () => {
+  it("are kept for today only", async () => {
+    await env.DB.prepare("INSERT INTO visitor_counts (day, visitor, n) VALUES ('2026-11-11', 'a', 1), ('2026-11-12', 'b', 1)").run();
+    await env.DB.prepare("INSERT INTO daily_counts (day, kind, n) VALUES ('2026-11-11', 'stored', 3), ('2026-11-12', 'stored', 1)").run();
+    await sweep(env.DB, NOW);
+    const v = await env.DB.prepare("SELECT day FROM visitor_counts").all<{ day: string }>();
+    const d = await env.DB.prepare("SELECT day FROM daily_counts").all<{ day: string }>();
+    expect(v.results.map((r) => r.day)).toEqual(["2026-11-12"]);
+    expect(d.results.map((r) => r.day)).toEqual(["2026-11-12"]);
+  });
 });
 
 describe("sweep", () => {

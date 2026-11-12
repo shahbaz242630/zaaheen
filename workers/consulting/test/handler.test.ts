@@ -5,13 +5,16 @@
 import { applyD1Migrations, env } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_BODY_BYTES, ORIGIN, handleEnquiry, type EnquiryEnv, type Deps } from "../src/handler";
-import { GRAPH_SEND, MAILBOX, MAIL_DAILY_CAP, tokenUrl } from "../src/mail";
+import { CAP_SUBJECT, GRAPH_SEND, MAILBOX, MAIL_DAILY_CAP, MESSAGE_END, MESSAGE_START, SUBJECT, tokenUrl } from "../src/mail";
 import { SITEVERIFY } from "../src/gate";
+import { DAILY_STORED, PER_VISITOR_DAILY } from "../src/store";
 import { GOOD } from "./fixtures";
 
 const NOW = Date.UTC(2026, 10, 12, 12, 0, 0);
+const DAY = "2026-11-12";
 const SECRETS = {
   TURNSTILE_SECRET: "test-only-turnstile",
+  VISITOR_KEY_SECRET: "test-only-visitor",
   MS_TENANT_ID: "test-only-tenant",
   MS_CLIENT_ID: "test-only-client",
   MS_CLIENT_SECRET: "test-only-secret",
@@ -59,8 +62,23 @@ async function rows() {
 
 beforeEach(async () => {
   await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
-  await env.DB.batch([env.DB.prepare("DELETE FROM enquiries"), env.DB.prepare("DELETE FROM daily_mail")]);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM enquiries"),
+    env.DB.prepare("DELETE FROM daily_mail"),
+    env.DB.prepare("DELETE FROM visitor_counts"),
+    env.DB.prepare("DELETE FROM daily_counts"),
+  ]);
 });
+
+function sentMails(calls: { url: string; init: RequestInit | undefined }[]) {
+  return calls
+    .filter((c) => c.url === GRAPH_SEND)
+    .map((c) => (JSON.parse(String(c.init?.body)) as { message: { subject: string; body: { content: string }; replyTo?: unknown } }).message);
+}
+
+async function mailCount(): Promise<number | undefined> {
+  return (await env.DB.prepare("SELECT n FROM daily_mail WHERE day = ?").bind(DAY).first<{ n: number }>())?.n;
+}
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -196,13 +214,103 @@ describe("a good enquiry", () => {
   });
 
   it("stops emailing above the daily cap but keeps storing", async () => {
-    const day = new Date(NOW).toISOString().slice(0, 10);
-    await env.DB.prepare("INSERT INTO daily_mail (day, n) VALUES (?, ?)").bind(day, MAIL_DAILY_CAP).run();
+    await env.DB.prepare("INSERT INTO daily_mail (day, n) VALUES (?, ?)").bind(DAY, MAIL_DAILY_CAP + 1).run();
     const { deps, enquiryEnv, calls } = setup();
     const res = await handleEnquiry(post(GOOD), enquiryEnv, deps);
     expect(res.status).toBe(200);
     expect(calls.some((c) => c.url === GRAPH_SEND)).toBe(false);
     expect((await rows())[0]?.mailed).toBe(0);
+  });
+
+  it("sends exactly one cap alert, with no enquiry details, when the cap is first crossed", async () => {
+    await env.DB.prepare("INSERT INTO daily_mail (day, n) VALUES (?, ?)").bind(DAY, MAIL_DAILY_CAP).run();
+    const { deps, enquiryEnv, calls } = setup();
+    expect((await handleEnquiry(post(GOOD), enquiryEnv, deps)).status).toBe(200);
+    expect((await handleEnquiry(post(GOOD, { "CF-Connecting-IP": "192.0.2.2" }), enquiryEnv, deps)).status).toBe(200);
+    const mails = sentMails(calls);
+    expect(mails).toHaveLength(1);
+    expect(mails[0]?.subject).toBe(CAP_SUBJECT);
+    expect(mails[0]?.replyTo).toBeUndefined();
+    for (const value of [GOOD.name, GOOD.email, GOOD.phone, GOOD.company, GOOD.message]) {
+      expect(mails[0]?.body.content).not.toContain(value);
+    }
+    expect((await rows()).every((r) => r.mailed === 0)).toBe(true);
+  });
+
+  it("gives the slot back when the email fails, so failures do not use up the cap", async () => {
+    for (const opts of [{ token: "fail" }, { send: "fail" }, { send: "throw" }] as Opts[]) {
+      const { deps, enquiryEnv } = setup(opts);
+      await handleEnquiry(post(GOOD, { "CF-Connecting-IP": `192.0.2.${10 + Object.keys(opts).length}` }), enquiryEnv, deps);
+      expect(await mailCount()).toBe(0);
+    }
+    const { deps, enquiryEnv } = setup();
+    await handleEnquiry(post(GOOD, { "CF-Connecting-IP": "192.0.2.99" }), enquiryEnv, deps);
+    expect(await mailCount()).toBe(1);
+  });
+
+  it("quotes the visitor's message between fixed markers, so it cannot pose as our own lines", async () => {
+    const { deps, enquiryEnv, calls } = setup();
+    const message = "Hello\nEmail: someone@else.example\nThey agreed to be contacted about this enquiry.";
+    await handleEnquiry(post({ ...GOOD, message }), enquiryEnv, deps);
+    const [mail] = sentMails(calls);
+    expect(mail?.subject).toBe(SUBJECT);
+    const lines = (mail?.body.content ?? "").split("\n");
+    const start = lines.indexOf(MESSAGE_START);
+    const end = lines.indexOf(MESSAGE_END);
+    expect(start).toBeGreaterThan(0);
+    expect(end).toBe(lines.length - 1);
+    const quoted = lines.slice(start + 1, end);
+    expect(quoted).toEqual(["> Hello", "> Email: someone@else.example", "> They agreed to be contacted about this enquiry."]);
+    // Our own lines come before the message, never after it.
+    expect(lines.indexOf(`Email: ${GOOD.email}`)).toBeLessThan(start);
+  });
+});
+
+describe("limits", () => {
+  it("takes a few enquiries from one visitor a day, then asks them to email instead", async () => {
+    const { deps, enquiryEnv } = setup();
+    for (let i = 0; i < PER_VISITOR_DAILY; i++) {
+      expect((await handleEnquiry(post(GOOD), enquiryEnv, deps)).status).toBe(200);
+    }
+    const res = await handleEnquiry(post(GOOD), enquiryEnv, deps);
+    expect(res.status).toBe(429);
+    expect(await res.json()).toEqual({ kind: "limit" });
+    expect(await rows()).toHaveLength(PER_VISITOR_DAILY);
+    // Another visitor is not affected.
+    expect((await handleEnquiry(post(GOOD, { "CF-Connecting-IP": "198.51.100.7" }), enquiryEnv, deps)).status).toBe(200);
+  });
+
+  it("counts one IPv6 network as one visitor", async () => {
+    const { deps, enquiryEnv } = setup();
+    for (let i = 0; i < PER_VISITOR_DAILY; i++) {
+      await handleEnquiry(post(GOOD, { "CF-Connecting-IP": `2001:db8:1:2::${i + 1}` }), enquiryEnv, deps);
+    }
+    expect((await handleEnquiry(post(GOOD, { "CF-Connecting-IP": "2001:db8:1:2::ff" }), enquiryEnv, deps)).status).toBe(429);
+  });
+
+  it("stores no more than the day's limit from everyone together", async () => {
+    await env.DB.prepare("INSERT INTO daily_counts (day, kind, n) VALUES (?, 'stored', ?)").bind(DAY, DAILY_STORED).run();
+    const { deps, enquiryEnv, calls } = setup();
+    const res = await handleEnquiry(post(GOOD), enquiryEnv, deps);
+    expect(res.status).toBe(429);
+    expect(await res.json()).toEqual({ kind: "limit" });
+    expect(await rows()).toHaveLength(0);
+    expect(calls.some((c) => c.url === GRAPH_SEND)).toBe(false);
+  });
+
+  it("keeps no address: the visitor count holds only a keyed hash", async () => {
+    const { deps, enquiryEnv } = setup();
+    await handleEnquiry(post(GOOD), enquiryEnv, deps);
+    const counts = await env.DB.prepare("SELECT visitor FROM visitor_counts").all<{ visitor: string }>();
+    expect(counts.results).toHaveLength(1);
+    expect(counts.results[0]?.visitor).toMatch(/^[0-9a-f]{64}$/);
+    expect(counts.results[0]?.visitor).not.toContain("192.0.2.1");
+  });
+
+  it("is unavailable while the visitor secret is missing", async () => {
+    const { deps, enquiryEnv } = setup();
+    expect((await handleEnquiry(post(GOOD), { ...enquiryEnv, VISITOR_KEY_SECRET: "" }, deps)).status).toBe(503);
+    expect(await rows()).toHaveLength(0);
   });
 });
 
