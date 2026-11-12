@@ -124,6 +124,19 @@ async fn start_with(
     oneshot::Sender<()>,
     tokio::task::JoinHandle<VaultResult<KeeperExit>>,
 ) {
+    start_with_settings(root, check, master_key, full_gate, settings(root)).await
+}
+
+async fn start_with_settings(
+    root: &std::path::Path,
+    check: Arc<ScriptedCheck>,
+    master_key: [u8; 32],
+    full_gate: bool,
+    settings: KeeperSettings,
+) -> (
+    oneshot::Sender<()>,
+    tokio::task::JoinHandle<VaultResult<KeeperExit>>,
+) {
     let subscription = Subscription::lock(Arc::clone(&check), InFlight::new());
     let gate = if full_gate {
         AdminGate::Full(Arc::clone(&check) as Arc<dyn ModeCheck>)
@@ -145,7 +158,7 @@ async fn start_with(
         Arc::new(NoVaultAdapter),
         Some(admin),
         HandshakeKeys::derive(&master_key),
-        settings(root),
+        settings,
         (!full_gate).then_some(subscription),
         async {
             let _ = stop_rx.await;
@@ -440,7 +453,16 @@ async fn a_locked_keeper_with_no_vault_creates_nothing() {
 async fn a_gated_call_to_a_lock_mode_keeper_that_is_now_entitled_unlocks_it() {
     let tmp = tempfile::TempDir::new().unwrap();
     let check = ScriptedCheck::answering(Verdict::Locked(LockReason::SignedOut));
-    let (_stop, keeper) = start_locked_keeper(tmp.path(), Arc::clone(&check)).await;
+    // No tick after the first: this test is about the CALL raising the flip.
+    // With the usual 100 ms tick, a tick landing between `set` and the call
+    // also sees "entitled", exits the keeper and closes the pipe before the
+    // call is sent (TransportSend on a slow macOS runner, s122).
+    let quiet = KeeperSettings {
+        idle_check: Duration::from_secs(3600),
+        ..settings(tmp.path())
+    };
+    let (_stop, keeper) =
+        start_with_settings(tmp.path(), Arc::clone(&check), MASTER_KEY, false, quiet).await;
     let client = admin_client(tmp.path()).await;
 
     check.set(Verdict::Entitled);
