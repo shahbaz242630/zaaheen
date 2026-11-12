@@ -18,7 +18,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.3.8"
+version = "0.3.9"
 edition = "2021"
 rust-version = "1.81"
 # Never published to crates.io. Declared so cargo-deny can tell these
@@ -132,7 +132,13 @@ url = "=2.5.8"
 # zero-knowledge posture — proven by spike on both 1.4.4 and 1.5.3). We sit on
 # the clean LTS until the graph holds real data and we bundle the helper
 # locally. The `rstrtmgr` link fix lives in crates/vault-storage/build.rs.
-duckdb = { version = "=1.4.4", features = ["bundled"] }
+# 0.3.9 (s122): moved to `=1.10506.1` = DuckDB 1.5.6. The 1.4 line's
+# libduckdb-sys (1.4.4, 1.4.5) builds with zip 6, which carries four advisories
+# (alerts 44-51, dismissed: build-time only); 1.5.6 builds with zip 9. DuckDB
+# 1.5 reads the 1.4 files every installed app wrote (storage 67 -> 68, newer
+# reads older); 2.0 (`1.20000.x`) changes the file format and is not taken.
+# The 1.5.3 Windows compile failure above is CI's to re-prove on 1.5.6.
+duckdb = { version = "=1.10506.1", features = ["bundled"] }
 # rusqlite uses bundled-sqlcipher-vendored-openssl instead of bundled-sqlcipher
 # (deviation from BRD §4.2 — see HANDOFF.md ADR-006). Vendoring OpenSSL avoids
 # requiring a system OpenSSL install on Windows/Mac/Linux dev machines.
@@ -232,18 +238,25 @@ clap = { version = "=4.6.1", features = ["derive"] }
 # Cargo.lock to the same 2.11 family (tauri-runtime 2.11.3, tauri-runtime-wry 2.11.4, tauri-utils 2.9.3,
 # tauri-macros/codegen 2.6.3): tauri's ^ requirements also admit the 2.12 family of 2026-09-26, and
 # tauri 2.11 does not compile against tauri-runtime 2.12 (measured, run s72). Move the family together.
-tauri = { version = "=2.11.6", features = [] }
-tauri-build = "=2.6.3"
+# 0.3.9 (s122): the 2.12 family (tauri 2.12.5, tauri-build 2.7.4), because updater 2.14.1 needs
+# tauri ^2.12. tauri 2.12.5 now pins its own family with `~` (runtime ~2.12.2, runtime-wry ~2.12.3,
+# utils ~2.10.2), so the hazard above is enforced by tauri itself. 2.12.0 also fixes
+# GHSA-w28w-mhc8-qvjv. No breaking change in 2.12 touches our code (review s122). tauri-plugin-dialog
+# 2.5.0 stays: it accepts tauri ^2.9.3.
+tauri = { version = "=2.12.5", features = [] }
+tauri-build = "=2.7.4"
 tauri-plugin-dialog = "=2.5.0"
-# Automatic updates (s115, ADR-116, ADR-SEC-051, notes AUTO-UPDATE-DESIGN.md): 2.12.0 is the
-# newest release accepting tauri ^2.10 (2.13+ need tauri ^2.12, see above: move the family
-# together). Its reqwest 0.13 is the one tauri already brings.
-# Default features minus `zip`: on Windows we publish the bare .msi, so the zip 4 extractor is
-# not compiled there; the Mac turns `zip` back on (vault-tauri) for its .app.tar.gz (tar + flate2).
-tauri-plugin-updater = { version = "=2.12.0", default-features = false, features = ["rustls-tls", "system-proxy"] }
+# Automatic updates (s115, ADR-116, ADR-SEC-051, notes AUTO-UPDATE-DESIGN.md). 2.14.1 since 0.3.9
+# (s122): its signature check (`verify_signature`) is byte-identical to 2.12.0's, the latest.json
+# format is unchanged, and `install()` now checks the seal again itself (2.14.0). Its reqwest 0.13
+# is the one tauri already brings.
+# Default features minus `zip`: `zip` only gates extracting a zipped Windows installer; we publish
+# the bare .msi. The Mac's .app.tar.gz needs no feature: tar and flate2 are unconditional Mac
+# dependencies of the plugin.
+tauri-plugin-updater = { version = "=2.14.1", default-features = false, features = ["rustls-tls", "system-proxy"] }
 # The update's seal, checked again at the click (commands/update/seal.rs): the same
 # verifier and version the updater uses, already in the lock through it.
-minisign-verify = "=0.2.5"
+minisign-verify = "=0.3.0"
 
 # Security primitives (BRD §11.5.3)
 zeroize = { version = "=1.8.2", features = ["derive"] }

@@ -1,13 +1,13 @@
 //! The seal, checked again at the click (s115, ADR-SEC-051).
 //!
-//! The updater checks an update's seal once, when it downloads it, and never
-//! again before it installs. We keep the verified file on disk (not ~155 MB
+//! The updater checks an update's seal when it downloads it and, since
+//! tauri-plugin-updater 2.14.0, again inside `install` by its own rule. We keep the verified file on disk (not ~155 MB
 //! in memory all day), so a file another program swapped while it waited
 //! must be caught here: the same check, against the same public key, run on
 //! the bytes about to be installed.
 //!
 //! The same rules as the updater's own check (`verify_signature` in
-//! tauri-plugin-updater 2.12.0), with one stricter: the version sealed in the
+//! tauri-plugin-updater 2.12.0, byte-identical in 2.14.1), with one stricter: the version sealed in the
 //! signature's trusted comment must be exactly the version offered, text for
 //! text, and must be there at all.
 
