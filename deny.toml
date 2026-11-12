@@ -58,40 +58,12 @@ ignore = [
     # -- unmaintained build-time and data crates ----------------------------
     # No fixed version published for any of these. They are transitive, and
     # none is reachable from a request path: proc-macro-error and paste run at
-    # COMPILE time only, and the unic-* crates are static Unicode tables.
-    # Resolved when the crates that depend on them move to maintained
-    # replacements; nothing we can force. (The unic-* chain arrives through
-    # tauri-utils 2.9; the tauri 2.12 family drops it, so these five go with
-    # that upgrade.)
+    # COMPILE time only. Resolved when the crates that depend on them move to
+    # maintained replacements; nothing we can force. (The five unic-* ignores
+    # left with the tauri 2.12 family in 0.3.9, s122.)
     "RUSTSEC-2024-0370", # proc-macro-error (build-time)
     "RUSTSEC-2024-0436", # paste (build-time)
-    "RUSTSEC-2025-0075", # unic-char-range
-    "RUSTSEC-2025-0080", # unic-common
-    "RUSTSEC-2025-0081", # unic-char-property
-    "RUSTSEC-2025-0098", # unic-ucd-version
-    "RUSTSEC-2025-0100", # unic-ucd-ident
     "RUSTSEC-2025-0134", # rustls-pemfile
-
-    # -- zip 6.0.0: archive EXTRACTION flaws (triaged 2026-10-19, s100) -------
-    # All three are about unpacking an untrusted archive: `ZipArchive::extract`
-    # and `ZipStreamReader::extract` writing through symlinks, outside the
-    # target, or keeping SUID/SGID bits. Fixed only in zip >= 9.0.0.
-    # Two users, neither extracts untrusted input:
-    #   - vault-app WRITES one zip (the Claude Desktop .mcpb bundle,
-    #     connect.rs); it never calls extract (its tests only read entries).
-    #   - libduckdb-sys uses zip as a BUILD dependency to unpack its own
-    #     bundled sources on the build machine; it requires zip "6", so we
-    #     cannot move to 9 until duckdb does.
-    #   - zip 4.6.1 is in Cargo.lock for tauri-plugin-updater 2.12.0 (s115,
-    #     ADR-SEC-051) but COMPILED NOWHERE: it is the plugin's Windows-only
-    #     dependency behind its `zip` feature, which we turn on for the Mac
-    #     only (for tar + flate2). Windows takes the bare .msi.
-    # Resolved when duckdb's build moves to zip >= 9: then bump vault-app's pin
-    # and drop these. Re-evaluate at once if we ever extract a user's zip, or
-    # turn the updater's `zip` feature on for Windows.
-    "RUSTSEC-2026-0367", # zip -- SUID/SGID bits kept on extract
-    "RUSTSEC-2026-0368", # zip -- extract creates symlinks outside the target
-    "RUSTSEC-2026-0369", # zip -- extract applies permissions through symlinks
 
     # -- zstd 0.13 / zstd-safe 7: fixed only in new majors (triaged 2026-10-27, s115)
     # Fixed in zstd >= 0.14.3 and zstd-safe >= 8.2.0, but every user requires
@@ -137,12 +109,6 @@ ignore = [
     # once if the app ever opens or restores a database file from elsewhere
     # (a backup import, sync, or a vault handed over by another person).
     "RUSTSEC-2026-0459", # libsqlite3-sys -- bundled SQLite wal page-size leak
-
-    # -- zip: extract aborts on a symlink entry (triaged 2026-11-09, s121) ---
-    # The fourth extraction flaw in zip < 9.0.0; same users and the same
-    # reasoning as the zip block above (0367-0369): we never call extract on
-    # any archive, and duckdb's build pins zip "6". Drop with those.
-    "RUSTSEC-2026-0429", # zip -- extract aborts the process on a large symlink
 
     # -- pin-utils 0.1.0: unmaintained (triaged 2026-11-09, s121) ------------
     # A notice, not a flaw; no successor version exists. Arrives only through
