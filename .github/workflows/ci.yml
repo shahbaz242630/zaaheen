@@ -187,6 +187,28 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  # The AI Opportunity Assessment enquiry Worker (workers/consulting, notes
+  # ai-assessment/AI-ASSESSMENT-DESIGN.md §5, ADR-121 + ADR-SEC-057): same
+  # shape as the ask Worker. Stand-ins for Turnstile and Microsoft and a local
+  # D1, so no secret and no network. No deploy job yet: publishing waits for
+  # the founder's account steps (design §8).
+  consulting-worker:
+    name: consulting Worker (types + tests)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/consulting
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.19.0'
+      - run: npm ci --no-fund --no-audit
+      - run: npm run types
+      - run: npm run typecheck
+      - run: npm test
+
   # Website-only pull requests (founder, session 63: a one-line website change
   # should not wait an hour). `changes` decides; clippy and build-and-test run
   # only when the app may be affected. Otherwise the two stand-in jobs report

@@ -1,0 +1,169 @@
+---
+import Base from '../layouts/Base.astro';
+import { CONSULTING, pageFor } from '../data/site';
+
+// The AI Opportunity Assessment (notes ai-assessment/AI-ASSESSMENT-DESIGN.md
+// §1 and §4, ADR-121). English only. Linked from the footer and the Company
+// page, not the top bar. No prices: every business is quoted after a call.
+// The form lives on consulting.zaaheen.com (workers/consulting), so this
+// page's strict policy (connect-src and form-action 'self') never widens;
+// every "Book a call" here is a plain link there.
+// Evidence: only the figures the research verified at source (BCG), and the
+// others as their publishers state them. Notes ai-assessment/
+// AI-Audit-Research-Comparison.md "In one page" item 4.
+const page = pageFor('/consulting/');
+const book = CONSULTING.enquiryUrl;
+
+const STEPS = [
+  { title: 'A free 30-minute call', body: 'You tell us about your business and what is not working. We tell you honestly whether an assessment is worth it for you, and what it would cover.' },
+  { title: 'We walk every role', body: 'On site, from reception to the managing director. We sit with the people doing the work, watch how it really gets done, and time each step.' },
+  { title: 'We map and score it', body: 'Every process becomes a map with timed steps, hand-offs and waiting points. Each step is scored on volume, repetition, rules, data and the cost of a mistake.' },
+  { title: 'Report and read-out', body: 'A written report and a meeting with your team: where AI helps, where it does not, what to do first, what it costs and when it pays back.' },
+];
+
+const VERDICTS = [
+  { name: 'AI now', body: 'Work that reads, writes, sorts or answers, at volume, where the data already exists. These are your first projects.' },
+  { name: 'Automate without AI', body: 'Fixed rules and clean inputs. A form, a workflow or a link between two systems does it cheaper and safer than AI.' },
+  { name: 'Fix the process first', body: 'Too many exceptions, unclear ownership or missing data. AI on a broken process only makes it break faster.' },
+  { name: 'Leave as it is', body: 'Low volume, or expert judgement where a mistake is costly. Some work should stay with your people, and we say so.' },
+];
+
+const FAQ = [
+  { q: 'Is this an audit of our accounts or a certification?', a: 'No. It is an operational assessment of how work gets done and where AI can help. It is not a financial audit, an assurance report or a certification of any AI system.' },
+  { q: 'What happens to what we show you?', a: 'We sign a confidentiality agreement before the first visit. We record roles and processes, not people\'s names or personal details. Notes are deleted 90 days after the report, unless you ask us to keep them for a follow-on project.' },
+  { q: 'Do you sell the tools you recommend?', a: 'No. We recommend what fits your work, whoever makes it. If you would like help putting it in place afterwards, that is a separate, optional piece of work.' },
+  { q: 'Which countries do you cover?', a: 'We are based in Dubai and work with businesses across the Gulf: the UAE, Saudi Arabia, Qatar, Kuwait, Bahrain and Oman.' },
+  { q: 'How long does it take?', a: 'It depends on the size of the business and how many teams we look at. A small firm usually takes two to three weeks from the first visit to the read-out. We agree the timeline in writing before we start.' },
+  { q: 'What does it cost?', a: 'Every business is different, so we quote after the free call, once we know how many teams and sites are involved. The quote is fixed and in writing.' },
+  { q: 'Can you help after the report?', a: 'Yes, if you want us to. We can be your point of contact for AI on a monthly basis, help put the recommendations in place, or set up AI that runs on your own servers when your data must stay in-house.' },
+];
+---
+<Base page={page}>
+  <section class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">AI Opportunity Assessment</p>
+      <h1>Find where AI helps your business, and where it doesn't.</h1>
+      <p class="lede">We walk through your business team by team, map how the work really gets done,
+         and show you where AI saves time and money, where simpler fixes do better, and where to
+         leave things alone.</p>
+      <div class="cta-row">
+        <a class="cta" href={book}>Book a free 30-minute call</a>
+        <span class="cta-meta">For businesses across the Gulf</span>
+      </div>
+      <ul class="promise-dots">
+        <li>On site, every role</li>
+        <li>A verdict for every team</li>
+        <li>No tools to sell you</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="kc-band is-white">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Why most AI projects disappoint</p>
+        <h2>The problem is rarely the technology. It is the way the work is done.</h2>
+        <p class="section-lede">Boston Consulting Group found that 74% of companies had yet to see real
+           value from AI, and that about 70% of the challenge lies in people and processes, not in
+           the technology. Other research points the same way: projects fail most often when the
+           problem was never properly understood, and the companies that gain most are the ones that
+           redesign their workflows. Tools chosen from a demonstration, without seeing the real work,
+           tend to end up unused.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="kc-band">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">How it works</p>
+        <h2>Four steps, from the first call to a plan you can act on.</h2>
+      </div>
+      <ol class="steps is-four">
+        {STEPS.map((s, i) => (
+          <li class="step">
+            <div class="step-text">
+              <span class="step-no">{String(i + 1).padStart(2, '0')}</span>
+              <h3>{s.title}</h3>
+              <p>{s.body}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <section class="kc-band is-white">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">What you get</p>
+        <h2>A clear verdict for every team, not a list of tools.</h2>
+        <p class="section-lede">Each team gets one of four verdicts, with the reasons behind it. For every
+           recommendation we give the effort, a cost range, the hours it saves each month, when it
+           pays back, and where a person must stay in charge.</p>
+      </div>
+      <ol class="steps is-four">
+        {VERDICTS.map((v, i) => (
+          <li class="step">
+            <div class="step-text">
+              <span class="step-no">{String(i + 1).padStart(2, '0')}</span>
+              <h3>{v.name}</h3>
+              <p>{v.body}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <section class="kc-band">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Who it is for</p>
+        <h2>Businesses with real teams and real workloads.</h2>
+        <p class="section-lede">From firms of twenty people to large companies with many departments:
+           reception and front office, customer service, sales, finance, HR, operations, procurement,
+           IT, risk and compliance. If your people spend their days copying, chasing, checking and
+           answering the same questions, there is usually something to find.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="kc-band is-white">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Why us</p>
+        <h2>Twenty years inside the work, and an engineer who builds it.</h2>
+        <p class="section-lede">Our founder spent twenty years in corporate operations: customer service,
+           back office, sales, team management and business performance. We know what a busy desk
+           looks like at month end, where the workarounds hide and why the last system was never used.
+           Our engineer turns that experience into maps, scores and recommendations that fit how your
+           people actually work.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Questions</h2>
+      </div>
+      <div class="faq-list">
+        {FAQ.map((f) => (
+          <details class="faq-item">
+            <summary>{f.q}</summary>
+            <p>{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="kc-close">
+    <h2>Start with a free 30-minute call.</h2>
+    <p>Tell us about your business. We call you within one working day.</p>
+    <a class="cta" href={book}>Book a free 30-minute call</a>
+    <p class="kc-contact">Prefer email? Write to <a href={`mailto:${CONSULTING.email}`}>{CONSULTING.email}</a>.
+       How we handle your enquiry: our <a href="/privacy/#consulting">Privacy Policy</a>.</p>
+  </section>
+</Base>
