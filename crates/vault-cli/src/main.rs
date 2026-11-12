@@ -463,7 +463,9 @@ fn init_tracing() {
     }
 
     let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("warn,vault_cli=info,vault_mcp=info"));
+        // `zaaheen`, not `vault_cli`: an event's target is this binary's crate
+        // name (s122; vault-app logging.rs DEFAULT_FILTER).
+        .unwrap_or_else(|_| EnvFilter::new("warn,zaaheen=info,vault_mcp=info"));
     // Write to STDERR, not STDOUT. The `mcp serve` subcommand reserves
     // STDOUT for the MCP JSON-RPC protocol stream — any byte written
     // there that isn't a valid JSON-RPC message corrupts the channel
