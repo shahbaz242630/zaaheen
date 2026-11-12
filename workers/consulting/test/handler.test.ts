@@ -181,6 +181,20 @@ describe("a good enquiry", () => {
     expect(all.every((r) => r.mailed === 0)).toBe(true);
   });
 
+  it("still says received when the mail bookkeeping fails after the enquiry is stored", async () => {
+    const { deps, enquiryEnv } = setup();
+    // Storing works; the mail-count table is gone, so the step after storing throws.
+    await env.DB.prepare("DROP TABLE daily_mail").run();
+    try {
+      const res = await handleEnquiry(post(GOOD), enquiryEnv, deps);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ kind: "received" });
+      expect(await rows()).toHaveLength(1);
+    } finally {
+      await env.DB.prepare("CREATE TABLE IF NOT EXISTS daily_mail (day TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0)").run();
+    }
+  });
+
   it("stops emailing above the daily cap but keeps storing", async () => {
     const day = new Date(NOW).toISOString().slice(0, 10);
     await env.DB.prepare("INSERT INTO daily_mail (day, n) VALUES (?, ?)").bind(day, MAIL_DAILY_CAP).run();
