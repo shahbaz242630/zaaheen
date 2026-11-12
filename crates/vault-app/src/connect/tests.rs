@@ -120,7 +120,11 @@ fn the_claude_extension_runs_the_installed_zaaheen() {
     );
 
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(&bundle[..])).unwrap();
-    let names: Vec<String> = archive.file_names().map(str::to_owned).collect();
+    // zip 9: a name is read on request and can fail to decode.
+    let names: Vec<String> = archive
+        .file_names()
+        .map(|name| name.expect("a readable name").into_owned())
+        .collect();
     assert_eq!(
         names.len(),
         3,
@@ -128,15 +132,11 @@ fn the_claude_extension_runs_the_installed_zaaheen() {
     );
     for i in 0..archive.len() {
         let file = archive.by_index(i).unwrap();
+        let name = file.name().expect("a readable name");
+        assert!(!name.contains('\\'), "a backslash in {name}");
         assert!(
-            !file.name().contains('\\'),
-            "a backslash in {}",
-            file.name()
-        );
-        assert!(
-            !file.name().ends_with(".exe") && !file.name().ends_with(".dll"),
-            "the extension carries a program: {}",
-            file.name()
+            !name.ends_with(".exe") && !name.ends_with(".dll"),
+            "the extension carries a program: {name}"
         );
     }
 }
