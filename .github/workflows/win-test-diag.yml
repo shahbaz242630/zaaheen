@@ -1,0 +1,446 @@
+name: Windows test hang diagnosis
+
+# THROWAWAY BRANCH (s123): PR #237's Windows `cargo test --workspace` ran
+# 40+ min (normally ~5). Same machine set-up as ci.yml build-and-test, then
+# each crate's tests in its own step with a time limit, so the log names
+# the crate and the test that hangs. Never merged.
+
+on:
+  push:
+    branches: ['diag/win-test-hang-s123']
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: cargo build + test
+    strategy:
+      # fail-fast: false — see clippy job above for rationale.
+      fail-fast: false
+      matrix:
+        os: [windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      # Linux-only — see clippy job above for rationale.
+      # tool-cache:true added 2026-06-24 (multi-agent daemon arc): the daemon
+      # added rmcp streamable-http + hyper-util deps AND two heavy new
+      # integration-test binaries (streamable_http_spike,
+      # concurrent_multiagent_stage_b), each linking the full vault stack.
+      # Under `cargo build --all-targets` that tipped the ubuntu runner over
+      # `No space left on device` (run 28095804243 — runner process killed
+      # mid-build at ~13 min, System.IO.IOException, no compile error: the
+      # code compiles fine, clippy-ubuntu passed). tool-cache:true frees the
+      # ~8 GB /opt/hostedtoolcache we don't use (our Rust toolchain, protoc,
+      # libclang are all installed fresh in later steps). Pairs with the
+      # Linux debuginfo=line-tables-only shrink below.
+      - if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          large-packages: true
+          docker-images: true
+          preinstalled-runtimes: true
+      # Windows-only: T0.2.3 close commit 15 fix-forward (2026-05-25). The
+      # windows-2025 runner hits "LLVM ERROR: IO failure on output stream:
+      # no space on device" during lld-link of large workspace test binaries
+      # (commit 14 CI run 26372365294). Preinstalled tooling we don't use
+      # (Android SDK, .NET, Java, MongoDB, miniconda, Selenium, etc.) eats
+      # ~25 GB of the 80 GB C: drive. Removing it recovers enough headroom
+      # for the link stage to complete. The jlumbroso action above is apt-
+      # based so doesn't apply to Windows; this is the Windows equivalent.
+      #
+      # NOT deleted: C:\Strawberry (Perl — required by ADR-006's vendored-
+      # openssl for SQLCipher per L466 comment), C:\Program Files\LLVM
+      # (we install it ourselves below), C:\VulkanSDK (we install it below),
+      # C:\Users\* (Cargo cache lives here via rust-cache@v2). Surfaces
+      # before/after free-space delta in CI logs for auditability.
+      - if: runner.os == 'Windows'
+        name: Free disk space on Windows runner
+        shell: pwsh
+        run: |
+          $before = (Get-PSDrive C).Free / 1GB
+          Write-Host "Free space before cleanup: $([math]::Round($before, 1)) GB"
+          $paths = @(
+            "C:\Android",
+            "C:\Program Files\Android",
+            "C:\Program Files (x86)\Android",
+            "C:\hostedtoolcache\windows\AndroidSdk",
+            "C:\Program Files\dotnet",
+            "C:\Program Files\Java",
+            "C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk",
+            "C:\hostedtoolcache\windows\Java_Adopt_jdk",
+            "C:\hostedtoolcache\windows\Java_Zulu_jdk",
+            "C:\hostedtoolcache\windows\go",
+            "C:\hostedtoolcache\windows\Ruby",
+            "C:\hostedtoolcache\windows\PyPy",
+            "C:\miniconda",
+            "C:\selenium",
+            "C:\Program Files\MongoDB",
+            "C:\ProgramData\chocolatey\lib\selenium-chrome-driver",
+            "C:\ProgramData\chocolatey\lib\selenium-edge-driver",
+            "C:\ProgramData\chocolatey\lib\selenium-firefox-driver"
+          )
+          foreach ($path in $paths) {
+            if (Test-Path $path) {
+              Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue
+              Write-Host "Removed: $path"
+            }
+          }
+          $after = (Get-PSDrive C).Free / 1GB
+          Write-Host "Free space after cleanup: $([math]::Round($after, 1)) GB"
+          Write-Host "Freed: $([math]::Round($after - $before, 1)) GB"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Tauri 2.x Linux native deps — same as clippy job (see comment there
+      # for full rationale). MUST be in BOTH jobs because GitHub Actions
+      # runners are per-job, not shared across the matrix; clippy job's
+      # apt installs don't carry over to build-and-test job's runner.
+      # Caught at T0.1.11 Phase 3 fix-forward 2: clippy passed Linux but
+      # build-and-test failed with "Package 'glib-2.0' not found" because
+      # only clippy had the install step.
+      - if: runner.os == 'Linux'
+        name: Install Tauri 2.x Linux native deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libglib2.0-dev \
+            libgtk-3-dev
+      # See clippy job above — protoc needed by lancedb transitive deps.
+      - uses: ./.github/actions/setup-protoc
+      # See clippy job above for LLVM/libclang rationale + per-OS robust
+      # path-derivation discussion. Must be in BOTH jobs because GHA matrix
+      # runners don't share state across jobs (same pattern as protoc +
+      # Tauri Linux deps above).
+      - if: runner.os == 'Linux'
+        name: Install libclang-dev (for llama-cpp-sys-2 bindgen)
+        run: sudo apt-get install -y libclang-dev
+      - if: runner.os == 'Windows'
+        name: Install LLVM via chocolatey
+        shell: pwsh
+        run: choco install llvm --version 20.1.8 --allow-downgrade -y --no-progress
+      - if: runner.os == 'Windows'
+        name: Set LIBCLANG_PATH via discovered clang location
+        shell: pwsh
+        run: |
+          $clangPath = (Get-Command clang.exe -ErrorAction SilentlyContinue).Source
+          if (-not $clangPath) { $clangPath = "C:\Program Files\LLVM\bin\clang.exe" }
+          $libclangDir = Split-Path $clangPath -Parent
+          "LIBCLANG_PATH=$libclangDir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - if: runner.os == 'macOS'
+        name: Install LLVM via Homebrew + set LIBCLANG_PATH
+        run: |
+          brew install llvm
+          echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> "$GITHUB_ENV"
+      # Vulkan SDK install — see clippy job above for full rationale + the
+      # T0.2.3 close commit 7 fix-forward audit trail. Must be in BOTH jobs
+      # because GHA matrix runners don't share state across jobs (same
+      # pattern as the LLVM install above).
+      - if: runner.os == 'Windows'
+        name: Install Vulkan SDK (direct LunarG installer — matches llama.cpp upstream CI)
+        shell: pwsh
+        env:
+          VULKAN_VERSION: 1.4.313.2
+        run: |
+          curl.exe -o $env:RUNNER_TEMP/VulkanSDK-Installer.exe -L `
+            "https://sdk.lunarg.com/sdk/download/${env:VULKAN_VERSION}/windows/vulkansdk-windows-X64-${env:VULKAN_VERSION}.exe"
+            # Checked before it runs (security audit s89); a new VULKAN_VERSION needs a new hash.
+            $vk = (Get-FileHash "$env:RUNNER_TEMP/VulkanSDK-Installer.exe" -Algorithm SHA256).Hash.ToLower()
+            if ($vk -ne "34a921d951858274ca8e470e9d0a3b7624db41216b3908ccea9f73c8a1b7500e") { throw "Vulkan SDK installer SHA-256 mismatch: $vk" }
+          & "$env:RUNNER_TEMP\VulkanSDK-Installer.exe" --accept-licenses --default-answer --confirm-command install
+          Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\${env:VULKAN_VERSION}"
+          Add-Content $env:GITHUB_PATH "C:\VulkanSDK\${env:VULKAN_VERSION}\bin"
+          # T0.2.3 commit 8 fix-forward (2026-05-17): force inner cmake
+          # ExternalProject_Add try_compile probes to use Release config.
+          # Bypasses the Debug-mode MSBuild VCEnd batch-label / error C1083
+          # bug that broke `vulkan-shaders-gen` nested build on commits 6+7
+          # (OpenCV forum #12262 error class). llama-cpp-sys-2's build.rs
+          # passes CMAKE_* env vars through to cmake, so this reaches the
+          # outer cmake; outer cmake then propagates CMAKE_TRY_COMPILE_CONFIGURATION
+          # to ExternalProject_Add sub-builds. Note: commit 8 falsified this
+          # hypothesis — Debug-config try_compile still ran inside the inner
+          # cmake. Kept as defense-in-depth alongside the Ninja switch below.
+          Add-Content $env:GITHUB_ENV "CMAKE_TRY_COMPILE_CONFIGURATION=Release"
+          # T0.2.3 commit 10 fix-forward (2026-05-24): switch CMake generator
+          # to Ninja for Windows. Bypasses MSBuild entirely — Ninja does not
+          # have the VCEnd batch-label / error C1083 bug that blocked
+          # commits 6-9 in vulkan-shaders-gen ExternalProject_Add nested
+          # try_compile probes. llama-cpp-sys-2's build.rs passes CMAKE_*
+          # env vars through to cmake, which propagates CMAKE_GENERATOR to
+          # ExternalProject_Add sub-cmakes (unlike CMAKE_TRY_COMPILE_CONFIGURATION
+          # which doesn't propagate per commit 8 falsification). Ninja is
+          # preinstalled on windows-2025 runners (ships with Visual Studio
+          # Build Tools); choco install line is defensive idempotency.
+          choco install ninja --version 1.13.2 --allow-downgrade -y --no-progress
+          Add-Content $env:GITHUB_ENV "CMAKE_GENERATOR=Ninja"
+          # T0.2.3 close commit 12 fix-forward (2026-05-24): shorten
+          # `CARGO_TARGET_DIR` to bypass the Windows MAX_PATH=260 limit hit
+          # by MSVC `cl.exe` on deeply-nested `vulkan-shaders-gen`
+          # TryCompile paths. Commit 10's Ninja switch successfully
+          # bypassed the MSBuild VCEnd bug (configure step started
+          # executing); then `cl.exe` itself failed with `error C1083:
+          # Cannot open compiler generated file: '': Invalid argument`
+          # because the inner TryCompile path was ~252 chars
+          # (`D:\a\zaaheen\zaaheen\target\debug
+          # \build\llama-cpp-sys-2-XXX\out\build\ggml\src\ggml-vulkan
+          # \vulkan-shaders-gen-prefix\src\vulkan-shaders-gen-build
+          # \CMakeFiles\CMakeScratch\TryCompile-XXX\testCCompiler.c`).
+          # The empty `''` filename in the C1083 error is MSVC's path-
+          # overflow signature. Setting a short `CARGO_TARGET_DIR`
+          # shaves 42 chars off the workspace prefix and clears the
+          # limit comfortably. `Swatinem/rust-cache@v2` reads
+          # `CARGO_TARGET_DIR` automatically.
+          #
+          # T0.2.3 close commit 16 fix-forward (2026-05-25): point at
+          # the D: drive instead of C:. Commits 12-15 used `C:\t` (short
+          # path on the C: drive). Commit 15 added a disk-cleanup step
+          # that freed ~15.4 GB on C: but the link stage STILL hit
+          # `LLVM ERROR: IO failure on output stream: no space on device`
+          # — the workspace build needs more than 15 GB of headroom for
+          # link artifacts. windows-2025 runners ship a D: drive with
+          # ~150 GB free (vs C:'s ~50 GB), so moving target/ to D:
+          # eliminates the disk pressure structurally rather than
+          # incrementally squeezing more GB out of C:. Path length is
+          # the same as `C:\t` (4 chars) so the MAX_PATH bypass from
+          # commit 12 is preserved. Disk cleanup step in build-and-test
+          # job is kept as defense-in-depth (no per-platform downside).
+          Add-Content $env:GITHUB_ENV "CARGO_TARGET_DIR=D:\t"
+          # T0.2.3 close commit 13 fix-forward (2026-05-24): reduce debug
+          # info on Windows to bypass MSVC `LNK1318 LIMIT (12)` and
+          # `LNK1318 FILE_SYSTEM (3)` PDB errors hit at the link stage in
+          # commit 12's CI run 26367831242. With full debuginfo, the test
+          # binaries (`integration_smoke`, `vault_app` lib test) link the
+          # whole workspace — lance + datafusion + llama-cpp-sys + tantivy
+          # — producing .pdb files that exceed MSVC's internal 2 GB cap.
+          # `-C debuginfo=line-tables-only` keeps panic backtraces +
+          # function names + file:line info (the only debug info CI ever
+          # surfaces) while shrinking PDB ~10×. Standard upstream Rust
+          # workaround (rust-lang/rust#101050, #100972). Does NOT change
+          # test semantics — tests still run, fail, and report identically.
+          # Local dev builds on the founder's machine are unaffected;
+          # this only mutates the per-job GITHUB_ENV.
+          # T0.2.3 close commit 14 fix-forward (2026-05-25): switch the
+          # Windows linker from `link.exe` to `lld-link.exe`. Commit 13's
+          # CI run 26369187646 confirmed `-C debuginfo=line-tables-only`
+          # reduced PDB content but the MSVC link.exe PDB writer still
+          # hit `LNK1318 LIMIT (12)` on `read_pipeline_scale_acceptance`
+          # — the per-PDB section/type-index cap is structural to MSVC's
+          # writer, not just about debuginfo volume. LLD's `lld-link.exe`
+          # has a more efficient PDB writer that handles large Rust
+          # workspaces (used in production by Mozilla, Tauri, Rustls).
+          # lld-link.exe is bundled with the LLVM install we already do
+          # via `choco install llvm` (at `C:\Program Files\LLVM\bin\
+          # lld-link.exe`, added to PATH by choco); no new install step
+          # needed. line-tables-only kept as belt-and-braces alongside
+          # the linker switch. Rust passes the same link flags so this
+          # is drop-in compatible with our existing native deps.
+          Add-Content $env:GITHUB_ENV "RUSTFLAGS=-D warnings -C debuginfo=line-tables-only -C linker=lld-link"
+      - if: runner.os == 'Linux'
+        name: Install Vulkan SDK via LunarG apt repo
+        run: |
+          UBUNTU_CODENAME=$(lsb_release -sc)
+          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc \
+            | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/lunarg.gpg
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan.list \
+            "https://packages.lunarg.com/vulkan/lunarg-vulkan-${UBUNTU_CODENAME}.list"
+          sudo apt-get update
+          sudo apt-get install -y vulkan-sdk
+      # Linux-only: shrink target/ debug-info to keep `cargo build
+      # --all-targets` under the runner disk ceiling. Added 2026-06-24 with
+      # the multi-agent daemon arc (see the tool-cache:true note above for the
+      # `No space left on device` root cause). `-C debuginfo=line-tables-only`
+      # cuts per-artifact debug-info volume ~10× while keeping panic
+      # backtraces with file:line — the identical proven flag the Windows leg
+      # already uses (T0.2.3 commit 13). Does NOT change test semantics. Set
+      # before rust-cache so the cache key reflects the flag (mirrors the
+      # Windows RUSTFLAGS override placement). macOS unaffected (more disk).
+      - if: runner.os == 'Linux'
+        name: Reduce debuginfo on Linux (disk-ceiling fix)
+        shell: bash
+        run: echo "RUSTFLAGS=-D warnings -C debuginfo=line-tables-only" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      # Cache vault-embedding test fixtures (~165 MB total: model.onnx ~133 MB
+      # + tokenizer.json ~711 KB + libonnxruntime.so ~30 MB). Key fingerprints
+      # both the setup script (which hardcodes EXPECTED_MODEL_SHA256 +
+      # ORT_VERSION + download URLs) AND integrity.rs (which holds the
+      # canonical model + tokenizer SHA-256 constants per ADR-020). Either
+      # changing busts the cache and forces a fresh provisioning. Per-OS
+      # cache key isolates Linux vs. Windows fixtures (Step 2c).
+      - name: Cache vault-embedding test fixtures
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: vault-embedding-fixtures
+        with:
+          path: crates/vault-embedding/test-fixtures
+          # Cache key fingerprints BOTH setup scripts (.sh and .ps1) plus
+          # integrity.rs so any change to model SHA / ORT_VERSION / download
+          # URLs in either platform's setup script busts cache for both OSes.
+          # Per-OS isolation preserved via runner.os in the key prefix —
+          # Linux fixtures (libonnxruntime.so) and Windows fixtures
+          # (onnxruntime.dll) don't collide.
+          key: vault-embedding-fixtures-${{ runner.os }}-${{ hashFiles('scripts/setup-dev-env.sh', 'scripts/setup-dev-env.ps1', 'crates/vault-embedding/src/integrity.rs') }}
+      - name: Provision vault-embedding test fixtures (Linux)
+        if: steps.vault-embedding-fixtures.outputs.cache-hit != 'true' && runner.os == 'Linux'
+        run: bash scripts/setup-dev-env.sh
+      - name: Provision vault-embedding test fixtures (Windows)
+        # Strawberry Perl is preinstalled on windows-2025 (Windows Server
+        # 2022) and required by ADR-006's bundled-sqlcipher-vendored-openssl
+        # rusqlite feature for the SQLCipher build. If a future runner image
+        # drops Strawberry Perl, add `shogo82148/actions-setup-perl@v1` step
+        # before rust-toolchain — see HANDOFF.md tech-debt for the watchpoint.
+        if: steps.vault-embedding-fixtures.outputs.cache-hit != 'true' && runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/setup-dev-env.ps1
+      - name: Provision vault-embedding test fixtures (macOS)
+        # macOS provisioning invokes the existing setup-dev-env.sh — the
+        # Darwin branch at scripts/setup-dev-env.sh:131-135 was already
+        # written at T0.1.7 (sets ORT_ASSET=onnxruntime-osx-arm64-${ORT_VERSION}.tgz,
+        # ORT_LIB_NAME=libonnxruntime.dylib). No script change needed; CI
+        # just invokes the same script as Linux (uname -s routes the case).
+        if: steps.vault-embedding-fixtures.outputs.cache-hit != 'true' && runner.os == 'macOS'
+        run: bash scripts/setup-dev-env.sh
+      # Phase 5a's tauri.conf.json bundle.resources references onnxruntime.dll
+      # (Windows-specific). setup-dev-env.sh's Linux + Darwin branches download
+      # libonnxruntime.so / libonnxruntime.dylib respectively, NOT
+      # onnxruntime.dll. tauri-build validates ALL bundle.resources paths exist
+      # at compile time regardless of platform. Empty touch placeholder on
+      # non-Windows satisfies the check; V0.1 only ships Windows MSI per
+      # ADR-031, so non-Windows never USES the DLL. V0.2 alpha-distribution
+      # will replace via per-platform bundle.windows.resources syntax.
+      # (T0.1.11 Phase 5d fix-forward, 2026-05-06.)
+      - name: Placeholder onnxruntime.dll on non-Windows for tauri-build cross-platform validation
+        if: runner.os != 'Windows'
+        shell: bash
+        run: touch crates/vault-embedding/test-fixtures/bge-small-en-v1.5/onnxruntime.dll
+      # Windows-only: lower cargo build parallelism to 2 to avoid peak-memory
+      # OOM on the GitHub Actions windows-2025 runner. T0.2.0 Phase 3
+      # sub-task (f) commit `ef88361` (2026-05-12) hit two consecutive
+      # Windows-only failures with different OOM stages: first run
+      # `rustc-LLVM ERROR: out of memory` during vault-tauri codegen, second
+      # run `LINK : fatal error LNK1102: out of memory` during integration-
+      # test linking. Two distinct stages OOM-ing in a row confirmed the
+      # Windows build is at the memory ceiling — not a transient flake.
+      # CARGO_BUILD_JOBS=2 caps parallel codegen + linker invocations so
+      # peak resident-set stays under the runner's ~16 GB ceiling. Linux +
+      # macOS runners are unaffected (larger memory ceiling and lower
+      # link-stage overhead per build unit). Trade-off: Windows job runs
+      # ~5-10 min slower; build succeeds reliably.
+      - if: runner.os == 'Windows'
+        name: Lower cargo build parallelism on Windows (peak-memory ceiling fix)
+        shell: bash
+        run: echo "CARGO_BUILD_JOBS=2" >> "$GITHUB_ENV"
+      - if: runner.os == 'Windows'
+        name: Pin MSVC toolset to v143 (14.44) — VS2026 default breaks DuckDB fmt + llama ggml
+        # See the matching step in the clippy job for full rationale. v143
+        # (MSVC 14.44, VS2022-era) is the compatibility toolset still shipped on
+        # the windows-2025/VS2026 image and the compiler that produced the last
+        # green CI (d613614). Pinning vcvars to it fixes BOTH the DuckDB fmt and
+        # llama ggml VS2026 breaks for cc-rs AND the Ninja/CMake build. Replaces
+        # the dead-end /FI _SECURE_SCL shim (ADR-079).
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+        with:
+          arch: x64
+          toolset: '14.44'
+      - run: cargo build --workspace --all-targets
+      - name: test vault-core
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-core
+      - name: test vault-storage
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-storage
+      - name: test vault-embedding
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-embedding
+      - name: test vault-llm
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-llm
+      - name: test vault-retrieval
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-retrieval
+      - name: test vault-consolidator
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-consolidator
+      - name: test vault-scheduler
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-scheduler
+      - name: test vault-account
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-account
+      - name: test vault-mcp
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-mcp
+      - name: test vault-sync
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-sync
+      - name: test vault-connectors
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-connectors
+      - name: test vault-app
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-app
+      - name: test vault-cli
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-cli
+      - name: test vault-tauri
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          RUST_BACKTRACE: '1'
+        run: cargo test -p vault-tauri
