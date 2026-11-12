@@ -1,0 +1,42 @@
+// The AI Opportunity Assessment enquiry form (notes ai-assessment/
+// AI-ASSESSMENT-DESIGN.md §5, ADR-121 + ADR-SEC-057). The form page is a
+// static file on this Worker's own host, so zaaheen.com's strict policy
+// (connect-src and form-action 'self') never has to widen; the page on
+// zaaheen.com/consulting/ only links here.
+//
+// NOT DEPLOYED YET: waits for the founder's account steps (design §8 items
+// 1-4). The database id below is a placeholder until the database is made.
+// Every account value is a Cloudflare secret, never this file.
+//
+// Its name must never be another Worker's: a publish under a reused name
+// REPLACES that Worker (session 108 took api.zaaheen.com down that way).
+// Custom domain only: no workers.dev copy, no preview URLs.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zaaheen-consulting",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "consulting.zaaheen.com", "custom_domain": true }],
+  // Our own failure lines only (src/mail.ts); invocation logs describe each
+  // visitor's request and stay off.
+  "observability": { "enabled": true, "logs": { "invocation_logs": false } },
+  // The form page (public/) is served as static files; only /v1/* runs the Worker.
+  "assets": {
+    "directory": "./public",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/v1/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "zaaheen-consulting",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // The daily sweep (src/store.ts): enquiries older than 12 months are deleted, at 00:20 UTC.
+  "triggers": { "crons": ["20 0 * * *"] }
+}
