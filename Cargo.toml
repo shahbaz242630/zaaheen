@@ -333,3 +333,16 @@ panic = "abort"
 [profile.dev]
 opt-level = 0
 debug = true
+
+# 0.3.9 (s123): DuckDB's C++ is built like the shipped app's in dev/test builds
+# too. With the dev profile, libduckdb-sys 1.10506.1's cc build leaves NDEBUG
+# undefined, and on windows-2025 every vault-tauri test program then hung
+# before main: the debug C runtime's "Debug Assertion Failed!" box
+# (debug_heap.cpp:908, is_block_type_valid) raised from llama.cpp's static
+# `build_info` string, freed by a debug operator delete after a release
+# operator new (two C runtimes in one test exe). Release builds were never
+# affected (the update rehearsal passed). debug = false makes its build script
+# define NDEBUG; opt-level 2 also shortens the slow DuckDB tests.
+[profile.dev.package.libduckdb-sys]
+opt-level = 2
+debug = false
