@@ -1,0 +1,174 @@
+name: Laptop check build
+
+# The founder laptop check before 0.3.8 (HANDOFF section 6 release recipe;
+# notes AUTO-UPDATE-DESIGN.md section 5). THROWAWAY BRANCH ONLY: never merged.
+#
+# Two Windows installers, 0.3.90 and 0.3.91, that sign in to the TEST account
+# system (MAC_TEST_* secrets, as a sandbox release build) but keep the
+# production update address, so 0.3.90 asks https://dl.zaaheen.com for its
+# update. A key is made here for this run (never the real one); its public
+# half replaces the one in tauri.conf.json, so the real 0.3.8 refuses these
+# files. The founder uploads 0.3.91, its seal and latest.json to the download
+# site for the check and deletes them after it.
+
+on:
+  push:
+    branches: ['release-test/laptop-check-*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: laptop-check-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  N: '0.3.90'
+  N1: '0.3.91'
+
+jobs:
+  windows:
+    name: Windows laptop-check installers
+    runs-on: windows-2025
+    timeout-minutes: 300
+    # The test account settings live in `release`, which waits for the founder.
+    environment: release
+    env:
+      ZAAHEEN_ACCOUNT_ISSUER: ${{ secrets.MAC_TEST_ACCOUNT_ISSUER }}
+      ZAAHEEN_ACCOUNT_CLIENT_ID: ${{ secrets.MAC_TEST_ACCOUNT_CLIENT_ID }}
+      ZAAHEEN_ACCOUNT_API: ${{ secrets.MAC_TEST_ACCOUNT_API }}
+      ZAAHEEN_LEASE_PRIMARY_KID: ${{ secrets.MAC_TEST_LEASE_PRIMARY_KID }}
+      ZAAHEEN_LEASE_PRIMARY_KEY: ${{ secrets.MAC_TEST_LEASE_PRIMARY_KEY }}
+      ZAAHEEN_LEASE_BACKUP_KID: ${{ secrets.MAC_TEST_LEASE_BACKUP_KID }}
+      ZAAHEEN_LEASE_BACKUP_KEY: ${{ secrets.MAC_TEST_LEASE_BACKUP_KEY }}
+      LANCE_MEM_POOL_SIZE: '268435456'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: The account settings pass every rule for the test account
+        shell: pwsh
+        run: ./scripts/check-release-account.ps1 -Account 'sandbox'
+
+      # The same machine set-up as release-build.yml's Windows job.
+      - name: Free disk space on the Windows machine
+        shell: pwsh
+        run: |
+          foreach ($p in @("C:\Android", "C:\Program Files\Android", "C:\hostedtoolcache\windows\AndroidSdk",
+                           "C:\Program Files\dotnet", "C:\Program Files\Java", "C:\hostedtoolcache\windows\go",
+                           "C:\hostedtoolcache\windows\Ruby", "C:\hostedtoolcache\windows\PyPy", "C:\miniconda",
+                           "C:\selenium", "C:\Program Files\MongoDB")) {
+            if (Test-Path $p) { Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue }
+          }
+      - uses: ./.github/actions/setup-protoc
+      - name: Install LLVM and set LIBCLANG_PATH
+        shell: pwsh
+        run: |
+          choco install llvm --version 20.1.8 --allow-downgrade -y --no-progress
+          $clang = (Get-Command clang.exe -ErrorAction SilentlyContinue).Source
+          if (-not $clang) { $clang = "C:\Program Files\LLVM\bin\clang.exe" }
+          "LIBCLANG_PATH=$(Split-Path $clang -Parent)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Install the Vulkan SDK and Ninja
+        shell: pwsh
+        env:
+          VULKAN_VERSION: 1.4.313.2
+        run: |
+          curl.exe --retry 3 -o $env:RUNNER_TEMP/VulkanSDK-Installer.exe -L `
+            "https://sdk.lunarg.com/sdk/download/${env:VULKAN_VERSION}/windows/vulkansdk-windows-X64-${env:VULKAN_VERSION}.exe"
+          $vk = (Get-FileHash "$env:RUNNER_TEMP/VulkanSDK-Installer.exe" -Algorithm SHA256).Hash.ToLower()
+          if ($vk -ne "34a921d951858274ca8e470e9d0a3b7624db41216b3908ccea9f73c8a1b7500e") { throw "Vulkan SDK installer SHA-256 mismatch: $vk" }
+          & "$env:RUNNER_TEMP\VulkanSDK-Installer.exe" --accept-licenses --default-answer --confirm-command install
+          Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\${env:VULKAN_VERSION}"
+          Add-Content $env:GITHUB_PATH "C:\VulkanSDK\${env:VULKAN_VERSION}\bin"
+          Add-Content $env:GITHUB_ENV "CMAKE_TRY_COMPILE_CONFIGURATION=Release"
+          choco install ninja --version 1.13.2 --allow-downgrade -y --no-progress
+          Add-Content $env:GITHUB_ENV "CMAKE_GENERATOR=Ninja"
+          Add-Content $env:GITHUB_ENV "CARGO_TARGET_DIR=D:\t"
+          Add-Content $env:GITHUB_ENV "CARGO_BUILD_JOBS=2"
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: stable
+      - name: Provision the embedder model and ONNX Runtime
+        shell: pwsh
+        run: ./scripts/setup-dev-env.ps1
+      - name: Pin MSVC toolset to v143 (14.44), as CI
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+        with:
+          arch: x64
+          toolset: '14.44'
+
+      - name: Build the command-line programs (release)
+        run: cargo build --release --locked -p vault-cli
+      - name: Place the programs where the installer recipe looks for them
+        shell: pwsh
+        run: |
+          $dest = 'C:\Projects\GitHub\Memory Vault\target\release'
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item 'D:\t\release\zaaheen.exe', 'D:\t\release\zaaheen-maintenance.exe' $dest
+      - name: Install the Tauri CLI (the release version)
+        run: cargo install tauri-cli --version 2.11.5 --locked
+
+      - name: Make this run's update key; its public half goes into the app
+        shell: pwsh
+        run: |
+          $key = "$env:RUNNER_TEMP\laptop-check.key"
+          cargo tauri signer generate --ci -p laptop-check -w $key
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $pub = (Get-Content "$key.pub" -Raw).Trim()
+          $path = 'crates/vault-tauri/tauri.conf.json'
+          $conf = Get-Content $path -Raw
+          $old = ([regex]::Match($conf, '"pubkey":\s*"([^"]+)"')).Groups[1].Value
+          if (-not $old) { throw 'no pubkey in tauri.conf.json' }
+          $conf.Replace($old, $pub) | Set-Content $path -NoNewline -Encoding utf8
+          Select-String -Path $path -Pattern '"pubkey"|"endpoints"|requireSignedVersion'
+
+      # Production config (no sandbox overlay), so the update address stays in.
+      - name: Build two versions (0.3.90 and 0.3.91)
+        shell: pwsh
+        run: |
+          $out = "$env:RUNNER_TEMP\out"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          foreach ($v in $env:N, $env:N1) {
+            (Get-Content Cargo.toml -Raw) -replace '(?m)^version = "[^"]+"', "version = `"$v`"" | Set-Content Cargo.toml -NoNewline
+            (Get-Content crates/vault-tauri/tauri.conf.json -Raw) -replace '"version":\s*"[^"]+"', "`"version`": `"$v`"" |
+              Set-Content crates/vault-tauri/tauri.conf.json -NoNewline -Encoding utf8
+            cargo update --workspace
+            Push-Location crates/vault-tauri
+            cargo tauri build
+            $code = $LASTEXITCODE
+            Pop-Location
+            if ($code -ne 0) { exit $code }
+            $msi = Get-ChildItem 'D:\t\release\bundle\msi' -Filter "*$v*.msi" | Select-Object -First 1
+            if (-not $msi) { throw "no MSI for $v" }
+            Copy-Item $msi.FullName "$out\Zaaheen_${v}_laptop-check.msi"
+            Write-Host "built $v ($([math]::Round($msi.Length / 1MB, 1)) MB)"
+          }
+
+      - name: Seal both with their versions; write latest.json for 0.3.91
+        shell: pwsh
+        run: |
+          $out = "$env:RUNNER_TEMP\out"
+          foreach ($v in $env:N, $env:N1) {
+            cargo tauri signer sign -f "$env:RUNNER_TEMP\laptop-check.key" -p laptop-check --app-version $v "$out\Zaaheen_${v}_laptop-check.msi"
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          $name = "Zaaheen_$($env:N1)_laptop-check.msi"
+          $m = [ordered]@{
+            version   = $env:N1
+            notes     = 'laptop check'
+            pub_date  = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+            platforms = @{ 'windows-x86_64' = @{ url = "https://dl.zaaheen.com/$name"; signature = (Get-Content "$out\$name.sig" -Raw).Trim() } }
+          }
+          $m | ConvertTo-Json -Depth 5 | Set-Content "$out\latest.json" -Encoding ascii
+          Get-Content "$out\latest.json"
+          $sums = Get-ChildItem $out -File | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          }
+          $sums | Set-Content "$out\SHA256SUMS.txt" -Encoding ascii
+          $sums
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: laptop-check-windows
+          path: ${{ runner.temp }}/out
+          retention-days: 7
+          if-no-files-found: error
