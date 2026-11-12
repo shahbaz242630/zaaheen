@@ -1,0 +1,138 @@
+---
+// Learn comparison page 6 in French (ADR-113): the English article's structure
+// with its words translated. Every fact, price and date is the English page's
+// (src/pages/learn/membase-alternative.astro, whose header lists the sources).
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../../data/site';
+
+const CHECKED = '11 novembre 2026';
+const monthly = `${PRICES.monthly} USD par mois`;
+const yearly = `${PRICES.yearly} USD par an`;
+const OUTLINE = [
+  { id: 'what', title: 'Ce qu’est Membase' },
+  { id: 'differ', title: 'Ce qui distingue Zaaheen' },
+  { id: 'table', title: 'Côte à côte' },
+  { id: 'better', title: 'Quand Membase est le meilleur choix' },
+  { id: 'limits', title: 'Les limites de Zaaheen' },
+];
+const MB_HOME = 'https://membase.com/';
+const MB_PRIVACY = 'https://membase.com/privacy';
+const MB_GITHUB = 'https://github.com/unibaseio/membase';
+---
+<Learn
+  path="/fr/learn/membase-alternative/"
+  lede="Membase est une mémoire hébergée pour les applications et agents d'IA, avec une extension de navigateur, un serveur MCP et des outils pour les développeurs. Son propre site indique que le service hébergé n'est pas chiffré de bout en bout. Si vous voulez une mémoire unique pour ChatGPT, Claude et Cursor qui reste chiffrée sur votre propre ordinateur et ne demande aucune clé d'API, Zaaheen est fait pour ça."
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>Ce qu’est Membase</h2>
+    <p>Cette page parle de Membase sur membase.com, conçu par une entreprise appelée Unibase. Un autre
+       produit, sur membase.so, porte aussi ce nom ; les deux n'ont aucun lien
+       (<a href={MB_HOME}>site de Membase</a>).</p>
+    <p>Membase construit une mémoire à long terme unique à partir de vos conversations et de vos
+       fichiers. Son extension de navigateur fonctionne avec ChatGPT, Claude, Gemini, Grok, DeepSeek et
+       Kimi dans Chrome, et Claude Code, Cursor et Codex se connectent via son serveur MCP. Les
+       développeurs peuvent aussi l'utiliser depuis leur code. Une application de bureau est annoncée
+       comme bientôt disponible (<a href={MB_HOME}>sa page d'accueil</a>).</p>
+    <p>Votre mémoire est conservée sur le service de Membase, qui selon sa politique de
+       confidentialité fonctionne sur Amazon Web Services à Singapour, et les parties utiles de ce que
+       vous enregistrez sont envoyées à son fournisseur d'IA, actuellement OpenAI
+       (<a href={MB_PRIVACY}>sa politique de confidentialité</a>). Il existe aussi un mode local pour
+       ceux qui utilisent Python, qui garde la mémoire dans un dossier sur votre ordinateur mais
+       demande votre propre clé d'API OpenAI (<a href={MB_GITHUB}>sa page GitHub</a>).</p>
+  </section>
+
+  <section id="differ">
+    <h2>Ce qui distingue Zaaheen</h2>
+    <ul>
+      <li><strong>Chiffrée sur votre ordinateur, par défaut.</strong> Zaaheen garde vos souvenirs
+          chiffrés sur votre propre ordinateur, et nos serveurs ne les reçoivent jamais. Le service
+          hébergé de Membase, son choix par défaut, n'est pas chiffré de bout en bout, selon ses
+          propres mots.</li>
+      <li><strong>Pas de clé d'API, pas de service d'IA extérieur.</strong> Zaaheen fait tourner ses
+          propres modèles d'IA sur votre ordinateur, donc vos souvenirs ne sont jamais envoyés à une
+          entreprise d'IA pour être triés ou recherchés. Le mode local de Membase demande quand même
+          une clé OpenAI.</li>
+      <li><strong>Une application terminée pour Windows et Mac.</strong> Zaaheen s'installe comme
+          n'importe quelle application, et vous connectez chaque application d'IA depuis son onglet
+          Agents. L'application de bureau de Membase n'est pas encore sortie.</li>
+      <li><strong>Un code que vous pouvez lire.</strong> Tout le code de Zaaheen est public et lisible,
+          donc chacun peut vérifier comment vos souvenirs sont traités. Membase publie ses outils, mais
+          son moteur de mémoire est livré sous forme de paquet fermé et compilé.</li>
+    </ul>
+
+    <MemoryFlow
+      id="flow-membase"
+      from="Claude"
+      to="Cursor"
+      fact="Préfère TypeScript"
+      others={['ChatGPT', 'Codex']}
+      caption="Ce que vous dites à Claude est enregistré une fois dans la mémoire chiffrée sur votre ordinateur, et Cursor et vos autres applications peuvent le retrouver plus tard."
+    />
+  </section>
+
+  <section id="table">
+    <h2>Côte à côte</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">Membase</th><th scope="col">Zaaheen</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Où les souvenirs sont conservés</th><td>Son service hébergé à Singapour ; ou un dossier local avec le mode local en Python</td><td>Votre ordinateur, chiffrés</td></tr>
+        <tr><th scope="row">Chiffrement</th><td>Chiffré au repos ; le service hébergé n'est pas chiffré de bout en bout, selon ses propres mots</td><td>Chiffré sur votre ordinateur ; nos serveurs ne reçoivent jamais vos souvenirs</td></tr>
+        <tr><th scope="row">Triés et recherchés par</th><td>OpenAI, en hébergé comme en local</td><td>Des modèles d'IA qui tournent sur votre ordinateur</td></tr>
+        <tr><th scope="row">Mise en place</th><td>Extension de navigateur, serveur MCP, ou Python pour le mode local</td><td>Un installateur, puis connecter chaque application</td></tr>
+        <tr><th scope="row">Application de bureau</th><td>Bientôt disponible</td><td>Windows et Mac</td></tr>
+        <tr><th scope="row">Prix</th><td>Aucun prix sur son site lors de notre vérification</td><td>{TRIAL.days} jours gratuits, puis {monthly} ou {yearly}</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">Au {CHECKED}, d'après les pages de Membase ; cela peut changer. Consultez
+       les liens ci-dessus pour les informations les plus récentes.</p>
+    <p>Ce qui compte le plus dans une mémoire, c'est que la bonne réponse revienne, et que
+       l'application le reconnaisse quand la mémoire n'en contient pas. Nous avons posé à Cursor cinq
+       questions sur des informations qu'une autre application avait enregistrées dans une mémoire
+       Zaaheen partagée.</p>
+
+    <BarChart
+      id="chart-membase-cursor"
+      title="5 questions à Cursor sur des informations enregistrées par une autre application"
+      measure="Questions"
+      max={5}
+      bars={[
+        { label: "S'en est souvenu", value: 3, note: 'sur 5' },
+        { label: 'A dit ne pas savoir', value: 1, note: 'sur 5' },
+        { label: 'A évité le piège', value: 1, note: 'sur 5' },
+      ]}
+      source={{ text: "Test de Zaaheen, 5 juin 2026, une version de développement de Zaaheen sur Windows. Ne savait pas, à juste titre : un groupe sanguin que la mémoire ne contenait pas. Le piège : interrogé sur le chat de la personne, il a répondu qu'elle avait un chien." }}
+    />
+  </section>
+
+  <section id="better">
+    <h2>Quand Membase est le meilleur choix</h2>
+    <p>Si vous utilisez surtout l'IA dans un navigateur web, l'extension de Membase y rejoint ChatGPT,
+       Gemini, Grok et d'autres, ce que Zaaheen ne fait pas. Elle peut aussi construire une mémoire à
+       partir des fichiers et des pages que vous enregistrez, et les développeurs disposent d'une API
+       et d'outils pour construire avec. Et si cela ne vous gêne pas que votre mémoire soit en ligne,
+       elle vous suit sur n'importe quel ordinateur.</p>
+  </section>
+
+  <section id="limits">
+    <h2>Les limites de Zaaheen</h2>
+    <ul>
+      <li>Elle fonctionne uniquement sur Windows et sur les Mac à puce Apple, sans version Linux ni
+          pour téléphone.</li>
+      <li>ChatGPT se connecte via l'application ChatGPT pour votre ordinateur, pas dans un navigateur
+          web.</li>
+      <li>Votre mémoire vit sur un seul ordinateur ; il n'y a pas encore de synchronisation entre
+          ordinateurs.</li>
+      <li>Elle n'est pas open source, et après l'essai gratuit de {TRIAL.days} jours, il n'y a pas
+          d'offre gratuite.</li>
+    </ul>
+    <p class="learn-note">Membase est un nom qui appartient à son propriétaire. Nous n'avons aucun
+       lien avec Membase ni avec Unibase. Informations vérifiées le {CHECKED} ; si quelque chose ici
+       est faux ou dépassé, écrivez-nous à <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> et
+       nous le corrigerons.</p>
+  </section>
+</Learn>
