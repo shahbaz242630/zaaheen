@@ -346,101 +346,59 @@ jobs:
           arch: x64
           toolset: '14.44'
       - run: cargo build --workspace --all-targets
-      - name: test vault-core
+      - name: Build every test program (same features as the workspace build)
+        shell: pwsh
+        run: |
+          cargo test --workspace --no-run --message-format=json 2>$null | ForEach-Object {
+            try { $j = $_ | ConvertFrom-Json } catch { return }
+            if ($j.reason -eq 'compiler-artifact' -and $j.executable -and $j.profile.test) {
+              "$($j.executable)|$(Split-Path $j.manifest_path -Parent)"
+            }
+          } | Set-Content $env:RUNNER_TEMP\tests.txt
+          Get-Content $env:RUNNER_TEMP\tests.txt | Measure-Object | Select-Object -ExpandProperty Count
+      - name: Run each test program with a 5-minute limit
+        shell: pwsh
+        run: |
+          $hung = @()
+          foreach ($line in Get-Content $env:RUNNER_TEMP\tests.txt) {
+            $exe, $dir = $line -split '\|', 2
+            $name = Split-Path $exe -Leaf
+            $out = Join-Path $env:RUNNER_TEMP "$name.out"
+            $err = Join-Path $env:RUNNER_TEMP "$name.err"
+            $env:CARGO_MANIFEST_DIR = $dir
+            $t = [Diagnostics.Stopwatch]::StartNew()
+            $p = Start-Process -FilePath $exe -WorkingDirectory $dir -NoNewWindow -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+            if (-not $p.WaitForExit(300000)) {
+              Write-Host "::error::HUNG $name ($dir) after $([int]$t.Elapsed.TotalSeconds) s"
+              $hung += $exe
+              Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+              Write-Host '--- stdout (last 40) ---'; Get-Content $out -Tail 40 -ErrorAction SilentlyContinue
+              Write-Host '--- stderr (last 40) ---'; Get-Content $err -Tail 40 -ErrorAction SilentlyContinue
+            } else {
+              $p.WaitForExit()
+              $res = (Select-String -Path $out -Pattern '^test result:' -ErrorAction SilentlyContinue | Select-Object -Last 1).Line
+              Write-Host ("{0,-60} exit={1} {2}s {3}" -f $name, $p.ExitCode, [int]$t.Elapsed.TotalSeconds, $res)
+              if ($p.ExitCode -ne 0) { Get-Content $out -Tail 30; Get-Content $err -Tail 30 }
+            }
+          }
+          $hung | Set-Content $env:RUNNER_TEMP\hung.txt
+      - name: Windows error boxes raised during the run (System log, event 26)
         if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-core
-      - name: test vault-storage
+        shell: pwsh
+        run: |
+          Get-WinEvent -FilterHashtable @{LogName='System'; Id=26} -ErrorAction SilentlyContinue |
+            Select-Object -First 20 | ForEach-Object { "$($_.TimeCreated) $($_.Message)" }
+          Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='Application Error','SideBySide','Application Popup'} -ErrorAction SilentlyContinue |
+            Select-Object -First 20 | ForEach-Object { "$($_.TimeCreated) [$($_.ProviderName)] $($_.Message)" }
+      - name: What each hung program needs to load
         if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-storage
-      - name: test vault-embedding
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-embedding
-      - name: test vault-llm
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-llm
-      - name: test vault-retrieval
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-retrieval
-      - name: test vault-consolidator
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-consolidator
-      - name: test vault-scheduler
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-scheduler
-      - name: test vault-account
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-account
-      - name: test vault-mcp
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-mcp
-      - name: test vault-sync
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-sync
-      - name: test vault-connectors
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-connectors
-      - name: test vault-app
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-app
-      - name: test vault-cli
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-cli
-      - name: test vault-tauri
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          RUST_BACKTRACE: '1'
-        run: cargo test -p vault-tauri
+        shell: pwsh
+        run: |
+          foreach ($exe in Get-Content $env:RUNNER_TEMP\hung.txt -ErrorAction SilentlyContinue) {
+            if (-not $exe) { continue }
+            Write-Host "=== $exe"
+            dumpbin /nologo /dependents $exe
+            dumpbin /nologo /imports $exe | Select-String -Pattern 'dll|TaskDialog|WebView|CreateCoreWebView' | Select-Object -First 80
+            Write-Host '--- embedded manifest ---'
+            mt.exe -nologo -inputresource:"$exe;#1" -out:"$env:RUNNER_TEMP\m.xml" 2>&1; Get-Content "$env:RUNNER_TEMP\m.xml" -ErrorAction SilentlyContinue
+          }
