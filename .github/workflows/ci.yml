@@ -276,7 +276,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-2025, macos-latest]
-    runs-on: ${{ matrix.os }}
+    # s123 (2026-11-12): ubuntu-latest became Ubuntu 26.04 (image 20261028), and
+    # LunarG publishes no Vulkan apt repo for it yet (lunarg-vulkan-resolute.list
+    # is 404, wget exit 8), so the Linux leg runs on 24.04. The matrix value
+    # stays `ubuntu-latest` so the required check names do not change.
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
     steps:
       # Linux-only: free ~15-20GB by removing unused tooling. The jlumbroso
       # action is Linux-only by design (uses apt-get / rm -rf /usr/share/dotnet
@@ -523,7 +527,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-2025, macos-latest]
-    runs-on: ${{ matrix.os }}
+    # s123 (2026-11-12): ubuntu-latest became Ubuntu 26.04 (image 20261028), and
+    # LunarG publishes no Vulkan apt repo for it yet (lunarg-vulkan-resolute.list
+    # is 404, wget exit 8), so the Linux leg runs on 24.04. The matrix value
+    # stays `ubuntu-latest` so the required check names do not change.
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
     steps:
       # Linux-only — see clippy job above for rationale.
       # tool-cache:true added 2026-06-24 (multi-agent daemon arc): the daemon
