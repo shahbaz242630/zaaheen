@@ -59,10 +59,15 @@ export async function handleEnquiry(request: Request, env: EnquiryEnv, deps: Dep
     return reply(503, { kind: "unavailable" });
   }
 
-  if (await claimMail(env.DB, dayOf(now), MAIL_DAILY_CAP)) {
-    if (await sendEnquiryMail(env, deps.fetch, id, checked.enquiry, now)) await markMailed(env.DB, id);
-  } else {
-    console.warn("consulting_mail_skipped", "daily_cap");
+  // Stored: from here on the visitor hears "received", whatever happens to the email.
+  try {
+    if (await claimMail(env.DB, dayOf(now), MAIL_DAILY_CAP)) {
+      if (await sendEnquiryMail(env, deps.fetch, id, checked.enquiry, now)) await markMailed(env.DB, id);
+    } else {
+      console.warn("consulting_mail_skipped", "daily_cap");
+    }
+  } catch {
+    console.warn("consulting_mail_failed", "store");
   }
   return reply(200, { kind: "received" });
 }

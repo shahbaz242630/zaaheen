@@ -77,7 +77,8 @@ export function validateEnquiry(value: unknown): Validated {
   if (!EMAIL.test(email) || !PHONE.test(phone) || (phone.match(/[0-9]/g)?.length ?? 0) < 6) return NO;
 
   if (typeof v.message !== "string") return NO;
-  const message = v.message.trim();
+  // Windows and old Mac line breaks become \n before the control-character check.
+  const message = v.message.replace(/\r\n?/g, "\n").trim();
   if (message.length > LIMITS.message || CONTROL_BUT_NEWLINE.test(message)) return NO;
 
   const country = COUNTRIES.find((c) => c === v.country);

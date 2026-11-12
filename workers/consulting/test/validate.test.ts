@@ -53,6 +53,9 @@ describe("validateEnquiry", () => {
     expect(validateEnquiry({ ...GOOD, company: "A\u0000B" }).ok).toBe(false);
     expect(validateEnquiry({ ...GOOD, message: "line one\nline two" }).ok).toBe(true);
     expect(validateEnquiry({ ...GOOD, message: "bad\u0007bell" }).ok).toBe(false);
+    const crlf = validateEnquiry({ ...GOOD, message: "line one\r\nline two\rthree" });
+    expect(crlf.ok).toBe(true);
+    if (crlf.ok) expect(crlf.enquiry.message).toBe("line one\nline two\nthree");
   });
 
   it("takes only a plain email address", () => {
