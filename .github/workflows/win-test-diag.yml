@@ -356,6 +356,28 @@ jobs:
             }
           } | Set-Content $env:RUNNER_TEMP\tests.txt
           Get-Content $env:RUNNER_TEMP\tests.txt | Measure-Object | Select-Object -ExpandProperty Count
+      - name: Stack of a stuck vault-tauri test program (debugger, non-invasive)
+        shell: pwsh
+        run: |
+          $cdb = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $cdb) { $cdb = Get-ChildItem 'C:\Program Files (x86)\Windows Kits' -Recurse -Filter cdb.exe -ErrorAction SilentlyContinue | Where-Object FullName -like '*x64*' | Select-Object -First 1 }
+          Write-Host "cdb: $($cdb.FullName)"
+          $lines = Get-Content $env:RUNNER_TEMP\tests.txt | Where-Object { $_ -match '\\(vault_tauri|frontend_contract)-[0-9a-f]+\.exe\|' }
+          foreach ($line in $lines) {
+            $exe, $dir = $line -split '\|', 2
+            Write-Host "=== $exe"
+            $env:CARGO_MANIFEST_DIR = $dir
+            $out = Join-Path $env:RUNNER_TEMP 'stack.out'
+            $p = Start-Process -FilePath $exe -ArgumentList '--test-threads=1' -WorkingDirectory $dir -NoNewWindow -PassThru -RedirectStandardOutput $out -RedirectStandardError "$out.err"
+            Start-Sleep -Seconds 40
+            if ($p.HasExited) { Write-Host "exited by itself: $($p.ExitCode)"; Get-Content $out -Tail 20; continue }
+            Write-Host '--- stdout so far ---'; Get-Content $out -Tail 20
+            Write-Host '--- loaded modules ---'
+            (Get-Process -Id $p.Id).Modules | ForEach-Object { $_.ModuleName } | Sort-Object | Out-String -Width 200
+            Write-Host '--- thread stacks ---'
+            if ($cdb) { & $cdb.FullName -pv -p $p.Id -lines -c '.sympath+ D:\t\debug\deps; .reload; ~*kn 60; qd' 2>&1 | Select-Object -Last 400 }
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          }
       - name: Run each test program with a 5-minute limit
         shell: pwsh
         run: |
