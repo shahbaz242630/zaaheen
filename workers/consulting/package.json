@@ -1,0 +1,27 @@
+{
+  "name": "zaaheen-consulting-worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "consulting.zaaheen.com: the AI Readiness Assessment enquiry form. Stores an enquiry and tells consulting@zaaheen.com. ADR-121 + ADR-SEC-057, notes ai-assessment/.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "types": "wrangler types",
+    "types:check": "wrangler types --check"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.6.0",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0",
+    "wrangler": "4.158.0"
+  },
+  "overrides": {
+    "sharp": "0.35.5",
+    "undici": "7.30.1",
+    "zod": "4.6.7"
+  }
+}

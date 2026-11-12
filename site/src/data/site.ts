@@ -238,6 +238,16 @@ export const COACHING = {
   email: 'knowledgecentre@zaaheen.com',
 } as const;
 
+// The AI Readiness Assessment (consulting for businesses, notes
+// ai-assessment/AI-ASSESSMENT-DESIGN.md, ADR-121). Its enquiry form is the
+// zaaheen-consulting Worker's own page (workers/consulting), so zaaheen.com's
+// policy never has to allow another host; this site only links to it.
+export const CONSULTING = {
+  enquiryUrl: 'https://consulting.zaaheen.com/',
+  // A shared mailbox in our Microsoft 365 tenant (design §5).
+  email: 'consulting@zaaheen.com',
+} as const;
+
 // The top bar on every page. Labels and order are the founder's (Pricing added
 // session 67).
 export const NAV = [
@@ -316,6 +326,13 @@ export const PAGES: PageEntry[] = [
     description:
       'Learn to work with AI properly: private 1-to-1 AI coaching sessions from Zaaheen, built around a real task and booked online.',
     sources: ['src/pages/knowledge-centre/index.astro', 'src/data/site.ts'],
+  },
+  {
+    path: '/consulting/',
+    title: 'AI Readiness Assessment for businesses · Zaaheen',
+    description:
+      'An independent AI readiness assessment, on site and department by department, by someone who has run operations. We sell no tools and take no commissions.',
+    sources: ['src/pages/consulting.astro', 'src/data/site.ts'],
   },
   {
     path: '/privacy/',
