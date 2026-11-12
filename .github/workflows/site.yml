@@ -37,10 +37,12 @@ name: Site
 # both hosts are published; drop those needs when Hostinger is retired.
 
 on:
+  # Every pull request builds and audits the site, whatever it touches (s122):
+  # "Build and audit" is a required check on main (ruleset 21534784), and a
+  # required check that a path filter skips is "expected" forever, so the PR
+  # could never merge. The build takes about a minute and publishes nothing
+  # from a pull request (every publish job needs a push to main).
   pull_request:
-    # crates/vault-tauri/dist/app.js: the guides read the app's connect wording
-    # from it (site/src/data/app-words.ts), so a wording change rebuilds the site (s83).
-    paths: ['site/**', '.github/workflows/site.yml', 'crates/vault-tauri/dist/app.js']
   push:
     branches: [main]
     # crates/vault-tauri/dist/app.js: the guides read the app's connect wording
