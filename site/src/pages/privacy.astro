@@ -32,7 +32,7 @@ const OUTLINE: Outline[] = [
     { id: 'ask-zaaheen', title: 'Ask Zaaheen, the question box' },
   ] },
   { id: 'businesses', title: 'Businesses that contact us', topics: [
-    { id: 'consulting', title: 'AI Opportunity Assessment enquiries' },
+    { id: 'consulting', title: 'AI Readiness Assessment enquiries' },
   ] },
   { id: 'sharing', title: 'Who we share it with', topics: [
     { id: 'providers', title: 'The companies that run Zaaheen with us' },
@@ -248,7 +248,7 @@ const topic = (id: string) =>
     </Row>
   </section>
 
-  <!-- The AI Opportunity Assessment enquiry form (notes ai-assessment/
+  <!-- The AI Readiness Assessment enquiry form (notes ai-assessment/
        AI-ASSESSMENT-DESIGN.md §4-§5, ADR-SEC-057). The workers/consulting
        Worker keeps exactly this: migrations/0001_enquiries.sql, src/store.ts
        (12-month sweep), src/mail.ts (one email to consulting@). The form page
@@ -257,7 +257,7 @@ const topic = (id: string) =>
     <h2 class="docs-title">Businesses that contact us</h2>
 
     <Row id="consulting" title={topic('consulting')} where="On consulting.zaaheen.com">
-      <p>When you ask about our AI Opportunity Assessment through the form on
+      <p>When you ask about our AI Readiness Assessment through the form on
          consulting.zaaheen.com, we keep what you type into it: your name, work email, phone
          number, company, country, company size, the teams you would like us to look at and your
          message. We also keep your two answers about contact, and when you sent the form. We use

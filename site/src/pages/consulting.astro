@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { CONSULTING, pageFor } from '../data/site';
 
-// The AI Opportunity Assessment (notes ai-assessment/AI-ASSESSMENT-DESIGN.md
+// The AI Readiness Assessment (notes ai-assessment/AI-ASSESSMENT-DESIGN.md
 // §1 and §4, ADR-121). English only. Linked from the footer and the Company
 // page, not the top bar. No prices: every business is quoted after a call.
 // The form lives on consulting.zaaheen.com (workers/consulting), so this
@@ -31,21 +31,23 @@ const VERDICTS = [
 const FAQ = [
   { q: 'Is this an audit of our accounts or a certification?', a: 'No. It is an operational assessment of how work gets done and where AI can help. It is not a financial audit, an assurance report or a certification of any AI system.' },
   { q: 'What happens to what we show you?', a: 'We sign a confidentiality agreement before the first visit. We record roles and processes, not people\'s names or personal details. Notes are deleted 90 days after the report, unless you ask us to keep them for a follow-on project.' },
-  { q: 'Do you sell the tools you recommend?', a: 'No. We recommend what fits your work, whoever makes it. If you would like help putting it in place afterwards, that is a separate, optional piece of work.' },
+  { q: 'Do you sell the tools you recommend?', a: 'No. We do not sell or resell any AI product, software or hardware, and we recommend what fits your work, whoever makes it. If you would like help putting it in place afterwards, that is a separate, optional piece of work.' },
+  { q: 'Do you earn anything from the providers you recommend?', a: 'No. We have no affiliate programme, referral fees, commissions or kickbacks from any provider. Our only income is the fee you pay us, so we work for you.' },
   { q: 'Which countries do you cover?', a: 'We are based in Dubai and work with businesses across the Gulf: the UAE, Saudi Arabia, Qatar, Kuwait, Bahrain and Oman.' },
   { q: 'How long does it take?', a: 'It depends on the size of the business and how many teams we look at. A small firm usually takes two to three weeks from the first visit to the read-out. We agree the timeline in writing before we start.' },
   { q: 'What does it cost?', a: 'Every business is different, so we quote after the free call, once we know how many teams and sites are involved. The quote is fixed and in writing.' },
-  { q: 'Can you help after the report?', a: 'Yes, if you want us to. We can be your point of contact for AI on a monthly basis, help put the recommendations in place, or set up AI that runs on your own servers when your data must stay in-house.' },
+  { q: 'Can you help after the report?', a: 'Yes, if you want us to. We can be your point of contact for AI on a monthly basis, help put the recommendations in place, or set up AI that runs on your own servers when your data must stay in-house. You buy any software or hardware directly from its maker.' },
 ];
 ---
 <Base page={page}>
   <section class="hero">
     <div class="hero-copy">
-      <p class="eyebrow">AI Opportunity Assessment</p>
+      <p class="eyebrow">AI Readiness Assessment</p>
       <h1>Find where AI helps your business, and where it doesn't.</h1>
-      <p class="lede">We walk through your business team by team, map how the work really gets done,
-         and show you where AI saves time and money, where simpler fixes do better, and where to
-         leave things alone.</p>
+      <p class="lede">Not an online quiz or a generic readiness score. Someone who has spent twenty
+         years running operations comes to your business and goes through it department by
+         department, on site, mapping how the work really gets done. Then we show you where AI saves
+         time and money, where simpler fixes do better, and where to leave things alone.</p>
       <div class="cta-row">
         <a class="cta" href={book}>Book a free 30-minute call</a>
         <span class="cta-meta">For businesses across the Gulf</span>
@@ -53,7 +55,7 @@ const FAQ = [
       <ul class="promise-dots">
         <li>On site, every role</li>
         <li>A verdict for every team</li>
-        <li>No tools to sell you</li>
+        <li>Independent: no tools to sell you</li>
       </ul>
     </div>
   </section>
@@ -142,6 +144,23 @@ const FAQ = [
       </div>
     </div>
   </section>
+
+  <section class="kc-band">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Independent</p>
+        <h2>We work for you, not for any AI company.</h2>
+        <p class="section-lede">We do not sell or resell any AI product, software or hardware. We have no
+           affiliate programme, referral fees, commissions or kickbacks from any provider, and we are not
+           a partner or reseller of any of them. Our only income is the fee you pay us, so our advice is
+           based only on what fits your business. If we name a product, it is because it fits your work,
+           and you buy it directly from its maker. If you ask us to help put the recommendations in place
+           afterwards, that is a separate, optional piece of work, and it never depends on which tools
+           you choose.</p>
+      </div>
+    </div>
+  </section>
+
 
   <section class="faq">
     <div class="wrap">

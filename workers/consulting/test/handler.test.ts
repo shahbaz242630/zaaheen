@@ -169,7 +169,7 @@ describe("a good enquiry", () => {
       message: { subject: string; body: { contentType: string; content: string }; toRecipients: { emailAddress: { address: string } }[]; replyTo: { emailAddress: { address: string } }[] };
       saveToSentItems: boolean;
     };
-    expect(mail.message.subject).toBe("New enquiry: AI Opportunity Assessment");
+    expect(mail.message.subject).toBe("New enquiry: AI Readiness Assessment");
     expect(mail.message.body.contentType).toBe("Text");
     expect(mail.message.body.content).toContain(GOOD.company);
     expect(mail.message.toRecipients).toEqual([{ emailAddress: { address: MAILBOX } }]);

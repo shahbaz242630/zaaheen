@@ -11,7 +11,7 @@ import type { Enquiry } from "./validate";
 
 export const MAILBOX = "consulting@zaaheen.com";
 export const GRAPH_SEND = `https://graph.microsoft.com/v1.0/users/${MAILBOX}/sendMail`;
-export const SUBJECT = "New enquiry: AI Opportunity Assessment";
+export const SUBJECT = "New enquiry: AI Readiness Assessment";
 export const CAP_SUBJECT = "Enquiry emails paused for today";
 export const NIGHTLY_SUBJECT = "Enquiries waiting in the database";
 /** Enquiry emails a day at most; enquiries above it are stored and read from the database. */

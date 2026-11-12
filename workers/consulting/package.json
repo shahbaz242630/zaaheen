@@ -2,7 +2,7 @@
   "name": "zaaheen-consulting-worker",
   "version": "0.0.0",
   "private": true,
-  "description": "consulting.zaaheen.com: the AI Opportunity Assessment enquiry form. Stores an enquiry and tells consulting@zaaheen.com. ADR-121 + ADR-SEC-057, notes ai-assessment/.",
+  "description": "consulting.zaaheen.com: the AI Readiness Assessment enquiry form. Stores an enquiry and tells consulting@zaaheen.com. ADR-121 + ADR-SEC-057, notes ai-assessment/.",
   "type": "module",
   "engines": {
     "node": ">=22"
