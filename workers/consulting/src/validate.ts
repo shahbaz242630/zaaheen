@@ -56,6 +56,13 @@ const KEYS = [
 const SEPARATORS = String.fromCharCode(0x2028, 0x2029);
 const CONTROL = new RegExp(`[\\x00-\\x1f\\x7f-\\x9f${SEPARATORS}]`);
 const CONTROL_BUT_NEWLINE = new RegExp(`[\\x00-\\x09\\x0b-\\x1f\\x7f-\\x9f${SEPARATORS}]`);
+// Unicode format characters (category Cf): direction overrides and isolates,
+// zero-width spaces, word joiners, the byte-order mark. They can make a name
+// or a message display reversed or hide text in the email we read (review
+// s123). Two are allowed: the zero-width non-joiner and joiner (U+200C,
+// U+200D), which Persian and Urdu names and some emoji need to be written
+// correctly, and which cannot reorder or hide text.
+const FORMAT = /(?![‌‍])\p{Cf}/u;
 // A plain address: no spaces, no angle brackets, no quotes, one @, a dot in the domain.
 const EMAIL = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
 const PHONE = /^\+?[0-9 ()./-]{6,25}$/;
@@ -79,7 +86,7 @@ export function validateEnquiry(value: unknown): Validated {
   if (typeof v.message !== "string") return NO;
   // Windows and old Mac line breaks become \n before the control-character check.
   const message = v.message.replace(/\r\n?/g, "\n").trim();
-  if (message.length > LIMITS.message || CONTROL_BUT_NEWLINE.test(message)) return NO;
+  if (message.length > LIMITS.message || CONTROL_BUT_NEWLINE.test(message) || FORMAT.test(message)) return NO;
 
   const country = COUNTRIES.find((c) => c === v.country);
   const size = SIZES.find((s) => s === v.size);
@@ -107,6 +114,6 @@ export function validateEnquiry(value: unknown): Validated {
 function line(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
   const text = value.trim();
-  if (text.length === 0 || text.length > max || CONTROL.test(text)) return null;
+  if (text.length === 0 || text.length > max || CONTROL.test(text) || FORMAT.test(text)) return null;
   return text;
 }

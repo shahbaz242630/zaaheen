@@ -82,4 +82,22 @@ describe("validateEnquiry", () => {
     expect(validateEnquiry({ ...GOOD, departments: ["finance", "finance"] }).ok).toBe(false);
     expect(validateEnquiry({ ...GOOD, departments: [...DEPARTMENTS] }).ok).toBe(true);
   });
+
+  it("refuses format characters that can reverse or hide text, in any field", () => {
+    // Built from codes so this file never holds one raw.
+    const codes = [0x202e, 0x202a, 0x2066, 0x2069, 0x200b, 0x200e, 0x200f, 0x061c, 0x2060, 0xfeff, 0x00ad];
+    for (const code of codes) {
+      const c = String.fromCharCode(code);
+      expect(validateEnquiry({ ...GOOD, name: `Test${c}Person` }).ok, code.toString(16)).toBe(false);
+      expect(validateEnquiry({ ...GOOD, company: `Example${c} LLC` }).ok, code.toString(16)).toBe(false);
+      expect(validateEnquiry({ ...GOOD, message: `Hello${c}\nthere` }).ok, code.toString(16)).toBe(false);
+    }
+  });
+
+  it("allows the zero-width non-joiner and joiner that Persian and Urdu names need", () => {
+    const zwnj = String.fromCharCode(0x200c);
+    const zwj = String.fromCharCode(0x200d);
+    expect(validateEnquiry({ ...GOOD, name: `می${zwnj}خواهم` }).ok).toBe(true);
+    expect(validateEnquiry({ ...GOOD, message: `a${zwj}b` }).ok).toBe(true);
+  });
 });

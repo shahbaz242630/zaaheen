@@ -266,9 +266,12 @@ const topic = (id: string) =>
       <p>Before you send it, Cloudflare Turnstile checks you are a person. The enquiry is stored
          in our database at Cloudflare, and a copy is emailed to our own mailbox,
          <a href={`mailto:${CONSULTING.email}`}>{CONSULTING.email}</a>, at Microsoft. Only we read
-         it. We keep an enquiry for 12 months and then delete it, unless you become a client:
-         then your business's agreement with us says what we keep and for how long. Deleted
-         enquiries can remain in our database's automatic backups for up to 7 more days.</p>
+         it. We keep an enquiry, in our database and in that mailbox, for 12 months and then
+         delete it from both, unless you become a client: then your business's agreement with us
+         says what we keep and for how long. Deleted enquiries can remain in our database's
+         automatic backups for up to 7 more days. To limit misuse, we count enquiries per visitor
+         for one day using a scrambled code that cannot be turned back into your internet
+         address.</p>
       <p>You have the rights listed under <a href="#your-rights">Your rights</a>. To use them, or
          to ask us to delete your enquiry sooner, email <a href={`mailto:${CONSULTING.email}`}>{CONSULTING.email}</a>.</p>
     </Row>
@@ -356,7 +359,8 @@ const topic = (id: string) =>
             in automatic backups). The count per visitor is deleted the next day. Anthropic does
             not use the questions to train its models, and deletes them within 30 days, unless
             the law requires it to keep them or its safety checks flag one.</li>
-        <li><strong>Business enquiries:</strong> 12 months, then deleted (and up to 7 more days
+        <li><strong>Business enquiries:</strong> 12 months in our database and our mailbox, then
+            deleted from both (and up to 7 more days
             in automatic backups), unless your business becomes a client.</li>
       </ul>
       <p><em>Delete everything</em> in the app deletes your memories and leaves your account in
