@@ -356,48 +356,18 @@ jobs:
             }
           } | Set-Content $env:RUNNER_TEMP\tests.txt
           Get-Content $env:RUNNER_TEMP\tests.txt | Measure-Object | Select-Object -ExpandProperty Count
-      - name: Stack of a stuck vault-tauri test program (debugger, non-invasive)
+      - name: Which native library asks for the debug C runtime (msvcrtd / ucrtbased / _DEBUG)
         shell: pwsh
         run: |
-          Add-Type -TypeDefinition @'
-          using System; using System.Text; using System.Collections.Generic; using System.Runtime.InteropServices;
-          public static class Win {
-            public delegate bool EnumProc(IntPtr h, IntPtr l);
-            [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc f, IntPtr l);
-            [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr p, EnumProc f, IntPtr l);
-            [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
-            [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
-            [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
-            public static List<string> Texts(uint pid) {
-              var r = new List<string>();
-              EnumWindows((h, l) => {
-                uint p; GetWindowThreadProcessId(h, out p);
-                if (p != pid) return true;
-                var t = new StringBuilder(4096); var c = new StringBuilder(256);
-                GetWindowText(h, t, 4096); GetClassName(h, c, 256);
-                r.Add("WINDOW [" + c + "] " + t);
-                EnumChildWindows(h, (k, m) => {
-                  var tt = new StringBuilder(8192); var cc = new StringBuilder(256);
-                  GetWindowText(k, tt, 8192); GetClassName(k, cc, 256);
-                  if (tt.Length > 0) r.Add("  CHILD [" + cc + "] " + tt);
-                  return true; }, IntPtr.Zero);
-                return true; }, IntPtr.Zero);
-              return r; } }
-          '@
-          $cdb = 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe'
-          $lines = Get-Content $env:RUNNER_TEMP\tests.txt | Where-Object { $_ -match '\\(vault_tauri|frontend_contract)-[0-9a-f]+\.exe\|' }
-          foreach ($line in $lines) {
-            $exe, $dir = $line -split '\|', 2
-            Write-Host "=== $exe"
-            $env:CARGO_MANIFEST_DIR = $dir
-            $out = Join-Path $env:RUNNER_TEMP 'stack.out'
-            $p = Start-Process -FilePath $exe -ArgumentList '--test-threads=1' -WorkingDirectory $dir -NoNewWindow -PassThru -RedirectStandardOutput $out -RedirectStandardError "$out.err"
-            Start-Sleep -Seconds 30
-            if ($p.HasExited) { Write-Host "exited by itself: $($p.ExitCode)"; Get-Content $out -Tail 20; continue }
-            Write-Host '--- windows owned by the stuck process (dialog text) ---'
-            [Win]::Texts([uint32]$p.Id) | ForEach-Object { Write-Host $_ }
-            Write-Host '--- stderr so far ---'; Get-Content "$out.err" -Tail 20
-            Write-Host '--- thread stacks ---'
-            & $cdb -pv -p $p.Id -y "srv*;D:\t\debug\deps" -c "~*kn 50; qd" 2>&1 | Where-Object { $_ -notmatch 'NatVis|Repository|Extension|Nuget' } | Select-Object -Last 300
-            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          $roots = @('D:\t\debug\build', 'D:\t\debug\deps')
+          $files = Get-ChildItem $roots -Recurse -Include *.lib, *.obj, *.o -ErrorAction SilentlyContinue
+          Write-Host "scanning $($files.Count) files"
+          foreach ($f in $files) {
+            $d = dumpbin /nologo /directives $f.FullName 2>$null | Select-String -Pattern 'msvcrtd|ucrtbased|vcruntimed|msvcprtd|_ITERATOR_DEBUG_LEVEL=2|RuntimeLibrary=MDd' | Select-Object -First 3
+            if ($d) { Write-Host "=== $($f.FullName)"; $d | ForEach-Object { Write-Host "  $($_.Line.Trim())" } }
+          }
+          Write-Host '--- test exe imports from ucrtbased ---'
+          Get-Content $env:RUNNER_TEMP\tests.txt | Where-Object { $_ -match '\\vault_tauri-[0-9a-f]+\.exe\|' } | ForEach-Object {
+            $exe = ($_ -split '\|', 2)[0]
+            dumpbin /nologo /imports $exe | Select-String -Pattern 'ucrtbased|_free_dbg|_malloc_dbg|_CrtDbgReport' | Select-Object -First 20 | ForEach-Object { Write-Host $_.Line }
           }
