@@ -1,4 +1,4 @@
--- AI Opportunity Assessment enquiries (ADR-SEC-057). The only personal data
+-- AI Readiness Assessment enquiries (ADR-SEC-057). The only personal data
 -- this Worker keeps: what the visitor typed into the form, and the two
 -- consent answers with the moment they were given. No address, no browser
 -- details. Deleted 12 months after it arrived by the daily sweep.

@@ -1,4 +1,4 @@
-// The AI Opportunity Assessment enquiry form (notes ai-assessment/
+// The AI Readiness Assessment enquiry form (notes ai-assessment/
 // AI-ASSESSMENT-DESIGN.md §5, ADR-121 + ADR-SEC-057). The form page is a
 // static file on this Worker's own host, so zaaheen.com's strict policy
 // (connect-src and form-action 'self') never has to widen; the page on

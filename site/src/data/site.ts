@@ -238,7 +238,7 @@ export const COACHING = {
   email: 'knowledgecentre@zaaheen.com',
 } as const;
 
-// The AI Opportunity Assessment (consulting for businesses, notes
+// The AI Readiness Assessment (consulting for businesses, notes
 // ai-assessment/AI-ASSESSMENT-DESIGN.md, ADR-121). Its enquiry form is the
 // zaaheen-consulting Worker's own page (workers/consulting), so zaaheen.com's
 // policy never has to allow another host; this site only links to it.
@@ -329,9 +329,9 @@ export const PAGES: PageEntry[] = [
   },
   {
     path: '/consulting/',
-    title: 'AI Opportunity Assessment for businesses · Zaaheen',
+    title: 'AI Readiness Assessment for businesses · Zaaheen',
     description:
-      'We walk through your business team by team and show where AI saves time and money, where simpler fixes work better, and where to leave things alone.',
+      'An independent AI readiness assessment, on site and department by department, by someone who has run operations. We sell no tools and take no commissions.',
     sources: ['src/pages/consulting.astro', 'src/data/site.ts'],
   },
   {
