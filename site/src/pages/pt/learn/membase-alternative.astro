@@ -1,0 +1,135 @@
+---
+import Learn from '../../../layouts/Learn.astro';
+import MemoryFlow from '../../../components/learn/MemoryFlow.astro';
+import BarChart from '../../../components/learn/BarChart.astro';
+import { COMPANY, PRICES, TRIAL } from '../../../data/site';
+
+// Learn comparison page 6 in Portuguese (ADR-113): the English page's
+// structure with its words translated. Every Membase fact, price and date is
+// the English page's, from the sources listed in its header comment.
+const CHECKED = '11 de novembro de 2026';
+const monthly = `US$ ${PRICES.monthly} por mês`;
+const yearly = `US$ ${PRICES.yearly} por ano`;
+const OUTLINE = [
+  { id: 'what', title: 'O que é o Membase' },
+  { id: 'differ', title: 'Onde o Zaaheen é diferente' },
+  { id: 'table', title: 'Lado a lado' },
+  { id: 'better', title: 'Onde o Membase é a melhor escolha' },
+  { id: 'limits', title: 'Onde o Zaaheen fica devendo' },
+];
+const MB_HOME = 'https://membase.com/';
+const MB_PRIVACY = 'https://membase.com/privacy';
+const MB_GITHUB = 'https://github.com/unibaseio/membase';
+---
+<Learn
+  path="/pt/learn/membase-alternative/"
+  lede="O Membase é uma memória hospedada para apps e agentes de IA, com uma extensão de navegador, um servidor MCP e ferramentas para desenvolvedores. O próprio site dele diz que o serviço hospedado não tem criptografia de ponta a ponta. Se você quer uma memória única para o ChatGPT, o Claude e o Cursor que fique criptografada no seu próprio computador e não precise de chave de API, o Zaaheen foi feito para isso."
+  outline={OUTLINE}
+>
+  <section id="what">
+    <h2>O que é o Membase</h2>
+    <p>Esta página fala do Membase em membase.com, feito por uma empresa chamada Unibase. Um outro
+       produto, em membase.so, também usa o nome; os dois não têm ligação
+       (<a href={MB_HOME}>site do Membase</a>).</p>
+    <p>O Membase monta uma memória de longo prazo única a partir das suas conversas e arquivos. A
+       extensão de navegador dele funciona com ChatGPT, Claude, Gemini, Grok, DeepSeek e Kimi no
+       Chrome, e o Claude Code, o Cursor e o Codex se conectam pelo servidor MCP dele.
+       Desenvolvedores também podem usar pelo código. Um app para computador aparece como em breve
+       (<a href={MB_HOME}>página inicial</a>).</p>
+    <p>Sua memória fica no serviço do Membase, que segundo a política de privacidade dele roda na
+       Amazon Web Services em Singapura, e as partes relevantes do que você salva são enviadas ao
+       provedor de IA dele, hoje a OpenAI (<a href={MB_PRIVACY}>política de privacidade</a>). Também
+       há um modo local para quem usa Python, que guarda a memória em uma pasta no seu computador,
+       mas precisa da sua própria chave de API da OpenAI (<a href={MB_GITHUB}>página no
+       GitHub</a>).</p>
+  </section>
+
+  <section id="differ">
+    <h2>Onde o Zaaheen é diferente</h2>
+    <ul>
+      <li><strong>Criptografado no seu computador, por padrão.</strong> O Zaaheen guarda suas
+          memórias criptografadas no seu próprio computador, e nossos servidores nunca as recebem. O
+          serviço hospedado do Membase, a opção padrão dele, não tem criptografia de ponta a ponta,
+          nas palavras dele mesmo.</li>
+      <li><strong>Sem chave de API, sem serviço de IA de fora.</strong> O Zaaheen roda os próprios
+          modelos de IA no seu computador, então suas memórias nunca são enviadas a uma empresa de IA
+          para serem organizadas ou pesquisadas. O modo local do Membase ainda precisa de uma chave
+          da OpenAI.</li>
+      <li><strong>Um app pronto para Windows e Mac.</strong> O Zaaheen se instala como qualquer outro
+          app, e você conecta cada app de IA pela aba Agents. O app para computador do Membase ainda
+          não saiu.</li>
+      <li><strong>Código que você pode ler.</strong> Todo o código do Zaaheen é público para leitura,
+          então qualquer pessoa pode conferir como suas memórias são tratadas. O Membase publica as
+          ferramentas dele, mas o motor de memória é distribuído como um pacote fechado e
+          compilado.</li>
+    </ul>
+
+    <MemoryFlow
+      id="flow-membase"
+      from="Claude"
+      to="Cursor"
+      fact="Prefere TypeScript"
+      others={['ChatGPT', 'Codex']}
+      caption="Algo que você conta ao Claude é salvo uma vez na memória criptografada do seu computador, e o Cursor e seus outros apps podem recuperar depois."
+    />
+  </section>
+
+  <section id="table">
+    <h2>Lado a lado</h2>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">Membase</th><th scope="col">Zaaheen</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Onde as memórias ficam</th><td>No serviço hospedado dele em Singapura; ou em uma pasta local com o modo local em Python</td><td>Seu computador, criptografadas</td></tr>
+        <tr><th scope="row">Criptografia</th><td>Criptografado em repouso; o serviço hospedado não tem criptografia de ponta a ponta, nas palavras dele mesmo</td><td>Criptografado no seu computador; nossos servidores nunca recebem suas memórias</td></tr>
+        <tr><th scope="row">Organizado e pesquisado por</th><td>OpenAI, hospedado ou local</td><td>Modelos de IA rodando no seu computador</td></tr>
+        <tr><th scope="row">Configuração</th><td>Extensão de navegador, servidor MCP, ou Python para o modo local</td><td>Um instalador, depois conectar cada app</td></tr>
+        <tr><th scope="row">App para computador</th><td>Em breve</td><td>Windows e Mac</td></tr>
+        <tr><th scope="row">Preço</th><td>Sem preços no site quando conferimos</td><td>{TRIAL.days} dias grátis, depois {monthly} ou {yearly}</td></tr>
+      </tbody>
+    </table>
+    <p class="learn-note">Situação em {CHECKED}, segundo as próprias páginas do Membase, e pode
+       mudar. Confira os links acima para ver as informações mais recentes.</p>
+    <p>O que mais importa em qualquer memória é se a resposta certa volta, e se o app admite quando
+       a memória não tem a resposta. Fizemos ao Cursor cinco perguntas sobre fatos que outro app
+       tinha salvo em uma memória compartilhada do Zaaheen.</p>
+
+    <BarChart
+      id="chart-membase-cursor"
+      title="5 perguntas ao Cursor sobre fatos salvos por outro app"
+      measure="Perguntas"
+      max={5}
+      bars={[
+        { label: 'Lembrou o fato', value: 3, note: 'de 5' },
+        { label: 'Disse que não sabia', value: 1, note: 'de 5' },
+        { label: 'Não caiu na pegadinha', value: 1, note: 'de 5' },
+      ]}
+      source={{ text: 'Teste do próprio Zaaheen, 5 de junho de 2026, uma versão de desenvolvimento do Zaaheen no Windows. Não sabia, corretamente: um tipo sanguíneo que a memória não guardava. A pegadinha: perguntado sobre o gato da pessoa, respondeu que ela tem um cachorro.' }}
+    />
+  </section>
+
+  <section id="better">
+    <h2>Onde o Membase é a melhor escolha</h2>
+    <p>Se você usa IA principalmente no navegador, a extensão do Membase alcança ali o ChatGPT, o
+       Gemini, o Grok e outros, o que o Zaaheen não faz. Ele também consegue montar memória a partir
+       de arquivos e páginas que você salva, e desenvolvedores ganham uma API e ferramentas para criar
+       com ele. E se você não se importa de a sua memória ficar online, ela acompanha você em
+       qualquer computador.</p>
+  </section>
+
+  <section id="limits">
+    <h2>Onde o Zaaheen fica devendo</h2>
+    <ul>
+      <li>Ele roda só no Windows e em Macs com chip da Apple, sem versão para Linux nem para
+          celular.</li>
+      <li>O ChatGPT se conecta pelo app do ChatGPT para computador, não pelo navegador.</li>
+      <li>Sua memória fica em um computador; ainda não há sincronização entre computadores.</li>
+      <li>Ele não é de código aberto e, depois do teste de {TRIAL.days} dias, não há plano
+          grátis.</li>
+    </ul>
+    <p class="learn-note">Membase é um nome do seu dono. Não temos nenhum vínculo com o Membase nem
+       com a Unibase. Fatos conferidos em {CHECKED}; se algo aqui estiver errado ou desatualizado,
+       avise-nos em <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> e vamos corrigir.</p>
+  </section>
+</Learn>

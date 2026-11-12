@@ -39,7 +39,7 @@ export const LOCALES: Record<Lang, {
 export const TRANSLATED: readonly string[] = [
   '/', '/products/', '/pricing/',
   '/docs/', '/docs/getting-started/', '/docs/subscribe/', '/docs/connect-claude/', '/docs/connect-claude-code/', '/docs/connect-cursor/', '/docs/connect-chatgpt/', '/docs/connect-codex/', '/docs/connect-antigravity/', '/docs/connect-other-apps/', '/docs/troubleshooting/', '/docs/contact/',
-  '/learn/', '/learn/ai-memory-apps-compared/', '/learn/ai-memory-tool-or-notes-file/', '/learn/best-memory-mcp-server-for-claude-code/', '/learn/chatgpt-memory-vs-claude-memory/', '/learn/does-claude-code-remember-between-sessions/', '/learn/mem0-alternative/', '/learn/memoryplugin-alternative/', '/learn/obsidian-vs-ai-memory-app/', '/learn/one-memory-across-claude-code-cursor-and-codex/', '/learn/share-memory-between-chatgpt-and-claude/', '/learn/supermemory-alternative/', '/learn/switch-from-chatgpt-to-claude/',
+  '/learn/', '/learn/ai-memory-apps-compared/', '/learn/ai-memory-tool-or-notes-file/', '/learn/best-memory-mcp-server-for-claude-code/', '/learn/chatgpt-memory-vs-claude-memory/', '/learn/does-claude-code-remember-between-sessions/', '/learn/mem0-alternative/', '/learn/membase-alternative/', '/learn/memoryplugin-alternative/', '/learn/obsidian-vs-ai-memory-app/', '/learn/one-memory-across-claude-code-cursor-and-codex/', '/learn/share-memory-between-chatgpt-and-claude/', '/learn/supermemory-alternative/', '/learn/switch-from-chatgpt-to-claude/',
 ];
 
 const PREFIXED = new RegExp(`^/(${TRANSLATIONS.join('|')})(/|$)`);

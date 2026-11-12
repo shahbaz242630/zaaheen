@@ -53,39 +53,43 @@
   },
   "/de/learn/": {
     "en": "3f61d69a972527fb",
-    "own": "5f91414230edf5d0"
+    "own": "8d8ca5f99582ccee"
   },
   "/de/learn/ai-memory-apps-compared/": {
     "en": "da9e026a7a3ebeff",
-    "own": "5e22e53ad70ff0df"
+    "own": "73498309f81d1749"
   },
   "/de/learn/ai-memory-tool-or-notes-file/": {
     "en": "3a9ff2ff482bbb9e",
-    "own": "69f360b277ab011f"
+    "own": "03fed41b25f1549a"
   },
   "/de/learn/best-memory-mcp-server-for-claude-code/": {
     "en": "2061fc820912167b",
-    "own": "407e422ad16a4626"
+    "own": "a077800837261829"
   },
   "/de/learn/chatgpt-memory-vs-claude-memory/": {
     "en": "7f80d694cdd16895",
-    "own": "acb454af1f6fffb8"
+    "own": "2e318f0f444d2c6b"
   },
   "/de/learn/does-claude-code-remember-between-sessions/": {
     "en": "2f96715b4706f940",
-    "own": "c7fcdd36ed173f5f"
+    "own": "7c4bddaadfa6ca5f"
   },
   "/de/learn/mem0-alternative/": {
     "en": "33ac51027b1ae294",
-    "own": "8ba3b67c1d18d90e"
+    "own": "63a60ee8010157f3"
+  },
+  "/de/learn/membase-alternative/": {
+    "en": "96724e83392536dd",
+    "own": "daa5908146d8648b"
   },
   "/de/learn/memoryplugin-alternative/": {
     "en": "4f639dc42d9508ec",
-    "own": "a57af6930d6e1044"
+    "own": "75b2b7c555989e70"
   },
   "/de/learn/obsidian-vs-ai-memory-app/": {
     "en": "ccb453749eb14fbe",
-    "own": "a99f1adfd05c6c82"
+    "own": "758395bfd8f9ec73"
   },
   "/de/learn/one-memory-across-claude-code-cursor-and-codex/": {
     "en": "baf5bcc142bc101b",
@@ -93,15 +97,15 @@
   },
   "/de/learn/share-memory-between-chatgpt-and-claude/": {
     "en": "ced687d249c4e62d",
-    "own": "007a4be7912be543"
+    "own": "28e29896959a7179"
   },
   "/de/learn/supermemory-alternative/": {
     "en": "53d16d616fb9b5ed",
-    "own": "2734ce17d6860222"
+    "own": "871fe7376e72a476"
   },
   "/de/learn/switch-from-chatgpt-to-claude/": {
     "en": "6de01c04de889215",
-    "own": "9c8fd534a04e3a6c"
+    "own": "67c247b4fd4e259c"
   },
   "/de/pricing/": {
     "en": "ed1bc2da37719812",
@@ -165,39 +169,43 @@
   },
   "/es/learn/": {
     "en": "3f61d69a972527fb",
-    "own": "c4ee731c2da56370"
+    "own": "3a848c3b554b896c"
   },
   "/es/learn/ai-memory-apps-compared/": {
     "en": "da9e026a7a3ebeff",
-    "own": "66bb5910ab021a50"
+    "own": "a1d6ee28385eae16"
   },
   "/es/learn/ai-memory-tool-or-notes-file/": {
     "en": "3a9ff2ff482bbb9e",
-    "own": "7f773fd1d44f7560"
+    "own": "7b5e3c492ba641d2"
   },
   "/es/learn/best-memory-mcp-server-for-claude-code/": {
     "en": "2061fc820912167b",
-    "own": "8b4c446c18a89b71"
+    "own": "8aa2c56918359c27"
   },
   "/es/learn/chatgpt-memory-vs-claude-memory/": {
     "en": "7f80d694cdd16895",
-    "own": "5984171accd3de8f"
+    "own": "f17706857610b0a5"
   },
   "/es/learn/does-claude-code-remember-between-sessions/": {
     "en": "2f96715b4706f940",
-    "own": "c2d61bf95c866528"
+    "own": "661137587cdf1807"
   },
   "/es/learn/mem0-alternative/": {
     "en": "33ac51027b1ae294",
-    "own": "79667fc1019d4713"
+    "own": "4779d31e8d6dd363"
+  },
+  "/es/learn/membase-alternative/": {
+    "en": "96724e83392536dd",
+    "own": "671e777b305f85d7"
   },
   "/es/learn/memoryplugin-alternative/": {
     "en": "4f639dc42d9508ec",
-    "own": "65253702faa20506"
+    "own": "527490875ac6c5a9"
   },
   "/es/learn/obsidian-vs-ai-memory-app/": {
     "en": "ccb453749eb14fbe",
-    "own": "4fbfcb026545f582"
+    "own": "7e79f39b7d903cdd"
   },
   "/es/learn/one-memory-across-claude-code-cursor-and-codex/": {
     "en": "baf5bcc142bc101b",
@@ -205,15 +213,15 @@
   },
   "/es/learn/share-memory-between-chatgpt-and-claude/": {
     "en": "ced687d249c4e62d",
-    "own": "1375cc5375c8ef1a"
+    "own": "2d9875292a200a5c"
   },
   "/es/learn/supermemory-alternative/": {
     "en": "53d16d616fb9b5ed",
-    "own": "fd5fc73c0f4cd81e"
+    "own": "40fe6c380a12fdcb"
   },
   "/es/learn/switch-from-chatgpt-to-claude/": {
     "en": "6de01c04de889215",
-    "own": "5ff0fdc03a620443"
+    "own": "c6000695e4a4b0bd"
   },
   "/es/pricing/": {
     "en": "ed1bc2da37719812",
@@ -277,39 +285,43 @@
   },
   "/fr/learn/": {
     "en": "3f61d69a972527fb",
-    "own": "9b150ef815db7b70"
+    "own": "6c5a574bd9b1ed17"
   },
   "/fr/learn/ai-memory-apps-compared/": {
     "en": "da9e026a7a3ebeff",
-    "own": "66fd07032dd97c4d"
+    "own": "dd3669680d7ad877"
   },
   "/fr/learn/ai-memory-tool-or-notes-file/": {
     "en": "3a9ff2ff482bbb9e",
-    "own": "115ab74581c30e51"
+    "own": "b2e5fc929b388431"
   },
   "/fr/learn/best-memory-mcp-server-for-claude-code/": {
     "en": "2061fc820912167b",
-    "own": "67d5891a11ab45f2"
+    "own": "799aad1620b66245"
   },
   "/fr/learn/chatgpt-memory-vs-claude-memory/": {
     "en": "7f80d694cdd16895",
-    "own": "73228db7e534ccd1"
+    "own": "69e06aeed1847678"
   },
   "/fr/learn/does-claude-code-remember-between-sessions/": {
     "en": "2f96715b4706f940",
-    "own": "307475848e89e8d5"
+    "own": "f5f61a9a1fd07597"
   },
   "/fr/learn/mem0-alternative/": {
     "en": "33ac51027b1ae294",
-    "own": "96ce13e2ea515ee8"
+    "own": "cf9bdb15c28419d9"
+  },
+  "/fr/learn/membase-alternative/": {
+    "en": "96724e83392536dd",
+    "own": "395f849254e02963"
   },
   "/fr/learn/memoryplugin-alternative/": {
     "en": "4f639dc42d9508ec",
-    "own": "a0ed2c1e86811dc6"
+    "own": "65b2bb00b938822a"
   },
   "/fr/learn/obsidian-vs-ai-memory-app/": {
     "en": "ccb453749eb14fbe",
-    "own": "dbb5a67285c016d0"
+    "own": "d1702e1388609084"
   },
   "/fr/learn/one-memory-across-claude-code-cursor-and-codex/": {
     "en": "baf5bcc142bc101b",
@@ -317,15 +329,15 @@
   },
   "/fr/learn/share-memory-between-chatgpt-and-claude/": {
     "en": "ced687d249c4e62d",
-    "own": "2132b1d97a146918"
+    "own": "c7c169c52c2ca253"
   },
   "/fr/learn/supermemory-alternative/": {
     "en": "53d16d616fb9b5ed",
-    "own": "d06dc6624adf8e4e"
+    "own": "625b69746dd95e05"
   },
   "/fr/learn/switch-from-chatgpt-to-claude/": {
     "en": "6de01c04de889215",
-    "own": "1d23b811c58eeba6"
+    "own": "1d7cce6a6b0eb017"
   },
   "/fr/pricing/": {
     "en": "ed1bc2da37719812",
@@ -389,39 +401,43 @@
   },
   "/pt/learn/": {
     "en": "3f61d69a972527fb",
-    "own": "8933de258dda1d01"
+    "own": "896036c2067f7a6c"
   },
   "/pt/learn/ai-memory-apps-compared/": {
     "en": "da9e026a7a3ebeff",
-    "own": "c738145b0afff1f3"
+    "own": "2530a54b6c7dd7ce"
   },
   "/pt/learn/ai-memory-tool-or-notes-file/": {
     "en": "3a9ff2ff482bbb9e",
-    "own": "7e90373bbd2e2e7a"
+    "own": "7ec089166531ed7b"
   },
   "/pt/learn/best-memory-mcp-server-for-claude-code/": {
     "en": "2061fc820912167b",
-    "own": "46c40d403ed565c0"
+    "own": "0e8eb208fea63060"
   },
   "/pt/learn/chatgpt-memory-vs-claude-memory/": {
     "en": "7f80d694cdd16895",
-    "own": "9271bbfe4ae279f4"
+    "own": "fabbf34efe5e6051"
   },
   "/pt/learn/does-claude-code-remember-between-sessions/": {
     "en": "2f96715b4706f940",
-    "own": "a65d4593f7bb6648"
+    "own": "347a54dc73432092"
   },
   "/pt/learn/mem0-alternative/": {
     "en": "33ac51027b1ae294",
-    "own": "3d62074bc721e910"
+    "own": "324ea9da9ff0f1fd"
+  },
+  "/pt/learn/membase-alternative/": {
+    "en": "96724e83392536dd",
+    "own": "3b0d6c7f09fab245"
   },
   "/pt/learn/memoryplugin-alternative/": {
     "en": "4f639dc42d9508ec",
-    "own": "ac966ac0363bc2d7"
+    "own": "5da83826993802fd"
   },
   "/pt/learn/obsidian-vs-ai-memory-app/": {
     "en": "ccb453749eb14fbe",
-    "own": "026fddf55ca175d9"
+    "own": "50397eef07c6c74b"
   },
   "/pt/learn/one-memory-across-claude-code-cursor-and-codex/": {
     "en": "baf5bcc142bc101b",
@@ -429,15 +445,15 @@
   },
   "/pt/learn/share-memory-between-chatgpt-and-claude/": {
     "en": "ced687d249c4e62d",
-    "own": "0175d6d85a337821"
+    "own": "c1d2a96a09016818"
   },
   "/pt/learn/supermemory-alternative/": {
     "en": "53d16d616fb9b5ed",
-    "own": "f8baa62825a50fab"
+    "own": "f4b3bc569b29ca1a"
   },
   "/pt/learn/switch-from-chatgpt-to-claude/": {
     "en": "6de01c04de889215",
-    "own": "e5445f8cb55e9cd6"
+    "own": "2d886d1b965316ac"
   },
   "/pt/pricing/": {
     "en": "ed1bc2da37719812",
