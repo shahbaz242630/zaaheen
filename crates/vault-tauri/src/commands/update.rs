@@ -15,8 +15,9 @@
 //!   manifest says (its per-platform address is not sealed);
 //! - the verified file waits on disk in the app's own folder (not ~155 MB in
 //!   memory all day: founder s115), and at the click its seal is checked
-//!   AGAIN on the exact bytes about to be installed ([`seal`]), because the
-//!   updater itself checks only once, at download;
+//!   AGAIN on the exact bytes about to be installed ([`seal`]), with our
+//!   stricter version rule (the updater checks again inside `install` since
+//!   2.14.0, but by its own, looser rule);
 //! - on a Mac, the new app must also satisfy the running app's own Apple
 //!   signing requirement (a downloaded update is never checked by Gatekeeper).
 //!
@@ -317,7 +318,8 @@ pub async fn restart_to_update(
     };
 
     // The seal again, on the exact bytes about to be installed: the file
-    // waited on disk, and the updater will not check it a second time. A
+    // waited on disk. The updater checks again inside `install` (2.14.0), but
+    // ours is the stricter rule (seal.rs), so it runs first. A
     // refusal drops the update; the next daily check downloads it afresh.
     let bytes = match std::fs::read(&ready.file) {
         Ok(bytes) => bytes,

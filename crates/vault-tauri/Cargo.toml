@@ -89,11 +89,6 @@ thiserror = { workspace = true }
 rmcp = { workspace = true, features = ["client"] }
 tokio-util = { workspace = true }
 
-# The Mac update arrives as Zaaheen.app.tar.gz, unpacked by the updater's `zip` feature (tar +
-# flate2). Windows leaves it off: see the workspace pin (AUTO-UPDATE-DESIGN.md §4).
-[target.'cfg(target_os = "macos")'.dependencies]
-tauri-plugin-updater = { workspace = true, features = ["zip"] }
-
 [dev-dependencies]
 # `model_fetch` path-resolution tests assert against a real temp directory to
 # prove the lookup helper creates nothing on disk.
