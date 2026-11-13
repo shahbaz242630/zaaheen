@@ -346,3 +346,16 @@ debug = true
 [profile.dev.package.libduckdb-sys]
 opt-level = 2
 debug = false
+
+# 0.3.9 (s124): the libduckdb-sys override above was not enough (Windows tests
+# still hung 6 h, run 43279845527). The diag scan (run 43279961647) showed the
+# stuck test exe importing _malloc_dbg/_free_dbg from ucrtbased. Source:
+# llama-cpp-sys-2 0.1.146 build.rs ~line 1057, `if cfg!(debug_assertions)
+# { cargo:rustc-link-lib=dylib=msvcrtd }`, which links the DEBUG C runtime
+# into every dev/test exe that pulls in llama.cpp, beside the release one its
+# C++ was built against. This package override also covers its build script
+# (Cargo merges [profile.*.package.<name>] after build-override for host units),
+# so cfg!(debug_assertions) is false there and msvcrtd is not linked.
+# Release builds never took that branch.
+[profile.dev.package.llama-cpp-sys-2]
+debug-assertions = false
