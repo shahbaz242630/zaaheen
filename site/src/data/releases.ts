@@ -17,6 +17,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '0.3.9',
+    // GO-LIVE DAY (s124 prep): set to the day it goes on zaaheen.com.
+    date: 'YYYY-MM-DD',
+    summary: 'Security updates to the parts Zaaheen is built on, and a clearer log when your subscription pauses the automatic tidy-up.',
+    added: [],
+    fixed: [
+      "When your subscription ends, Zaaheen's log now says that the automatic tidy-up is paused until you subscribe. Before, the log said nothing, so it was hard to tell why your memories were not being tidied.",
+      'Security updates to the parts Zaaheen is built on: the updater, the window the app runs in, the local database and the connection to your AI apps. This version includes them.',
+    ],
+  },
+  {
     version: '0.3.8',
     date: '2026-10-29',
     summary: 'Zaaheen now updates itself: it downloads new versions quietly, and you choose when to restart.',

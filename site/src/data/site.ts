@@ -55,11 +55,12 @@ export const RELEASE = {
   // scripts/audit.mjs treats a home page without the installer link as "not on
   // sale"). Set true in the same change that uploads the installer.
   available: true,
-  version: '0.3.8',
+  version: '0.3.9',
   windows: {
     // The name .github/workflows/release-build.yml gives the production installer.
-    file: 'Zaaheen_0.3.8_x64.msi',
-    url: 'https://dl.zaaheen.com/Zaaheen_0.3.8_x64.msi',
+    file: 'Zaaheen_0.3.9_x64.msi',
+    url: 'https://dl.zaaheen.com/Zaaheen_0.3.9_x64.msi',
+    // GO-LIVE DAY (s124 prep): size and sha256 below are still 0.3.8's; set both from the 0.3.9 production build.
     // As Windows Explorer reports it (156,909,568 bytes, the 0.3.8 production build, session 116).
     size: '150 MB',
     // SHA-256 of the file on dl.zaaheen.com, published so people can check their
@@ -74,8 +75,9 @@ export const RELEASE = {
   // (founder, session 77). Signed and notarised by Apple, a disk image to drag
   // into Applications.
   mac: {
-    file: 'Zaaheen_0.3.8_aarch64.dmg',
-    url: 'https://dl.zaaheen.com/Zaaheen_0.3.8_aarch64.dmg',
+    file: 'Zaaheen_0.3.9_aarch64.dmg',
+    url: 'https://dl.zaaheen.com/Zaaheen_0.3.9_aarch64.dmg',
+    // GO-LIVE DAY (s124 prep): size and sha256 below are still 0.3.8's; set both from the 0.3.9 production build.
     // As Finder counts it (155,605,164 bytes, the 0.3.8 production build, session 116).
     size: '156 MB',
     sha256: 'ae694d3d02ef0d38b591c70db3b4710673f3549c5c9a0d6956d145ce39ed12ab',
