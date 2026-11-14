@@ -18,8 +18,7 @@ export interface ReleaseNote {
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
     version: '0.3.9',
-    // GO-LIVE DAY (s124 prep): set to the day it goes on zaaheen.com.
-    date: 'YYYY-MM-DD',
+    date: '2026-11-14',
     summary: 'Security updates to the parts Zaaheen is built on, and a clearer log when your subscription pauses the automatic tidy-up.',
     added: [],
     fixed: [
