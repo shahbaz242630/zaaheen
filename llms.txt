@@ -4,8 +4,8 @@
 
 Zaaheen is a desktop app that gives AI assistants one private, persistent memory about the person using them. Memories are stored and encrypted on that person's own computer and are never uploaded. The account is only for signing in and the subscription; it never holds the memories.
 
-- Current version: 0.3.8, for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
-- Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.8_x64.msi (150 MB, SHA-256 50147fc643b9e8d4e743c60acbd5c21a34e6672d211534d7add288f28c20d0e4); Mac https://dl.zaaheen.com/Zaaheen_0.3.8_aarch64.dmg (156 MB, SHA-256 ae694d3d02ef0d38b591c70db3b4710673f3549c5c9a0d6956d145ce39ed12ab), a disk image: drag Zaaheen into Applications and open it from there.
+- Current version: 0.3.9, for 64-bit Windows (tested on Windows 11) and for Macs with an Apple chip (M1 or newer) (tested on macOS 26).
+- Download: Windows https://dl.zaaheen.com/Zaaheen_0.3.9_x64.msi (150 MB, SHA-256 8e79d08b6275c4b82e92370c19e840f44ab5475039df229394211e0c7e24f29f); Mac https://dl.zaaheen.com/Zaaheen_0.3.9_aarch64.dmg (156 MB, SHA-256 b502087a94d80b42b90a9ac71742a2cbea576150cce301f24e61e926ea78699b), a disk image: drag Zaaheen into Applications and open it from there.
 - Can't find Applications on a Mac? Open Finder (the blue and white face at the left of the Dock) and choose Applications in the sidebar on the left. Or, with Finder open, press Shift-Command-A.
 - Free trial: 30 days, no card needed.
 - Price after the trial: $5 a month or $48 a year (US dollars, plus VAT or sales tax where it applies). Both plans include everything. Sold through our reseller Paddle.com.
@@ -124,14 +124,9 @@ Please follow both steps. If you skip one, your app may not use Zaaheen.
 
 ## Release notes
 
-- Latest: 0.3.8, 2026-10-29. Zaaheen now updates itself: it downloads new versions quietly, and you choose when to restart.
-- New in 0.3.8: Automatic updates. Zaaheen checks for a new version when it starts and once a day. It downloads it in the background, checks that it really comes from us, and then shows "Zaaheen [version] is ready" with a "Restart to update" button. Nothing is installed until you press it.
-- New in 0.3.8: When you press "Restart to update", Zaaheen safely closes your memories, installs the new version and opens again by itself.
-- New in 0.3.8: On Windows, Windows asks once whether to allow the change. On a Mac with a standard (non-administrator) account, your Mac asks for an administrator's password.
-- New in 0.3.8: One last time by hand: install this version from zaaheen.com yourself. From then on, new versions come to you.
-- New in 0.3.8: A Cancel button while you sign in, in case you change your mind while the browser is open.
-- Fixed in 0.3.8: "Delete everything" and "Delete my account" now wait if your memories are about to move to a new folder, and the page asks you to restart Zaaheen first. Before, deleting at that moment could leave the move pointing at a folder that no longer exists.
-- Fixed in 0.3.8: Saving the app's logs to a network folder is now refused, the same rule that already keeps "Download my memories" on your own computer.
+- Latest: 0.3.9, 2026-11-14. Security updates to the parts Zaaheen is built on, and a clearer log when your subscription pauses the automatic tidy-up.
+- Fixed in 0.3.9: When your subscription ends, Zaaheen's log now says that the automatic tidy-up is paused until you subscribe. Before, the log said nothing, so it was hard to tell why your memories were not being tidied.
+- Fixed in 0.3.9: Security updates to the parts Zaaheen is built on: the updater, the window the app runs in, the local database and the connection to your AI apps. This version includes them.
 - Every release, newest first: https://zaaheen.com/docs/release-notes/.
 
 ## Cancelling
