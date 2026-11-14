@@ -55,17 +55,17 @@ export const RELEASE = {
   // scripts/audit.mjs treats a home page without the installer link as "not on
   // sale"). Set true in the same change that uploads the installer.
   available: true,
-  version: '0.3.8',
+  version: '0.3.9',
   windows: {
     // The name .github/workflows/release-build.yml gives the production installer.
-    file: 'Zaaheen_0.3.8_x64.msi',
-    url: 'https://dl.zaaheen.com/Zaaheen_0.3.8_x64.msi',
-    // As Windows Explorer reports it (156,909,568 bytes, the 0.3.8 production build, session 116).
+    file: 'Zaaheen_0.3.9_x64.msi',
+    url: 'https://dl.zaaheen.com/Zaaheen_0.3.9_x64.msi',
+    // As Windows Explorer reports it (157,732,864 bytes, the 0.3.9 production build, session 125).
     size: '150 MB',
     // SHA-256 of the file on dl.zaaheen.com, published so people can check their
     // download (security audit s89). Every release sets it from the build's
     // .sha256.txt, read back from dl.zaaheen.com; scripts/release-facts.test.mjs.
-    sha256: '50147fc643b9e8d4e743c60acbd5c21a34e6672d211534d7add288f28c20d0e4',
+    sha256: '8e79d08b6275c4b82e92370c19e840f44ab5475039df229394211e0c7e24f29f',
     arch: '64-bit',
     // Only Windows 11 has been tested. Do not claim Windows 10 until it has been.
     tested: 'Windows 11',
@@ -74,11 +74,11 @@ export const RELEASE = {
   // (founder, session 77). Signed and notarised by Apple, a disk image to drag
   // into Applications.
   mac: {
-    file: 'Zaaheen_0.3.8_aarch64.dmg',
-    url: 'https://dl.zaaheen.com/Zaaheen_0.3.8_aarch64.dmg',
-    // As Finder counts it (155,605,164 bytes, the 0.3.8 production build, session 116).
+    file: 'Zaaheen_0.3.9_aarch64.dmg',
+    url: 'https://dl.zaaheen.com/Zaaheen_0.3.9_aarch64.dmg',
+    // As Finder counts it (156,470,739 bytes, the 0.3.9 production build, session 125).
     size: '156 MB',
-    sha256: 'ae694d3d02ef0d38b591c70db3b4710673f3549c5c9a0d6956d145ce39ed12ab',
+    sha256: 'b502087a94d80b42b90a9ac71742a2cbea576150cce301f24e61e926ea78699b',
     arch: 'Apple chip (M1 or newer)',
     // Only macOS 26 has been tested. Do not claim older versions until they have been.
     tested: 'macOS 26',
