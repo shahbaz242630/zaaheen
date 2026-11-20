@@ -8,6 +8,7 @@ export default {
   'Products': 'Productos',
   'Documents': 'Documentos',
   'Knowledge Centre': 'Knowledge Centre',
+  'AI Readiness Assessment': 'AI Readiness Assessment',
   'Learn': 'Aprende',
   'Pricing': 'Precios',
   'Account': 'Cuenta',

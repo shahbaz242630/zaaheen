@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Book a free call · AI Readiness Assessment · Zaaheen</title>
+<link rel="stylesheet" href="/form.css">
+<script src="/form.js" defer></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+</head>
+<body>
+<main class="page">
+  <p class="back"><a href="https://zaaheen.com/consulting/">Back to the AI Readiness Assessment</a></p>
+  <h1>Book a free 30-minute call</h1>
+  <p class="lede">Tell us a little about your business. We will call you within one working day to
+     understand what you need, and agree a time to visit.</p>
+
+  <form id="enquiry" novalidate>
+    <div class="field">
+      <label for="name">Your name</label>
+      <input id="name" name="name" type="text" maxlength="100" autocomplete="name" required>
+    </div>
+    <div class="field">
+      <label for="email">Work email</label>
+      <input id="email" name="email" type="email" maxlength="254" autocomplete="email" required>
+    </div>
+    <div class="field">
+      <label for="phone">Phone, with country code</label>
+      <input id="phone" name="phone" type="tel" maxlength="25" autocomplete="tel" placeholder="+971 50 123 4567" required>
+    </div>
+    <div class="field">
+      <label for="company">Company</label>
+      <input id="company" name="company" type="text" maxlength="150" autocomplete="organization" required>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="country">Country</label>
+        <select id="country" name="country" required>
+          <option value="" selected disabled>Choose</option>
+          <option value="AE">United Arab Emirates</option>
+          <option value="SA">Saudi Arabia</option>
+          <option value="QA">Qatar</option>
+          <option value="KW">Kuwait</option>
+          <option value="BH">Bahrain</option>
+          <option value="OM">Oman</option>
+          <option value="other">Somewhere else</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="size">Number of staff</label>
+        <select id="size" name="size" required>
+          <option value="" selected disabled>Choose</option>
+          <option value="1-19">1 to 19</option>
+          <option value="20-100">20 to 100</option>
+          <option value="101-500">101 to 500</option>
+          <option value="500+">More than 500</option>
+        </select>
+      </div>
+    </div>
+
+    <fieldset class="field">
+      <legend>Which teams would you like us to look at? (optional)</legend>
+      <div class="choices">
+        <label><input type="checkbox" name="departments" value="reception"> Reception and front office</label>
+        <label><input type="checkbox" name="departments" value="customer-service"> Customer service</label>
+        <label><input type="checkbox" name="departments" value="sales"> Sales</label>
+        <label><input type="checkbox" name="departments" value="marketing"> Marketing</label>
+        <label><input type="checkbox" name="departments" value="finance"> Finance and accounts</label>
+        <label><input type="checkbox" name="departments" value="hr"> HR</label>
+        <label><input type="checkbox" name="departments" value="operations"> Operations and back office</label>
+        <label><input type="checkbox" name="departments" value="procurement"> Procurement</label>
+        <label><input type="checkbox" name="departments" value="it"> IT</label>
+        <label><input type="checkbox" name="departments" value="risk-compliance"> Risk and compliance</label>
+        <label><input type="checkbox" name="departments" value="legal"> Legal</label>
+        <label><input type="checkbox" name="departments" value="management"> Management</label>
+      </div>
+    </fieldset>
+
+    <div class="field">
+      <label for="message">Anything you would like us to know (optional)</label>
+      <textarea id="message" name="message" rows="4" maxlength="2000"></textarea>
+    </div>
+
+    <div class="consent">
+      <label><input type="checkbox" id="contactConsent" name="contactConsent" required>
+        Please contact me about this enquiry. I have read the
+        <a href="https://zaaheen.com/privacy/#consulting" target="_blank" rel="noopener">privacy notice</a>.</label>
+      <label><input type="checkbox" id="marketingConsent" name="marketingConsent">
+        Send me occasional updates about AI for business. You can stop them at any time.</label>
+    </div>
+
+    <!-- Turnstile's check (ADR-SEC-057 §3). The site key below is Cloudflare's
+         public TEST key (always passes) until the real widget is made for
+         consulting.zaaheen.com: replace it before deploying (design §8 item 4). -->
+    <div id="check" class="check" data-sitekey="1x00000000000000000000AA"></div>
+
+    <button type="submit" id="send">Send</button>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </form>
+
+  <p class="note">Prefer email? Write to <a href="mailto:consulting@zaaheen.com">consulting@zaaheen.com</a>.
+     Zaaheen Artificial Intelligence Developing Services, Dubai.</p>
+</main>
+</body>
+</html>
