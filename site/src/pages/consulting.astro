@@ -1,6 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
-import { CONSULTING, pageFor } from '../data/site';
+import { CONSULTING, LEARN_BUSINESS, pageFor } from '../data/site';
 import {
   CONSULTING_HERO as HERO, CONSULTING_PROBLEM as PROBLEM, CONSULTING_STEPS as STEPS, CONSULTING_GIVES as GIVES,
   CONSULTING_VERDICTS as VERDICTS, CONSULTING_TEAMS as TEAMS, CONSULTING_WHO as WHO, CONSULTING_WHY_US as WHY,
@@ -18,6 +18,8 @@ import {
 // The form lives on consulting.zaaheen.com (workers/consulting), so this
 // page's strict policy (connect-src and form-action 'self') never widens.
 const page = pageFor('/consulting/');
+// The business guides in Learn (s129), each one linked from here.
+const guides = LEARN_BUSINESS.map((a) => ({ ...a, heading: pageFor(a.path).heading }));
 const book = CONSULTING.enquiryUrl;
 
 // Illustrative everyday work, not findings about any client.
@@ -297,6 +299,19 @@ const verdictName = (id: string) => VERDICTS.find((v) => v.id === id)?.name ?? i
     </div>
   </section>
 
+  {guides.length > 0 && (
+    <section class="cd-band is-white" id="guides">
+      <div class="cd-wrap cd-guides">
+        <h2 class="cd-h2">Read before you start</h2>
+        <ul class="cd-guide-list">
+          {guides.map((g) => (
+            <li><a href={g.path}>{g.heading}</a><p>{g.summary}</p></li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )}
+
   <section class="cd-band" id="questions">
     <div class="cd-wrap cd-faq">
       <h2 class="cd-h2">Questions</h2>
@@ -506,6 +521,15 @@ const verdictName = (id: string) => VERDICTS.find((v) => v.id === id)?.name ?? i
   .cd-ico{width:22px;height:22px;margin-top:1px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;border-radius:50%}
   .is-no .cd-ico{stroke:var(--muted);background:var(--chip)}
   .is-yes .cd-ico{stroke:var(--card);background:var(--sage-deep)}
+
+  /* ---------- guides (Learn, s129) ---------- */
+  .cd-guides{display:grid;grid-template-columns:minmax(0,.6fr) minmax(0,1.4fr);gap:32px 56px;align-items:start}
+  .cd-guide-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+  .cd-guide-list li{padding:18px 4px;border-bottom:1px solid var(--line)}
+  .cd-guide-list a{font:500 20px/1.35 var(--serif);text-decoration:none;color:var(--ink)}
+  .cd-guide-list a:hover{color:var(--sage-text);text-decoration:underline}
+  .cd-guide-list p{margin:6px 0 0;font-size:15px;color:var(--muted)}
+  @media (max-width:900px){.cd-guides{grid-template-columns:minmax(0,1fr);gap:24px}}
 
   /* ---------- faq ---------- */
   .cd-faq{display:grid;grid-template-columns:minmax(0,.6fr) minmax(0,1.4fr);gap:32px 56px;align-items:start}

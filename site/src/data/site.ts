@@ -338,28 +338,31 @@ export const PAGES: PageEntry[] = [
       'An independent AI readiness assessment, on site and department by department, by someone who has run operations. We sell no tools and take no commissions.',
     sources: ['src/pages/consulting.astro', 'src/data/consulting.ts', 'src/data/site.ts'],
   },
-  // The consulting documents (founder s129): placeholders until written after
-  // research; scripts/audit.mjs --release refuses to publish a placeholder.
+  // The consulting documents (founder s129: written after research, notes
+  // ai-assessment/RESEARCH-CONSULTING-{TERMS,PRIVACY,REFUNDS}-S129.md).
   {
     path: '/consulting/terms/',
     crumb: 'Terms of Service',
     title: 'Terms of Service · Zaaheen AI Readiness Assessment',
-    description: 'The terms for an AI Readiness Assessment with Zaaheen.',
-    sources: ['src/pages/consulting/terms.astro', 'src/layouts/ConsultingPolicy.astro'],
+    description:
+      'The terms for an AI Readiness Assessment with Zaaheen: the free call, the fixed written quote, paying, confidentiality, the report, liability and UAE law.',
+    sources: ['src/pages/consulting/terms.astro', 'src/layouts/Policy.astro', 'src/data/consulting.ts', 'src/data/site.ts'],
   },
   {
     path: '/consulting/privacy/',
     crumb: 'Privacy Policy',
     title: 'Privacy Policy · Zaaheen AI Readiness Assessment',
-    description: 'How Zaaheen handles enquiries and what it sees during an AI Readiness Assessment.',
-    sources: ['src/pages/consulting/privacy.astro', 'src/layouts/ConsultingPolicy.astro'],
+    description:
+      'What Zaaheen collects when you enquire about an AI Readiness Assessment and during one, why, who helps us, how long we keep it and your rights.',
+    sources: ['src/pages/consulting/privacy.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
   },
   {
     path: '/consulting/refunds/',
     crumb: 'Cancellation and Refund Policy',
     title: 'Cancellation and Refund Policy · Zaaheen AI Readiness Assessment',
-    description: 'Paying for, moving and cancelling an AI Readiness Assessment with Zaaheen.',
-    sources: ['src/pages/consulting/refunds.astro', 'src/layouts/ConsultingPolicy.astro'],
+    description:
+      'Paying for an AI Readiness Assessment in two halves, moving visits, cancelling before or after the first visit, and when Zaaheen refunds.',
+    sources: ['src/pages/consulting/refunds.astro', 'src/layouts/Policy.astro', 'src/data/site.ts'],
   },
   {
     path: '/privacy/',
@@ -590,6 +593,63 @@ export const PAGES: PageEntry[] = [
       'Plain answers about AI memory: how Claude, ChatGPT, Claude Code and Cursor remember you, and how to keep one memory across all of them.',
     sources: ['src/pages/learn/index.astro', 'src/data/site.ts'],
   },
+  // The AI Readiness Assessment's guides for businesses (s129, LEARN_BUSINESS).
+  {
+    path: '/learn/ai-readiness-assessment-uae/',
+    crumb: 'AI readiness assessment in the UAE',
+    heading: 'AI readiness assessment in the UAE: what to expect',
+    title: 'AI readiness assessment in the UAE: what to expect',
+    description: 'What an AI readiness assessment covers for UAE and Gulf businesses, how it differs from a free online quiz, and how to check an adviser is independent.',
+    sources: ['src/pages/learn/ai-readiness-assessment-uae.astro', 'src/layouts/Learn.astro'],
+  },
+  {
+    path: '/learn/how-to-choose-an-ai-consultant-uae/',
+    crumb: 'Choosing an AI consultant',
+    heading: 'How to choose an AI consultant in the UAE',
+    title: 'How to choose an AI consultant in the UAE',
+    description: 'What to check before you hire an AI consultant in Dubai, Abu Dhabi or the Gulf: independence, method, a written quote, and the red flags.',
+    sources: ['src/pages/learn/how-to-choose-an-ai-consultant-uae.astro', 'src/layouts/Learn.astro'],
+  },
+  {
+    path: '/learn/dubai-ai-seal-explained/',
+    crumb: 'Dubai AI Seal explained',
+    heading: 'The Dubai AI Seal explained: what it is and who it is for',
+    title: 'Dubai AI Seal explained: tiers, who can apply',
+    description: 'The Dubai AI Seal classifies AI providers in six tiers, E to S. Who can apply, how it works, and what it means for businesses buying AI.',
+    sources: ['src/pages/learn/dubai-ai-seal-explained.astro', 'src/layouts/Learn.astro'],
+  },
+  {
+    path: '/learn/why-ai-projects-fail/',
+    crumb: 'Why AI projects fail',
+    heading: 'Why AI projects fail, and how to avoid it',
+    title: 'Why AI projects fail, and how to avoid it',
+    description: 'RAND, BCG, Deloitte and S&P Global agree: AI projects fail on the problem and the process, not the technology. What they found, and what to do first.',
+    sources: ['src/pages/learn/why-ai-projects-fail.astro', 'src/layouts/Learn.astro'],
+  },
+  {
+    path: '/learn/ai-vs-automation/',
+    crumb: 'AI vs automation',
+    heading: 'AI vs automation: which does your business need?',
+    title: 'AI vs automation: which does your business need?',
+    description: 'Automation follows fixed rules; AI reads, writes and judges. How to tell which one a task needs, and when the honest answer is neither.',
+    sources: ['src/pages/learn/ai-vs-automation.astro', 'src/layouts/Learn.astro'],
+  },
+  {
+    path: '/learn/where-ai-helps-your-business/',
+    crumb: 'Where AI helps your business',
+    heading: 'How to find where AI helps your business',
+    title: 'How to find where AI helps your business',
+    description: 'Map the work first, then score each step. A plain method to find where AI saves time, where simple automation wins, and where to leave things alone.',
+    sources: ['src/pages/learn/where-ai-helps-your-business.astro', 'src/layouts/Learn.astro'],
+  },
+  {
+    path: '/learn/ai-roi-before-you-buy/',
+    crumb: 'AI ROI before you buy',
+    heading: 'How to work out AI ROI before you buy',
+    title: 'How to work out AI ROI before you buy',
+    description: 'A plain method to estimate whether an AI tool will pay back: time the work, count the hours, add every cost, and find the payback month.',
+    sources: ['src/pages/learn/ai-roi-before-you-buy.astro', 'src/layouts/Learn.astro'],
+  },
   {
     path: '/learn/share-memory-between-chatgpt-and-claude/',
     crumb: 'Share memory between ChatGPT and Claude',
@@ -806,13 +866,58 @@ export const COMPARE_PAGES = [
   { path: '/learn/obsidian-vs-ai-memory-app/', label: 'Obsidian' },
 ] as const;
 
-/** "People also read" under an article: its related ones first, then the newest others, three at most. */
+// The Learn articles for businesses (s129): the AI Readiness Assessment's
+// guides, English only, each ending with a call to book the free call
+// (layouts/Learn.astro `business`). Kept apart from LEARN, whose articles are
+// translated: the translated hubs and "People also read" lists read LEARN and
+// would need a translation of each of these.
+// In the research's publishing order (notes ai-assessment/RESEARCH-CONSULTING-SEO-S129.md).
+export const LEARN_BUSINESS: readonly LearnArticle[] = [
+  {
+    path: '/learn/ai-readiness-assessment-uae/',
+    summary: 'What an on-site AI readiness assessment covers in the UAE and the Gulf, how long it takes, and how to check an adviser is independent.',
+    related: ['/learn/where-ai-helps-your-business/', '/learn/why-ai-projects-fail/'],
+  },
+  {
+    path: '/learn/how-to-choose-an-ai-consultant-uae/',
+    summary: 'Why no honest ranking exists, the checks and five questions to ask, and the red flags: commissions, reseller ties, tool-first pitches and no site visit.',
+    related: ['/learn/ai-readiness-assessment-uae/', '/learn/where-ai-helps-your-business/'],
+  },
+  {
+    path: '/learn/dubai-ai-seal-explained/',
+    summary: 'What the Dubai AI Seal is, who can apply, what the E to S tiers mean, and how to use it when you choose an AI supplier.',
+    related: ['/learn/how-to-choose-an-ai-consultant-uae/', '/learn/ai-readiness-assessment-uae/'],
+  },
+  {
+    path: '/learn/why-ai-projects-fail/',
+    summary: 'What RAND, BCG, Deloitte and S&P Global found about failed AI projects, and the steps to take before you spend anything.',
+    related: ['/learn/where-ai-helps-your-business/', '/learn/ai-readiness-assessment-uae/'],
+  },
+  {
+    path: '/learn/ai-vs-automation/',
+    summary: 'Fixed rules and clean inputs need automation, not AI. How to tell which a task needs, and when to fix the process first.',
+    related: ['/learn/where-ai-helps-your-business/', '/learn/ai-roi-before-you-buy/'],
+  },
+  {
+    path: '/learn/where-ai-helps-your-business/',
+    summary: 'Map how each team really works, time and score every step, and only the steps that score well become AI projects.',
+    related: ['/learn/ai-vs-automation/', '/learn/why-ai-projects-fail/'],
+  },
+  {
+    path: '/learn/ai-roi-before-you-buy/',
+    summary: 'Time the work, count the hours a tool really saves, add every hidden cost, and find the month an AI tool pays back.',
+    related: ['/learn/ai-vs-automation/', '/learn/why-ai-projects-fail/'],
+  },
+];
+
+/** "People also read" under an article: its related ones first, then the newest others, three at most, from its own list. */
 export const alsoRead = (path: string): LearnArticle[] => {
-  const self = LEARN.find((a) => a.path === path);
+  const list = LEARN_BUSINESS.some((a) => a.path === path) ? LEARN_BUSINESS : LEARN;
+  const self = list.find((a) => a.path === path);
   if (!self) throw new Error(`No LEARN entry for ${path}`);
-  for (const r of self.related) if (!LEARN.some((a) => a.path === r)) throw new Error(`${path} relates to ${r}, which is not in LEARN`);
-  const picked = self.related.map((r) => LEARN.find((a) => a.path === r) as LearnArticle);
-  const rest = [...LEARN].reverse().filter((a) => a.path !== path && !self.related.includes(a.path));
+  for (const r of self.related) if (!list.some((a) => a.path === r)) throw new Error(`${path} relates to ${r}, which is not in its list`);
+  const picked = self.related.map((r) => list.find((a) => a.path === r) as LearnArticle);
+  const rest = [...list].reverse().filter((a) => a.path !== path && !self.related.includes(a.path));
   return [...picked, ...rest].slice(0, 3);
 };
 

@@ -1,7 +1,7 @@
 ---
 import Base from './Base.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
-import { RELEASE, TRIAL, alsoRead, pageFor } from '../data/site';
+import { CONSULTING, RELEASE, TRIAL, alsoRead, pageFor } from '../data/site';
 import { lastModified } from '../lib/lastmod';
 import { englishPath, langOf, localize } from '../i18n/locales';
 import { learnSummary } from '../i18n/learn';
@@ -18,8 +18,13 @@ interface Props {
   lede: string;
   /** The page's sections, for "On this page"; the sections use the same ids. */
   outline: { id: string; title: string }[];
+  /**
+   * A guide for businesses (s129, LEARN_BUSINESS): it ends with the AI
+   * Readiness Assessment's call to book the free call, not the app's.
+   */
+  business?: boolean;
 }
-const { path, lede, outline } = Astro.props;
+const { path, lede, outline, business = false } = Astro.props;
 const page = pageFor(path);
 if (!page.heading) throw new Error(`Learn article ${path} needs a heading in its PAGES entry`);
 const lang = langOf(path);
@@ -47,12 +52,26 @@ const more = alsoRead(englishPath(path)).map((a) => ({
       <article class="learn-body">
         <slot />
 
-        <aside class="learn-cta" aria-label={t(lang, 'About Zaaheen')}>
-          <p>{t(lang, 'Zaaheen is one private memory for Claude, ChatGPT, Cursor and your other AI apps, kept encrypted on your own computer. {days} days free, no card.', { days: TRIAL.days })}</p>
-          {RELEASE.available
-            ? <a class="cta cta-sm" href={L('/docs/getting-started/')}>{t(lang, 'Try Zaaheen free')}</a>
-            : <a class="cta cta-sm" href={L('/products/')}>{t(lang, 'See how Zaaheen works')}</a>}
-        </aside>
+        {business ? (
+          <aside class="learn-cta is-business" aria-label="The AI Readiness Assessment">
+            <p class="learn-cta-title">Find out where AI helps your business, and where it doesn't.</p>
+            <p>Zaaheen's AI Readiness Assessment: we walk every role on site, map how the work really
+               gets done and give each team a clear verdict, with the cost and payback of each step.
+               Independent: we sell no tools and take no commissions. The first 30-minute call is free;
+               the assessment is quoted in writing, with no hidden costs (plus VAT where it applies).</p>
+            <div class="learn-cta-row">
+              <a class="cta cta-sm" href={CONSULTING.enquiryUrl}>Book a free 30-minute call</a>
+              <a class="learn-cta-link" href="/consulting/">How the assessment works</a>
+            </div>
+          </aside>
+        ) : (
+          <aside class="learn-cta" aria-label={t(lang, 'About Zaaheen')}>
+            <p>{t(lang, 'Zaaheen is one private memory for Claude, ChatGPT, Cursor and your other AI apps, kept encrypted on your own computer. {days} days free, no card.', { days: TRIAL.days })}</p>
+            {RELEASE.available
+              ? <a class="cta cta-sm" href={L('/docs/getting-started/')}>{t(lang, 'Try Zaaheen free')}</a>
+              : <a class="cta cta-sm" href={L('/products/')}>{t(lang, 'See how Zaaheen works')}</a>}
+          </aside>
+        )}
 
         {more.length > 0 && (
           <nav class="learn-more" aria-label={t(lang, 'People also read')}>

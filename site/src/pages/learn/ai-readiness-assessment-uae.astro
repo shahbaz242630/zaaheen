@@ -1,0 +1,255 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+
+// Learn business article 3 (s129, notes ai-assessment/RESEARCH-CONSULTING-SEO-S129.md
+// §5 Article 3): the local, highest-intent piece. Every service fact comes from
+// data/consulting.ts; never add clients, prices, savings or rankings here.
+// Figures read on the publisher's pages on 2026-11-26:
+// - Roland Berger, 10 Feb 2026: "nearly 80%" of GCC organisations have AI in
+//   strategic plans; "only one-third" an enterprise-wide data strategy; "only
+//   28%" an AI ethics or compliance board; "fewer than one in three" the
+//   operating model to scale; first action "organization-wide AI readiness
+//   assessments". Sample not published. The chart plots one-third as 33.
+// - Deloitte Middle East, 4 Jun 2026: "84% of organizations have not yet
+//   redesigned jobs or workflows around AI capabilities"; 3,200+ leaders, 24
+//   countries, Middle East sample not stated.
+// - BCG, 24 Oct 2024: 74% have yet to show tangible value; 70% of the effort in
+//   people and processes; 1,000 executives, 59 countries.
+// Data protection: UAE Federal Decree-Law No. 45 of 2021; the section says it
+// is not legal advice (no lawyer yet, research §6.3).
+const OUTLINE = [
+  { id: 'cover', title: 'What it covers' },
+  { id: 'ready', title: 'How ready Gulf businesses are' },
+  { id: 'quiz', title: 'Free quiz or free audit?' },
+  { id: 'independent', title: 'Checking independence' },
+  { id: 'data', title: 'Data protection' },
+  { id: 'time', title: 'Time and cost' },
+  { id: 'why', title: 'What makes Zaaheen different' },
+  { id: 'faq', title: 'Questions' },
+];
+const ROLAND_BERGER = 'https://www.rolandberger.com/en/Media/Roland-Berger-Middle-East-report-4-in-5-GCC-organizations-have-an-AI-strategy.html';
+const DELOITTE = 'https://www.deloitte.com/middle-east/en/about/press-room/deloitte-unveils-new-era-of-enterprise-ai-as-middle-east-organizations-shift-from-pilots-to-large-scale-deployment.html';
+const BCG = 'https://www.bcg.com/press/24october2024-ai-adoption-in-2024-74-of-companies-struggle-to-achieve-and-scale-value';
+---
+<Learn
+  path="/learn/ai-readiness-assessment-uae/"
+  lede="An AI readiness assessment looks at how your teams really work and tells you, team by team, where AI will save time and money and where it will not. A good one is done on site, ends in a written report with costs and payback, and comes from someone who sells no tools."
+  outline={OUTLINE}
+  business
+>
+  <section id="cover">
+    <h2>What does an AI readiness assessment cover?</h2>
+    <p>It covers the work itself: who does what, how long each step takes, where things wait,
+       and which steps a machine could do better than a person. The output is a decision for
+       each team, not a score out of ten.</p>
+    <p>Zaaheen is an independent AI consultancy based in Dubai that assesses businesses across
+       the UAE, Saudi Arabia, Qatar, Kuwait, Bahrain and Oman on site. We sell and build no
+       tools, and our team spent twenty years in corporate operations before doing this work.</p>
+    <p>Here is what our <a href="/consulting/">AI readiness assessment in Dubai and across the
+       Gulf</a> covers, step by step:</p>
+    <ol>
+      <li><strong>A free 30-minute call.</strong> You tell us about your business and what is
+          not working. We tell you honestly whether an assessment is worth it for you.</li>
+      <li><strong>We walk every role, on site.</strong> From reception to the managing director,
+          we sit with the people doing the work, watch how it really gets done and time each
+          step.</li>
+      <li><strong>We map and score it.</strong> Every process becomes a map with timed steps,
+          hand-offs and waiting points. Each step is scored on volume, repetition, rules, data
+          and the cost of a mistake.</li>
+      <li><strong>Report and read-out.</strong> A written report and a meeting with your team:
+          where AI helps, where it does not, what to do first, what it costs and when it pays
+          back.</li>
+    </ol>
+    <p>Each team gets one of four verdicts, with the reasons behind it:</p>
+    <ul>
+      <li><strong>AI now:</strong> work that reads, writes, sorts or answers, at volume, where
+          the data already exists.</li>
+      <li><strong>Automate without AI:</strong> fixed rules and clean inputs, where a form, a
+          workflow or a link between two systems does it cheaper and safer. Our guide to
+          <a href="/learn/ai-vs-automation/">AI vs automation</a> explains the difference.</li>
+      <li><strong>Fix the process first:</strong> too many exceptions, unclear ownership or
+          missing data. AI on a broken process only makes it break faster.</li>
+      <li><strong>Leave as it is:</strong> low volume, or expert judgement where a mistake is
+          costly. Some work should stay with your people.</li>
+    </ul>
+
+    <MemoryFlow
+      id="flow-assessment-visit"
+      from="Front desk, Dubai"
+      to="Written report"
+      fact="Walk-in queries logged"
+      hub="On-site visit"
+      hubNote="every role, timed"
+      saved="Verdict given"
+      caption="We sit with every team on site, and each gets a verdict with its reasons."
+    />
+
+    <p>For every recommendation the report gives the effort, a cost range, the hours it saves
+       each month, when it pays back, and where a person must stay in charge. If you would rather
+       look for candidates yourself first, our guide on
+       <a href="/learn/where-ai-helps-your-business/">where AI helps your business</a> shows the
+       method.</p>
+  </section>
+
+  <section id="ready">
+    <h2>How ready are Gulf businesses for AI?</h2>
+    <p>Most GCC organisations plan to use AI, but far fewer have the data, the rules or the way
+       of working to make it pay. That gap is what an assessment is for.</p>
+
+    <BarChart
+      id="chart-gcc-readiness"
+      title="GCC organisations: AI plans vs readiness to scale, per Roland Berger"
+      measure="% of organisations"
+      max={100}
+      bars={[
+        { label: 'AI in strategic plans', value: 80, note: '% (nearly)' },
+        { label: 'Enterprise-wide data strategy', value: 33, note: '% (one-third)' },
+        { label: 'AI ethics or compliance board', value: 28, note: '%' },
+      ]}
+      source={{ text: 'Roland Berger Middle East report, 10 February 2026. Sample size not published; "one-third" is plotted as 33.', href: ROLAND_BERGER }}
+    />
+
+    <p>In its February 2026 report, Roland Berger found that nearly 80% of GCC organisations have
+       AI in their strategic plans, but only one-third have an enterprise-wide data strategy and
+       fewer than one in three have the operating model to scale it. Its first recommended action
+       was organisation-wide AI readiness assessments.</p>
+    <p>The same pattern shows up in Deloitte's June 2026 survey of more than 3,200 leaders in 24
+       countries: 84% of organisations had not yet redesigned jobs or workflows around AI
+       (<a href={DELOITTE}>Deloitte Middle East, 4 June 2026</a>). Boston Consulting Group put it
+       more bluntly in October 2024: 74% of companies had yet to show tangible value from AI, and
+       leaders put about 70% of their effort into people and processes, not technology
+       (<a href={BCG}>BCG, 1,000 executives in 59 countries</a>).</p>
+    <p>Whether you run a 40-person firm in Abu Dhabi or a large company in Riyadh, the lesson is
+       the same: the problem is rarely the technology. It is the way the work is done. Our article
+       on <a href="/learn/why-ai-projects-fail/">why AI projects fail</a> goes through the named
+       studies.</p>
+  </section>
+
+  <section id="quiz">
+    <h2>Is a free online quiz or "free AI audit" enough?</h2>
+    <p>A free quiz is a fair starting point, but it scores your own answers, and a free audit from
+       a company that builds AI is usually the first step towards selling you its own work. Neither
+       sees how your people really work.</p>
+    <p>Many searches in Dubai and the UAE are for an "AI audit for my business". The word is
+       understandable, but an AI readiness assessment is not a financial audit, an assurance report
+       or a certification of any AI system. It is an operational review of where AI can help.</p>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">Online quiz</th><th scope="col">Free audit from a company that builds AI</th><th scope="col">On-site independent assessment</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Who looks at the work</th><td>Nobody: you answer questions</td><td>Often a short call or a form</td><td>Someone who sits with each team</td></tr>
+        <tr><th scope="row">What it measures</th><td>Your own view of readiness</td><td>Where their product could fit</td><td>Timed steps, hand-offs and waiting points</td></tr>
+        <tr><th scope="row">Can it say "don't use AI here"?</th><td>Rarely</td><td>Rarely: it is how they win work</td><td>Yes: "Leave as it is" is a real verdict</td></tr>
+        <tr><th scope="row">What you get</th><td>A score</td><td>A proposal for their build work</td><td>A written report, costs and payback, and a read-out</td></tr>
+        <tr><th scope="row">Cost</th><td>Free</td><td>Free, paid back through the build</td><td>A fixed fee, quoted in writing</td></tr>
+      </tbody>
+    </table>
+    <p>A quiz is useful if you want to know whether to look further. If you want to know what to do
+       on Monday morning, someone has to watch the work.</p>
+  </section>
+
+  <section id="independent">
+    <h2>How do you check an AI consultant is independent?</h2>
+    <p>Ask three plain questions, and get the answers in writing:</p>
+    <ul>
+      <li><strong>Do you sell, resell or build any AI product, software or hardware?</strong></li>
+      <li><strong>Do you take commissions, referral fees or kickbacks from any provider?</strong></li>
+      <li><strong>Are you a partner or reseller of any provider?</strong></li>
+    </ul>
+    <p>If the answer to any of these is yes, their advice may still be good, but it is not
+       independent. An adviser who earns from a tool has a reason to recommend it.</p>
+    <p>Our answer to all three is no. Our only income is the fee you pay us. If we name a product,
+       it is because it fits your work, and you buy it directly from its maker. The longer
+       checklist, including red flags and who actually does the work, is in our guide on
+       <a href="/learn/how-to-choose-an-ai-consultant-uae/">how to choose an AI consultant in the
+       UAE</a>.</p>
+  </section>
+
+  <section id="data">
+    <h2>What about data protection in the UAE and Saudi Arabia?</h2>
+    <p>Your adviser will see how your business runs, so data protection should be agreed before the
+       first visit, not after. This section is general information, not legal advice.</p>
+    <p>In the UAE, personal data is covered by the Personal Data Protection Law, Federal Decree-Law
+       No. 45 of 2021, alongside the separate rules of free zones such as DIFC and ADGM. Saudi
+       Arabia has its own Personal Data Protection Law, and Qatar, Bahrain, Kuwait and Oman each
+       have their own rules too. Take advice from a lawyer on what applies to your business.</p>
+    <p>What you can ask of any adviser is simple:</p>
+    <ul>
+      <li>A confidentiality agreement signed before the first visit.</li>
+      <li>Roles and processes recorded, not people's names or personal details.</li>
+      <li>A clear date when notes are deleted.</li>
+    </ul>
+    <p>That is how we work: we sign the agreement first, record roles rather than people, and
+       delete our notes 90 days after the report unless you ask us in writing to keep them for a
+       follow-on project.</p>
+  </section>
+
+  <section id="time">
+    <h2>How long does an AI assessment take, and what does it cost?</h2>
+    <p>For a small firm, it usually takes two to three weeks from the first visit to the read-out.
+       Larger businesses with more teams and sites take longer, and we agree the timeline in writing
+       before we start.</p>
+    <p>On cost, we publish no price list, because every business is different. After the free call,
+       once we know how many teams and sites are involved, we send a written quote: one fixed price
+       in UAE dirhams, plus VAT where it applies, set out in full, showing what each stage covers. There are no hidden costs,
+       and nothing is added later without your written agreement.</p>
+    <p>The call is free and commits you to nothing. The assessment itself is a paid service. Before
+       spending on any AI tool, it helps to work out the payback in plain numbers; our guide to
+       <a href="/learn/ai-roi-before-you-buy/">AI ROI before you buy</a> shows how.</p>
+  </section>
+
+  <section id="why">
+    <h2>What makes Zaaheen's AI readiness assessment different?</h2>
+    <ul>
+      <li><strong>On site, every role.</strong> From reception to the managing director, timing
+          each step.</li>
+      <li><strong>Independent.</strong> We do not sell, resell or build tools, and we take no
+          commissions or referral fees. Our only income is the fee you pay us.</li>
+      <li><strong>An honest verdict for every team.</strong> Including "Fix the process first" and
+          "Leave as it is", because some work should stay with your people.</li>
+      <li><strong>Twenty years in operations.</strong> Our team spent twenty years in customer
+          service, back office, sales and team management.</li>
+      <li><strong>Numbers you can act on.</strong> Effort, a cost range, hours saved each month and
+          payback for every recommendation.</li>
+      <li><strong>A clear price.</strong> A free 30-minute call, then a fixed written quote with no
+          hidden costs, plus VAT where it applies.</li>
+    </ul>
+    <p>We work with businesses of twenty people or more, from Dubai and Abu Dhabi to Riyadh, Doha,
+       Kuwait City, Manama and Muscat. You can read <a href="/consulting/">how our AI Readiness
+       Assessment works</a> in full.</p>
+  </section>
+
+  <section id="faq">
+    <h2>What else do people ask about AI readiness assessments?</h2>
+
+    <h3>Do you work in Saudi Arabia, Qatar, Kuwait, Bahrain and Oman?</h3>
+    <p>Yes. We are based in Dubai and work with businesses across the Gulf: the UAE, Saudi Arabia
+       (KSA), Qatar, Kuwait, Bahrain and Oman. The work is done on site, so we come to your office,
+       whether it is in Abu Dhabi, Riyadh or Doha.</p>
+
+    <h3>Is this an AI audit?</h3>
+    <p>Not in the financial sense. It is an operational assessment of how work gets done and where
+       AI can help. It is not a financial audit, an assurance report or a certification of any AI
+       system.</p>
+
+    <h3>What happens to what we show you?</h3>
+    <p>We sign a confidentiality agreement before the first visit. We record roles and processes,
+       not people's names or personal details. Notes are deleted 90 days after the report, unless
+       you ask us in writing to keep them for a follow-on project.</p>
+
+    <h3>Do you earn anything from the providers you recommend?</h3>
+    <p>No. We have no affiliate programme, referral fees, commissions or kickbacks from any
+       provider. Our only income is the fee you pay us, so we work for you.</p>
+
+    <h3>What do we get at the end?</h3>
+    <p>A written report and a read-out meeting with your team. Every team gets a verdict with its
+       reasons, and every recommendation comes with the effort, a cost range, hours saved each month
+       and when it pays back.</p>
+
+    <p>More answers, including how payment and cancellation work, are in the
+       <a href="/consulting/#questions">questions on our assessment page</a>.</p>
+  </section>
+</Learn>

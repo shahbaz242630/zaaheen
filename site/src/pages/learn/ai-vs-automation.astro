@@ -1,0 +1,257 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+
+// Business Learn article A2 (s129): AI vs automation, for the AI Readiness
+// Assessment. Plan: notes/ai-assessment/RESEARCH-CONSULTING-SEO-S129.md §5.
+// Facts and our words: data/consulting.ts (the four verdicts, independence).
+// Figures, each read on the publisher's page on 2026-11-26:
+// - RAND, 13 Aug 2024 (RRA2680-1): "By some estimates, more than 80 percent of
+//   AI projects fail, twice the rate of non-AI IT projects"; most common cause,
+//   a misunderstood problem; 65 interviews. The plan's "about 40" bar for IT
+//   projects was derived from "twice the rate", so it is NOT drawn: only
+//   directly published figures are charted.
+// - Deloitte Middle East, 4 Jun 2026: "84% of organizations have not yet
+//   redesigned jobs or workflows around AI capabilities"; 3,200+ leaders, 24
+//   countries, Middle East sample not stated.
+// - BCG, 24 Oct 2024: "Seventy-four percent of companies have yet to show
+//   tangible value from their use of AI"; 1,000 executives, 59 countries.
+const OUTLINE = [
+  { id: 'difference', title: 'The difference' },
+  { id: 'automation', title: 'Tasks that only need automation' },
+  { id: 'ai', title: 'Tasks that really need AI' },
+  { id: 'risk', title: 'Why AI is riskier' },
+  { id: 'process', title: 'When the process is the problem' },
+  { id: 'together', title: 'AI and automation together' },
+  { id: 'why-zaaheen', title: 'How Zaaheen decides' },
+  { id: 'faq', title: 'Questions' },
+];
+const RAND = 'https://www.rand.org/pubs/research_reports/RRA2680-1.html';
+const DELOITTE = 'https://www.deloitte.com/middle-east/en/about/press-room/deloitte-unveils-new-era-of-enterprise-ai-as-middle-east-organizations-shift-from-pilots-to-large-scale-deployment.html';
+const BCG = 'https://www.bcg.com/press/24october2024-ai-adoption-in-2024-74-of-companies-struggle-to-achieve-and-scale-value';
+---
+<Learn
+  path="/learn/ai-vs-automation/"
+  lede="Use plain automation when the rules are fixed and the inputs are clean, and use AI only when the work means reading, writing, sorting or answering things that vary. When the process itself is messy, neither works until the process is fixed."
+  outline={OUTLINE}
+  business
+>
+  <p>Zaaheen is an independent AI consultancy based in Dubai that assesses businesses across the
+     GCC on site, team by team, and tells each one whether it needs AI, plain automation, a better
+     process, or nothing at all. We sell and build no tools, so we have no reason to prefer one
+     answer over another.</p>
+
+  <section id="difference">
+    <h2>What is the difference between AI and automation?</h2>
+    <p>Automation follows rules you write down in advance; AI reads, writes and makes judgements
+       about things that do not follow a fixed pattern.</p>
+    <p>An automated workflow does exactly what it is told. When an invoice arrives, check the
+       purchase order number, compare the amounts, and send it for payment if they match. It never
+       gets tired, and it never guesses. It also cannot cope with anything it was not told about.</p>
+    <p>An AI model works on language and patterns instead of rules. It can read an email written in
+       any style, pull out what the customer wants, draft a reply, or sort a pile of documents by
+       what they are about. It copes with variety, but it can be wrong in ways a rule never is, so
+       its output needs checking.</p>
+    <p>People often ask about RPA vs AI. RPA (robotic process automation) is a kind of automation:
+       software that clicks through screens the way a person would, following fixed steps. It sits
+       on the automation side of the line, not the AI side.</p>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col"></th><th scope="col">Automation</th><th scope="col">AI</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">How it works</th><td>Fixed rules, written in advance</td><td>Learned patterns, applied to new cases</td></tr>
+        <tr><th scope="row">Best inputs</th><td>Clean, structured, the same every time</td><td>Varied: emails, documents, free text</td></tr>
+        <tr><th scope="row">When it goes wrong</th><td>Stops, or flags the exception</td><td>Can give a confident wrong answer</td></tr>
+        <tr><th scope="row">Checking needed</th><td>Set up once, then spot checks</td><td>A person reviews where mistakes cost money</td></tr>
+        <tr><th scope="row">Running cost</th><td>Usually low and predictable</td><td>Varies with use; needs ongoing review</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="automation">
+    <h2>Which tasks only need automation?</h2>
+    <p>If the rules never change and the information arrives clean, you do not need AI: a form, a
+       workflow or a link between two systems does the job more cheaply and more safely.</p>
+    <p>This answers a question many business owners in Dubai and Riyadh ask: do I need AI or
+       just automation? For a surprising amount of office work, the honest answer is just
+       automation. Here are common examples, with the verdict we would usually give.</p>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col">Task</th><th scope="col">Fixed rules?</th><th scope="col">Clean inputs?</th><th scope="col">Usual verdict</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Matching supplier invoices to purchase orders</th><td>Yes</td><td>Yes, if suppliers use the PO number</td><td>Automate without AI</td></tr>
+        <tr><th scope="row">Sending payment reminders on day 30, 45 and 60</th><td>Yes</td><td>Yes</td><td>Automate without AI</td></tr>
+        <tr><th scope="row">Copying web enquiries into the sales system</th><td>Yes</td><td>Yes, with a proper form</td><td>Automate without AI</td></tr>
+        <tr><th scope="row">Approving leave against a balance</th><td>Yes</td><td>Yes</td><td>Automate without AI</td></tr>
+        <tr><th scope="row">Answering varied customer emails</th><td>No</td><td>No</td><td>AI now, with a person checking</td></tr>
+        <tr><th scope="row">Approvals nobody clearly owns</th><td>No</td><td>No</td><td>Fix the process first</td></tr>
+        <tr><th scope="row">Negotiating a key contract</th><td>No</td><td>No</td><td>Leave as it is</td></tr>
+      </tbody>
+    </table>
+    <p>The verdicts in the last column are the four we give in
+       <a href="/consulting/">our AI Readiness Assessment</a>: AI now, Automate without AI, Fix the
+       process first, and Leave as it is.</p>
+
+    <MemoryFlow
+      id="flow-ai-vs-automation"
+      from="Supplier invoice"
+      to="Finance system"
+      fact="Invoice matched to PO"
+      hub="Rules check"
+      hubNote="fixed rules, no AI"
+      saved="Automated"
+      caption="A rule that never changes does not need AI: a simple workflow does it cheaper."
+    />
+  </section>
+
+  <section id="ai">
+    <h2>Which tasks really need AI?</h2>
+    <p>AI earns its place when the work means reading, writing, sorting or answering at volume, the
+       inputs vary every time, and the information it needs already exists.</p>
+    <p>Typical examples from office teams in the UAE, Saudi Arabia and Qatar:</p>
+    <ul>
+      <li><strong>Customer service:</strong> sorting incoming emails and chat messages by what
+          the customer needs, and drafting first replies for a person to approve.</li>
+      <li><strong>Sales:</strong> reading a price request written in free text and pulling out the
+          products, quantities and dates.</li>
+      <li><strong>Finance:</strong> reading invoices that arrive as scanned documents in different
+          layouts, where no two suppliers send the same format.</li>
+      <li><strong>HR:</strong> answering the same policy questions from staff, from the handbook you
+          already have.</li>
+      <li><strong>Risk and compliance:</strong> a first read of long documents to flag the clauses a
+          specialist should look at.</li>
+    </ul>
+    <p>Notice what these have in common: the volume is high, the work repeats, and a person stays
+       in charge of anything that matters. If you want to find tasks like these in your own
+       business, our guide on <a href="/learn/where-ai-helps-your-business/">how to find where AI
+       helps your business</a> walks through the method step by step.</p>
+  </section>
+
+  <section id="risk">
+    <h2>Why is AI riskier than plain automation?</h2>
+    <p>AI is riskier because it can be wrong without knowing it, and because projects that use it
+       fail far more often than ordinary IT work.</p>
+    <p>A rule either matches or it does not. AI gives an answer every time, and some of those
+       answers will be wrong while looking right. That means someone has to check the output, and
+       that checking time belongs in the cost.</p>
+    <p>The wider record points the same way. RAND interviewed 65 data scientists and engineers and
+       reported in August 2024 that, "by some estimates, more than 80 percent of AI projects fail,
+       twice the rate of non-AI IT projects". The most common cause it found was that people
+       misunderstood or miscommunicated what problem the AI was meant to solve
+       (<a href={RAND}>RAND, 13 August 2024</a>).</p>
+
+    <BarChart
+      id="chart-ai-vs-automation"
+      title="Three studies, one pattern: the problem is rarely the tool (per cent)"
+      measure="Per cent"
+      max={100}
+      bars={[
+        { label: 'AI projects that fail', value: 80, note: 'or more' },
+        { label: 'No workflow redesign', value: 84 },
+        { label: 'No value from AI yet', value: 74 },
+      ]}
+      source={{ text: 'RAND, 13 August 2024: "by some estimates, more than 80 percent of AI projects fail". Deloitte Middle East, 4 June 2026: 84% of organisations have not redesigned jobs or workflows around AI (3,200+ leaders, 24 countries). BCG, 24 October 2024: 74% of companies have yet to show tangible value from AI (1,000 executives, 59 countries).', href: RAND }}
+    />
+
+    <p>Deloitte's 2026 survey found that 84% of organisations had not yet redesigned jobs or
+       workflows around AI (<a href={DELOITTE}>Deloitte Middle East, 4 June 2026</a>), and BCG found
+       in 2024 that 74% of companies had yet to show tangible value from it
+       (<a href={BCG}>BCG, 24 October 2024</a>). None of this says AI does not work. It says AI
+       put on the wrong task, or on an unchanged process, usually does not pay. We look at that in
+       more depth in <a href="/learn/why-ai-projects-fail/">why AI projects fail</a>.</p>
+  </section>
+
+  <section id="process">
+    <h2>What if the process itself is the problem?</h2>
+    <p>If a process has too many exceptions, no clear owner or missing data, neither AI nor
+       automation will fix it; AI on a broken process only makes it break faster.</p>
+    <p>This is a verdict a seller of software has little reason to give. Yet it is
+       one of the most common sights on a busy desk at month end: an approval that passes
+       through three people because nobody knows who decides, a spreadsheet that only one person
+       understands, or customer details typed again into a second system because the first one
+       was never set up properly.</p>
+    <p>Signs the process needs fixing before any technology:</p>
+    <ul>
+      <li>Staff describe the same task in different ways.</li>
+      <li>More than a handful of cases are "exceptions" that someone handles by hand.</li>
+      <li>Nobody can say who owns a step when it goes wrong.</li>
+      <li>The data a tool would need is incomplete, or kept in personal files.</li>
+    </ul>
+    <p>Fixing these first is often cheap. Sometimes it removes the need for a tool altogether, and
+       when it does not, the automation or AI you add afterwards has a fair chance of working. Before
+       you spend, it also pays to <a href="/learn/ai-roi-before-you-buy/">work out the return
+       before you buy</a>.</p>
+  </section>
+
+  <section id="together">
+    <h2>Can AI and automation work together?</h2>
+    <p>Yes, and in many good set-ups they do: automation handles the fixed steps, AI handles the
+       one step that needs reading or judgement, and a person checks what matters.</p>
+    <p>Take a customer request arriving by email. AI reads it and works out what the customer
+       wants. A plain workflow then creates the record, routes it to the right team and sends the
+       acknowledgement. A person approves any reply that commits the business to a price or a
+       date.</p>
+    <p>This is also the honest answer to the question of AI agents vs workflow automation. An
+       agent is AI deciding which steps to take; a workflow is steps you decided in advance. For
+       most office work in the Gulf today, the safer design is a fixed workflow with AI used at the
+       one or two points that need it, rather than an agent left to decide the whole route.</p>
+  </section>
+
+  <section id="why-zaaheen">
+    <h2>How does Zaaheen decide between AI and automation?</h2>
+    <p>Because we look at the real work before recommending anything, and we earn nothing from the
+       answer. In plain terms:</p>
+    <ul>
+      <li><strong>On site, every role.</strong> We sit with your teams, from reception to the
+          managing director, and time each step of the work.</li>
+      <li><strong>Independent.</strong> We do not sell, resell or build any AI product, and we take
+          no referral fees or commissions. Our only income is the fee you pay us.</li>
+      <li><strong>Four verdicts, not one.</strong> Automate without AI, Fix the process first and
+          Leave as it is are real answers we give, alongside AI now.</li>
+      <li><strong>Twenty years in operations.</strong> Our team spent twenty years in corporate
+          operations, so we know where the workarounds hide.</li>
+      <li><strong>Costed recommendations.</strong> For each one we give the effort, a cost range,
+          the hours it saves each month, when it pays back, and where a person stays in charge.</li>
+      <li><strong>A clear start.</strong> A free 30-minute call, then a fixed written quote with no
+          hidden costs, plus VAT where it applies.</li>
+    </ul>
+    <p>Zaaheen, based in Dubai, runs on-site AI readiness assessments for businesses across the
+       UAE, Saudi Arabia, Qatar, Kuwait, Bahrain and Oman. If you are weighing AI against simpler
+       automation in Abu Dhabi, Doha or Kuwait City, an
+       <a href="/consulting/">AI readiness assessment in Dubai and across the Gulf</a> gives each
+       team its answer with the reasons behind it.</p>
+  </section>
+
+  <section id="faq">
+    <h2>What else do people ask about AI vs automation?</h2>
+
+    <h3>Do I need AI or just automation?</h3>
+    <p>Ask two questions about the task: are the rules fixed, and is the information clean? If both
+       answers are yes, plain automation is usually cheaper and safer. If the work means reading or
+       writing things that vary, AI may help, with a person checking the output.</p>
+
+    <h3>Is RPA the same as AI?</h3>
+    <p>No. RPA follows fixed steps on screen, the way a person would click through a system, so it
+       is a form of automation. Some products now add AI to RPA, but the two do different jobs:
+       rules on one side, reading and judgement on the other.</p>
+
+    <h3>When should you not use AI?</h3>
+    <p>When the volume is low, when an expert judgement carries a costly risk, or when the process
+       is still unclear. In the first two cases the work should stay with your people; in the third,
+       fix the process first. We say so in a report when it applies.</p>
+
+    <h3>Do you sell or build the tools you recommend?</h3>
+    <p>No. We do not sell, resell or build any AI product, software or hardware, and we recommend
+       what fits your work, whoever makes it. You buy it directly from its maker. The rest of our
+       answers on independence, cost and timing are in
+       <a href="/consulting/#questions">the assessment's questions</a>.</p>
+
+    <h3>Do you work in Saudi Arabia, Qatar, Kuwait, Bahrain and Oman?</h3>
+    <p>Yes. We are based in Dubai and work on site with businesses of twenty staff or more across
+       the UAE, Saudi Arabia, Qatar, Kuwait, Bahrain and Oman. The timeline is agreed in writing
+       before we start.</p>
+  </section>
+</Learn>

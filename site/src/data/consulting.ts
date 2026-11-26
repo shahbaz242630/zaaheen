@@ -71,15 +71,32 @@ export const CONSULTING_INDEPENDENT = {
   ],
 } as const;
 
+// The landing FAQ, rewritten for search and answer engines (s129, lead with
+// the founder's authority): questions follow the query bank and section 10 of
+// notes ai-assessment/RESEARCH-CONSULTING-SEO-S129.md. Each answer leads with
+// the direct answer, 2 to 4 sentences, and says nothing the consulting Terms,
+// Privacy or Cancellation and Refund policies contradict. llms.txt reads this
+// list, so Ask Zaaheen answers from the same words. Founder s129: "we dont want
+// people thinking its a free service": the call is free, the assessment is
+// paid, quoted in full with no hidden costs, plus VAT where it applies.
 export const CONSULTING_FAQ = [
-  { q: 'Is this an audit of our accounts or a certification?', a: 'No. It is an operational assessment of how work gets done and where AI can help. It is not a financial audit, an assurance report or a certification of any AI system.' },
-  { q: 'What happens to what we show you?', a: "We sign a confidentiality agreement before the first visit. We record roles and processes, not people's names or personal details. Notes are deleted 90 days after the report, unless you ask us to keep them for a follow-on project." },
-  { q: 'Do you sell or build the tools you recommend?', a: 'No. We do not sell, resell or build any AI product, software or hardware, and we recommend what fits your work, whoever makes it. You buy it directly from its maker.' },
-  { q: 'Do you earn anything from the providers you recommend?', a: 'No. We have no affiliate programme, referral fees, commissions or kickbacks from any provider. Our only income is the fee you pay us, so we work for you.' },
-  { q: 'Which countries do you cover?', a: 'We are based in Dubai and work with businesses across the Gulf: the UAE, Saudi Arabia, Qatar, Kuwait, Bahrain and Oman.' },
-  { q: 'How long does it take?', a: 'It depends on the size of the business and how many teams we look at. A small firm usually takes two to three weeks from the first visit to the read-out. We agree the timeline in writing before we start.' },
-  { q: 'What does it cost?', a: 'Every business is different, so we quote after the free call, once we know how many teams and sites are involved. The quote is fixed and in writing.' },
-  { q: 'Can you help after the report?', a: 'Yes, if you want us to. We can be your point of contact for AI on a monthly basis, and help you choose and brief the right provider to put the recommendations in place. You buy any software or hardware directly from its maker.' },
+  { q: 'Do you carry out AI readiness assessments in Dubai, Abu Dhabi and across the UAE?', a: 'Yes. We are based in Dubai and carry out the AI Readiness Assessment on site for businesses in Dubai, Abu Dhabi and the rest of the UAE. We visit your offices, sit with the people doing the work in every role and time each step. Travel and accommodation outside Dubai are a fixed line in your quote.' },
+  { q: 'Do you work in Saudi Arabia, Qatar, Kuwait, Bahrain and Oman?', a: 'Yes. We work with businesses across the Gulf, in Saudi Arabia, Qatar, Kuwait, Bahrain and Oman as well as the UAE, and the visits are on site there too, whether in Riyadh, Jeddah, Doha, Kuwait City, Manama or Muscat. Travel and accommodation are a fixed line in your quote, so the price does not change later.' },
+  { q: 'What is an AI readiness assessment? Is it an AI audit or a certification?', a: 'It is an on-site review of how your work really gets done, team by team, to find where AI saves time and money, where simpler fixes do better and where to leave things alone. Some people call it an AI audit, but it is not a financial audit, an assurance report or a certification of any AI system. Unlike an online quiz, which scores your own answers, we watch and time the real work.' },
+  { q: 'Is the AI readiness assessment free, and what does it cost?', a: 'The first 30-minute call is free and commits you to nothing; the assessment itself is a paid service. Every business is different, so after the call we send a fixed written quote in UAE dirhams, plus VAT where it applies, based on how many teams and sites are involved. It is set out in full with no hidden costs, and nothing is added later without your written agreement.' },
+  { q: 'How do we pay, and what if we need to cancel?', a: 'You pay half when you sign the engagement letter and half after we deliver the report, each within 14 days of the invoice. If you cancel 14 days or more before the original first visit date in your engagement letter, the first payment is refunded in full. Once visits have started, you pay the greater of the work done and the first payment. Our Cancellation and Refund Policy sets out every case.' },
+  { q: 'How long does an AI readiness assessment take?', a: 'It depends on the size of the business and how many teams we look at. A small firm usually takes two to three weeks from the first visit to the read-out meeting. We agree the timeline in writing before we start.' },
+  { q: 'What do we get at the end of the assessment?', a: 'A written report and a read-out meeting with your team. Each team gets one of four verdicts, AI now, Automate without AI, Fix the process first or Leave as it is, with the reasons behind it. For every recommendation we give the effort, a cost range, the hours it saves each month, when it pays back, and where a person must stay in charge.' },
+  { q: 'Is it right for small businesses in Dubai and the UAE?', a: 'It suits businesses from about twenty staff up to large companies with many departments. If your people spend their days copying, chasing, checking and answering the same questions, there is usually something to find. If you are smaller or unsure, the free call tells you honestly whether an assessment is worth it for you.' },
+  { q: 'How do I know if my business is ready for AI?', a: 'Look at where your people spend their time. Work that reads, writes, sorts or answers at volume, where the data already exists, is usually a good candidate; work with too many exceptions, unclear ownership or missing data needs fixing first. The assessment answers this team by team, and the free call gives you a first honest view.' },
+  { q: 'Why choose Zaaheen, and how are you different from a large consultancy?', a: 'We come on site and sit with every role, from reception to the managing director, and our team brings twenty years in corporate operations. We are independent: we do not build or sell tools and take no commissions, so our only income is your fee. Our four verdicts include Fix the process first and Leave as it is, because some work should stay with your people. You get one fixed written quote before we start.' },
+  { q: 'What happens to what we show you?', a: 'We sign a confidentiality agreement before the first visit. We record roles and processes, not names, and delete any name we come across. Interview notes are deleted 90 days after the report, unless you ask us in writing to keep them for follow-on work. For information about your staff, your company stays the controller and we act on its behalf under a data processing agreement.' },
+  { q: 'Do you sell or build the tools you recommend?', a: 'No. We do not sell, resell or build any AI product, software or hardware, and we are not a partner or reseller of any provider. We recommend what fits your work, whoever makes it, and you buy it directly from its maker.' },
+  { q: 'Do you earn anything from the providers you recommend?', a: 'No. We have no affiliate programme and take no referral fees, commissions or kickbacks from any provider. Our only income is the fee you pay us, so our advice is based only on what fits your business.' },
+  // Dubai AI Seal (s129 research, notes ai-assessment/RESEARCH-DUBAI-AI-SEAL-S129.md):
+  // honest about our role; the Learn explainer covers the scheme itself.
+  { q: 'Do you hold the Dubai AI Seal, and will the assessment help us get it?', a: 'No to both. The Dubai AI Seal is a classification for AI providers, run by the Dubai Centre for Artificial Intelligence, and we have no role in it. Our assessment is for businesses that want to use AI: it shows where AI fits your work before you choose a supplier, and you can check any supplier\'s seal on the scheme\'s own site.' },
+  { q: 'Can you help after the report?', a: 'Yes, if you want us to. We can be your point of contact for AI on a monthly basis, and help you choose and brief a provider to put the recommendations in place. Each is a separate, optional piece of work, and you buy any software or hardware directly from its maker.' },
 ] as const;
 
 export const CONSULTING_CLOSE = {
@@ -88,8 +105,7 @@ export const CONSULTING_CLOSE = {
 } as const;
 
 // The consulting documents (founder s129: its own Terms, Privacy and Refund
-// policies, written after research). Until then each page is a placeholder,
-// which scripts/audit.mjs --release refuses to publish.
+// policies, written after research; pages/consulting/*.astro).
 export const CONSULTING_POLICIES = [
   { path: '/consulting/terms/', label: 'Terms of Service' },
   { path: '/consulting/privacy/', label: 'Privacy Policy' },

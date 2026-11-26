@@ -1,4 +1,5 @@
-import { SITE, RELEASE, COMPANY, PRICES, absolute, breadcrumbsFor, type PageEntry } from '../data/site';
+import { SITE, RELEASE, COMPANY, PRICES, CONSULTING, absolute, breadcrumbsFor, type PageEntry } from '../data/site';
+import { CONSULTING_HERO } from '../data/consulting';
 import { LOCALES, englishPath, langOf } from '../i18n/locales';
 
 // A subscription plan as a schema.org Offer: the price per billing period.
@@ -100,6 +101,32 @@ export function graphFor(page: PageEntry, modified?: string, published?: string)
           }
         : {}),
       publisher: { '@id': org },
+    });
+  }
+
+  // The AI Readiness Assessment (s129): a Service, so search and AI answer
+  // engines can tell what it is, who provides it and where. Every field is on
+  // the page itself (data/consulting.ts): the name, the free first call, the
+  // six Gulf countries in "Which countries do you cover?". No price: the page
+  // quotes each business after the call.
+  if (page.path === '/consulting/') {
+    graph.push({
+      '@type': 'Service',
+      '@id': `${url}#service`,
+      name: CONSULTING_HERO.name,
+      serviceType: 'AI readiness assessment',
+      description: page.description,
+      provider: { '@id': org },
+      areaServed: ['United Arab Emirates', 'Saudi Arabia', 'Qatar', 'Kuwait', 'Bahrain', 'Oman'].map((name) => ({ '@type': 'Country', name })),
+      audience: { '@type': 'BusinessAudience', name: 'Businesses with 20 or more staff' },
+      offers: {
+        '@type': 'Offer',
+        name: 'Free 30-minute call',
+        price: '0',
+        priceCurrency: 'AED',
+        url: CONSULTING.enquiryUrl,
+      },
+      mainEntityOfPage: { '@id': `${url}#webpage` },
     });
   }
 

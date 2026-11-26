@@ -12,20 +12,20 @@
     "date": "2026-11-12T16:37:04Z"
   },
   "/consulting/": {
-    "text": "5a9a92f75a27900d",
-    "date": "2026-11-26T18:23:35Z"
+    "text": "8c0aee014043301b",
+    "date": "2026-11-26T18:54:38Z"
   },
   "/consulting/privacy/": {
-    "text": "2b11c7179498e045",
-    "date": "2026-11-26T17:28:24Z"
+    "text": "e4d0b0429d4a88f1",
+    "date": "2026-11-26T18:54:38Z"
   },
   "/consulting/refunds/": {
-    "text": "eaf077cee1d53fea",
-    "date": "2026-11-26T17:28:24Z"
+    "text": "654b4c44b5933f6a",
+    "date": "2026-11-26T18:54:38Z"
   },
   "/consulting/terms/": {
-    "text": "5fd7db75a72614a2",
-    "date": "2026-11-26T17:28:24Z"
+    "text": "fc8762be43ada77d",
+    "date": "2026-11-26T18:54:38Z"
   },
   "/de/": {
     "text": "2debe527e2829f1f",
@@ -80,8 +80,8 @@
     "date": "2026-10-29T17:18:11Z"
   },
   "/de/learn/": {
-    "text": "8d8ca5f99582ccee",
-    "date": "2026-11-12T02:03:58Z"
+    "text": "f1d1c6bcbaf5af1a",
+    "date": "2026-11-26T18:56:05Z"
   },
   "/de/learn/ai-memory-apps-compared/": {
     "text": "73498309f81d1749",
@@ -248,8 +248,8 @@
     "date": "2026-10-29T17:18:11Z"
   },
   "/es/learn/": {
-    "text": "3a848c3b554b896c",
-    "date": "2026-11-12T02:03:58Z"
+    "text": "e70b6e9740f48184",
+    "date": "2026-11-26T18:56:05Z"
   },
   "/es/learn/ai-memory-apps-compared/": {
     "text": "a1d6ee28385eae16",
@@ -364,8 +364,8 @@
     "date": "2026-10-29T17:18:11Z"
   },
   "/fr/learn/": {
-    "text": "6c5a574bd9b1ed17",
-    "date": "2026-11-12T02:03:58Z"
+    "text": "0ca33ba23d0d5421",
+    "date": "2026-11-26T18:56:05Z"
   },
   "/fr/learn/ai-memory-apps-compared/": {
     "text": "dd3669680d7ad877",
@@ -448,8 +448,8 @@
     "date": "2026-10-22T07:02:37Z"
   },
   "/learn/": {
-    "text": "3f61d69a972527fb",
-    "date": "2026-11-11T19:16:56Z"
+    "text": "7e7ae9c080b73fc6",
+    "date": "2026-11-26T18:54:38Z"
   },
   "/learn/ai-memory-apps-compared/": {
     "text": "da9e026a7a3ebeff",
@@ -458,6 +458,18 @@
   "/learn/ai-memory-tool-or-notes-file/": {
     "text": "3a9ff2ff482bbb9e",
     "date": "2026-11-11T19:16:56Z"
+  },
+  "/learn/ai-readiness-assessment-uae/": {
+    "text": "7947b53835384b2b",
+    "date": "2026-11-26T19:07:48Z"
+  },
+  "/learn/ai-roi-before-you-buy/": {
+    "text": "469505e933de7442",
+    "date": "2026-11-26T19:07:48Z"
+  },
+  "/learn/ai-vs-automation/": {
+    "text": "5401aabdd40d6848",
+    "date": "2026-11-26T19:07:48Z"
   },
   "/learn/best-memory-mcp-server-for-claude-code/": {
     "text": "2061fc820912167b",
@@ -470,6 +482,14 @@
   "/learn/does-claude-code-remember-between-sessions/": {
     "text": "2f96715b4706f940",
     "date": "2026-11-11T19:16:56Z"
+  },
+  "/learn/dubai-ai-seal-explained/": {
+    "text": "0b4cdcb803802095",
+    "date": "2026-11-26T19:07:48Z"
+  },
+  "/learn/how-to-choose-an-ai-consultant-uae/": {
+    "text": "0f3785bd531c2dee",
+    "date": "2026-11-26T19:07:48Z"
   },
   "/learn/mem0-alternative/": {
     "text": "33ac51027b1ae294",
@@ -502,6 +522,14 @@
   "/learn/switch-from-chatgpt-to-claude/": {
     "text": "6de01c04de889215",
     "date": "2026-11-11T19:16:56Z"
+  },
+  "/learn/where-ai-helps-your-business/": {
+    "text": "f15e6e11bbd79239",
+    "date": "2026-11-26T19:07:48Z"
+  },
+  "/learn/why-ai-projects-fail/": {
+    "text": "605c36018368e4d7",
+    "date": "2026-11-26T19:07:48Z"
   },
   "/licences/": {
     "text": "015838ca94250e67",
@@ -572,8 +600,8 @@
     "date": "2026-10-29T17:18:11Z"
   },
   "/pt/learn/": {
-    "text": "896036c2067f7a6c",
-    "date": "2026-11-12T02:03:58Z"
+    "text": "2817b14ded516899",
+    "date": "2026-11-26T18:56:05Z"
   },
   "/pt/learn/ai-memory-apps-compared/": {
     "text": "2530a54b6c7dd7ce",

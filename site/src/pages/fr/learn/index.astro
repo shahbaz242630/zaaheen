@@ -3,7 +3,7 @@
 // French heading and summary (src/i18n/pages/fr-learn.ts), linking to its
 // French page.
 import Base from '../../../layouts/Base.astro';
-import { LEARN, pageFor } from '../../../data/site';
+import { LEARN, LEARN_BUSINESS, pageFor } from '../../../data/site';
 import { localize } from '../../../i18n/locales';
 import { learnSummary } from '../../../i18n/learn';
 
@@ -14,6 +14,8 @@ const articles = LEARN.map((a) => ({
   heading: pageFor(L(a.path)).heading,
   summary: learnSummary(a, 'fr'),
 }));
+// The business guides (s129) are English only: linked to the English pages.
+const business = LEARN_BUSINESS.map((a) => ({ path: a.path, heading: pageFor(a.path).heading, summary: a.summary }));
 ---
 <Base page={page}>
   <div class="docs learn">
@@ -27,5 +29,14 @@ const articles = LEARN.map((a) => ({
     <ul class="learn-list">
       {articles.map((a) => <li><a href={a.path}>{a.heading}</a><p>{a.summary}</p></li>)}
     </ul>
+    {business.length > 0 && (
+      <section class="learn-section" aria-labelledby="for-business">
+        <h2 id="for-business" class="docs-title">L'IA pour votre entreprise (en anglais)</h2>
+        <p class="learn-section-lede">Guides pour les entreprises issus de notre <a href="/consulting/">AI Readiness Assessment</a> : où l’IA aide, ce qu’elle coûte et pourquoi tant de projets s’enlisent. Disponibles en anglais.</p>
+        <ul class="learn-list" lang="en">
+          {business.map((a) => <li><a href={a.path} hreflang="en">{a.heading}</a><p>{a.summary}</p></li>)}
+        </ul>
+      </section>
+    )}
   </div>
 </Base>

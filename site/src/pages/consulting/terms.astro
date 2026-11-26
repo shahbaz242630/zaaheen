@@ -1,5 +1,468 @@
 ---
-import ConsultingPolicy from '../../layouts/ConsultingPolicy.astro';
+import Policy, { type Outline } from '../../layouts/Policy.astro';
+import Row from '../../components/Row.astro';
+import { COMPANY, CONSULTING, SITE } from '../../data/site';
+import { CONSULTING_HERO, CONSULTING_INDEPENDENT } from '../../data/consulting';
+
+// The Terms of Service for the AI Readiness Assessment (founder s129: its own
+// Terms, Privacy and Refund policies, written after research; every research
+// recommendation approved). Sources: notes ai-assessment/
+// RESEARCH-CONSULTING-TERMS-S129.md (outline A to J) and
+// RESEARCH-CONSULTING-REFUNDS-S129.md. Points that hold the design up:
+// the engagement letter wins only where it expressly changes these Terms; the
+// cap covers contract claims only and never what UAE law forbids limiting
+// (Civil Transactions Law, Decree-Law 25/2025, art. 257); the first payment is
+// never a "deposit" (earnest-money rule); no late interest; no arbitration.
+// The moving and cancelling numbers live in /consulting/refunds/, linked here.
+// Review fixes (s129, lead with the founder's authority): once visits start,
+// the client pays the greater of the work done and the first payment; bands
+// count calendar days from receipt of the email to the ORIGINAL first visit
+// date; the client never "owns" the report, it gets a right to use it; the
+// courts of Dubai have exclusive jurisdiction. Keep these in step with
+// refunds.astro, privacy.astro and CONSULTING_FAQ.
+const OUTLINE: Outline[] = [
+  { id: 'about', title: 'About these terms', topics: [
+    { id: 'who', title: 'Who we are' },
+    { id: 'for-business', title: 'Who these terms are for' },
+    { id: 'documents', title: 'How the documents fit together' },
+  ] },
+  { id: 'quote', title: 'The free call and the quote', topics: [
+    { id: 'call', title: 'The free call' },
+    { id: 'fixed-quote', title: 'The written quote' },
+  ] },
+  { id: 'service', title: 'What we do and do not do', topics: [
+    { id: 'assessment', title: 'The assessment' },
+    { id: 'is-not', title: 'What the assessment is not' },
+    { id: 'independent', title: 'Our independence' },
+    { id: 'standard', title: 'Our standard of work' },
+    { id: 'after', title: 'Help after the report' },
+  ] },
+  { id: 'your-part', title: 'What we need from you', topics: [
+    { id: 'access', title: 'Access, people and a contact' },
+    { id: 'information', title: 'Accurate information' },
+    { id: 'staff', title: 'Telling your staff' },
+    { id: 'safety', title: 'Site safety' },
+    { id: 'not-ready', title: 'If access or people are missing' },
+  ] },
+  { id: 'payment', title: 'Fees and payment', topics: [
+    { id: 'fees', title: 'Fees and currency' },
+    { id: 'schedule', title: 'When you pay' },
+    { id: 'tax', title: 'VAT and withholding tax' },
+    { id: 'late', title: 'Late and disputed invoices' },
+  ] },
+  { id: 'changes', title: 'Changes, moving and ending', topics: [
+    { id: 'scope', title: 'Changing what we do' },
+    { id: 'moving', title: 'Moving or cancelling a visit' },
+    { id: 'ending', title: 'Ending an engagement' },
+  ] },
+  { id: 'confidential', title: 'Confidentiality and data', topics: [
+    { id: 'nda', title: 'The confidentiality agreement' },
+    { id: 'notes', title: 'Our notes and records' },
+    { id: 'publicity', title: 'Naming you as a client' },
+    { id: 'ai-tools', title: 'Our use of AI tools' },
+  ] },
+  { id: 'report', title: 'The report', topics: [
+    { id: 'ownership', title: 'Using the report' },
+    { id: 'reliance', title: 'What the report is' },
+    { id: 'no-guarantee', title: 'No guaranteed results' },
+    { id: 'corrections', title: 'Corrections and the follow-up meeting' },
+  ] },
+  { id: 'responsibility', title: 'Responsibility', topics: [
+    { id: 'cap', title: 'The limit on our liability' },
+    { id: 'excluded', title: 'Losses we do not cover' },
+    { id: 'never-limited', title: 'What is never limited' },
+  ] },
+  { id: 'general', title: 'General', topics: [
+    { id: 'non-solicit', title: 'Hiring each other\'s people' },
+    { id: 'force-majeure', title: 'Events outside our control' },
+    { id: 'subcontractors', title: 'Subcontractors' },
+    { id: 'disputes', title: 'Complaints and disputes' },
+    { id: 'law', title: 'Law and courts' },
+    { id: 'updates', title: 'Changes to these terms' },
+    { id: 'other', title: 'Other legal points' },
+    { id: 'contact', title: 'Contact us' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+const mail = `mailto:${CONSULTING.email}`;
+const refunds = '/consulting/refunds/';
+const privacy = '/consulting/privacy/';
+const lede = `These terms apply when a business engages ${SITE.name} for an ${CONSULTING_HERO.name}, or for the optional help that follows it. Each engagement letter attaches the dated version you agree to.`;
 ---
-<ConsultingPolicy path="/consulting/terms/" heading="Terms of Service"
-  covers="The terms for an AI Readiness Assessment: what is included, the quote and paying, site visits, confidentiality, the report, liability and how to complain. To be written after research." />
+<Policy path="/consulting/terms/" heading="Terms of Service" lede={lede} outline={OUTLINE} consulting>
+  <ul slot="summary">
+    <li>It starts with a <strong>free 30-minute call</strong>. If you go ahead, you get a
+        <strong>fixed written quote</strong>, plus VAT where it applies, valid 30 days, and we both
+        sign an engagement letter.</li>
+    <li><strong>We recommend; we never build, sell or resell tools</strong>, and we take no
+        commissions, referral fees or kickbacks from any provider.</li>
+    <li>You pay a <strong>50% first payment when the letter is signed and 50% after the report</strong>,
+        each within 14 days, in UAE dirhams plus VAT where it applies.</li>
+    <li>Moving or cancelling a visit follows our <a href={refunds}>Cancellation and Refund Policy</a>:
+        <strong>14 days or more before the original first visit date in your engagement letter, the
+        first payment is refunded in full.</strong></li>
+    <li>We sign a <strong>confidentiality agreement before the first visit</strong>, record roles
+        rather than names, and delete our notes 90 days after the report.</li>
+    <li><strong>Once the fee is paid in full, you may use the report inside your business</strong>
+        and share it with your advisers and the providers you brief. We keep our methods,
+        templates and know-how. We correct factual errors free within 30 days.</li>
+    <li>The report is advice, not a guarantee. <strong>Our liability for how we did the work is
+        capped at the fees paid</strong> for that engagement, except where UAE law forbids a limit.</li>
+    <li>UAE law applies. We talk first, then the courts of Dubai. There is no arbitration.</li>
+  </ul>
+
+  <section id="about" class="docs-section">
+    <h2 class="docs-title">About these terms</h2>
+
+    <Row id="who" title={topic('who')} where={COMPANY.city}>
+      <p>{SITE.name} is the trading name of {COMPANY.legalName}, a business licensed in Dubai,
+         United Arab Emirates ({COMPANY.licence}). The {CONSULTING_HERO.name} is one of our
+         services. "We" and "us" mean us. "You" means the business that engages us.</p>
+    </Row>
+
+    <Row id="for-business" title={topic('for-business')} where="Businesses only">
+      <p>Our consulting services are for businesses and other organisations, not for private
+         individuals. The person who signs the engagement letter confirms that they have the
+         authority to bind the business.</p>
+      <p>These terms cover the assessment, a monthly retainer if you take one, and help choosing
+         and briefing a provider after the report. They do not cover the {SITE.name} app or our
+         coaching, which have their own terms.</p>
+    </Row>
+
+    <Row id="documents" title={topic('documents')} where="Engagement letter">
+      <p>Each engagement has three documents: the engagement letter, which sets out the scope,
+         fee and dates; these terms; and the confidentiality agreement. The engagement letter wins
+         only where it expressly changes these terms. Otherwise these terms apply.</p>
+      <p>Each engagement letter names the date of the version of these terms that applies and
+         attaches a copy, so we both know exactly what was agreed. Your own purchase order terms
+         do not apply unless we sign them.</p>
+    </Row>
+  </section>
+
+  <section id="quote" class="docs-section">
+    <h2 class="docs-title">The free call and the quote</h2>
+
+    <Row id="call" title={topic('call')} where="30 minutes">
+      <p>The first call is free and you are under no obligation. You tell us about your business
+         and what is not working, and we tell you honestly whether an assessment is worth it for
+         you. What you tell us on the call stays confidential, even before any agreement is
+         signed.</p>
+    </Row>
+
+    <Row id="fixed-quote" title={topic('fixed-quote')} where="Valid 30 days">
+      <p>If you want to go ahead, we send a fixed quote in writing, plus VAT where it applies,
+         with no hidden costs. It lists what is included,
+         such as the departments, sites, days on site, the report and the read-out meeting, and
+         what is not included. It also sets out how the fee is split across the stages of the
+         work, which matters if the work stops part-way. The quote is valid for 30 days.</p>
+      <p>The engagement starts when we both sign the engagement letter based on the quote.</p>
+    </Row>
+  </section>
+
+  <section id="service" class="docs-section">
+    <h2 class="docs-title">What we do and do not do</h2>
+
+    <Row id="assessment" title={topic('assessment')} where="On site">
+      <p>We visit your sites, sit with the people doing the work, interview them by role and map
+         each process with timed steps. We score each step, give each team one of four verdicts,
+         and write a report with our recommendations. We then present it to your team at a
+         read-out meeting. The engagement letter sets out exactly which teams and sites are
+         included.</p>
+    </Row>
+
+    <Row id="is-not" title={topic('is-not')} where="Please read">
+      <p><strong>The assessment is an operational review of how work gets done. It is not a
+         financial audit, an assurance report, legal advice or a certification of any AI
+         system.</strong> We do not check your accounts, and we do not certify that any system is
+         safe, lawful or compliant.</p>
+    </Row>
+
+    <Row id="independent" title={topic('independent')} where="A binding promise">
+      <p>This is a promise we make in every engagement, not a marketing line. We do not:</p>
+      <ul>
+        {CONSULTING_INDEPENDENT.not.map((item) => <li>{item}</li>)}
+      </ul>
+      <p>We do not build the systems we recommend. Our only income from an engagement is the fee
+         you pay us. If we name a product, it is because it fits your work, and you buy it directly
+         from its maker. If this promise is ever broken, that is a breach of these terms.</p>
+    </Row>
+
+    <Row id="standard" title={topic('standard')} where="Every engagement">
+      <p>We carry out the work with reasonable care and skill, in good faith, and as the
+         engagement letter describes. We tell you promptly if anything stops us doing what we
+         agreed.</p>
+    </Row>
+
+    <Row id="after" title={topic('after')} where="Optional">
+      <p>After the report you may ask us to be your point of contact for AI on a monthly
+         retainer, or to help you choose and brief a provider to put our recommendations in
+         place. Each is a separate, optional piece of work with its own engagement letter, under
+         these terms. It never depends on which tools you choose, and we do not set systems up
+         ourselves.</p>
+    </Row>
+  </section>
+
+  <section id="your-part" class="docs-section">
+    <h2 class="docs-title">What we need from you</h2>
+
+    <Row id="access" title={topic('access')} where="Agreed times">
+      <p>You give us access to your sites, people and information at the times we agree in the
+         visit plan. You name one contact person who can answer questions and make decisions
+         during the work.</p>
+    </Row>
+
+    <Row id="information" title={topic('information')} where="Good faith">
+      <p>You give us accurate information in good faith, and you confirm you are allowed to share
+         it with us. We rely on what you and your staff tell us and show us. We do not audit it.</p>
+    </Row>
+
+    <Row id="staff" title={topic('staff')} where="Before the visit">
+      <p>You tell your staff about the visit and the interviews before we arrive. We give you a
+         short notice to share, and we explain it again to each person we interview. Please keep
+         customer details out of what you show us where you can.</p>
+    </Row>
+
+    <Row id="safety" title={topic('safety')} where="On site">
+      <p>You tell us about your site safety rules and any hazards before we arrive, and we
+         follow them while we are there.</p>
+    </Row>
+
+    <Row id="not-ready" title={topic('not-ready')} where="Rebooked once">
+      <p>If the access or people we agreed are not available, we rebook that part of the work
+         once per engagement, at no charge. If it happens again, the time we set aside counts as work done.
+         If missing access changes the dates or the work needed, we agree any change with you in
+         writing first.</p>
+    </Row>
+  </section>
+
+  <section id="payment" class="docs-section">
+    <h2 class="docs-title">Fees and payment</h2>
+
+    <Row id="fees" title={topic('fees')} where="AED">
+      <p>Our fees are fixed in the quote and engagement letter, in UAE dirhams (AED), plus VAT
+         where it applies. Travel and accommodation outside Dubai are always a fixed line in the
+         quote, so there are no hidden costs.</p>
+    </Row>
+
+    <Row id="schedule" title={topic('schedule')} where="Two payments">
+      <p>You pay in two parts:</p>
+      <ul>
+        <li>a first payment of 50% of the fee when the engagement letter is signed, which,
+            once received, reserves the dates for you; and</li>
+        <li>the remaining 50% after we deliver the report.</li>
+      </ul>
+      <p>Each invoice is payable within 14 days. The right to use the report passes to you when
+         the fee is paid in full.</p>
+    </Row>
+
+    <Row id="tax" title={topic('tax')} where="Where it applies">
+      <p>Our prices do not include VAT. We add VAT where the law requires it. Each side handles
+         its own other taxes.</p>
+      <p>If the law where you are requires you to withhold tax from our fee, for example Saudi
+         withholding tax, you add that amount to the payment so that we receive the full quoted
+         fee, and you send us the receipt for the tax you paid.</p>
+    </Row>
+
+    <Row id="late" title={topic('late')} where="No interest">
+      <p>We do not charge interest on late payments. If an invoice is overdue, we may pause the
+         work after telling you in writing, until it is paid. Dates that slip because of a pause
+         move by the same amount.</p>
+      <p>If you disagree with an invoice, tell us within 14 days of receiving it and pay the part
+         you do not dispute while we sort out the rest.</p>
+    </Row>
+  </section>
+
+  <section id="changes" class="docs-section">
+    <h2 class="docs-title">Changes, moving and ending</h2>
+
+    <Row id="scope" title={topic('scope')} where="In writing">
+      <p>If you want to add or remove teams, sites or days, we agree the change and any change to
+         the fee in writing before the work starts. Email is enough.</p>
+    </Row>
+
+    <Row id="moving" title={topic('moving')} where="Cancellation and Refund Policy">
+      <p>Our <a href={refunds}>Cancellation and Refund Policy</a> is part of these terms. It sets
+         out how to move a visit and what happens if you cancel. In short:</p>
+      <ul>
+        <li>14 days or more before the original first visit date in your engagement letter: we
+            refund the first payment in full.</li>
+        <li>7 to 13 days before: we keep 25% of the total fee.</li>
+        <li>Less than 7 days before: we keep the first payment.</li>
+        <li>After the visits have started: you pay the greater of the work done, using the split
+            written in your quote, and the first payment (50% of the fee). We hand over what we
+            have gathered.</li>
+      </ul>
+      <p>The days are calendar days, counted from the day we receive your email (Dubai time) to
+         the original first visit date. Moving the date does not restart the count. If the first
+         payment has not yet been paid when you cancel, the amount we keep is payable within 14
+         days.</p>
+      <p>These amounts reflect the weeks we hold for you and turn other work away from.</p>
+    </Row>
+
+    <Row id="ending" title={topic('ending')} where="Either side">
+      <p>Either of us may end an engagement by telling the other in writing. If you end it before
+         the first visit, the cancellation amounts in our <a href={refunds}>Cancellation and Refund
+         Policy</a> apply. If you end it after the visits have started, you pay the greater of the
+         work done up to that point, measured by the split in your quote, and the first payment
+         (50% of the fee). Either way, we hand over everything finished or gathered so far. If we
+         end it without a good reason, we refund everything you paid for work not yet done.</p>
+      <p>Either of us may also end it straight away if the other seriously breaks these terms
+         and does not put it right within 14 days of being told, or becomes insolvent. If you end
+         it this way because of our breach, the cancellation amounts and the first payment
+         minimum do not apply: you pay only for the work done, and we refund the rest.</p>
+    </Row>
+  </section>
+
+  <section id="confidential" class="docs-section">
+    <h2 class="docs-title">Confidentiality and data</h2>
+
+    <Row id="nda" title={topic('nda')} where="Before the first visit">
+      <p>We both sign a mutual confidentiality agreement before the first visit. It is part of
+         every engagement and continues after the engagement ends. Each side follows the data
+         protection law that applies to it. Our <a href={privacy}>Consulting Privacy Policy</a>
+         explains how we handle personal information.</p>
+      <p>For information about your staff that we gather in interviews, your business is the
+         controller and we act on its behalf under the data processing agreement in the
+         engagement letter.</p>
+    </Row>
+
+    <Row id="notes" title={topic('notes')} where="90 days">
+      <p>We record roles, not names, and delete any name we come across. We delete our working
+         notes 90 days after we deliver the report, unless you ask us in writing to keep them for
+         follow-on work; notes kept that way are deleted 90 days after the follow-on work ends.
+         We keep one copy of the final report, the engagement documents and our invoices for 7
+         years, for our legal and accounting records, under the same confidentiality.</p>
+    </Row>
+
+    <Row id="publicity" title={topic('publicity')} where="Your choice">
+      <p>We never name you as a client, or quote your results, without your written
+         agreement.</p>
+    </Row>
+
+    <Row id="ai-tools" title={topic('ai-tools')} where="Reviewed by a person">
+      <p>We may use AI tools to help analyse our notes and draft the report. We do this under our
+         confidentiality duties, and only with settings that do not use your information to train
+         the tools. A person on our team reviews everything before it reaches you.</p>
+    </Row>
+  </section>
+
+  <section id="report" class="docs-section">
+    <h2 class="docs-title">The report</h2>
+
+    <Row id="ownership" title={topic('ownership')} where="Once paid">
+      <p>Once the fee is paid in full, you may use the report inside your business and share it
+         with your advisers and the providers you brief.</p>
+      <p>We keep our methods, question sets, scoring, templates and know-how, which
+         we use for all our clients. Using them in your report does not transfer them to you.</p>
+    </Row>
+
+    <Row id="reliance" title={topic('reliance')} where="Our opinion">
+      <p>The report is our professional opinion on the date of the visits, based on what we were
+         shown and told. Costs, savings and payback periods are estimates. AI products and prices
+         change quickly, so check the details with the maker before you buy. The report is
+         written for you; no one else may rely on it unless we agree in writing.</p>
+    </Row>
+
+    <Row id="no-guarantee" title={topic('no-guarantee')} where="Please read">
+      <p><strong>We do not guarantee any result, such as savings, growth or a successful project.
+         Our recommendations are advice. You decide what to do, and you remain responsible for
+         your choices and for how any system is used in your business.</strong></p>
+    </Row>
+
+    <Row id="corrections" title={topic('corrections')} where="30 days">
+      <p>If the report contains a factual error and you tell us within 30 days of delivery, we
+         correct it free. You may also have one free follow-up meeting within 30 days of delivery
+         to go through any questions.</p>
+      <p>If we did not deliver what your quote and engagement letter describe, tell us within 30
+         days of delivery and we will put it right, or refund the part not delivered. Here,
+         "delivery" means the day we send you the report.</p>
+      <p>Disagreeing with our findings or verdicts is not a defect in the report, and it is not a
+         reason to withhold payment.</p>
+    </Row>
+  </section>
+
+  <section id="responsibility" class="docs-section">
+    <h2 class="docs-title">Responsibility</h2>
+
+    <Row id="cap" title={topic('cap')} where="Fees paid">
+      <p>For any claim about how we performed an engagement, such as a late or poor report, our
+         total liability is limited to the fees you paid us for that engagement.</p>
+    </Row>
+
+    <Row id="excluded" title={topic('excluded')} where="Indirect loss">
+      <p>We are not liable for indirect or consequential loss, such as lost profit, revenue,
+         savings or goodwill, or for loss we could not have foreseen when the engagement letter
+         was signed. We are not liable for the results of decisions you make based on the
+         report.</p>
+      <p>The cap above and these exclusions of indirect loss apply to your liability to us as
+         well, except for fees you owe us.</p>
+    </Row>
+
+    <Row id="never-limited" title={topic('never-limited')} where="UAE law">
+      <p>Nothing in these terms limits or excludes liability that UAE law does not allow to be
+         limited, such as for harmful acts, fraud or gross negligence. That includes liability for
+         deliberate wrongdoing and for death or personal injury.</p>
+    </Row>
+  </section>
+
+  <section id="general" class="docs-section">
+    <h2 class="docs-title">General</h2>
+
+    <Row id="non-solicit" title={topic('non-solicit')} where="6 months">
+      <p>During an engagement and for 6 months after it ends, neither of us will approach the
+         other's people who worked on the engagement to offer them a job. There is no fee if
+         this happens; it is simply a promise. General job adverts, and people who reply to them,
+         are not covered.</p>
+    </Row>
+
+    <Row id="force-majeure" title={topic('force-majeure')} where="Either side">
+      <p>Neither of us is responsible for a delay or failure caused by events outside our
+         reasonable control, such as severe weather, a public health emergency, travel bans,
+         government action or a major utility failure. The affected dates move. If either of us
+         cannot perform for more than 90 days because of such an event, either of us may end the
+         engagement: you pay only for the work done, nothing more, and we refund the rest.</p>
+    </Row>
+
+    <Row id="subcontractors" title={topic('subcontractors')} where="With your agreement">
+      <p>We use a subcontractor on your engagement only if you agree in writing first. Anyone we
+         bring in is bound by the same confidentiality duties as we are, and we remain responsible
+         for their work. This does not cover the service providers and types of tools listed in
+         our <a href={privacy}>Consulting Privacy Policy</a>, which act only on our
+         instructions.</p>
+    </Row>
+
+    <Row id="disputes" title={topic('disputes')} where="Talk first">
+      <p>If you are unhappy with anything, email <a href={mail}>{CONSULTING.email}</a> and tell us
+         what happened. We reply within 5 working days, and a senior member of our team reviews
+         it. Both of us will try in good faith to resolve it within 30 days, including meeting if
+         that helps, before either takes any legal step.</p>
+    </Row>
+
+    <Row id="law" title={topic('law')} where="Dubai">
+      <p>These terms and every engagement are governed by the law of the United Arab Emirates as
+         applied in Dubai. If a dispute is not resolved by talking, the courts of Dubai have
+         exclusive jurisdiction. We may instead take it to the DIFC Small Claims Tribunal, but only if both of us agree
+         in writing after the dispute has started. There is no arbitration.</p>
+    </Row>
+
+    <Row id="updates" title={topic('updates')} where="New engagements">
+      <p>We may update these terms. A change applies only to engagements signed after it. A
+         signed engagement keeps the version attached to its engagement letter.</p>
+    </Row>
+
+    <Row id="other" title={topic('other')} where="Both of us">
+      <p>If any part of these terms is found invalid, the rest still applies. These terms are
+         written in English, and the English version governs; any Arabic copy is a translation
+         unless the engagement letter says otherwise. Notices by email, and engagement letters
+         signed electronically, are valid. If either of us does not enforce a right straight
+         away, we do not give it up.</p>
+    </Row>
+
+    <Row id="contact" title={topic('contact')} where="Email">
+      <p>Consulting questions, quotes and complaints: <a href={mail}>{CONSULTING.email}</a>. To
+         book the free call, use our <a href={CONSULTING.enquiryUrl}>enquiry page</a>. Our company
+         details are on our <a href="/company/">Company Information</a> page.</p>
+    </Row>
+  </section>
+</Policy>

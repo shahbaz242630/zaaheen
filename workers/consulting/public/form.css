@@ -44,6 +44,7 @@ h1 { font: 450 clamp(32px, 4vw, 44px)/1.1 var(--serif); letter-spacing: -0.015em
 .next-no { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%;
   background: var(--tint); border: 1px solid var(--tint-line); color: var(--sage-text); font-weight: 600; font-size: 13.5px; }
 .assure { margin: 0; padding-top: 20px; border-top: 1px solid var(--line); font-size: 14.5px; color: var(--muted); }
+.assure + .assure { border-top: 0; padding-top: 6px; }
 
 /* ---------- the card ---------- */
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 32px 32px 28px;
@@ -99,8 +100,9 @@ button:disabled { opacity: 0.6; cursor: wait; }
 @media (max-width: 860px) {
   .wrap { grid-template-columns: minmax(0, 1fr); gap: 28px; padding-top: 36px; }
   .intro { position: static; }
-  .next-title, .next, .assure { display: none; }
-  .lede { margin-bottom: 0; }
+  .next-title, .next { display: none; }
+  .lede { margin-bottom: 16px; }
+  .assure { padding-top: 12px; font-size: 14px; }
 }
 @media (max-width: 560px) {
   .top-inner { padding: 10px 16px; }
