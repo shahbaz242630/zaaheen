@@ -29,8 +29,10 @@ describe("the form page", () => {
     }
     expect(formHtml).not.toMatch(/<select id="callTime"[^>]*\brequired\b/);
     expect(formHtml).not.toMatch(/<textarea id="message"[^>]*\brequired\b/);
-    expect(formHtml).toContain("Best time to call, Gulf time (optional)");
-    expect(formHtml).toContain("Comments (optional)");
+    // Each optional field says so on its label (s129 restyle: an "Optional" tag).
+    expect(formHtml).toContain('Best time to call, Gulf time <span class="opt">Optional</span>');
+    expect(formHtml).toContain('Comments <span class="opt">Optional</span>');
+    expect(formHtml.match(/class="opt">Optional</g)).toHaveLength(3);
   });
 
   it("sends every field the Worker expects, and no other", () => {

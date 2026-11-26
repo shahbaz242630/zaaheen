@@ -90,6 +90,7 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!form.checkValidity()) {
+      form.classList.add("is-tried");
       status.textContent = TEXT.missing;
       form.reportValidity();
       return;

@@ -315,8 +315,8 @@ const verdictName = (id: string) => VERDICTS.find((v) => v.id === id)?.name ?? i
     <h2 class="cd-h2">{CLOSE.title}</h2>
     <p>{CLOSE.body}</p>
     <a class="cd-cta" href={book}>Book a free 30-minute call</a>
-    <p class="cd-contact">Prefer email? Write to <a href={`mailto:${CONSULTING.email}`}>{CONSULTING.email}</a>.
-       How we handle your enquiry: our <a href="/consulting/privacy/">Privacy Policy</a>.</p>
+    {/* Founder s129: no "Prefer email?" here; people book through the form. */}
+    <p class="cd-contact">How we handle your enquiry: our <a href="/consulting/privacy/">Privacy Policy</a>.</p>
   </section>
 
   <script src="../scripts/consulting.js"></script>
