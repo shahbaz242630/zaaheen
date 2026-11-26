@@ -50,23 +50,22 @@ const verdictName = (id: string) => VERDICTS.find((v) => v.id === id)?.name ?? i
 <Base page={page} footer="consulting">
   <section class="cd-hero">
     <div class="cd-hero-copy">
-      <div class="cd-hero-title">
-        <p class="cd-name"><span class="cd-name-dot"></span>{HERO.name}</p>
-        <h1>{HERO.title}</h1>
+      <p class="cd-name"><span class="cd-name-dot"></span>{HERO.name}</p>
+      <h1>{HERO.title}</h1>
+      <p class="cd-lede">{HERO.lede}</p>
+      <p class="cd-lede cd-lede-2">{HERO.then}</p>
+      <div class="cd-cta-row">
+        <a class="cd-cta" href={book}>Book a free 30-minute call</a>
+        <span class="cd-cta-meta">{HERO.where}</span>
       </div>
-      <div class="cd-hero-text">
-        <p class="cd-lede">{HERO.lede}</p>
-        <p class="cd-lede cd-lede-2">{HERO.then}</p>
-        <div class="cd-cta-row">
-          <a class="cd-cta" href={book}>Book a free 30-minute call</a>
-          <span class="cd-cta-meta">{HERO.where}</span>
-        </div>
-        <ul class="cd-promises">
-          {HERO.promises.map((p) => <li>{p}</li>)}
-        </ul>
-      </div>
+      <ul class="cd-promises">
+        {HERO.promises.map((p) => <li>{p}</li>)}
+      </ul>
     </div>
 
+    {/* One slip at a time comes onto the desk, then goes to its tray; each tray
+        shows only its latest slip and a count, so the desk never fills up
+        (founder s129: "keep it in a loop so its never full of clutter"). */}
     <figure class="cd-desk" id="cd-desk" aria-labelledby="cd-desk-cap">
       <div class="cd-desk-bar">
         <span class="cd-desk-dot"></span><span class="cd-desk-dot"></span><span class="cd-desk-dot"></span>
@@ -74,23 +73,41 @@ const verdictName = (id: string) => VERDICTS.find((v) => v.id === id)?.name ?? i
         <button class="cd-pause" type="button" aria-pressed="false" hidden>Pause</button>
       </div>
       <div class="cd-desk-body">
-        <ul class="cd-pile" aria-hidden="true"><li class="cd-pile-label">This week's pile</li></ul>
-        <div class="cd-trays">
-          {VERDICTS.map((t) => (
-            <div class={`cd-tray is-${t.id}`} data-tray={t.id}>
-              <p class="cd-tray-name"><span class="cd-mark"></span>{t.name}</p>
-              <ul class="cd-tray-list" data-tray-list={t.id}>
-                {SLIPS.filter((s) => s.tray === t.id).map((s) => (
-                  <li class="cd-slip" data-tray={s.tray}>
-                    <span class="cd-slip-face">
-                      <span class="cd-slip-kind">{s.kind}</span>
-                      <span class="cd-slip-text">{s.text}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+        <div class="cd-inbox" aria-hidden="true">
+          <span class="cd-inbox-label">Next on the desk</span>
+          <div class="cd-inbox-slot"></div>
+        </div>
+        <ul class="cd-queue" aria-hidden="true" hidden>
+          {SLIPS.map((s) => (
+            <li class="cd-slip" data-tray={s.tray}>
+              <span class="cd-slip-face">
+                <span class="cd-slip-kind">{s.kind}</span>
+                <span class="cd-slip-text">{s.text}</span>
+              </span>
+            </li>
           ))}
+        </ul>
+        <div class="cd-trays">
+          {VERDICTS.map((t) => {
+            // Each tray starts with its LAST example: the loop brings the first
+            // ones in first, so a slip never shows on the desk and in a tray at once.
+            const first = SLIPS.filter((s) => s.tray === t.id).at(-1);
+            return (
+              <div class={`cd-tray is-${t.id}`} data-tray={t.id}>
+                <p class="cd-tray-name"><span class="cd-mark"></span>{t.name} <span class="cd-count" aria-hidden="true"></span></p>
+                <ul class="cd-tray-list" data-tray-list={t.id}>
+                  {first && (
+                    <li class="cd-slip" data-tray={first.tray}>
+                      <span class="cd-slip-face">
+                        <span class="cd-slip-kind">{first.kind}</span>
+                        <span class="cd-slip-text">{first.text}</span>
+                      </span>
+                    </li>
+                  )}
+                </ul>
+              </div>
+            );
+          })}
         </div>
       </div>
       <figcaption id="cd-desk-cap" class="cd-desk-cap">An example of everyday work on one desk, sorted into the four verdicts we give.</figcaption>
@@ -320,15 +337,11 @@ const verdictName = (id: string) => VERDICTS.find((v) => v.id === id)?.name ?? i
   .cd-band.is-white{background:var(--card)}
 
   /* ---------- hero ---------- */
-  /* The hero: the words across the top, the desk full width below them
-     (founder s129: "make it wide and more eye catching"). */
-  .cd-hero{max-width:1180px;margin:0 auto;padding:52px 32px 88px;display:flex;flex-direction:column;gap:40px}
-  .cd-hero-copy{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:8px 64px;align-items:center}
-  .cd-hero-title,.cd-hero-text{display:flex;flex-direction:column}
-  .cd-hero-title h1{margin-bottom:0}
-  .cd-hero-text .cd-lede{max-width:none;font-size:17.5px}
-  .cd-hero-text .cd-lede-2{margin-bottom:24px}
-  .cd-hero-text .cd-promises{margin-top:24px;padding-top:16px;gap:6px 20px;font-size:14px}
+  /* The hero: the words on the left, the desk beside them (founder s129:
+     "keep it at same location"). */
+  .cd-hero{max-width:1180px;margin:0 auto;padding:80px 32px 88px;display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:center}
+  .cd-hero-copy{display:flex;flex-direction:column}
   .cd-name{display:inline-flex;align-self:flex-start;align-items:center;gap:8px;margin:0 0 22px;
     padding:5px 12px 5px 10px;border-radius:999px;background:var(--tint);border:1px solid var(--tint-line);
     font:500 13.5px var(--sans);color:var(--sage-text)}
@@ -356,16 +369,26 @@ const verdictName = (id: string) => VERDICTS.find((v) => v.id === id)?.name ?? i
   .cd-pause{border:1px solid var(--border);background:var(--card);color:var(--ink);border-radius:999px;
     padding:3px 12px;font:500 12.5px var(--sans);cursor:pointer}
   .cd-pause:hover{border-color:var(--ink)}
-  .cd-desk-body{background:var(--panel);padding:20px;display:flex;flex-direction:column;gap:16px}
-  /* The pile's height is set by scripts/consulting.js to fit two tidy columns. */
-  .cd-pile{display:none;position:relative;min-height:110px;margin:0;padding:0;list-style:none;border-radius:12px;
-    border:1px dashed var(--border);background:rgba(255,255,255,.35)}
-  .cd-desk.is-live .cd-pile{display:block}
-  .cd-pile-label{position:absolute;right:12px;bottom:8px;font:400 11.5px var(--mono);color:var(--faint)}
-  .cd-trays{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .cd-desk-body{background:var(--panel);padding:16px;display:flex;flex-direction:column;gap:14px}
+  /* The one slip being looked at (scripts/consulting.js); hidden without script. */
+  .cd-inbox{display:none;position:relative;border-radius:12px;border:1px dashed var(--border);
+    background:rgba(255,255,255,.35);padding:28px 18% 14px;min-height:96px}
+  .cd-desk.is-live .cd-inbox{display:block}
+  .cd-inbox-label{position:absolute;left:12px;top:8px;font:400 11.5px var(--mono);color:var(--faint)}
+  .cd-inbox-slot{min-height:52px}
+  .cd-inbox-slot .cd-slip{opacity:0;transform:translateY(-14px) scale(.97);
+    transition:opacity .5s var(--cd-ease),transform .6s var(--cd-ease)}
+  .cd-inbox-slot .cd-slip.is-in{opacity:1;transform:none}
+  .cd-inbox-slot .cd-slip-face{box-shadow:0 2px 4px rgba(38,34,28,.08),0 10px 22px rgba(38,34,28,.10)}
+  .cd-trays{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  /* Each tray holds one slip: the latest. The old one fades as the new lands. */
+  .cd-tray-list{position:relative;min-height:56px}
+  .cd-tray-list .cd-slip.is-leaving{position:absolute;left:0;right:0;top:0;opacity:0;transition:opacity .45s ease}
+  .cd-count{margin-left:auto;font:400 11.5px var(--mono);color:var(--faint);font-variant-numeric:tabular-nums}
+  .cd-count:empty{display:none}
   /* Each tray carries its verdict's colour as a band along the top. */
   .cd-tray{position:relative;background:var(--paper);border:1px solid var(--border);border-radius:12px;
-    padding:16px 12px 12px;box-shadow:inset 0 2px 0 rgba(38,34,28,.03);
+    padding:14px 10px 10px;box-shadow:inset 0 2px 0 rgba(38,34,28,.03);
     transition:background .4s,border-color .4s,box-shadow .4s,transform .4s var(--cd-ease)}
   /* No overflow:hidden on the tray: it would clip a slip flying in. */
   .cd-tray::before{content:"";position:absolute;left:-1px;right:-1px;top:-1px;height:5px;border-radius:12px 12px 0 0;background:var(--cd-ai)}
@@ -377,13 +400,10 @@ const verdictName = (id: string) => VERDICTS.find((v) => v.id === id)?.name ?? i
   .is-auto .cd-mark{background:var(--cd-auto)} .is-fix .cd-mark{background:var(--cd-fix)} .is-leave .cd-mark{background:var(--cd-leave)}
   .cd-tray-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
   .cd-slip{display:block;will-change:transform}
-  .cd-slip.is-piled{position:absolute;z-index:1}
   .cd-slip.is-moving{z-index:6;position:relative}
-  .cd-slip.is-piled.is-moving{position:absolute}
   .cd-slip-face{display:flex;flex-direction:column;gap:2px;background:var(--card);border:1px solid var(--line);
     border-radius:7px;padding:7px 10px 8px;box-shadow:0 1px 2px rgba(38,34,28,.06),0 4px 10px rgba(38,34,28,.05);
     transition:transform .6s var(--cd-ease),box-shadow .6s}
-  .is-piled .cd-slip-face{box-shadow:0 2px 4px rgba(38,34,28,.08),0 8px 18px rgba(38,34,28,.08)}
   .cd-slip-kind{font:400 10.5px var(--mono);letter-spacing:.02em;color:var(--faint)}
   .cd-slip-text{font-size:13.5px;line-height:1.35;color:var(--ink)}
   .cd-desk-cap{padding:10px 16px 12px;font-size:13px;color:var(--muted);background:var(--card);border-top:1px solid var(--line)}
@@ -515,10 +535,8 @@ const verdictName = (id: string) => VERDICTS.find((v) => v.id === id)?.name ?? i
     .cd-sheet{max-width:640px}
   }
   @media (max-width:900px){
-    .cd-hero{gap:40px;padding-top:56px}
-    .cd-hero-copy{grid-template-columns:minmax(0,1fr);gap:0}
-    .cd-hero-title h1{margin-bottom:24px}
-    .cd-trays{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .cd-hero{grid-template-columns:minmax(0,1fr);gap:44px;padding-top:56px}
+    .cd-desk{max-width:560px}
     .cd-why-grid,.cd-head,.cd-who,.cd-faq{grid-template-columns:minmax(0,1fr);gap:28px}
     .cd-indep{grid-template-columns:minmax(0,1fr)}
   }

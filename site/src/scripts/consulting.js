@@ -1,34 +1,33 @@
 // The consulting page's two moving pictures (pages/consulting.astro). The HTML
-// already holds the finished state of both, so without script or with reduced
+// already holds a finished state of both, so without script or with reduced
 // motion nothing moves and nothing is missing. No inline styles in markup (the
-// CSP allows none); positions are set through the DOM here.
+// CSP allows none); motion is set through the DOM here.
 //
-// 1. The desk: a pile of everyday work sorts itself into the four verdict
-//    trays, one slip at a time, then gathers and sorts again. The pile is
-//    tidy columns (four wide, two on a phone), so every slip stays readable
-//    (founder s129).
-//    Pauses on hover, off screen, in a hidden tab, and with the Pause button.
+// 1. The desk: one slip of everyday work at a time comes onto the desk, then
+//    goes to its verdict tray. Each tray shows only its latest slip and a
+//    count, so the desk never fills up, and it loops for ever (founder s129:
+//    "keep it in a loop so its never full of clutter"). Pauses on hover, off
+//    screen, in a hidden tab, and with the Pause button.
 // 2. The example report page: its verdicts fill in row by row the first time
 //    it scrolls into view.
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 const desk = document.getElementById('cd-desk');
 
 if (desk && !reduced.matches) {
-  const pile = desk.querySelector('.cd-pile');
+  const slot = desk.querySelector('.cd-inbox-slot');
   const btn = desk.querySelector('.cd-pause');
-  const lists = {};
-  desk.querySelectorAll('[data-tray-list]').forEach((ul) => { lists[ul.dataset.trayList] = ul; });
-  const slips = [...desk.querySelectorAll('.cd-slip')];
+  const queue = [...desk.querySelectorAll('.cd-queue .cd-slip')];
+  const trays = {};
+  desk.querySelectorAll('.cd-tray').forEach((t) => {
+    trays[t.dataset.tray] = { el: t, list: t.querySelector('.cd-tray-list'), count: t.querySelector('.cd-count'), n: 0 };
+  });
   // One of each verdict in turn, so the trays fill evenly.
-  const ORDER = [0, 2, 4, 6, 1, 3, 5, 7].map((i) => slips[i]).filter(Boolean);
-  // A small tilt per pile spot, so it still reads as a pile.
-  const TILT = [-2.5, 2, 1.5, -2, -1.5, 2.5, 2, -1];
-  const PAD = 10;
-  const GAP = 8;
+  const ORDER = [0, 2, 4, 6, 1, 3, 5, 7].map((i) => queue[i]).filter(Boolean);
   const EASE = 'cubic-bezier(.22,.8,.24,1)';
-  const face = (s) => s.querySelector('.cd-slip-face');
+  const SHOW = 1300; // how long a slip sits on the desk before it is sorted
+  const GAP = 900; // the pause after it lands, before the next comes in
 
-  let queue = [];
+  let next = 0;
   let timer = null;
   let pending = null;
   let userPaused = false;
@@ -47,85 +46,55 @@ if (desk && !reduced.matches) {
     if (!paused() && pending) { const f = pending; pending = null; f(); }
   };
 
-  // Four columns on a wide desk, two on a phone, filled row by row; the pile
-  // grows to fit its tallest rows.
-  const pileGroup = (group) => {
-    const cols = pile.clientWidth >= 640 ? 4 : 2;
-    const colWidth = Math.floor((pile.clientWidth - PAD * 2 - GAP * (cols - 1)) / cols);
-    group.forEach((s) => {
-      s.classList.add('is-piled');
-      s.style.width = `${colWidth}px`;
-      pile.appendChild(s);
-    });
-    let top = PAD;
-    for (let i = 0; i < group.length; i += cols) {
-      const row = group.slice(i, i + cols);
-      const h = Math.max(...row.map((s) => s.offsetHeight));
-      row.forEach((s, j) => {
-        s.style.left = `${PAD + j * (colWidth + GAP)}px`;
-        s.style.top = `${top}px`;
-        face(s).style.transform = `rotate(${TILT[(i + j) % TILT.length]}deg)`;
-      });
-      top += h + GAP;
-    }
-    pile.style.height = `${top + 18}px`;
-  };
-  const toTray = (s) => {
-    s.classList.remove('is-piled');
-    s.style.width = '';
-    s.style.left = '';
-    s.style.top = '';
-    lists[s.dataset.tray].appendChild(s);
-    face(s).style.transform = '';
+  const tasks = (n) => (n === 1 ? '1 task' : `${n} tasks`);
+  const resetCounts = () => Object.values(trays).forEach((t) => { t.n = 0; t.count.textContent = ''; });
+
+  // A slip comes onto the desk.
+  const bringIn = () => {
+    if (next === 0) resetCounts();
+    const slip = ORDER[next].cloneNode(true);
+    next = (next + 1) % ORDER.length;
+    slot.replaceChildren(slip);
+    void slip.offsetWidth;
+    slip.classList.add('is-in');
+    later(() => sort(slip), SHOW);
   };
 
-  // FLIP for a group: measure every slip first, move them all, then animate
-  // each from where it was, so slips that shift because of another never jump.
-  const flip = (group, move, stagger = 0) => {
-    const first = group.map((s) => s.getBoundingClientRect());
-    move();
-    group.forEach((s, i) => {
-      const last = s.getBoundingClientRect();
-      s.style.transition = 'none';
-      s.style.transform = `translate(${first[i].left - last.left}px,${first[i].top - last.top}px)`;
-    });
-    void desk.offsetWidth;
-    group.forEach((s, i) => {
-      s.classList.add('is-moving');
-      s.style.transition = `transform 760ms ${EASE} ${i * stagger}ms`;
-      s.style.transform = '';
-      const done = () => { s.classList.remove('is-moving'); s.removeEventListener('transitionend', done); };
-      s.addEventListener('transitionend', done);
-    });
+  // It goes to its tray (FLIP: measure, move, animate from where it was); the
+  // tray's old slip fades out underneath.
+  const sort = (slip) => {
+    const tray = trays[slip.dataset.tray];
+    if (!tray) { later(bringIn, GAP); return; }
+    const first = slip.getBoundingClientRect();
+    const old = [...tray.list.children];
+    old.forEach((o) => o.classList.add('is-leaving'));
+    slip.classList.remove('is-in');
+    tray.list.appendChild(slip);
+    const last = slip.getBoundingClientRect();
+    slip.style.transition = 'none';
+    slip.style.opacity = '1';
+    slip.style.transform = `translate(${first.left - last.left}px,${first.top - last.top}px)`;
+    void slip.offsetWidth;
+    slip.classList.add('is-moving');
+    slip.style.transition = `transform 700ms ${EASE}`;
+    slip.style.transform = '';
+    setTimeout(() => {
+      slip.classList.remove('is-moving');
+      old.forEach((o) => o.remove());
+      tray.n += 1;
+      tray.count.textContent = tasks(tray.n);
+      tray.el.classList.add('is-hit');
+      setTimeout(() => tray.el.classList.remove('is-hit'), 600);
+    }, 700);
+    later(bringIn, 700 + GAP);
   };
 
-  const sortNext = () => {
-    const s = queue.shift();
-    if (!s) { later(gather, 5200); return; }
-    flip([s], () => toTray(s));
-    const tray = s.closest('.cd-tray');
-    if (tray) {
-      tray.classList.add('is-hit');
-      setTimeout(() => tray.classList.remove('is-hit'), 650);
-    }
-    later(sortNext, 780);
-  };
-
-  const gather = () => {
-    flip(ORDER, () => pileGroup(ORDER), 45);
-    queue = [...ORDER];
-    later(sortNext, 1700);
-  };
-
-  // Hold each tray's sorted height so the desk never changes size.
   const start = () => {
-    Object.values(lists).forEach((ul) => { ul.style.minHeight = ''; });
-    slips.forEach((s) => { s.style.transition = 'none'; s.style.transform = ''; s.classList.remove('is-moving'); toTray(s); });
+    clearTimeout(timer);
+    pending = null;
+    next = 0;
     desk.classList.add('is-live');
-    Object.values(lists).forEach((ul) => { ul.style.minHeight = `${ul.offsetHeight}px`; });
-    pileGroup(ORDER);
-    queue = [...ORDER];
-    later(sortNext, 900);
+    later(bringIn, 600);
   };
 
   btn.hidden = false;
@@ -144,15 +113,6 @@ if (desk && !reduced.matches) {
       resume();
     }, { threshold: 0.25 }).observe(desk);
   }
-
-  let width = window.innerWidth;
-  let resizeTimer = null;
-  window.addEventListener('resize', () => {
-    if (window.innerWidth === width) return;
-    width = window.innerWidth;
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { clearTimeout(timer); pending = null; start(); }, 200);
-  });
 
   start();
 }
