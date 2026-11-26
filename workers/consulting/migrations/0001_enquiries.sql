@@ -1,5 +1,6 @@
 -- AI Readiness Assessment enquiries (ADR-SEC-057). The only personal data
--- this Worker keeps: what the visitor typed into the form, and the two
+-- this Worker keeps: what the visitor typed or chose in the form (fields as of
+-- s129: phone is one international number, code + number), and the two
 -- consent answers with the moment they were given. No address, no browser
 -- details. Deleted 12 months after it arrived by the daily sweep.
 CREATE TABLE enquiries (
@@ -11,7 +12,10 @@ CREATE TABLE enquiries (
   company TEXT NOT NULL,
   country TEXT NOT NULL,
   size TEXT NOT NULL,
-  departments TEXT NOT NULL,
+  turnover TEXT NOT NULL,
+  sector TEXT NOT NULL,
+  -- Best time to call; empty when the visitor gave none (optional).
+  call_time TEXT NOT NULL,
   message TEXT NOT NULL,
   contact_consent INTEGER NOT NULL,
   marketing_consent INTEGER NOT NULL,

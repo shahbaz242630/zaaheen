@@ -10,7 +10,7 @@
   const CHECK_WAIT_MS = 10000;
 
   const TEXT = {
-    missing: "Please fill in the fields marked as required, and tick the first box.",
+    missing: "Please fill in every field that is not marked optional, and tick the first box.",
     checking: "Sending…",
     received: "Thank you. We have your enquiry and will call you within one working day.",
     challenge: "We could not confirm you are a person. Please try again.",
@@ -48,6 +48,45 @@
     return document.getElementById(id).value.trim();
   }
 
+  // "Another country": the visitor types the whole number, + code first.
+  const phoneCode = document.getElementById("phoneCode");
+  const phone = document.getElementById("phone");
+  const phoneHelp = document.getElementById("phoneHelp");
+  function phoneMode() {
+    const other = phoneCode.value === "other";
+    phone.placeholder = other ? "+44 20 1234 5678" : "50 123 4567";
+    phone.autocomplete = other ? "tel" : "tel-national";
+    phoneHelp.textContent = other
+      ? "Type the full number, starting with + and the country code."
+      : "Choose the country code, then type your number. A first 0 is fine.";
+  }
+  // The same shapes the Worker accepts (src/validate.ts), so a mistyped
+  // number is caught here with a clear message, not refused after sending.
+  // Digit counts too: at least 4 after the code (not counting a leading 0,
+  // which the Worker drops), at most 15 in all; 6 to 15 for a full number.
+  const digitCount = (s) => s.replace(/[^0-9]/g, "").length;
+  function phoneCheck() {
+    const v = phone.value.trim();
+    const other = phoneCode.value === "other";
+    let ok;
+    if (other) {
+      ok = /^\+[0-9][0-9 ()./-]{5,24}$/.test(v) && digitCount(v) >= 6 && digitCount(v) <= 15;
+    } else {
+      const local = digitCount(v) - (v.replace(/[^0-9]/g, "").startsWith("0") ? 1 : 0);
+      ok = /^[0-9 ()./-]{4,20}$/.test(v) && local >= 4 && digitCount(phoneCode.value) + local <= 15;
+    }
+    phone.setCustomValidity(
+      v === "" || ok
+        ? ""
+        : other
+          ? "Type the full number, starting with + and the country code."
+          : "Type the number without the country code, digits only. Check it is complete.",
+    );
+  }
+  phoneCode.addEventListener("change", () => { phoneMode(); phoneCheck(); });
+  phone.addEventListener("input", phoneCheck);
+  phoneMode();
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!form.checkValidity()) {
@@ -66,11 +105,14 @@
       const body = {
         name: value("name"),
         email: value("email"),
+        phoneCode: value("phoneCode"),
         phone: value("phone"),
         company: value("company"),
         country: value("country"),
         size: value("size"),
-        departments: [...form.querySelectorAll('input[name="departments"]:checked')].map((b) => b.value),
+        turnover: value("turnover"),
+        sector: value("sector"),
+        callTime: value("callTime"),
         message: value("message"),
         contactConsent: document.getElementById("contactConsent").checked,
         marketingConsent: document.getElementById("marketingConsent").checked,

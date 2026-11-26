@@ -68,7 +68,7 @@ describe("nightly", () => {
     expect(sent).toHaveLength(1);
     expect(sent[0]?.subject).toBe(NIGHTLY_SUBJECT);
     expect(sent[0]?.content).toContain("not emailed: 2.");
-    for (const value of [GOOD.name, GOOD.email, GOOD.phone, GOOD.company, GOOD.message]) {
+    for (const value of [GOOD.name, GOOD.email, GOOD.phone, "+971 50 000 0000", GOOD.company, GOOD.message]) {
       expect(sent[0]?.content).not.toContain(value);
     }
   });

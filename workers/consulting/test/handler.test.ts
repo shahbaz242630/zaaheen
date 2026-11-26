@@ -154,9 +154,12 @@ describe("a good enquiry", () => {
       name: GOOD.name,
       email: GOOD.email,
       company: GOOD.company,
+      phone: "+971 50 000 0000",
       country: "AE",
       size: "20-100",
-      departments: JSON.stringify(GOOD.departments),
+      turnover: "5m-20m",
+      sector: "trading",
+      call_time: "morning",
       contact_consent: 1,
       marketing_consent: 1,
       mailed: 1,
@@ -231,7 +234,7 @@ describe("a good enquiry", () => {
     expect(mails).toHaveLength(1);
     expect(mails[0]?.subject).toBe(CAP_SUBJECT);
     expect(mails[0]?.replyTo).toBeUndefined();
-    for (const value of [GOOD.name, GOOD.email, GOOD.phone, GOOD.company, GOOD.message]) {
+    for (const value of [GOOD.name, GOOD.email, GOOD.phone, "+971 50 000 0000", GOOD.company, GOOD.message]) {
       expect(mails[0]?.body.content).not.toContain(value);
     }
     expect((await rows()).every((r) => r.mailed === 0)).toBe(true);
@@ -327,7 +330,7 @@ describe("the log", () => {
     }
     expect(lines.length).toBeGreaterThan(0);
     const all = lines.join("\n");
-    for (const value of [GOOD.name, GOOD.email, GOOD.phone, GOOD.company, GOOD.message, "192.0.2.1", "test-only"]) {
+    for (const value of [GOOD.name, GOOD.email, GOOD.phone, "+971 50 000 0000", GOOD.company, GOOD.message, "192.0.2.1", "test-only"]) {
       expect(all).not.toContain(value);
     }
   });

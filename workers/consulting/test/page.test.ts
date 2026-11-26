@@ -4,15 +4,40 @@ import { describe, expect, it } from "vitest";
 import formHtml from "../public/index.html?raw";
 import formJs from "../public/form.js?raw";
 import headers from "../public/_headers?raw";
-import { COUNTRIES, DEPARTMENTS, SIZES } from "../src/validate";
+import { CALL_TIMES, COUNTRIES, DIAL_CODES, SECTORS, SIZES, TURNOVERS } from "../src/validate";
+
+/** The option values inside one <select>, by its id. */
+function options(id: string): string[] {
+  const select = formHtml.match(new RegExp(`<select id="${id}"[\\s\\S]*?</select>`));
+  expect(select, id).not.toBeNull();
+  return [...(select?.[0] ?? "").matchAll(/<option value="([^"]*)"/g)].map((m) => m[1] ?? "");
+}
 
 describe("the form page", () => {
-  it("offers exactly the Worker's countries, sizes and departments", () => {
-    const values = (name: string) => [...formHtml.matchAll(new RegExp(`name="${name}"[^>]*value="([^"]+)"|<option value="([^"]+)"`, "g"))];
-    for (const c of COUNTRIES) expect(formHtml).toContain(`<option value="${c}"`);
-    for (const s of SIZES) expect(formHtml).toContain(`<option value="${s}"`);
-    for (const d of DEPARTMENTS) expect(formHtml).toContain(`value="${d}"`);
-    expect(values("departments").length).toBeGreaterThan(0);
+  it("offers exactly the Worker's choices in every list (founder s129 fields)", () => {
+    expect(new Set(options("country"))).toEqual(new Set(["", ...COUNTRIES]));
+    expect(new Set(options("size"))).toEqual(new Set(["", ...SIZES]));
+    expect(new Set(options("turnover"))).toEqual(new Set(["", ...TURNOVERS]));
+    expect(new Set(options("sector"))).toEqual(new Set(["", ...SECTORS]));
+    expect(new Set(options("callTime"))).toEqual(new Set(CALL_TIMES));
+    expect(new Set(options("phoneCode"))).toEqual(new Set(DIAL_CODES));
+  });
+
+  it("requires every field but the best time to call and the comments", () => {
+    for (const id of ["name", "email", "phoneCode", "phone", "company", "country", "size", "turnover", "sector"]) {
+      expect(formHtml, id).toMatch(new RegExp(`<(input|select) id="${id}"[^>]*\\brequired\\b`));
+    }
+    expect(formHtml).not.toMatch(/<select id="callTime"[^>]*\brequired\b/);
+    expect(formHtml).not.toMatch(/<textarea id="message"[^>]*\brequired\b/);
+    expect(formHtml).toContain("Best time to call, Gulf time (optional)");
+    expect(formHtml).toContain("Comments (optional)");
+  });
+
+  it("sends every field the Worker expects, and no other", () => {
+    for (const key of ["name", "email", "phoneCode", "phone", "company", "country", "size", "turnover", "sector", "callTime", "message", "contactConsent", "marketingConsent", "turnstile"]) {
+      expect(formJs, key).toMatch(new RegExp(`\\b${key}:`));
+    }
+    expect(formJs).not.toContain("departments");
   });
 
   it("starts with both consent boxes unticked, and requires only the contact one", () => {
@@ -23,8 +48,8 @@ describe("the form page", () => {
     expect(boxes.find((b) => b.includes("marketingConsent"))).not.toMatch(/\brequired\b/);
   });
 
-  it("links the privacy notice next to the consent", () => {
-    expect(formHtml).toContain("https://zaaheen.com/privacy/#consulting");
+  it("links the consulting privacy policy next to the consent (s129: its own documents)", () => {
+    expect(formHtml).toContain("https://zaaheen.com/consulting/privacy/");
   });
 
   it("posts only to this host's endpoint", () => {

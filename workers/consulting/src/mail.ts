@@ -1,7 +1,8 @@
 // Telling consulting@ about an enquiry (ADR-121, ADR-SEC-057 §5): Microsoft
-// Graph sendMail with an app-only token. The app registration holds only
-// Mail.Send, and an Exchange Application Access Policy limits it to the
-// consulting@ mailbox, so these credentials can send as nobody else.
+// Graph sendMail with an app-only token. The app holds Mail.Send only through
+// Exchange RBAC for Applications, scoped to the consulting@ mailbox (s129:
+// the replacement for Application Access Policies, as the booking app uses),
+// so these credentials can send as nobody else.
 // Plain text, fixed subjects, JSON fields only: nothing typed by the visitor
 // reaches a mail header, and the visitor's message is quoted line by line
 // between fixed markers, so it cannot pose as our own lines. Failures log a
@@ -39,6 +40,38 @@ const COUNTRY_NAMES: Record<Enquiry["country"], string> = {
   other: "Other",
 };
 
+// The page's own words for each choice (public/index.html; test/page.test.ts).
+const TURNOVER_NAMES: Record<Enquiry["turnover"], string> = {
+  "under-5m": "Under AED 5 million",
+  "5m-20m": "AED 5 to 20 million",
+  "20m-50m": "AED 20 to 50 million",
+  "50m-200m": "AED 50 to 200 million",
+  "200m+": "More than AED 200 million",
+};
+const SECTOR_NAMES: Record<Enquiry["sector"], string> = {
+  retail: "Retail and e-commerce",
+  trading: "Trading and distribution",
+  manufacturing: "Manufacturing",
+  "construction-real-estate": "Construction and real estate",
+  "hospitality-food": "Hospitality, food and beverage",
+  healthcare: "Healthcare",
+  education: "Education",
+  logistics: "Logistics and transport",
+  "financial-services": "Banking, finance and insurance",
+  "professional-services": "Professional services",
+  technology: "Technology and telecoms",
+  energy: "Oil, gas and energy",
+  government: "Government and semi-government",
+  other: "Other",
+};
+const CALL_TIME_NAMES: Record<Enquiry["callTime"], string> = {
+  "": "no preference",
+  morning: "Morning, 9 to 12",
+  midday: "Midday, 12 to 3",
+  afternoon: "Afternoon, 3 to 6",
+  evening: "Evening, 6 to 8",
+};
+
 export function mailText(id: number, e: Enquiry, receivedAt: number): string {
   return [
     `Enquiry #${id}, received ${new Date(receivedAt).toISOString()}`,
@@ -48,9 +81,11 @@ export function mailText(id: number, e: Enquiry, receivedAt: number): string {
     `Company: ${e.company}`,
     `Email: ${e.email}`,
     `Phone: ${e.phone}`,
+    `Best time to call (Gulf time): ${CALL_TIME_NAMES[e.callTime]}`,
     `Country: ${COUNTRY_NAMES[e.country]}`,
-    `Company size: ${e.size} staff`,
-    `Departments: ${e.departments.length ? e.departments.join(", ") : "not stated"}`,
+    `Number of staff: ${e.size}`,
+    `Annual turnover: ${TURNOVER_NAMES[e.turnover]}`,
+    `Sector: ${SECTOR_NAMES[e.sector]}`,
     `Updates by email: ${e.marketingConsent ? "yes" : "no"}`,
     "",
     MESSAGE_START,

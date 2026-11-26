@@ -46,10 +46,10 @@ export async function claimEnquiry(db: D1Database, day: string, visitor: string)
 export async function storeEnquiry(db: D1Database, now: number, e: Enquiry): Promise<number> {
   const row = await db
     .prepare(
-      "INSERT INTO enquiries (received_at, name, email, phone, company, country, size, departments, message, " +
-        "contact_consent, marketing_consent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?) RETURNING id",
+      "INSERT INTO enquiries (received_at, name, email, phone, company, country, size, turnover, sector, call_time, message, " +
+        "contact_consent, marketing_consent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?) RETURNING id",
     )
-    .bind(now, e.name, e.email, e.phone, e.company, e.country, e.size, JSON.stringify(e.departments), e.message, e.marketingConsent ? 1 : 0)
+    .bind(now, e.name, e.email, e.phone, e.company, e.country, e.size, e.turnover, e.sector, e.callTime, e.message, e.marketingConsent ? 1 : 0)
     .first<{ id: number }>();
   if (!row) throw new Error("enquiry_not_stored");
   return row.id;
