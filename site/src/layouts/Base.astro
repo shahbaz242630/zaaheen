@@ -18,8 +18,9 @@ interface Props {
   page: PageEntry;
   /** Only for pages that must never be indexed: the 404 page and /pay (UNLISTED in scripts/audit.mjs). */
   noindex?: boolean;
-  /** "coaching" only on the Knowledge Centre's pages (components/Footer.astro). */
-  footer?: 'app' | 'coaching';
+  /** "coaching" only on the Knowledge Centre's pages, "consulting" only on the
+   *  AI Readiness Assessment's (components/Footer.astro). */
+  footer?: 'app' | 'coaching' | 'consulting';
 }
 
 const { page, noindex = false, footer = 'app' } = Astro.props;

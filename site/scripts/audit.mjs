@@ -61,6 +61,16 @@ const POLICIES = { '/terms/': 'Terms of Service', '/privacy/': 'Privacy Policy',
 const COACHING_ROOT = 'knowledge-centre/';
 const COACHING_POLICIES = { '/company/': 'Company Information', '/knowledge-centre/terms/': 'the Coaching Terms',
   '/knowledge-centre/booking-and-refunds/': 'the Booking and Refund Policy', '/knowledge-centre/privacy/': 'the Coaching Privacy Notice' };
+// The AI Readiness Assessment (founder s129: "a completely different product
+// line") carries its own footer (data-footer="consulting") on /consulting/ and
+// every page under it, and only there. That footer links Company Information,
+// each consulting document and consulting@ (its Contact us), and no app or
+// coaching policy. Its documents are placeholders until written, which the
+// --release run refuses, so they cannot be published early.
+const CONSULTING_ROOT = 'consulting/';
+const CONSULTING_CONTACT = 'mailto:consulting@zaaheen.com';
+const CONSULTING_POLICIES = { '/company/': 'Company Information', '/consulting/terms/': 'the consulting Terms of Service',
+  '/consulting/privacy/': 'the consulting Privacy Policy', '/consulting/refunds/': 'the consulting Cancellation and Refund Policy' };
 const errors = [];
 const fail = (where, msg) => errors.push(`${where}: ${msg}`);
 
@@ -89,6 +99,7 @@ for (const rel of [
   'docs/contact/index.html', 'knowledge-centre/contact/index.html',
   ...Object.keys(POLICIES).map((u) => `${u.slice(1)}index.html`),
   ...Object.keys(COACHING_POLICIES).map((u) => `${u.slice(1)}index.html`),
+  ...Object.keys(CONSULTING_POLICIES).map((u) => `${u.slice(1)}index.html`),
 ]) {
   if (!files.includes(rel)) fail(rel, 'required file is missing from the build');
 }
@@ -162,10 +173,25 @@ if (ON_SALE) {
 for (const rel of files.filter((f) => f.endsWith('.html'))) {
   const footer = (read(rel).match(/<footer\b[\s\S]*?<\/footer>/) || [''])[0];
   const hrefs = [...footer.matchAll(/<a\b[^>]*\shref="([^"]*)"/g)].map((m) => m[1]);
-  const coaching = (footer.match(/^<footer\b[^>]*\sdata-footer="([^"]*)"/) || [])[1] === 'coaching';
+  const variant = (footer.match(/^<footer\b[^>]*\sdata-footer="([^"]*)"/) || [])[1];
+  const coaching = variant === 'coaching';
   const inKc = rel.startsWith(COACHING_ROOT);
   if (inKc && !coaching) fail(rel, 'the Knowledge Centre must use the coaching footer (data-footer="coaching")');
   if (!inKc && coaching) fail(rel, 'the coaching footer is only for the Knowledge Centre');
+  const consulting = variant === 'consulting';
+  const inConsulting = rel.startsWith(CONSULTING_ROOT);
+  if (inConsulting && !consulting) fail(rel, 'the AI Readiness Assessment must use the consulting footer (data-footer="consulting")');
+  if (!inConsulting && consulting) fail(rel, 'the consulting footer is only for the AI Readiness Assessment');
+  if (inConsulting || consulting) {
+    if (!hrefs.includes(CONSULTING_CONTACT)) fail(rel, `the consulting footer must link to its contact address (${CONSULTING_CONTACT})`);
+    for (const [url, name] of Object.entries(CONSULTING_POLICIES)) {
+      if (!hrefs.includes(url)) fail(rel, `the consulting footer must link to ${name} (${url})`);
+    }
+    for (const [url, name] of [...Object.entries(POLICIES), ...Object.entries(COACHING_POLICIES)]) {
+      if (!(url in CONSULTING_POLICIES) && hrefs.includes(url)) fail(rel, `the consulting footer must not link to ${name} (${url})`);
+    }
+    continue;
+  }
   // s83: every footer links its own Contact us page.
   // A translated page's footer links the contact page in its language (ADR-113).
   const footLang = (rel.match(/^(es|pt|de|fr)\//) || [])[1];

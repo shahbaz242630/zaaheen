@@ -49,7 +49,9 @@ a{color:inherit}
 .lang-menu li a:hover{background:var(--chip);color:var(--ink)}
 .lang-menu li a[aria-current="true"]{color:var(--ink);font-weight:500;background:var(--tint)}
 .brand span{font:500 21px var(--serif)}
-.bar nav{display:flex;flex-wrap:wrap;gap:6px 32px;justify-self:center}
+/* Six tabs since s129 (AI Assessment): the gap narrows on smaller screens so
+   the row never wraps before it moves under the logo (max-width:1080px below). */
+.bar nav{display:flex;flex-wrap:wrap;gap:6px clamp(18px,2.2vw,32px);justify-self:center}
 .bar nav a{color:var(--muted);text-decoration:none;font-size:15px;
   padding:4px 0;border-bottom:1.5px solid transparent}
 .bar nav a:hover{color:var(--ink)}
@@ -481,9 +483,11 @@ p.placeholder{border:1px dashed var(--border);border-radius:10px;padding:14px 18
 
 /* Not in the design (its header had no phone layout): the nav drops to its own
    row under the logo and the two buttons. */
-@media (max-width:860px){
+@media (max-width:1080px){
   .bar{grid-template-columns:1fr auto}
   .bar nav{grid-column:1 / -1;grid-row:2;justify-self:start}
+}
+@media (max-width:860px){
   .strip-item + .strip-item{border-left:0;border-top:1px solid var(--line)}
 }
 @media (max-width:600px){

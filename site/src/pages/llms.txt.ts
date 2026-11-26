@@ -1,5 +1,9 @@
 import type { APIRoute } from 'astro';
-import { SITE, ACCOUNT, RELEASE, TRIAL, PLANS, COMPANY, COACHING, PAGES, INSTALL_PATH, MAC_INSTALL_PATH, absolute, verifiedAppList } from '../data/site';
+import { SITE, ACCOUNT, RELEASE, TRIAL, PLANS, COMPANY, COACHING, CONSULTING, PAGES, INSTALL_PATH, MAC_INSTALL_PATH, absolute, verifiedAppList } from '../data/site';
+import {
+  CONSULTING_HERO, CONSULTING_PROBLEM, CONSULTING_STEPS, CONSULTING_GIVES, CONSULTING_VERDICTS, CONSULTING_TEAMS,
+  CONSULTING_WHO, CONSULTING_WHY_US, CONSULTING_INDEPENDENT, CONSULTING_FAQ,
+} from '../data/consulting';
 import { appWords, openerText, stepTitles } from '../data/app-words';
 import { FIXES } from '../data/fixes';
 import { RELEASE_NOTES } from '../data/releases';
@@ -149,10 +153,28 @@ export const GET: APIRoute = () => {
     '- From any device: the cancel link in any email from Paddle, the reseller.',
     '- Cancelling stops the next renewal; access continues until the end of the time paid for.',
     '',
+    // The AI Readiness Assessment (founder s129: Ask Zaaheen must know it).
+    // Every line is the page's own words, from data/consulting.ts.
+    `## ${CONSULTING_HERO.name} (for businesses)`,
+    '',
+    `${SITE.name} also offers an ${CONSULTING_HERO.name} for businesses, separate from the memory app and from coaching. ${CONSULTING_HERO.title} ${CONSULTING_HERO.lede} ${CONSULTING_HERO.then}`,
+    '',
+    `- Page: ${absolute('/consulting/')}`,
+    `- Book a free 30-minute call: ${CONSULTING.enquiryUrl}. Questions by email: ${CONSULTING.email}.`,
+    `- ${CONSULTING_HERO.where}. ${CONSULTING_HERO.promises.join('. ')}.`,
+    `- Why: ${CONSULTING_PROBLEM.title} ${CONSULTING_PROBLEM.bcg} ${CONSULTING_PROBLEM.research} ${CONSULTING_PROBLEM.demo}`,
+    ...CONSULTING_STEPS.map((s, i) => `- Step ${i + 1}, ${s.title}: ${s.body}`),
+    `- What you get: ${CONSULTING_GIVES}`,
+    ...CONSULTING_VERDICTS.map((v) => `- Verdict "${v.name}": ${v.body}`),
+    `- Who it is for: ${CONSULTING_WHO.title} ${CONSULTING_WHO.intro} ${CONSULTING_TEAMS.join(', ')}. ${CONSULTING_WHO.line}`,
+    `- Why us: ${CONSULTING_WHY_US.paras.join(' ')}`,
+    `- Independent: ${CONSULTING_INDEPENDENT.title} We do not: ${CONSULTING_INDEPENDENT.not.map((n) => n.replace(/\.$/, '').toLowerCase()).join('; ')}. ${CONSULTING_INDEPENDENT.instead.join(' ')}`,
+    ...CONSULTING_FAQ.map((f) => `- Q: ${f.q} A: ${f.a}`),
+    '',
     '## Company',
     '',
     `- ${SITE.name} is the trading name of ${COMPANY.legalName} (${COMPANY.licence}).`,
-    `- Support: ${COMPANY.email}. Coaching bookings: ${COACHING.email}.`,
+    `- Support: ${COMPANY.email}. Coaching bookings: ${COACHING.email}. AI Readiness Assessment: ${CONSULTING.email}.`,
     ...(COACHING.bookingOpen
       ? [
           `- Private 1-to-1 AI coaching is booked and paid online at ${COACHING.bookingUrl}.`,

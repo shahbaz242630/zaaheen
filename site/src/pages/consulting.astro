@@ -1,176 +1,292 @@
 ---
 import Base from '../layouts/Base.astro';
 import { CONSULTING, pageFor } from '../data/site';
+import {
+  CONSULTING_HERO as HERO, CONSULTING_PROBLEM as PROBLEM, CONSULTING_STEPS as STEPS, CONSULTING_GIVES as GIVES,
+  CONSULTING_VERDICTS as VERDICTS, CONSULTING_TEAMS as TEAMS, CONSULTING_WHO as WHO, CONSULTING_WHY_US as WHY,
+  CONSULTING_INDEPENDENT as INDEP, CONSULTING_FAQ as FAQ, CONSULTING_CLOSE as CLOSE,
+} from '../data/consulting';
 
 // The AI Readiness Assessment (notes ai-assessment/AI-ASSESSMENT-DESIGN.md
-// §1 and §4, ADR-121). English only. Linked from the footer and the Company
-// page, not the top bar. No prices: every business is quoted after a call.
+// §1 and §4, ADR-121). English only, its own footer (founder s129: "a
+// completely different product line"). Design chosen by the founder in s129:
+// "the busy desk, sorted" with the example report page in What you get.
+// Every word comes from data/consulting.ts, which llms.txt reads too.
+// No inline script or style (CSP): the desk moves in scripts/consulting.js,
+// and the HTML already holds the sorted desk, so without script or with
+// reduced motion the picture is simply still and complete.
 // The form lives on consulting.zaaheen.com (workers/consulting), so this
-// page's strict policy (connect-src and form-action 'self') never widens;
-// every "Book a call" here is a plain link there.
-// Evidence: only the figures the research verified at source (BCG), and the
-// others as their publishers state them. Notes ai-assessment/
-// AI-Audit-Research-Comparison.md "In one page" item 4.
+// page's strict policy (connect-src and form-action 'self') never widens.
 const page = pageFor('/consulting/');
 const book = CONSULTING.enquiryUrl;
 
-const STEPS = [
-  { title: 'A free 30-minute call', body: 'You tell us about your business and what is not working. We tell you honestly whether an assessment is worth it for you, and what it would cover.' },
-  { title: 'We walk every role', body: 'On site, from reception to the managing director. We sit with the people doing the work, watch how it really gets done, and time each step.' },
-  { title: 'We map and score it', body: 'Every process becomes a map with timed steps, hand-offs and waiting points. Each step is scored on volume, repetition, rules, data and the cost of a mistake.' },
-  { title: 'Report and read-out', body: 'A written report and a meeting with your team: where AI helps, where it does not, what to do first, what it costs and when it pays back.' },
+// Illustrative everyday work, not findings about any client.
+const SLIPS = [
+  { kind: 'Answering', text: 'Answer “where is my order?” again', tray: 'ai' },
+  { kind: 'Sorting', text: 'Sort the shared inbox every morning', tray: 'ai' },
+  { kind: 'Copying', text: 'Copy invoice totals into the ledger', tray: 'auto' },
+  { kind: 'Checking', text: 'Check a refund against the policy', tray: 'auto' },
+  { kind: 'Chasing', text: 'Chase a supplier for a delivery date', tray: 'fix' },
+  { kind: 'Finding', text: 'Find who signed off the last price change', tray: 'fix' },
+  { kind: 'Approving', text: 'Approve a discount over the limit', tray: 'leave' },
+  { kind: 'Deciding', text: 'Settle a difficult complaint', tray: 'leave' },
 ];
 
-const VERDICTS = [
-  { name: 'AI now', body: 'Work that reads, writes, sorts or answers, at volume, where the data already exists. These are your first projects.' },
-  { name: 'Automate without AI', body: 'Fixed rules and clean inputs. A form, a workflow or a link between two systems does it cheaper and safer than AI.' },
-  { name: 'Fix the process first', body: 'Too many exceptions, unclear ownership or missing data. AI on a broken process only makes it break faster.' },
-  { name: 'Leave as it is', body: 'Low volume, or expert judgement where a mistake is costly. Some work should stay with your people, and we say so.' },
+// The example report page in What you get. Illustrative, and labelled so.
+const FLOW = [
+  { step: 'Invoice arrives', time: 'by email' },
+  { step: 'Key it in', time: '6 min' },
+  { step: 'Wait for approval', time: '2 days', wait: true },
+  { step: 'Pay', time: '3 min' },
 ];
-
-const FAQ = [
-  { q: 'Is this an audit of our accounts or a certification?', a: 'No. It is an operational assessment of how work gets done and where AI can help. It is not a financial audit, an assurance report or a certification of any AI system.' },
-  { q: 'What happens to what we show you?', a: 'We sign a confidentiality agreement before the first visit. We record roles and processes, not people\'s names or personal details. Notes are deleted 90 days after the report, unless you ask us to keep them for a follow-on project.' },
-  { q: 'Do you sell the tools you recommend?', a: 'No. We do not sell or resell any AI product, software or hardware, and we recommend what fits your work, whoever makes it. If you would like help putting it in place afterwards, that is a separate, optional piece of work.' },
-  { q: 'Do you earn anything from the providers you recommend?', a: 'No. We have no affiliate programme, referral fees, commissions or kickbacks from any provider. Our only income is the fee you pay us, so we work for you.' },
-  { q: 'Which countries do you cover?', a: 'We are based in Dubai and work with businesses across the Gulf: the UAE, Saudi Arabia, Qatar, Kuwait, Bahrain and Oman.' },
-  { q: 'How long does it take?', a: 'It depends on the size of the business and how many teams we look at. A small firm usually takes two to three weeks from the first visit to the read-out. We agree the timeline in writing before we start.' },
-  { q: 'What does it cost?', a: 'Every business is different, so we quote after the free call, once we know how many teams and sites are involved. The quote is fixed and in writing.' },
-  { q: 'Can you help after the report?', a: 'Yes, if you want us to. We can be your point of contact for AI on a monthly basis, help put the recommendations in place, or set up AI that runs on your own servers when your data must stay in-house. You buy any software or hardware directly from its maker.' },
+const ROWS = [
+  { step: 'Key in each invoice', id: 'ai', meta: 'Effort low · 38 h a month · pays back in 3 months' },
+  { step: 'Match to the order', id: 'auto', meta: 'Effort low · 22 h a month · pays back in 2 months' },
+  { step: 'Chase approvals', id: 'fix', meta: 'No clear owner · fix before any tool' },
+  { step: 'Supplier disputes', id: 'leave', meta: 'Judgement call · stays with your team' },
 ];
+const verdictName = (id: string) => VERDICTS.find((v) => v.id === id)?.name ?? id;
 ---
-<Base page={page}>
-  <section class="hero">
-    <div class="hero-copy">
-      <p class="eyebrow">AI Readiness Assessment</p>
-      <h1>Find where AI helps your business, and where it doesn't.</h1>
-      <p class="lede">Not an online quiz or a generic readiness score. Someone who has spent twenty
-         years running operations comes to your business and goes through it department by
-         department, on site, mapping how the work really gets done. Then we show you where AI saves
-         time and money, where simpler fixes do better, and where to leave things alone.</p>
-      <div class="cta-row">
-        <a class="cta" href={book}>Book a free 30-minute call</a>
-        <span class="cta-meta">For businesses across the Gulf</span>
+<Base page={page} footer="consulting">
+  <section class="cd-hero">
+    <div class="cd-hero-copy">
+      <div class="cd-hero-title">
+        <p class="cd-name"><span class="cd-name-dot"></span>{HERO.name}</p>
+        <h1>{HERO.title}</h1>
       </div>
-      <ul class="promise-dots">
-        <li>On site, every role</li>
-        <li>A verdict for every team</li>
-        <li>Independent: no tools to sell you</li>
-      </ul>
+      <div class="cd-hero-text">
+        <p class="cd-lede">{HERO.lede}</p>
+        <p class="cd-lede cd-lede-2">{HERO.then}</p>
+        <div class="cd-cta-row">
+          <a class="cd-cta" href={book}>Book a free 30-minute call</a>
+          <span class="cd-cta-meta">{HERO.where}</span>
+        </div>
+        <ul class="cd-promises">
+          {HERO.promises.map((p) => <li>{p}</li>)}
+        </ul>
+      </div>
+    </div>
+
+    <figure class="cd-desk" id="cd-desk" aria-labelledby="cd-desk-cap">
+      <div class="cd-desk-bar">
+        <span class="cd-desk-dot"></span><span class="cd-desk-dot"></span><span class="cd-desk-dot"></span>
+        <span class="cd-desk-title">Example: one busy desk, sorted</span>
+        <button class="cd-pause" type="button" aria-pressed="false" hidden>Pause</button>
+      </div>
+      <div class="cd-desk-body">
+        <ul class="cd-pile" aria-hidden="true"><li class="cd-pile-label">This week's pile</li></ul>
+        <div class="cd-trays">
+          {VERDICTS.map((t) => (
+            <div class={`cd-tray is-${t.id}`} data-tray={t.id}>
+              <p class="cd-tray-name"><span class="cd-mark"></span>{t.name}</p>
+              <ul class="cd-tray-list" data-tray-list={t.id}>
+                {SLIPS.filter((s) => s.tray === t.id).map((s) => (
+                  <li class="cd-slip" data-tray={s.tray}>
+                    <span class="cd-slip-face">
+                      <span class="cd-slip-kind">{s.kind}</span>
+                      <span class="cd-slip-text">{s.text}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+      <figcaption id="cd-desk-cap" class="cd-desk-cap">An example of everyday work on one desk, sorted into the four verdicts we give.</figcaption>
+    </figure>
+  </section>
+
+  <section class="cd-band cd-why">
+    <div class="cd-wrap cd-why-grid">
+      <h2 class="cd-h2">{PROBLEM.title}</h2>
+      <div class="cd-why-facts">
+        <p class="cd-fact">Boston Consulting Group found that <strong>74%</strong> of companies had yet to see real value from AI,</p>
+        <p class="cd-fact">and that about <strong>70%</strong> of the challenge lies in people and processes, not in the technology.</p>
+        <p class="cd-body">{PROBLEM.research}</p>
+        <p class="cd-note-slip">{PROBLEM.demo}</p>
+      </div>
     </div>
   </section>
 
-  <section class="kc-band is-white">
-    <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow">Why most AI projects disappoint</p>
-        <h2>The problem is rarely the technology. It is the way the work is done.</h2>
-        <p class="section-lede">Boston Consulting Group found that 74% of companies had yet to see real
-           value from AI, and that about 70% of the challenge lies in people and processes, not in
-           the technology. Other research points the same way: projects fail most often when the
-           problem was never properly understood, and the companies that gain most are the ones that
-           redesign their workflows. Tools chosen from a demonstration, without seeing the real work,
-           tend to end up unused.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="kc-band">
-    <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow">How it works</p>
-        <h2>Four steps, from the first call to a plan you can act on.</h2>
-      </div>
-      <ol class="steps is-four">
+  <section class="cd-band is-white" id="how">
+    <div class="cd-wrap">
+      <h2 class="cd-h2 cd-h2-narrow">Four steps, from the first call to a plan you can act on.</h2>
+      <ol class="cd-story">
         {STEPS.map((s, i) => (
-          <li class="step">
-            <div class="step-text">
-              <span class="step-no">{String(i + 1).padStart(2, '0')}</span>
-              <h3>{s.title}</h3>
-              <p>{s.body}</p>
+          <li class="cd-frame">
+            <div class="cd-art" aria-hidden="true">
+              {s.art === 'call' && (
+                <svg viewBox="0 0 200 140" class="cd-svg">
+                  <rect x="34" y="24" width="48" height="88" rx="9" />
+                  <line x1="50" y1="34" x2="66" y2="34" />
+                  <circle cx="58" cy="100" r="4" />
+                  <rect x="98" y="30" width="78" height="30" rx="12" class="cd-fill-soft" />
+                  <line x1="110" y1="41" x2="160" y2="41" /><line x1="110" y1="50" x2="144" y2="50" />
+                  <path d="M106 60 l-6 9 l12 -9" class="cd-fill-soft" />
+                  <rect x="112" y="76" width="66" height="26" rx="11" class="cd-fill-sage" />
+                  <line x1="124" y1="86" x2="164" y2="86" class="cd-on-sage" /><line x1="124" y1="93" x2="150" y2="93" class="cd-on-sage" />
+                  <circle cx="160" cy="122" r="11" /><polyline points="160,115 160,122 166,125" />
+                </svg>
+              )}
+              {s.art === 'walk' && (
+                <svg viewBox="0 0 200 140" class="cd-svg">
+                  <path d="M16 70 C 50 44, 84 96, 118 66 S 150 50, 150 50" class="cd-dash" />
+                  <rect x="12" y="104" width="44" height="8" rx="2" /><rect x="22" y="88" width="22" height="16" rx="2" />
+                  <rect x="74" y="104" width="44" height="8" rx="2" /><rect x="84" y="88" width="22" height="16" rx="2" />
+                  <rect x="136" y="104" width="44" height="8" rx="2" /><rect x="146" y="88" width="22" height="16" rx="2" />
+                  <rect x="146" y="14" width="38" height="50" rx="4" class="cd-fill-paper" />
+                  <rect x="157" y="9" width="16" height="9" rx="2" class="cd-fill-sage" />
+                  <polyline points="153,30 157,34 164,26" class="cd-sage" /><line x1="168" y1="30" x2="178" y2="30" />
+                  <polyline points="153,44 157,48 164,40" class="cd-sage" /><line x1="168" y1="44" x2="178" y2="44" />
+                  <line x1="153" y1="56" x2="178" y2="56" />
+                </svg>
+              )}
+              {s.art === 'map' && (
+                <svg viewBox="0 0 200 140" class="cd-svg">
+                  <rect x="8" y="34" width="46" height="26" rx="6" class="cd-fill-paper" />
+                  <rect x="78" y="34" width="46" height="26" rx="6" class="cd-fill-sage" />
+                  <rect x="148" y="34" width="46" height="26" rx="6" class="cd-fill-paper" />
+                  <rect x="78" y="96" width="46" height="26" rx="6" class="cd-fill-paper" />
+                  <line x1="54" y1="47" x2="74" y2="47" /><polyline points="69,43 74,47 69,51" />
+                  <line x1="124" y1="47" x2="144" y2="47" class="cd-dash" /><polyline points="139,43 144,47 139,51" />
+                  <line x1="101" y1="60" x2="101" y2="92" /><polyline points="97,87 101,92 105,87" />
+                  <line x1="132" y1="41" x2="132" y2="53" class="cd-thick" /><line x1="137" y1="41" x2="137" y2="53" class="cd-thick" />
+                  <text x="31" y="22" class="cd-svg-text">3 min</text>
+                  <text x="101" y="22" class="cd-svg-text">6 min</text>
+                  <text x="171" y="22" class="cd-svg-text">wait</text>
+                </svg>
+              )}
+              {s.art === 'report' && (
+                <svg viewBox="0 0 200 140" class="cd-svg">
+                  <rect x="18" y="12" width="70" height="96" rx="5" class="cd-fill-paper" />
+                  <line x1="30" y1="26" x2="66" y2="26" class="cd-thick" />
+                  <rect x="30" y="58" width="10" height="26" class="cd-fill-sage" />
+                  <rect x="46" y="44" width="10" height="40" class="cd-fill-sage" />
+                  <rect x="62" y="66" width="10" height="18" class="cd-fill-sage" />
+                  <line x1="30" y1="94" x2="76" y2="94" />
+                  <ellipse cx="146" cy="110" rx="42" ry="12" class="cd-fill-paper" />
+                  <circle cx="116" cy="74" r="8" /><path d="M104 96 q12 -14 24 0" />
+                  <circle cx="146" cy="66" r="8" /><path d="M134 88 q12 -14 24 0" />
+                  <circle cx="176" cy="74" r="8" /><path d="M164 96 q12 -14 24 0" />
+                </svg>
+              )}
             </div>
+            <span class="cd-frame-no">Step {i + 1}</span>
+            <h3>{s.title}</h3>
+            <p>{s.body}</p>
           </li>
         ))}
       </ol>
     </div>
   </section>
 
-  <section class="kc-band is-white">
-    <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow">What you get</p>
-        <h2>A clear verdict for every team, not a list of tools.</h2>
-        <p class="section-lede">Each team gets one of four verdicts, with the reasons behind it. For every
-           recommendation we give the effort, a cost range, the hours it saves each month, when it
-           pays back, and where a person must stay in charge.</p>
+  <section class="cd-band">
+    <div class="cd-wrap">
+      <div class="cd-head">
+        <h2 class="cd-h2">A clear verdict for every team, not a list of tools.</h2>
+        <p class="cd-body">{GIVES}</p>
       </div>
-      <ol class="steps is-four">
-        {VERDICTS.map((v, i) => (
-          <li class="step">
-            <div class="step-text">
-              <span class="step-no">{String(i + 1).padStart(2, '0')}</span>
-              <h3>{v.name}</h3>
-              <p>{v.body}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
-    </div>
-  </section>
-
-  <section class="kc-band">
-    <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow">Who it is for</p>
-        <h2>Businesses with real teams and real workloads.</h2>
-        <p class="section-lede">From firms of twenty people to large companies with many departments:
-           reception and front office, customer service, sales, finance, HR, operations, procurement,
-           IT, risk and compliance. If your people spend their days copying, chasing, checking and
-           answering the same questions, there is usually something to find.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="kc-band is-white">
-    <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow">Why us</p>
-        <h2>Twenty years inside the work, and an engineer who builds it.</h2>
-        <p class="section-lede">Our founder spent twenty years in corporate operations: customer service,
-           back office, sales, team management and business performance. We know what a busy desk
-           looks like at month end, where the workarounds hide and why the last system was never used.
-           Our engineer turns that experience into maps, scores and recommendations that fit how your
-           people actually work.</p>
+      <div class="cd-get">
+        <figure class="cd-sheet" id="cd-sheet" aria-labelledby="cd-sheet-title">
+          <div class="cd-sheet-top">
+            <span class="cd-sheet-tag">Example page</span>
+            <span class="cd-sheet-no">From the report</span>
+          </div>
+          <p class="cd-sheet-title" id="cd-sheet-title">Accounts payable</p>
+          <p class="cd-sheet-sub">How an invoice gets paid today, timed on site</p>
+          <ol class="cd-flow">
+            {FLOW.map((f) => (
+              <li class={f.wait ? 'cd-flow-step is-wait' : 'cd-flow-step'}>
+                <span class="cd-flow-name">{f.step}</span>
+                <span class="cd-flow-time">{f.time}</span>
+              </li>
+            ))}
+          </ol>
+          <ul class="cd-vrows">
+            {ROWS.map((r) => (
+              <li class="cd-vrow">
+                <span class="cd-vstep">{r.step}</span>
+                <span class={`cd-chip is-${r.id}`}><span class="cd-mark"></span>{verdictName(r.id)}</span>
+                <span class="cd-vmeta">{r.meta}</span>
+              </li>
+            ))}
+          </ul>
+          <figcaption class="cd-sheet-foot">An example of a department page from the report. The figures are illustrative.</figcaption>
+        </figure>
+        <ul class="cd-verdicts">
+          {VERDICTS.map((t) => (
+            <li class={`cd-verdict is-${t.id}`}>
+              <p class="cd-tray-name"><span class="cd-mark"></span>{t.name}</p>
+              <p>{t.body}</p>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   </section>
 
-  <section class="kc-band">
-    <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow">Independent</p>
-        <h2>We work for you, not for any AI company.</h2>
-        <p class="section-lede">We do not sell or resell any AI product, software or hardware. We have no
-           affiliate programme, referral fees, commissions or kickbacks from any provider, and we are not
-           a partner or reseller of any of them. Our only income is the fee you pay us, so our advice is
-           based only on what fits your business. If we name a product, it is because it fits your work,
-           and you buy it directly from its maker. If you ask us to help put the recommendations in place
-           afterwards, that is a separate, optional piece of work, and it never depends on which tools
-           you choose.</p>
+  <section class="cd-band is-white">
+    <div class="cd-wrap cd-who">
+      <div class="cd-who-copy">
+        <h2 class="cd-h2">{WHO.title}</h2>
+        <p class="cd-body">{WHO.intro}</p>
+      </div>
+      <ul class="cd-tags">
+        {TEAMS.map((t) => <li class="cd-tag">{t}</li>)}
+      </ul>
+      <p class="cd-who-line">{WHO.line}</p>
+    </div>
+  </section>
+
+  <section class="cd-band">
+    <div class="cd-wrap">
+      <article class="cd-letter">
+        <span class="cd-mono" aria-hidden="true">Z</span>
+        <h2 class="cd-h2">{WHY.title}</h2>
+        {WHY.paras.map((p) => <p>{p}</p>)}
+        <p class="cd-sign">{WHY.sign}</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="cd-band is-white">
+    <div class="cd-wrap">
+      <h2 class="cd-h2 cd-h2-narrow">{INDEP.title}</h2>
+      <div class="cd-indep">
+        <div class="cd-col">
+          <h3>We do not</h3>
+          <ul class="cd-checks">
+            {INDEP.not.map((n) => (
+              <li class="is-no">
+                <svg viewBox="0 0 20 20" class="cd-ico" aria-hidden="true"><line x1="6" y1="6" x2="14" y2="14" /><line x1="14" y1="6" x2="6" y2="14" /></svg>
+                <span>{n}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div class="cd-col">
+          <h3>Instead</h3>
+          <ul class="cd-checks">
+            {INDEP.instead.map((n) => (
+              <li class="is-yes">
+                <svg viewBox="0 0 20 20" class="cd-ico" aria-hidden="true"><polyline points="5,10.5 8.5,14 15,6.5" /></svg>
+                <span>{n}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   </section>
 
-
-  <section class="faq">
-    <div class="wrap">
-      <div class="section-head">
-        <h2>Questions</h2>
-      </div>
-      <div class="faq-list">
+  <section class="cd-band" id="questions">
+    <div class="cd-wrap cd-faq">
+      <h2 class="cd-h2">Questions</h2>
+      <div class="cd-faq-list">
         {FAQ.map((f) => (
-          <details class="faq-item">
-            <summary>{f.q}</summary>
+          <details class="cd-faq-item">
+            <summary>{f.q}<span class="cd-plus" aria-hidden="true"></span></summary>
             <p>{f.a}</p>
           </details>
         ))}
@@ -178,11 +294,255 @@ const FAQ = [
     </div>
   </section>
 
-  <section class="kc-close">
-    <h2>Start with a free 30-minute call.</h2>
-    <p>Tell us about your business. We call you within one working day.</p>
-    <a class="cta" href={book}>Book a free 30-minute call</a>
-    <p class="kc-contact">Prefer email? Write to <a href={`mailto:${CONSULTING.email}`}>{CONSULTING.email}</a>.
-       How we handle your enquiry: our <a href="/privacy/#consulting">Privacy Policy</a>.</p>
+  <section class="cd-close">
+    <h2 class="cd-h2">{CLOSE.title}</h2>
+    <p>{CLOSE.body}</p>
+    <a class="cd-cta" href={book}>Book a free 30-minute call</a>
+    <p class="cd-contact">Prefer email? Write to <a href={`mailto:${CONSULTING.email}`}>{CONSULTING.email}</a>.
+       How we handle your enquiry: our <a href="/consulting/privacy/">Privacy Policy</a>.</p>
   </section>
+
+  <script src="../scripts/consulting.js"></script>
 </Base>
+
+<style is:global>
+  :root{
+    --cd-ai:var(--sage-deep); --cd-auto:var(--ink-soft); --cd-fix:#b98a4e; --cd-leave:#a69e90;
+    /* "Fix the process first" text on its own tint: 5.1:1. */
+    --cd-fix-text:#8a5a1c; --cd-fix-bg:#f8efe0; --cd-fix-line:#e6cfa8;
+    --cd-ease:cubic-bezier(.22,.8,.24,1);
+  }
+  .cd-wrap{max-width:1180px;margin:0 auto;padding:0 32px}
+  .cd-h2{font:450 clamp(30px,3.8vw,42px)/1.14 var(--serif);letter-spacing:-.015em;margin:0;text-wrap:balance}
+  .cd-h2-narrow{max-width:680px}
+  .cd-body{margin:0;font-size:17px;line-height:1.65;color:var(--ink-soft);max-width:62ch;text-wrap:pretty}
+  .cd-band{padding:104px 0;border-top:1px solid var(--line);scroll-margin-top:8px}
+  .cd-band.is-white{background:var(--card)}
+
+  /* ---------- hero ---------- */
+  /* The hero: the words across the top, the desk full width below them
+     (founder s129: "make it wide and more eye catching"). */
+  .cd-hero{max-width:1180px;margin:0 auto;padding:52px 32px 88px;display:flex;flex-direction:column;gap:40px}
+  .cd-hero-copy{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:8px 64px;align-items:center}
+  .cd-hero-title,.cd-hero-text{display:flex;flex-direction:column}
+  .cd-hero-title h1{margin-bottom:0}
+  .cd-hero-text .cd-lede{max-width:none;font-size:17.5px}
+  .cd-hero-text .cd-lede-2{margin-bottom:24px}
+  .cd-hero-text .cd-promises{margin-top:24px;padding-top:16px;gap:6px 20px;font-size:14px}
+  .cd-name{display:inline-flex;align-self:flex-start;align-items:center;gap:8px;margin:0 0 22px;
+    padding:5px 12px 5px 10px;border-radius:999px;background:var(--tint);border:1px solid var(--tint-line);
+    font:500 13.5px var(--sans);color:var(--sage-text)}
+  .cd-name-dot{width:7px;height:7px;border-radius:50%;background:var(--sage-deep)}
+  .cd-hero h1{font:450 clamp(40px,5.2vw,62px)/1.06 var(--serif);letter-spacing:-.02em;margin:0 0 24px;text-wrap:balance}
+  .cd-lede{font-size:18.5px;line-height:1.6;color:var(--ink-soft);max-width:500px;margin:0 0 14px;text-wrap:pretty}
+  .cd-lede-2{color:var(--ink);font-weight:500;margin-bottom:32px}
+  .cd-cta-row{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .cd-cta{display:inline-block;background:var(--ink);color:var(--paper);text-decoration:none;padding:14px 30px;
+    border-radius:999px;font:500 16px var(--sans);transition:background .15s,transform .2s var(--cd-ease)}
+  .cd-cta:hover{background:var(--ink-soft);transform:translateY(-1px)}
+  .cd-cta-meta{font:400 13px var(--mono);color:var(--faint)}
+  .cd-promises{list-style:none;display:flex;flex-wrap:wrap;gap:10px 24px;margin:44px 0 0;padding:22px 0 0;
+    border-top:1px solid var(--line);font-size:14.5px;color:var(--muted)}
+  .cd-promises li{display:flex;align-items:center;gap:8px}
+  .cd-promises li::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--sage)}
+
+  /* The desk: the home page's window frame, a desk surface inside. */
+  .cd-desk{margin:0;background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;
+    box-shadow:0 24px 60px rgba(38,34,28,.10),0 2px 6px rgba(38,34,28,.04);min-width:0}
+  .cd-desk-bar{display:flex;align-items:center;gap:8px;padding:11px 14px 11px 16px;background:var(--win-bar);border-bottom:1px solid var(--line)}
+  .cd-desk-dot{width:10px;height:10px;border-radius:50%;background:var(--border)}
+  .cd-desk-title{margin-left:8px;font:400 12px var(--mono);color:var(--faint);flex:1;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cd-pause{border:1px solid var(--border);background:var(--card);color:var(--ink);border-radius:999px;
+    padding:3px 12px;font:500 12.5px var(--sans);cursor:pointer}
+  .cd-pause:hover{border-color:var(--ink)}
+  .cd-desk-body{background:var(--panel);padding:20px;display:flex;flex-direction:column;gap:16px}
+  /* The pile's height is set by scripts/consulting.js to fit two tidy columns. */
+  .cd-pile{display:none;position:relative;min-height:110px;margin:0;padding:0;list-style:none;border-radius:12px;
+    border:1px dashed var(--border);background:rgba(255,255,255,.35)}
+  .cd-desk.is-live .cd-pile{display:block}
+  .cd-pile-label{position:absolute;right:12px;bottom:8px;font:400 11.5px var(--mono);color:var(--faint)}
+  .cd-trays{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  /* Each tray carries its verdict's colour as a band along the top. */
+  .cd-tray{position:relative;background:var(--paper);border:1px solid var(--border);border-radius:12px;
+    padding:16px 12px 12px;box-shadow:inset 0 2px 0 rgba(38,34,28,.03);
+    transition:background .4s,border-color .4s,box-shadow .4s,transform .4s var(--cd-ease)}
+  /* No overflow:hidden on the tray: it would clip a slip flying in. */
+  .cd-tray::before{content:"";position:absolute;left:-1px;right:-1px;top:-1px;height:5px;border-radius:12px 12px 0 0;background:var(--cd-ai)}
+  .cd-tray.is-auto::before{background:var(--cd-auto)} .cd-tray.is-fix::before{background:var(--cd-fix)} .cd-tray.is-leave::before{background:var(--cd-leave)}
+  .cd-tray.is-hit{background:var(--card);border-color:var(--sage);transform:translateY(-2px);
+    box-shadow:0 2px 4px rgba(38,34,28,.05),0 12px 24px rgba(38,34,28,.08)}
+  .cd-tray-name{display:flex;align-items:center;gap:8px;margin:0 0 8px;font:500 13.5px var(--sans);color:var(--ink)}
+  .cd-mark{width:10px;height:10px;border-radius:3px;flex:none;background:var(--cd-ai)}
+  .is-auto .cd-mark{background:var(--cd-auto)} .is-fix .cd-mark{background:var(--cd-fix)} .is-leave .cd-mark{background:var(--cd-leave)}
+  .cd-tray-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .cd-slip{display:block;will-change:transform}
+  .cd-slip.is-piled{position:absolute;z-index:1}
+  .cd-slip.is-moving{z-index:6;position:relative}
+  .cd-slip.is-piled.is-moving{position:absolute}
+  .cd-slip-face{display:flex;flex-direction:column;gap:2px;background:var(--card);border:1px solid var(--line);
+    border-radius:7px;padding:7px 10px 8px;box-shadow:0 1px 2px rgba(38,34,28,.06),0 4px 10px rgba(38,34,28,.05);
+    transition:transform .6s var(--cd-ease),box-shadow .6s}
+  .is-piled .cd-slip-face{box-shadow:0 2px 4px rgba(38,34,28,.08),0 8px 18px rgba(38,34,28,.08)}
+  .cd-slip-kind{font:400 10.5px var(--mono);letter-spacing:.02em;color:var(--faint)}
+  .cd-slip-text{font-size:13.5px;line-height:1.35;color:var(--ink)}
+  .cd-desk-cap{padding:10px 16px 12px;font-size:13px;color:var(--muted);background:var(--card);border-top:1px solid var(--line)}
+
+  /* ---------- the problem ---------- */
+  .cd-why-grid{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:56px;align-items:start}
+  .cd-why-facts{display:flex;flex-direction:column;gap:14px}
+  .cd-fact{margin:0;font:400 clamp(22px,2.4vw,27px)/1.35 var(--serif);color:var(--ink-soft);text-wrap:pretty}
+  .cd-fact strong{font-weight:600;color:var(--sage-text);font-size:1.3em;letter-spacing:-.01em}
+  .cd-why-facts .cd-body{margin-top:10px}
+  .cd-note-slip{align-self:flex-start;margin:14px 0 0;max-width:440px;background:var(--card);border:1px solid var(--line);
+    border-radius:8px;padding:14px 18px;font-size:15.5px;line-height:1.55;color:var(--ink);transform:rotate(-1deg);
+    box-shadow:0 2px 4px rgba(38,34,28,.06),0 10px 24px rgba(38,34,28,.07)}
+
+  /* ---------- storyboard ---------- */
+  .cd-story{list-style:none;margin:56px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px}
+  .cd-frame{display:flex;flex-direction:column;gap:8px;position:relative}
+  .cd-art{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 12px;margin-bottom:10px;position:relative}
+  .cd-frame:not(:last-child) .cd-art::after{content:"";position:absolute;top:50%;right:-29px;width:28px;
+    border-top:1.5px dashed var(--sage-deep)}
+  .cd-svg{display:block;width:100%;height:auto;fill:none;stroke:var(--ink-soft);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .cd-svg .cd-fill-soft{fill:var(--chip)}
+  .cd-svg .cd-fill-paper{fill:var(--card)}
+  .cd-svg .cd-fill-sage{fill:var(--tint);stroke:var(--sage-deep)}
+  .cd-svg .cd-on-sage,.cd-svg .cd-sage{stroke:var(--sage-deep)}
+  .cd-svg .cd-dash{stroke:var(--sage-deep);stroke-dasharray:4 5}
+  .cd-svg .cd-thick{stroke-width:2.4}
+  .cd-svg-text{font:400 10.5px var(--mono);fill:var(--muted);stroke:none;text-anchor:middle}
+  .cd-frame-no{font:400 12.5px var(--mono);color:var(--sage-text)}
+  .cd-frame h3{font:500 21px/1.3 var(--serif);margin:0}
+  .cd-frame p{margin:0;font-size:15.5px;line-height:1.6;color:var(--muted)}
+
+  /* ---------- what you get: the example report page beside the verdicts ---------- */
+  .cd-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px 56px;align-items:end}
+  .cd-get{margin-top:52px;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:40px;align-items:start}
+  .cd-sheet{margin:0;background:#fffdf9;border:1px solid var(--line);border-radius:10px;padding:24px 26px 18px;
+    transform:rotate(-.6deg);box-shadow:0 2px 4px rgba(38,34,28,.05),0 22px 48px rgba(38,34,28,.12)}
+  .cd-sheet-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px;
+    padding:0 0 12px;border-bottom:1px solid var(--line)}
+  .cd-sheet-tag{font:600 11.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--cd-fix-text);
+    background:var(--cd-fix-bg);border:1px solid var(--cd-fix-line);border-radius:999px;padding:3px 10px}
+  .cd-sheet-no{font:400 12px var(--mono);color:var(--faint)}
+  .cd-sheet-title{font:500 27px/1.15 var(--serif);margin:0 0 4px;letter-spacing:-.01em}
+  .cd-sheet-sub{margin:0 0 18px;font-size:14px;color:var(--muted)}
+  .cd-flow{list-style:none;margin:0 0 18px;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .cd-flow-step{position:relative;display:flex;flex-direction:column;gap:3px;padding:9px 10px;border-radius:8px;
+    background:var(--paper);border:1px solid var(--line)}
+  .cd-flow-step + .cd-flow-step::before{content:"";position:absolute;left:-6px;top:50%;width:6px;height:1px;background:var(--border)}
+  .cd-flow-step.is-wait{background:var(--cd-fix-bg);border-color:var(--cd-fix-line)}
+  .cd-flow-name{font-size:12.5px;line-height:1.3;color:var(--ink)}
+  .cd-flow-time{font:600 12px var(--mono);color:var(--sage-text);font-variant-numeric:tabular-nums}
+  .cd-flow-step.is-wait .cd-flow-time{color:var(--cd-fix-text)}
+  .cd-vrows{list-style:none;margin:0;padding:0}
+  .cd-vrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:11px 0;border-top:1px solid var(--line)}
+  .cd-vstep{font-size:14.5px;font-weight:500;color:var(--ink)}
+  .cd-vmeta{grid-column:1 / -1;font:400 12px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+  .cd-chip{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:999px;padding:3px 10px 3px 8px;
+    font:500 12.5px var(--sans);color:var(--ink);background:var(--paper);border:1px solid var(--border)}
+  .cd-chip .cd-mark{width:8px;height:8px;border-radius:2px}
+  .cd-anim .cd-chip{opacity:0;transform:scale(.85);transition:opacity .45s var(--cd-ease),transform .55s var(--cd-ease)}
+  .cd-anim .cd-vmeta{opacity:0;transform:translateY(4px);transition:opacity .5s var(--cd-ease) .12s,transform .6s var(--cd-ease) .12s}
+  .cd-anim .cd-vrow.is-on .cd-chip,.cd-anim .cd-vrow.is-on .cd-vmeta{opacity:1;transform:none}
+  .cd-sheet-foot{margin:6px 0 0;padding-top:10px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+
+  .cd-verdicts{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .cd-verdict{background:var(--paper);border:1px solid var(--border);border-radius:14px;padding:18px 18px 16px;
+    display:flex;flex-direction:column;gap:8px;box-shadow:inset 0 3px 0 rgba(38,34,28,.03)}
+  .cd-verdict .cd-tray-name{font:500 20px/1.25 var(--serif);margin:0;gap:10px}
+  .cd-verdict .cd-mark{width:12px;height:12px}
+  .cd-verdict > p:not(.cd-tray-name){margin:0;font-size:15px;line-height:1.6;color:var(--muted)}
+
+  /* ---------- who ---------- */
+  .cd-who{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px 56px;align-items:center}
+  .cd-who-copy{display:flex;flex-direction:column;gap:16px}
+  .cd-tags{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:10px}
+  .cd-tag{background:var(--paper);border:1px solid var(--border);border-radius:999px;padding:8px 16px;font-size:15px;color:var(--ink)}
+  .cd-tag:nth-child(3n+1){transform:rotate(-1.2deg)} .cd-tag:nth-child(3n+2){transform:rotate(.8deg)}
+  .cd-who-line{grid-column:1 / -1;margin:24px 0 0;padding-top:28px;border-top:1px solid var(--line);
+    font:400 clamp(22px,2.4vw,28px)/1.4 var(--serif);color:var(--ink);max-width:860px;text-wrap:balance}
+
+  /* ---------- why us: a note ---------- */
+  .cd-letter{position:relative;max-width:760px;margin:0 auto;background:var(--card);border:1px solid var(--line);
+    border-radius:6px;padding:52px 56px 44px;transform:rotate(-.4deg);
+    background-image:repeating-linear-gradient(to bottom,transparent 0 31px,var(--line) 31px 32px);background-position:0 150px;
+    box-shadow:0 2px 4px rgba(38,34,28,.05),0 22px 50px rgba(38,34,28,.09)}
+  .cd-letter > *{transform:rotate(.4deg)}
+  .cd-mono{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;
+    background:var(--sage-deep);color:var(--card);font:500 22px var(--serif);margin:0 0 22px}
+  .cd-letter h2{margin:0 0 22px}
+  .cd-letter p{font-size:17.5px;line-height:1.75;color:var(--ink-soft);margin:0 0 14px;text-wrap:pretty}
+  .cd-letter .cd-sign{margin-top:26px;font:400 13px var(--mono);color:var(--sage-text)}
+
+  /* ---------- independent ---------- */
+  .cd-indep{margin-top:48px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+  .cd-col{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:28px 28px 20px}
+  .cd-col h3{font:500 22px var(--serif);margin:0 0 14px}
+  .cd-checks{list-style:none;margin:0;padding:0}
+  .cd-checks li{display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px;padding:12px 0;border-top:1px solid var(--line);
+    font-size:16px;line-height:1.55;color:var(--ink-soft)}
+  .cd-ico{width:22px;height:22px;margin-top:1px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;border-radius:50%}
+  .is-no .cd-ico{stroke:var(--muted);background:var(--chip)}
+  .is-yes .cd-ico{stroke:var(--card);background:var(--sage-deep)}
+
+  /* ---------- faq ---------- */
+  .cd-faq{display:grid;grid-template-columns:minmax(0,.6fr) minmax(0,1.4fr);gap:32px 56px;align-items:start}
+  .cd-faq-list{border-top:1px solid var(--line)}
+  .cd-faq-item{border-bottom:1px solid var(--line)}
+  .cd-faq-item summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:18px;
+    padding:18px 4px;font:500 19px/1.35 var(--serif)}
+  .cd-faq-item summary::-webkit-details-marker{display:none}
+  .cd-faq-item summary:hover{color:var(--sage-text)}
+  .cd-plus{position:relative;flex:none;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);transition:background .2s,transform .3s var(--cd-ease)}
+  .cd-plus::before,.cd-plus::after{content:"";position:absolute;left:50%;top:50%;width:11px;height:1.6px;background:var(--ink);transform:translate(-50%,-50%)}
+  .cd-plus::after{transform:translate(-50%,-50%) rotate(90deg)}
+  .cd-faq-item[open] .cd-plus{transform:rotate(45deg);background:var(--chip)}
+  .cd-faq-item p{margin:-4px 4px 20px;color:var(--ink-soft);max-width:64ch}
+
+  /* ---------- close ---------- */
+  .cd-close{background:var(--tint);border-top:1px solid var(--tint-line);padding:104px 32px;text-align:center}
+  .cd-close .cd-h2{max-width:700px;margin:0 auto 16px}
+  .cd-close > p{margin:0 auto 32px;color:var(--ink-soft);max-width:520px}
+  .cd-close .cd-contact{margin:28px auto 0;font-size:14px;color:var(--muted)}
+  .cd-close a:not(.cd-cta){color:var(--ink);text-underline-offset:3px;text-decoration-color:var(--sage-deep)}
+
+  @media (max-width:1080px){
+    .cd-story{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px 28px}
+    .cd-frame:nth-child(2) .cd-art::after{display:none}
+    .cd-get{grid-template-columns:minmax(0,1fr);gap:32px}
+    .cd-sheet{max-width:640px}
+  }
+  @media (max-width:900px){
+    .cd-hero{gap:40px;padding-top:56px}
+    .cd-hero-copy{grid-template-columns:minmax(0,1fr);gap:0}
+    .cd-hero-title h1{margin-bottom:24px}
+    .cd-trays{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .cd-why-grid,.cd-head,.cd-who,.cd-faq{grid-template-columns:minmax(0,1fr);gap:28px}
+    .cd-indep{grid-template-columns:minmax(0,1fr)}
+  }
+  @media (max-width:600px){
+    .cd-wrap{padding:0 20px}
+    .cd-hero{padding:40px 20px 56px}
+    .cd-band{padding:64px 0}
+    .cd-desk-body{padding:10px}
+    .cd-trays{gap:8px}
+    .cd-tray{padding:8px 8px 10px}
+    .cd-tray-name{font-size:12.5px;gap:6px}
+    .cd-slip-face{padding:6px 8px 7px}
+    .cd-slip-text{font-size:12.5px}
+    .cd-story,.cd-verdicts{grid-template-columns:minmax(0,1fr)}
+    .cd-art::after{display:none}
+    .cd-sheet{padding:20px 16px 14px;transform:none}
+    .cd-flow{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .cd-flow-step + .cd-flow-step::before{display:none}
+    .cd-letter{padding:36px 24px 30px;transform:none}
+    .cd-letter > *{transform:none}
+    .cd-col{padding:22px 20px 14px}
+    .cd-close{padding:64px 20px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .cd-slip-face,.cd-tray,.cd-cta,.cd-plus,.cd-chip,.cd-vmeta{transition:none}
+  }
+</style>

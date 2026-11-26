@@ -252,10 +252,13 @@ export const CONSULTING = {
 // session 67).
 export const NAV = [
   { href: '/products/', label: 'Products' },
-  { href: '/docs/', label: 'Documents' },
   { href: '/knowledge-centre/', label: 'Knowledge Centre' },
-  // Learn (s91 plan); after Knowledge Centre since s94 (founder: "move learn tab
-  // in header after knowledge center").
+  // The AI Readiness Assessment, after Knowledge Centre (founder s129:
+  // "products, knowledge centre, (this new tab), documents, learn, pricing").
+  { href: '/consulting/', label: 'AI Assessment' },
+  { href: '/docs/', label: 'Documents' },
+  // Learn (s91 plan); after Knowledge Centre since s94, now after Documents
+  // (founder s129 order above).
   { href: '/learn/', label: 'Learn' },
   { href: '/pricing/', label: 'Pricing' },
 ] as const;
@@ -329,10 +332,34 @@ export const PAGES: PageEntry[] = [
   },
   {
     path: '/consulting/',
+    crumb: 'AI Readiness Assessment',
     title: 'AI Readiness Assessment for businesses · Zaaheen',
     description:
       'An independent AI readiness assessment, on site and department by department, by someone who has run operations. We sell no tools and take no commissions.',
-    sources: ['src/pages/consulting.astro', 'src/data/site.ts'],
+    sources: ['src/pages/consulting.astro', 'src/data/consulting.ts', 'src/data/site.ts'],
+  },
+  // The consulting documents (founder s129): placeholders until written after
+  // research; scripts/audit.mjs --release refuses to publish a placeholder.
+  {
+    path: '/consulting/terms/',
+    crumb: 'Terms of Service',
+    title: 'Terms of Service · Zaaheen AI Readiness Assessment',
+    description: 'The terms for an AI Readiness Assessment with Zaaheen.',
+    sources: ['src/pages/consulting/terms.astro', 'src/layouts/ConsultingPolicy.astro'],
+  },
+  {
+    path: '/consulting/privacy/',
+    crumb: 'Privacy Policy',
+    title: 'Privacy Policy · Zaaheen AI Readiness Assessment',
+    description: 'How Zaaheen handles enquiries and what it sees during an AI Readiness Assessment.',
+    sources: ['src/pages/consulting/privacy.astro', 'src/layouts/ConsultingPolicy.astro'],
+  },
+  {
+    path: '/consulting/refunds/',
+    crumb: 'Cancellation and Refund Policy',
+    title: 'Cancellation and Refund Policy · Zaaheen AI Readiness Assessment',
+    description: 'Paying for, moving and cancelling an AI Readiness Assessment with Zaaheen.',
+    sources: ['src/pages/consulting/refunds.astro', 'src/layouts/ConsultingPolicy.astro'],
   },
   {
     path: '/privacy/',

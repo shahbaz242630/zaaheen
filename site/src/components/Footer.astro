@@ -1,6 +1,7 @@
 ---
 import Logo from './Logo.astro';
-import { COACHING, COACHING_POLICIES, COMPANY, SITE } from '../data/site';
+import { COACHING, COACHING_POLICIES, COMPANY, CONSULTING, SITE } from '../data/site';
+import { CONSULTING_POLICIES } from '../data/consulting';
 import { langOf, localize } from '../i18n/locales';
 import { formatDate, t } from '../i18n/ui';
 
@@ -13,12 +14,16 @@ import { formatDate, t } from '../i18n/ui';
 // - "coaching" on the Knowledge Centre's pages: coaching's own documents
 //   (COACHING_POLICIES, the live ones) and no app policy
 //   (scripts/audit.mjs COACHING_POLICIES and APP_ONLY).
+// - "consulting" on the AI Readiness Assessment's pages (founder s129: "a
+//   completely different product line"): its own links, its own documents
+//   (CONSULTING_POLICIES) and its own email, no app or coaching policy
+//   (scripts/audit.mjs CONSULTING_POLICIES).
 //
 // "Page last updated" (founder, s94: dates in the footer help with Google): the
 // page's own date from lib/lastmod, which moves only when that page's words
 // change. The footer is outside <main>, so it never feeds the date fingerprint.
 interface Props {
-  variant?: 'app' | 'coaching';
+  variant?: 'app' | 'coaching' | 'consulting';
   /** The page's lastModified date (ISO 8601); no line when the page has none. */
   updated?: string;
 }
@@ -31,6 +36,7 @@ const L = (href: string) => localize(href, lang);
 const english = (label: string) => (lang === 'en' ? label : `${t(lang, label)} (${t(lang, 'English')})`);
 const updatedLabel = updated ? formatDate(updated, lang) : undefined;
 const coaching = variant === 'coaching';
+const consulting = variant === 'consulting';
 const year = new Date().getFullYear();
 
 const APP_COLUMNS = [
@@ -73,11 +79,28 @@ const COACHING_COLUMNS = [
     .map((p) => ({ label: p.label, href: p.path })) },
 ].filter((c) => c.links.length > 0);
 
-const columns = coaching ? COACHING_COLUMNS : APP_COLUMNS;
-const blurb = coaching
+const CONSULTING_COLUMNS = [
+  { title: 'AI Readiness Assessment', links: [
+    { label: 'Book a free 30-minute call', href: CONSULTING.enquiryUrl },
+    { label: 'How it works', href: '/consulting/#how' },
+    { label: 'Questions', href: '/consulting/#questions' },
+    { label: 'Contact us', href: `mailto:${CONSULTING.email}` },
+  ] },
+  { title: 'Zaaheen', links: [
+    { label: 'Home', href: '/' },
+    { label: 'Company information', href: '/company/' },
+  ] },
+  { title: 'Consulting policies', links: CONSULTING_POLICIES.map((p) => ({ label: p.label, href: p.path })) },
+];
+
+const columns = consulting ? CONSULTING_COLUMNS : coaching ? COACHING_COLUMNS : APP_COLUMNS;
+const blurb = consulting
+  ? 'An independent, on-site AI readiness assessment for businesses across the Gulf. We sell no tools and take no commissions.'
+  : coaching
   ? 'Private 1-to-1 AI coaching, built around a real task you bring. Booked and paid online, delivered live.'
   : t(lang, 'A private memory for your AI apps. Your memories stay encrypted on your own computer and never reach us.');
-const email = coaching ? COACHING.email : COMPANY.email;
+const email = consulting ? CONSULTING.email : coaching ? COACHING.email : COMPANY.email;
+const brandName = consulting ? `${SITE.name} AI Assessment` : coaching ? `${SITE.name} Knowledge Centre` : SITE.name;
 ---
 <footer class:list={['site-foot', { 'is-coaching': coaching }]} data-footer={variant}>
   <div class="foot-inner">
@@ -85,7 +108,7 @@ const email = coaching ? COACHING.email : COMPANY.email;
       <div class="foot-brand">
         <a class="foot-logo" href={L('/')} aria-label={t(lang, '{name} home', { name: SITE.name })}>
           <Logo size={48} />
-          <span>{coaching ? `${SITE.name} Knowledge Centre` : SITE.name}</span>
+          <span>{brandName}</span>
         </a>
         <p>{blurb}</p>
       </div>
