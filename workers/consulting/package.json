@@ -14,10 +14,10 @@
     "types:check": "wrangler types --check"
   },
   "devDependencies": {
-    "@cloudflare/vitest-plugin": "1.6.0",
+    "@cloudflare/vitest-plugin": "1.9.2",
     "typescript": "7.0.2",
-    "vitest": "5.1.0",
-    "wrangler": "4.158.0"
+    "vitest": "5.1.2",
+    "wrangler": "4.168.0"
   },
   "overrides": {
     "sharp": "0.35.5",
