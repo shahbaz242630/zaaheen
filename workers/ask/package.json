@@ -15,10 +15,10 @@
     "kept": "wrangler d1 execute zaaheen-ask --remote --command \"SELECT date(stored_at/1000,'unixepoch') AS day, reason, question FROM kept_questions ORDER BY stored_at DESC\""
   },
   "devDependencies": {
-    "@cloudflare/vitest-plugin": "1.9.0",
+    "@cloudflare/vitest-plugin": "1.9.2",
     "typescript": "7.0.2",
-    "vitest": "5.1.1",
-    "wrangler": "4.166.0"
+    "vitest": "5.1.2",
+    "wrangler": "4.168.0"
   },
   "overrides": {
     "sharp": "0.35.5",
@@ -26,6 +26,6 @@
     "zod": "4.6.7"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "1.12.0"
+    "@anthropic-ai/sdk": "1.14.0"
   }
 }
