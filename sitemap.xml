@@ -35,8 +35,24 @@
     <lastmod>2026-10-21T09:43:57Z</lastmod>
   </url>
   <url>
+    <loc>https://zaaheen.com/consulting/</loc>
+    <lastmod>2026-11-26T18:54:38Z</lastmod>
+  </url>
+  <url>
+    <loc>https://zaaheen.com/consulting/terms/</loc>
+    <lastmod>2026-11-26T18:54:38Z</lastmod>
+  </url>
+  <url>
+    <loc>https://zaaheen.com/consulting/privacy/</loc>
+    <lastmod>2026-11-26T18:54:38Z</lastmod>
+  </url>
+  <url>
+    <loc>https://zaaheen.com/consulting/refunds/</loc>
+    <lastmod>2026-11-26T18:54:38Z</lastmod>
+  </url>
+  <url>
     <loc>https://zaaheen.com/privacy/</loc>
-    <lastmod>2026-10-31T16:53:16Z</lastmod>
+    <lastmod>2026-11-12T16:37:04Z</lastmod>
   </url>
   <url>
     <loc>https://zaaheen.com/terms/</loc>
@@ -56,7 +72,7 @@
   </url>
   <url>
     <loc>https://zaaheen.com/company/</loc>
-    <lastmod>2026-09-30T05:21:23Z</lastmod>
+    <lastmod>2026-11-12T16:37:04Z</lastmod>
   </url>
   <url>
     <loc>https://zaaheen.com/licences/</loc>
@@ -204,13 +220,41 @@
   </url>
   <url>
     <loc>https://zaaheen.com/learn/</loc>
-    <lastmod>2026-11-11T19:16:56Z</lastmod>
+    <lastmod>2026-11-26T18:54:38Z</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://zaaheen.com/learn/"/>
     <xhtml:link rel="alternate" hreflang="es" href="https://zaaheen.com/es/learn/"/>
     <xhtml:link rel="alternate" hreflang="pt-BR" href="https://zaaheen.com/pt/learn/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://zaaheen.com/de/learn/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://zaaheen.com/fr/learn/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://zaaheen.com/learn/"/>
+  </url>
+  <url>
+    <loc>https://zaaheen.com/learn/ai-readiness-assessment-uae/</loc>
+    <lastmod>2026-11-26T19:07:48Z</lastmod>
+  </url>
+  <url>
+    <loc>https://zaaheen.com/learn/how-to-choose-an-ai-consultant-uae/</loc>
+    <lastmod>2026-11-26T19:07:48Z</lastmod>
+  </url>
+  <url>
+    <loc>https://zaaheen.com/learn/dubai-ai-seal-explained/</loc>
+    <lastmod>2026-11-26T19:07:48Z</lastmod>
+  </url>
+  <url>
+    <loc>https://zaaheen.com/learn/why-ai-projects-fail/</loc>
+    <lastmod>2026-11-26T19:07:48Z</lastmod>
+  </url>
+  <url>
+    <loc>https://zaaheen.com/learn/ai-vs-automation/</loc>
+    <lastmod>2026-11-26T19:07:48Z</lastmod>
+  </url>
+  <url>
+    <loc>https://zaaheen.com/learn/where-ai-helps-your-business/</loc>
+    <lastmod>2026-11-26T19:07:48Z</lastmod>
+  </url>
+  <url>
+    <loc>https://zaaheen.com/learn/ai-roi-before-you-buy/</loc>
+    <lastmod>2026-11-26T19:07:48Z</lastmod>
   </url>
   <url>
     <loc>https://zaaheen.com/learn/share-memory-between-chatgpt-and-claude/</loc>
@@ -494,7 +538,7 @@
   </url>
   <url>
     <loc>https://zaaheen.com/es/learn/</loc>
-    <lastmod>2026-11-12T02:03:58Z</lastmod>
+    <lastmod>2026-11-26T18:56:05Z</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://zaaheen.com/learn/"/>
     <xhtml:link rel="alternate" hreflang="es" href="https://zaaheen.com/es/learn/"/>
     <xhtml:link rel="alternate" hreflang="pt-BR" href="https://zaaheen.com/pt/learn/"/>
@@ -784,7 +828,7 @@
   </url>
   <url>
     <loc>https://zaaheen.com/pt/learn/</loc>
-    <lastmod>2026-11-12T02:03:58Z</lastmod>
+    <lastmod>2026-11-26T18:56:05Z</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://zaaheen.com/learn/"/>
     <xhtml:link rel="alternate" hreflang="es" href="https://zaaheen.com/es/learn/"/>
     <xhtml:link rel="alternate" hreflang="pt-BR" href="https://zaaheen.com/pt/learn/"/>
@@ -1074,7 +1118,7 @@
   </url>
   <url>
     <loc>https://zaaheen.com/de/learn/</loc>
-    <lastmod>2026-11-12T02:03:58Z</lastmod>
+    <lastmod>2026-11-26T18:56:05Z</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://zaaheen.com/learn/"/>
     <xhtml:link rel="alternate" hreflang="es" href="https://zaaheen.com/es/learn/"/>
     <xhtml:link rel="alternate" hreflang="pt-BR" href="https://zaaheen.com/pt/learn/"/>
@@ -1364,7 +1408,7 @@
   </url>
   <url>
     <loc>https://zaaheen.com/fr/learn/</loc>
-    <lastmod>2026-11-12T02:03:58Z</lastmod>
+    <lastmod>2026-11-26T18:56:05Z</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://zaaheen.com/learn/"/>
     <xhtml:link rel="alternate" hreflang="es" href="https://zaaheen.com/es/learn/"/>
     <xhtml:link rel="alternate" hreflang="pt-BR" href="https://zaaheen.com/pt/learn/"/>
