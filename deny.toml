@@ -118,6 +118,20 @@ ignore = [
     # block above). It is a pair of pinning macros with no I/O. Drop when
     # lance's AWS chain stops pulling it.
     "RUSTSEC-2026-0441", # pin-utils -- unmaintained, no safe upgrade
+
+    # -- chrono family: unmaintained (triaged 2026-11-27, s130) --------------
+    # Notices, not flaws: the maintainers announced chrono is no longer
+    # maintained (chronotope/chrono#1768) and point to jiff or time; no
+    # version is "fixed". humantime is flagged only because it wraps chrono.
+    # We use chrono directly (timestamps in vault-core and eight more crates),
+    # but swapping ours would not clear these: arrow, datafusion, lance and
+    # object_store all depend on chrono, chrono-tz and humantime themselves.
+    # Revisit when arrow/lance move off chrono, then migrate ours in the same
+    # change. A real chrono vulnerability would arrive under a new ID and
+    # still fail this check.
+    "RUSTSEC-2026-0543", # chrono -- unmaintained, no safe upgrade
+    "RUSTSEC-2026-0555", # chrono-tz -- unmaintained (arrow-array)
+    "RUSTSEC-2026-0542", # humantime -- unmaintained because it wraps chrono
 ]
 
 [licenses]
