@@ -120,7 +120,7 @@ lance-io = "=4.0.0"
 lance-core = "=4.0.0"
 object_store = "=0.12.5"
 bytes = "=1.11.1"
-url = "=2.5.8"
+url = "=2.5.9"
 # DuckDB 1.4.4 LTS (the crate's pre-`1.105xx` simple scheme bundles libduckdb
 # 1.4.x). Corrects ADR-077, which pinned `=1.10503.1` believing it was "1.4
 # LTS" — that version is actually DuckDB 1.5.3, whose bundled C++ fails to
