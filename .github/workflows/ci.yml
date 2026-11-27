@@ -129,7 +129,7 @@ jobs:
       # blocking pull-request gate is the difference between a report and a
       # control. The monthly job keeps its version-pin verification value.
       - name: cargo-deny (advisories, licences, bans, sources)
-        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2
+        uses: EmbarkStudios/cargo-deny-action@17aeb3c839e42274e2b8adf721c8c65edfdc74dd # v2
         with:
           # Bare `check` runs all four checks; deny.toml decides the policy.
           command: check
