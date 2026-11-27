@@ -132,6 +132,22 @@ ignore = [
     "RUSTSEC-2026-0543", # chrono -- unmaintained, no safe upgrade
     "RUSTSEC-2026-0555", # chrono-tz -- unmaintained (arrow-array)
     "RUSTSEC-2026-0542", # humantime -- unmaintained because it wraps chrono
+
+    # -- dryoc: two advisories, neither reaches our code (triaged 2026-11-27, s130)
+    # 0602: SigningKeyPair::from_slices / serde Deserialize accept a 64-byte
+    # Ed25519 secret whose embedded public half does not match the seed. We
+    # never build a SigningKeyPair: production only VERIFIES licence leases
+    # (classic crypto_sign_verify_detached, vault-account/src/lease); signing
+    # happens in tests and on the server, not with dryoc's high-level API.
+    # 0603: X25519 (crypto_scalarmult, crypto_kx, kx::Session, crypto_box)
+    # accepts low-order peer keys. We use no X25519 at all: at-rest encryption
+    # is DryocStream (XChaCha20-Poly1305 secretstream with a symmetric key),
+    # vault-storage/src/sealed_object_store.rs.
+    # The fix is dryoc 2.0.1, a major jump on the vault's at-rest crypto; it
+    # gets its own change with round-trip tests against data sealed by 0.7.2
+    # (HANDOFF). Any new dryoc advisory arrives under a new ID and still fails.
+    "RUSTSEC-2026-0602", # dryoc Ed25519 key-pair import -- API not used
+    "RUSTSEC-2026-0603", # dryoc X25519 low-order keys -- no X25519 used
 ]
 
 [licenses]
