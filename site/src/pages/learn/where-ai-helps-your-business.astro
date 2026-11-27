@@ -1,0 +1,240 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+
+// Business Learn article A1 (s129): the how-to. Plan: notes ai-assessment/
+// RESEARCH-CONSULTING-SEO-S129.md §5 Article 1 and the §7 query bank rows for
+// A1. Our service words come from data/consulting.ts and must never contradict
+// it. Figures read on the publishers' pages on 2026-11-26:
+// - BCG press release, 24 Oct 2024: 74% of companies have yet to show tangible
+//   value from AI; leaders put 10% of resources into algorithms, 20% into
+//   technology and data, 70% into people and processes; 1,000 executives,
+//   59 countries.
+// - Deloitte Middle East press release, 4 Jun 2026: 84% have not yet redesigned
+//   jobs or workflows around AI; survey of 3,200+ leaders in 24 countries.
+// - RAND, 13 Aug 2024: the most common cause of failure is misunderstanding
+//   the problem AI should solve; 65 interviews.
+// No client stories, prices, savings promises or rankings (checklist rule 8).
+const OUTLINE = [
+  { id: 'work-first', title: 'Why start with the work?' },
+  { id: 'map', title: 'How to map a team' },
+  { id: 'candidates', title: 'Good candidates for AI' },
+  { id: 'automation', title: 'When automation is better' },
+  { id: 'people', title: 'What to leave to people' },
+  { id: 'yourself', title: 'Yourself or on site?' },
+  { id: 'why-zaaheen', title: 'How Zaaheen does it' },
+  { id: 'faq', title: 'Questions' },
+];
+const BCG = 'https://www.bcg.com/press/24october2024-ai-adoption-in-2024-74-of-companies-struggle-to-achieve-and-scale-value';
+const DELOITTE = 'https://www.deloitte.com/middle-east/en/about/press-room/deloitte-unveils-new-era-of-enterprise-ai-as-middle-east-organizations-shift-from-pilots-to-large-scale-deployment.html';
+const RAND = 'https://www.rand.org/pubs/research_reports/RRA2680-1.html';
+---
+<Learn
+  path="/learn/where-ai-helps-your-business/"
+  lede="Start with the work, not the tools: map how each team really does its job, time the steps, and score each step on volume, repetition, rules, data and the cost of a mistake. Only the steps that score well become AI projects; the rest get simple automation, a process fix, or are left with your people."
+  outline={OUTLINE}
+  business
+>
+  <section id="work-first">
+    <h2>Why start with the work, not the tool?</h2>
+    <p>Because the tool is rarely what decides whether AI pays off. The way the work is done
+       decides it. If you start from a product demonstration, you end up looking for a place to
+       put the product. If you start from the work, you find the places where help is needed and
+       then ask what kind of help fits.</p>
+    <p>The research points the same way. In a survey of 1,000 executives in 59 countries,
+       Boston Consulting Group found that 74% of companies had yet to show tangible value from
+       AI, and that the companies getting value put most of their effort into people and
+       processes, not into the technology (<a href={BCG}>BCG, 24 October 2024</a>).</p>
+
+    <BarChart
+      id="chart-bcg-effort"
+      title="Where AI leaders put their effort, per BCG (share of resources)"
+      measure="Share of resources"
+      max={100}
+      bars={[
+        { label: 'People and processes', value: 70, note: '%' },
+        { label: 'Technology and data', value: 20, note: '%' },
+        { label: 'Algorithms', value: 10, note: '%' },
+      ]}
+      source={{ text: 'Boston Consulting Group press release, 24 October 2024: survey of 1,000 executives in 59 countries, which also found 74% of companies have yet to show tangible value from AI.', href: BCG }}
+    />
+
+    <p>Closer to home, Deloitte reported in June 2026 that 84% of organisations in its survey of
+       more than 3,200 leaders in 24 countries had not yet redesigned jobs or workflows around AI
+       (<a href={DELOITTE}>Deloitte Middle East, 4 June 2026</a>). The lesson for a business in Dubai,
+       Abu Dhabi, Riyadh or Doha is simple: look at the work before you buy the tool.</p>
+    <p>Zaaheen is an independent AI consultancy based in Dubai that assesses businesses across
+       the UAE, Saudi Arabia, Qatar, Kuwait, Bahrain and Oman on site, role by role. We sell no
+       tools and take no commissions. This guide is the method we use, written so you can try
+       it yourself.</p>
+  </section>
+
+  <section id="map">
+    <h2>How do you map how a team really works?</h2>
+    <p>Sit with the people doing the job and write down what they actually do, step by step,
+       with a time against each step. Not what the procedure manual says, and not what the
+       manager thinks happens. The workarounds, the copying between screens and the waiting for
+       an answer are where most of the time goes, and they rarely appear on paper.</p>
+    <p>A useful map, which doubles as a simple AI readiness checklist, records for every step:</p>
+    <ul>
+      <li><strong>What triggers it.</strong> An email arrives, a form is filed, a customer calls.</li>
+      <li><strong>Who does it.</strong> The role, not the person's name.</li>
+      <li><strong>How long it takes</strong>, and how many times a day or a month it happens.</li>
+      <li><strong>Where the information comes from</strong> and where it goes next.</li>
+      <li><strong>Hand-offs and waiting points</strong>, where the work sits with someone else.</li>
+      <li><strong>Exceptions</strong>, the cases that do not follow the usual path.</li>
+    </ul>
+    <p>Do this for one team at a time: reception, customer service, sales, finance, HR,
+       operations, procurement, IT, risk and compliance. A finance team at month end and a
+       customer service desk on a Sunday morning look very different, so watch on ordinary days
+       and busy ones.</p>
+    <p>Once the steps are timed, multiply time by volume. A two-minute task done 400 times a
+       month is over thirteen hours of someone's month. A one-hour task done twice a year is not
+       worth changing at all.</p>
+  </section>
+
+  <section id="candidates">
+    <h2>Which steps are good candidates for AI?</h2>
+    <p>Steps that read, write, sort or answer, at volume, where the data already exists. Score
+       each step on five things and the candidates stand out:</p>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col">Score</th><th scope="col">Points towards AI</th><th scope="col">Points away from AI</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Volume</th><td>Happens many times a day</td><td>A few times a month</td></tr>
+        <tr><th scope="row">Repetition</th><td>Much the same each time</td><td>Different every time</td></tr>
+        <tr><th scope="row">Rules</th><td>Needs reading and judgement on language, like an email or a document</td><td>Fixed rules a form could apply (that is automation, not AI)</td></tr>
+        <tr><th scope="row">Data</th><td>The information is already written down and reachable</td><td>It lives in someone's head or on paper</td></tr>
+        <tr><th scope="row">Cost of a mistake</th><td>Low, or a person checks before it goes out</td><td>High and hard to undo</td></tr>
+      </tbody>
+    </table>
+    <p>Typical steps that score well: sorting a shared inbox, drafting replies to common
+       questions, pulling details out of invoices or contracts, summarising a long case for the
+       next person, or answering staff questions about internal policy. Each one is high volume,
+       mostly language, and based on information the business already holds.</p>
+
+    <MemoryFlow
+      id="flow-score-step"
+      from="Sales inbox"
+      to="AI now"
+      fact="Reply to price request"
+      hub="Process map"
+      hubNote="timed, scored step"
+      saved="Verdict given"
+      caption="Each step is timed and scored before anyone picks a tool. A price request in the sales inbox, frequent and based on a known price list, scores well and becomes an AI now verdict."
+    />
+
+    <p>People often ask which department should use AI first. The honest answer is whichever
+       team has the most high-scoring hours, and that is usually found by counting, not guessing.
+       It may be customer service or finance; sometimes it is a team nobody thought of.</p>
+  </section>
+
+  <section id="automation">
+    <h2>When is simple automation better than AI?</h2>
+    <p>When the step follows fixed rules and the inputs are clean. A form, a workflow or a link
+       between two systems will do it cheaper and safer than AI, and it gives the same answer
+       every time. Copying a confirmed order from email into the accounts system, sending a
+       reminder three days before a payment is due, or routing a leave request to the right
+       manager: none of these needs AI.</p>
+    <p>There is a third answer that often matters more than either: fix the process first. If a
+       step has too many exceptions, unclear ownership or missing data, AI on top of it only
+       makes it break faster. Sometimes the best change is agreeing who owns a task, or removing
+       a step that exists only because of an old system.</p>
+    <p>We explain the line between the two in more detail in
+       <a href="/learn/ai-vs-automation/">our guide to AI vs automation</a>,
+       and RAND's study of 65 practitioners found that the most common reason AI projects fail is
+       that the problem was misunderstood in the first place (<a href={RAND}>RAND, 13 August 2024</a>).
+       Our guide on <a href="/learn/why-ai-projects-fail/">why AI projects fail</a> covers that and
+       three other named studies.</p>
+  </section>
+
+  <section id="people">
+    <h2>What should you leave to your people?</h2>
+    <p>Low-volume work, and work that needs expert judgement where a mistake is costly. A
+       difficult conversation with a long-standing client, a decision on a large credit limit, a
+       disciplinary matter in HR: these are rare, they depend on context, and getting one wrong
+       costs far more than the time AI would save.</p>
+    <p>Leaving work alone is a real result, not a failure of the exercise. Some work should stay
+       with your people, and a good assessment says so. Even where AI does help, decide in
+       advance where a person must stay in charge: who checks the draft before it goes to a
+       customer, and who signs off a payment.</p>
+    <p>This is also why every recommendation should carry numbers: the effort to set it up, a
+       cost range, the hours it saves each month, and when it pays back. Our guide to
+       <a href="/learn/ai-roi-before-you-buy/">working out AI's return before you buy</a> shows
+       how to do that without invented benchmarks.</p>
+  </section>
+
+  <section id="yourself">
+    <h2>Can you do this yourself, or do you need someone on site?</h2>
+    <p>You can do a first pass yourself, and for a small team it is worth trying. Pick one team,
+       sit with them for a day, time the steps and score them with the table above. You will
+       learn a lot about your own business.</p>
+    <p>Three things make it harder from the inside. People describe their job to their manager
+       differently from how they do it. Owners are too close to their own processes to see the
+       workarounds. And without an independent view, it is easy to score steps to fit a tool you
+       have already seen in a demonstration.</p>
+    <p>That is the gap <a href="/consulting/">our AI Readiness Assessment</a> fills. We come to
+       your office, walk every role from reception to the managing director, map each process
+       with timed steps and hand-offs, and score every step. Each team gets one of four verdicts:
+       AI now, Automate without AI, Fix the process first, or Leave as it is. You get a written
+       report and a read-out meeting with your team. If you are comparing options in the Gulf,
+       <a href="/learn/ai-readiness-assessment-uae/">what an AI readiness assessment in the UAE covers</a>
+       explains the visit step by step.</p>
+  </section>
+
+  <section id="why-zaaheen">
+    <h2>How does Zaaheen find where AI helps?</h2>
+    <ul>
+      <li><strong>On site, every role.</strong> We sit with the people doing the work, from
+          reception to the managing director, and time each step.</li>
+      <li><strong>Independent.</strong> We do not sell, resell or build any AI product, and we
+          take no referral fees or commissions. Our only income is the fee you pay us.</li>
+      <li><strong>Four verdicts, including "leave it".</strong> We tell you where AI helps, where
+          simpler automation does better, where the process needs fixing first, and where to
+          leave things alone.</li>
+      <li><strong>Twenty years in operations.</strong> Our team spent twenty years in corporate
+          operations: customer service, back office, sales, team management and business
+          performance.</li>
+      <li><strong>Numbers with every recommendation.</strong> Effort, a cost range, hours saved
+          each month, payback, and where a person stays in charge.</li>
+      <li><strong>A clear start.</strong> A free 30-minute call, then a fixed written quote with
+          no hidden costs (plus VAT where it applies), for businesses of twenty staff or more across the six GCC countries.</li>
+    </ul>
+    <p>Zaaheen, based in Dubai, runs on-site AI readiness assessments for businesses across the
+       UAE, Saudi Arabia, Qatar, Kuwait, Bahrain and Oman. See
+       <a href="/consulting/">how our AI readiness assessment in Dubai and the Gulf works</a>.</p>
+  </section>
+
+  <section id="faq">
+    <h2>What else do people ask about finding where AI helps?</h2>
+
+    <h3>How do I know if my business is ready for AI?</h3>
+    <p>If your people spend their days copying, chasing, checking and answering the same
+       questions, there is usually something to find. Readiness also depends on whether the
+       information those steps need is written down and reachable. Map one team's work and you
+       will know quickly; the free call with us gives you an honest view too.</p>
+
+    <h3>Where can AI help my business first?</h3>
+    <p>In the team with the most hours spent on high-volume reading, writing, sorting and
+       answering. That is found by timing and counting the steps, not by picking the most
+       popular tool. Start with one or two steps where a mistake is cheap or a person checks the
+       result.</p>
+
+    <h3>What should not use AI?</h3>
+    <p>Rare tasks, tasks with fixed rules that plain automation handles, and expert judgements
+       where a mistake is costly. Steps sitting on a messy process should wait until the process
+       is fixed. Saying no to AI for those steps saves money.</p>
+
+    <h3>Is this an audit of our accounts or a certification?</h3>
+    <p>No. Our assessment is an operational review of how work gets done and where AI can help.
+       It is not a financial audit, an assurance report or a certification of any AI system.
+       More answers are in <a href="/consulting/#questions">our assessment questions</a>.</p>
+
+    <h3>Do you work outside Dubai?</h3>
+    <p>Yes. We are based in Dubai and work on site with businesses across the Gulf: Abu Dhabi
+       and the rest of the UAE, Saudi Arabia, Qatar, Kuwait, Bahrain and Oman. The timeline is
+       agreed in writing before we start.</p>
+  </section>
+</Learn>

@@ -9,7 +9,22 @@ export default defineConfig(async () => {
     plugins: [
       cloudflareTest({
         wrangler: { configPath: "./wrangler.jsonc" },
-        miniflare: { bindings: { TEST_MIGRATIONS: migrations } },
+        miniflare: {
+          bindings: { TEST_MIGRATIONS: migrations },
+          // A stand-in for zaaheen-consulting, so the CONSULTING service
+          // binding in wrangler.jsonc resolves in tests (s130).
+          workers: [
+            {
+              name: "zaaheen-consulting",
+              modules: true,
+              compatibilityDate: "2026-09-01",
+              script:
+                'import { WorkerEntrypoint } from "cloudflare:workers";' +
+                "export class Nightly extends WorkerEntrypoint { async run() {} }" +
+                'export default { fetch() { return new Response("stub"); } };',
+            },
+          ],
+        },
       }),
     ],
   };

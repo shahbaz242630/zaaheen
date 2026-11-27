@@ -1,0 +1,273 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+
+// Learn business article 5 (s129): why AI projects fail. Plan:
+// notes/ai-assessment/RESEARCH-CONSULTING-SEO-S129.md, section 5 "Article 5".
+// Figures read on the publishers' pages on 2026-11-26 (research section 4):
+// - RAND RRA2680-1, 13 Aug 2024: "by some estimates, more than 80 percent of AI
+//   projects fail, twice the rate of non-AI IT projects"; most common cause:
+//   the problem is misunderstood or miscommunicated; 65 interviews.
+// - BCG press release, 24 Oct 2024: 74% yet to show tangible value; leaders
+//   put 10% algorithms, 20% technology and data, 70% people and processes;
+//   1,000 executives, 59 countries.
+// - Deloitte Middle East press release, 4 Jun 2026: 84% have not redesigned
+//   jobs or workflows around AI; 3,200+ leaders, 24 countries.
+// - S&P Global, read ONLY via CIO Dive, 14 Mar 2025: 42% scrapping most AI
+//   initiatives (17% a year before); 46% of proofs of concept scrapped on
+//   average; 1,000+ respondents, North America and Europe. Always "reported by
+//   CIO Dive".
+// Do not add: the disputed "MIT 95%", Gartner predictions, McKinsey figures,
+// vendor savings claims.
+const OUTLINE = [
+  { id: 'how-many', title: 'How many fail' },
+  { id: 'reason', title: 'The most common reason' },
+  { id: 'process', title: 'Process, not technology' },
+  { id: 'demo', title: 'Tools chosen from a demo' },
+  { id: 'before', title: 'Before you start' },
+  { id: 'no-ai', title: 'When not to use AI' },
+  { id: 'why-zaaheen', title: 'How Zaaheen checks first' },
+  { id: 'faq', title: 'Questions' },
+];
+const RAND = 'https://www.rand.org/pubs/research_reports/RRA2680-1.html';
+const BCG = 'https://www.bcg.com/press/24october2024-ai-adoption-in-2024-74-of-companies-struggle-to-achieve-and-scale-value';
+const DELOITTE = 'https://www.deloitte.com/middle-east/en/about/press-room/deloitte-unveils-new-era-of-enterprise-ai-as-middle-east-organizations-shift-from-pilots-to-large-scale-deployment.html';
+const CIODIVE = 'https://www.ciodive.com/news/ai-project-fail-data-spglobal/742590/';
+---
+<Learn
+  path="/learn/why-ai-projects-fail/"
+  lede="Most AI projects fail because nobody pinned down the business problem or fixed the process before adding the technology. RAND names a misunderstood problem as the most common cause, and BCG puts about 70% of the challenge in people and processes, not in the software."
+  outline={OUTLINE}
+  business
+>
+  <p>Zaaheen is an independent AI consultancy based in Dubai that assesses businesses across the
+     GCC on site, team by team, and tells each one where AI will help and where it will not. We
+     sell and build no tools. This guide sets out what four large studies found about failed AI
+     projects, and what to do before you spend anything.</p>
+
+  <section id="how-many">
+    <h2>How many AI projects fail?</h2>
+    <p>More than half, on most estimates, and the share abandoned has been rising. The numbers
+       differ because each study counts failure differently, so it helps to read them side by
+       side.</p>
+    <ul>
+      <li><strong>RAND (13 August 2024):</strong> "by some estimates, more than 80 percent of AI
+          projects fail, twice the rate of non-AI IT projects". RAND based its report on 65
+          interviews with people who build AI systems (<a href={RAND}>RAND</a>).</li>
+      <li><strong>BCG (24 October 2024):</strong> 74% of companies "have yet to show tangible
+          value from their use of AI", from a survey of 1,000 executives in 59 countries
+          (<a href={BCG}>BCG</a>).</li>
+      <li><strong>S&amp;P Global (March 2025), as reported by CIO Dive:</strong> the share of
+          businesses scrapping most of their AI initiatives rose to 42%, up from 17% the year
+          before, and the average organisation scrapped 46% of its proofs of concept before they
+          reached production. The survey covered more than 1,000 respondents in North America and
+          Europe (<a href={CIODIVE}>CIO Dive</a>).</li>
+    </ul>
+
+    <BarChart
+      id="chart-ai-abandoned"
+      title="Companies abandoning most of their AI initiatives, per S&P Global"
+      measure="Per cent"
+      max={100}
+      bars={[
+        { label: 'Abandoned most, 2024', value: 17, note: '%' },
+        { label: 'Abandoned most, 2025', value: 42, note: '%' },
+        { label: 'Pilots scrapped, average', value: 46, note: '%' },
+      ]}
+      source={{ text: 'S&P Global survey of more than 1,000 respondents in North America and Europe, reported by CIO Dive on 14 March 2025. "Pilots scrapped" is the average share of AI proofs of concept dropped before production.', href: CIODIVE }}
+    />
+
+    <p>None of these three surveys was run in the Gulf, but the pattern is a familiar one for
+       businesses in Dubai, Riyadh and Doha too: a pilot that looked good in the meeting room and
+       was quietly dropped a few months later.</p>
+  </section>
+
+  <section id="reason">
+    <h2>What is the most common reason AI projects fail?</h2>
+    <p>The most common reason is that the people involved never agreed what problem the AI was
+       meant to solve. RAND found that stakeholders often "misunderstand, or miscommunicate, what
+       problem needs to be solved using AI", and named it the top cause of failure.</p>
+    <p>It sounds too simple to be true, so here is how it usually happens. A manager asks for "AI
+       for customer service". The team that builds it hears "a chatbot". The real problem was that
+       half of all calls were customers chasing the same delayed paperwork. A chatbot answers those
+       calls faster, but the paperwork is still late, and the calls keep coming.</p>
+    <p>RAND lists four other root causes alongside it:</p>
+    <ul>
+      <li>The organisation does not have the data it needs to train an effective system.</li>
+      <li>The project chases the latest technology instead of solving a real problem for the
+          people who will use it.</li>
+      <li>The organisation lacks the infrastructure to manage its data and put finished systems
+          into use.</li>
+      <li>The problem is too difficult for AI to solve.</li>
+    </ul>
+    <p>Only the last of those five is a limit of the technology itself. The rest are about the
+       business, its choices and its data.</p>
+  </section>
+
+  <section id="process">
+    <h2>Why is it usually the process, not the technology?</h2>
+    <p>Because AI does a step faster, and if the step is wrong, it does the wrong thing faster.
+       The studies agree that the companies getting value spend most of their effort on how the
+       work is done.</p>
+    <p>BCG found that the leaders put "10% of their resources into algorithms, 20% into technology
+       and data, and 70% in people and processes" (<a href={BCG}>BCG, 24 October 2024</a>). In the
+       Middle East, Deloitte reported in June 2026 that "84% of organizations have not yet
+       redesigned jobs or workflows around AI capabilities", from a survey of more than 3,200
+       leaders in 24 countries (<a href={DELOITTE}>Deloitte Middle East, 4 June 2026</a>).</p>
+    <p>In practice, a process is not ready for AI when it has:</p>
+    <ul>
+      <li><strong>Too many exceptions.</strong> If staff handle every third case "the usual way,
+          except when", there is no usual way for a system to learn.</li>
+      <li><strong>Unclear ownership.</strong> An approval that needs three people, none of whom
+          owns it, stalls whether a person or a machine sends it.</li>
+      <li><strong>Missing or scattered data.</strong> If the facts live in email threads, a
+          spreadsheet on one laptop and someone's memory, AI has nothing reliable to read.</li>
+    </ul>
+
+    <MemoryFlow
+      id="flow-fix-process"
+      from="Shiny demo"
+      to="Working process"
+      fact="Approvals: 3 owners"
+      hub="Fix the process"
+      hubNote="exceptions, owners, data"
+      saved="Fixed first"
+      caption="AI on a broken process only makes it break faster, so fix the process first: one owner for each approval, fewer exceptions, data in one place."
+    />
+
+    <p>This is why "Fix the process first" is one of the four verdicts in
+       <a href="/consulting/">our AI Readiness Assessment</a>. Sometimes the most useful finding is
+       that a team needs a clear owner and a shorter checklist before it needs any software. Our
+       guide to <a href="/learn/ai-vs-automation/">AI vs automation</a> explains how to tell when a
+       simple rule-based workflow does the job better than AI.</p>
+  </section>
+
+  <section id="demo">
+    <h2>Why do AI tools chosen from a demonstration go unused?</h2>
+    <p>Because a demonstration shows the tool working on tidy example data, not on your real work.
+       Tools chosen from a demonstration, without anyone seeing how the job is actually done, tend
+       to end up unused.</p>
+    <p>A demonstration is built to impress in 30 minutes. It does not show the supplier invoice in
+       a scanned PDF with a handwritten note, the customer who writes in Arabic and English in the
+       same message, or the month-end rush when the finance team in Abu Dhabi has no time to check
+       a new system's output. When the tool meets those cases, staff go back to the old way, and
+       the licence keeps renewing.</p>
+    <p>Three questions catch most of this before you sign:</p>
+    <ul>
+      <li>Has anyone timed how this task is done today, step by step?</li>
+      <li>Will the tool see the same messy inputs your staff see, not a sample?</li>
+      <li>Who checks its output, and how long will that take each week?</li>
+    </ul>
+    <p>If nobody can answer the first question, nobody can say what the tool will save. Our guide on
+       <a href="/learn/ai-roi-before-you-buy/">working out AI ROI before you buy</a> shows how to put
+       numbers on it.</p>
+  </section>
+
+  <section id="before">
+    <h2>What should you do before starting an AI project?</h2>
+    <p>Write down the business problem in one sentence, see the real work, and fix what is broken
+       before you choose a tool. RAND's report ends with five recommendations, which come down to
+       these steps in plain words:</p>
+    <ol>
+      <li><strong>Make sure the builders understand the purpose.</strong> The technical people
+          must know what the project is for and the business context around it, not just what to
+          build.</li>
+      <li><strong>Choose lasting problems, and stay with them.</strong> RAND advises leaders to
+          commit a team to one specific problem for at least a year, instead of switching to the
+          crisis of the moment.</li>
+      <li><strong>Focus on the problem, not the technology.</strong> Chasing the newest AI for its
+          own sake is, in RAND's words, one of the most frequent pathways to failure.</li>
+      <li><strong>Invest in infrastructure.</strong> Data-related problems are among the top
+          reasons projects fail, and delaying the investment makes projects slower and more likely
+          to fail.</li>
+      <li><strong>Understand AI's limits.</strong> AI cannot solve every problem or automate every
+          process, and some tasks are beyond it today.</li>
+    </ol>
+    <p>For a business with a few departments, this starts with mapping each team's work: who does
+       what, how long each step takes, where work waits and where mistakes are costly. Our guide on
+       <a href="/learn/where-ai-helps-your-business/">how to find where AI helps your business</a>
+       walks through that method. If you would rather have it done for you, an
+       <a href="/consulting/">AI readiness assessment in Dubai or anywhere in the Gulf</a> does
+       exactly this on site, and ends in a written report with costs and payback.</p>
+  </section>
+
+  <section id="no-ai">
+    <h2>When is the right answer "don't use AI here"?</h2>
+    <p>When the work is low in volume, when the rules are fixed and a simple workflow would do it,
+       or when a mistake would be costly and needs expert judgement. Saying no to AI in those places
+       is not a failure. It is how you avoid one.</p>
+    <table>
+      <thead>
+        <tr><th scope="col">What the work looks like</th><th scope="col">Better answer</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Reads, writes, sorts or answers at volume, and the data already exists</td><td>AI now</td></tr>
+        <tr><td>Fixed rules and clean inputs, such as matching an invoice to an order</td><td>Automate without AI</td></tr>
+        <tr><td>Many exceptions, unclear owners or missing data</td><td>Fix the process first</td></tr>
+        <tr><td>Low volume, or expert judgement where a mistake is costly</td><td>Leave as it is</td></tr>
+      </tbody>
+    </table>
+    <p>These are the four verdicts we give each team. Some work should stay with your people, and
+       we say so. A business in Kuwait, Bahrain or Oman that skips AI in two departments and uses
+       it well in a third has spent its money better than one that buys tools for all of them.</p>
+  </section>
+
+  <section id="why-zaaheen">
+    <h2>How does Zaaheen check before you spend?</h2>
+    <ul>
+      <li><strong>We see the real work.</strong> We go on site and walk every role, from reception
+          to the managing director, timing each step.</li>
+      <li><strong>We are independent.</strong> We do not sell, resell or build any AI product, and
+          we take no referral fees or commissions. Our only income is the fee you pay us.</li>
+      <li><strong>We tell you where not to use AI.</strong> Each team gets one of four verdicts,
+          including "Fix the process first" and "Leave as it is".</li>
+      <li><strong>We know operations.</strong> Our team spent twenty years in corporate operations:
+          customer service, back office, sales and team management.</li>
+      <li><strong>Every recommendation is costed.</strong> You get the effort, a cost range, the
+          hours saved each month, when it pays back, and where a person must stay in charge.</li>
+      <li><strong>The price is clear before we start.</strong> The first 30-minute call is free.
+          If you go ahead, we send one fixed price in writing, plus VAT where it applies, set out
+          in full, with no hidden costs.</li>
+    </ul>
+    <p>We work with businesses of twenty staff or more in the UAE, Saudi Arabia (KSA), Qatar,
+       Kuwait, Bahrain and Oman. If you are comparing advisers, our guide on
+       <a href="/learn/how-to-choose-an-ai-consultant-uae/">how to choose an AI consultant in the
+       UAE</a> lists the questions to ask any of them, and
+       <a href="/learn/ai-readiness-assessment-uae/">what to expect from an AI readiness assessment
+       in the UAE</a> explains what the visit covers.</p>
+  </section>
+
+  <section id="faq">
+    <h2>What else do people ask about failed AI projects?</h2>
+
+    <h3>Why do most AI projects fail?</h3>
+    <p>Mostly because the business problem was never pinned down, or the process was broken before
+       the AI arrived. RAND names a misunderstood problem as the most common cause, and BCG found
+       that the leading companies put about 70% of their resources into people and processes. The technology
+       is rarely the main reason.</p>
+
+    <h3>What is the AI project failure rate?</h3>
+    <p>RAND cites estimates of more than 80%, about twice the rate of other IT projects, while
+       noting that these are estimates. In S&amp;P Global's 2025 survey, reported by CIO Dive, 42%
+       of businesses were scrapping most of their AI initiatives. The exact figure depends on how
+       each study defines failure.</p>
+
+    <h3>Why do AI pilots fail to reach daily use?</h3>
+    <p>A pilot usually runs on clean sample data with a keen team watching it. Daily work brings
+       exceptions, messy inputs and busy staff who have no time to check the output. S&amp;P
+       Global's survey, reported by CIO Dive, found the average organisation scrapped 46% of its
+       proofs of concept before production.</p>
+
+    <h3>How do you make an AI project succeed?</h3>
+    <p>Start with one clearly written business problem, time how the work is done today, and fix
+       exceptions, ownership and data first. Then choose the tool that fits the work, and decide
+       who checks its output. The steps above, taken from RAND's recommendations, are a good
+       checklist.</p>
+
+    <h3>Do you sell or build the AI tools you recommend?</h3>
+    <p>No. We do not sell, resell or build any AI product, software or hardware, and we take no
+       commissions from providers. If we name a product, you buy it directly from its maker. More
+       answers are in the <a href="/consulting/#questions">questions about our assessment</a>.</p>
+  </section>
+</Learn>

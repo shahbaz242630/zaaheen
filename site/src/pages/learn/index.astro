@@ -1,10 +1,13 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { LEARN, pageFor } from '../../data/site';
+import { LEARN, LEARN_BUSINESS, pageFor } from '../../data/site';
 
-// The Learn hub (s91): every article, newest last as LEARN lists them.
+// The Learn hub (s91): every article, newest last as LEARN lists them. Since
+// s129 a second list for businesses: the AI Readiness Assessment's guides
+// (LEARN_BUSINESS, English only).
 const page = pageFor('/learn/');
 const articles = LEARN.map((a) => ({ ...a, heading: pageFor(a.path).heading }));
+const business = LEARN_BUSINESS.map((a) => ({ ...a, heading: pageFor(a.path).heading }));
 ---
 <Base page={page}>
   <div class="docs learn">
@@ -18,5 +21,16 @@ const articles = LEARN.map((a) => ({ ...a, heading: pageFor(a.path).heading }));
     <ul class="learn-list">
       {articles.map((a) => <li><a href={a.path}>{a.heading}</a><p>{a.summary}</p></li>)}
     </ul>
+
+    {business.length > 0 && (
+      <section class="learn-section" aria-labelledby="for-business">
+        <h2 id="for-business" class="docs-title">AI for your business</h2>
+        <p class="learn-section-lede">Where AI helps a business and where it doesn't, what it costs and
+           why so many projects stall. From our <a href="/consulting/">AI Readiness Assessment</a>.</p>
+        <ul class="learn-list">
+          {business.map((a) => <li><a href={a.path}>{a.heading}</a><p>{a.summary}</p></li>)}
+        </ul>
+      </section>
+    )}
   </div>
 </Base>

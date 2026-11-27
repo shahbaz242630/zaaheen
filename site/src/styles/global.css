@@ -49,7 +49,9 @@ a{color:inherit}
 .lang-menu li a:hover{background:var(--chip);color:var(--ink)}
 .lang-menu li a[aria-current="true"]{color:var(--ink);font-weight:500;background:var(--tint)}
 .brand span{font:500 21px var(--serif)}
-.bar nav{display:flex;flex-wrap:wrap;gap:6px 32px;justify-self:center}
+/* Six tabs since s129 (AI Assessment): the gap narrows on smaller screens so
+   the row never wraps before it moves under the logo (max-width:1080px below). */
+.bar nav{display:flex;flex-wrap:wrap;gap:6px clamp(18px,2.2vw,32px);justify-self:center}
 .bar nav a{color:var(--muted);text-decoration:none;font-size:15px;
   padding:4px 0;border-bottom:1.5px solid transparent}
 .bar nav a:hover{color:var(--ink)}
@@ -481,9 +483,11 @@ p.placeholder{border:1px dashed var(--border);border-radius:10px;padding:14px 18
 
 /* Not in the design (its header had no phone layout): the nav drops to its own
    row under the logo and the two buttons. */
-@media (max-width:860px){
+@media (max-width:1080px){
   .bar{grid-template-columns:1fr auto}
   .bar nav{grid-column:1 / -1;grid-row:2;justify-self:start}
+}
+@media (max-width:860px){
   .strip-item + .strip-item{border-left:0;border-top:1px solid var(--line)}
 }
 @media (max-width:600px){
@@ -693,3 +697,13 @@ code.hash{font-family:var(--mono);font-size:13px;word-break:break-all}
 @media (max-width:350px){
   .brand span{display:none}
 }
+
+/* A business guide's call to action (layouts/Learn.astro `business`, s129):
+   the AI Readiness Assessment, on the tint, with a second, quieter link. */
+.learn-cta.is-business{background:var(--tint);border-color:var(--tint-line)}
+.learn-cta-title{font:500 22px/1.3 var(--serif);color:var(--ink)}
+.learn-cta-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px 22px}
+.learn-cta-link{font-size:15px;font-weight:500;text-decoration:underline;text-decoration-color:var(--sage);text-underline-offset:4px}
+/* The Learn hub's section for businesses (pages/learn/index.astro, s129). */
+.learn-section{margin:64px 0 0;max-width:760px}
+.learn-section-lede{margin:0 0 8px;color:var(--muted)}

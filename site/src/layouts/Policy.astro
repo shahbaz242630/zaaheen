@@ -21,15 +21,17 @@ interface Props {
   outline: Outline[];
   /** A coaching document: the coaching nav and footer (founder, session 70). */
   coaching?: boolean;
+  /** A consulting document (founder s129: its own product line): its nav and footer. */
+  consulting?: boolean;
 }
-const { path, heading, lede, outline, coaching = false } = Astro.props;
+const { path, heading, lede, outline, coaching = false, consulting = false } = Astro.props;
 const page = pageFor(path);
 const updated = lastModified(page.path);
 const updatedLabel = updated
   ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   : undefined;
 ---
-<Base page={page} footer={coaching ? 'coaching' : 'app'}>
+<Base page={page} footer={consulting ? 'consulting' : coaching ? 'coaching' : 'app'}>
   <div class="docs">
     {/* data-source: printed only (CSS ::after), so a printed copy says where it came
         from without adding page text that would move the "Last updated" date. */}
@@ -41,7 +43,7 @@ const updatedLabel = updated
     </header>
 
     <div class="docs-layout">
-      <DocsNav current={path} coaching={coaching} />
+      <DocsNav current={path} coaching={coaching} consulting={consulting} />
 
       <div class="docs-body">
         <section class="policy-summary" aria-labelledby="short-version">

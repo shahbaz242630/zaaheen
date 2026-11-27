@@ -1,0 +1,256 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+
+// Learn article A6 (s129, notes ai-assessment/RESEARCH-CONSULTING-SEO-S129.md
+// section 8): the honest answer to "top / best AI consultancy companies in the
+// UAE". No ranking, no named competitor (good or bad), no "best". Every claim
+// about us comes from data/consulting.ts; "no hidden costs" is founder-approved.
+// Figures read on the publishers' pages on 2026-11-26:
+// - Roland Berger, 10 Feb 2026: "nearly 80%" of GCC organisations have AI in
+//   strategic plans; "only one-third" an enterprise-wide data strategy; "fewer
+//   than one in three" the operating model to scale (plotted at 33); "only 28%"
+//   an AI ethics or compliance board. Sample not stated.
+// - BCG, 24 Oct 2024: 74% yet to show tangible value; 70% people and processes.
+// - RAND, 13 Aug 2024: most common cause is misunderstanding the problem.
+const OUTLINE = [
+  { id: 'honest-list', title: 'Is there an honest list?' },
+  { id: 'why-it-matters', title: 'Why the choice matters' },
+  { id: 'check-first', title: 'What to check first' },
+  { id: 'questions', title: 'Questions to ask' },
+  { id: 'red-flags', title: 'The red flags' },
+  { id: 'adviser-or-builder', title: 'Adviser or builder?' },
+  { id: 'why-zaaheen', title: 'What makes Zaaheen different' },
+  { id: 'faq', title: 'Common questions' },
+];
+const ROLAND_BERGER = 'https://www.rolandberger.com/en/Media/Roland-Berger-Middle-East-report-4-in-5-GCC-organizations-have-an-AI-strategy.html';
+const BCG = 'https://www.bcg.com/press/24october2024-ai-adoption-in-2024-74-of-companies-struggle-to-achieve-and-scale-value';
+const RAND = 'https://www.rand.org/pubs/research_reports/RRA2680-1.html';
+---
+<Learn
+  path="/learn/how-to-choose-an-ai-consultant-uae/"
+  lede="Choose an AI consultant who looks at your real work before recommending anything, sells no tools, takes no commissions, and puts the scope and price in writing. A ranking cannot tell you any of that, but five plain questions can."
+  outline={OUTLINE}
+  business
+>
+  <p>Zaaheen is an independent AI consultancy based in Dubai that assesses businesses of twenty
+     staff or more across the UAE, Saudi Arabia, Qatar, Kuwait, Bahrain and Oman, on site and
+     role by role. We sell and build no tools, so this guide is written from the buyer's side of
+     the table.</p>
+
+  <section id="honest-list">
+    <h2>Is there an honest list of the best AI consultancies in the UAE?</h2>
+    <p>No, and you should be wary of any page that claims to be one. Most "top AI consulting
+       companies in Dubai" lists are paid placements, directories that rank whoever buys the top
+       slot, or pages a consultancy wrote about itself and put first.</p>
+    <p>Even an honest list could not answer your real question. Whether a consultant suits you
+       depends on your business: how many teams you have, how your work is done, what data you
+       hold and what you can afford to change. Nobody can rank that from the outside.</p>
+    <p>So instead of a list, this guide gives you the checks to run yourself, whether you are
+       looking for an AI consultant in Dubai, Abu Dhabi or Riyadh, or anywhere else in the Gulf.
+       The checks are the same everywhere in
+       the GCC.</p>
+  </section>
+
+  <section id="why-it-matters">
+    <h2>Why does the choice matter so much for Gulf businesses right now?</h2>
+    <p>Because most Gulf companies already plan to use AI, and far fewer are set up to make it
+       work. Roland Berger's Middle East report of 10 February 2026 found the gap plainly:</p>
+
+    <BarChart
+      id="chart-gcc-ai-gap"
+      title="GCC organisations with AI plans, against those with the means to deliver them, per cent, 2026"
+      measure="Per cent of GCC organisations"
+      max={100}
+      bars={[
+        { label: 'AI in strategic plans', value: 80 },
+        { label: 'Data strategy', value: 33 },
+        { label: 'Model to scale AI', value: 33 },
+        { label: 'AI ethics board', value: 28 },
+      ]}
+      source={{ text: 'Roland Berger, Middle East report "4 in 5 GCC organizations have an AI strategy", 10 February 2026. Sample size not stated. "Fewer than one in three" is drawn at 33%.', href: ROLAND_BERGER }}
+    />
+
+    <p>In the report's own words: "nearly 80%" of GCC organisations have AI in their strategic
+       plans, "only one-third" have an enterprise-wide data strategy, "fewer than one in three"
+       have the operating model to scale it, and "only 28%" have an AI ethics or compliance
+       board.</p>
+    <p>The first action the same report recommends is an organisation-wide AI readiness
+       assessment. That makes the person you hire to do it one of the most important choices in
+       the whole project.</p>
+    <p>The wider research points the same way. Boston Consulting Group found in October 2024
+       that 74% of companies had yet to show tangible value from AI, and that the leaders put
+       about 70% of their effort into people and processes rather than technology
+       (<a href={BCG}>BCG, 1,000 executives in 59 countries</a>). RAND's August 2024 study found
+       the most common cause of failure is that people "misunderstand, or miscommunicate, what
+       problem needs to be solved using AI" (<a href={RAND}>RAND, 65 interviews</a>). A consultant
+       who starts with the tool, not the problem, walks straight into that. We cover the
+       pattern in more depth in <a href="/learn/why-ai-projects-fail/">why AI projects fail</a>.</p>
+  </section>
+
+  <section id="check-first">
+    <h2>What should you check first?</h2>
+    <p>Check whose side the consultant is on, and whether they will see your real work before
+       they advise you. Everything else follows from those two. Use this table when you compare
+       anyone, from a large firm to a one-person practice:</p>
+
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col">Check</th><th scope="col">What a good answer looks like</th><th scope="col">Why it matters</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Independence</th><td>They sell, resell and build nothing, and their only income is your fee</td><td>Otherwise every recommendation has a hidden reason behind it</td></tr>
+        <tr><th scope="row">Sees the real work</th><td>They come on site and sit with the people doing it, not only the managers</td><td>The workarounds that decide whether AI fits are invisible from a meeting room</td></tr>
+        <tr><th scope="row">A clear method</th><td>They can explain how they map, time and score each step</td><td>Without a method, the advice is opinion</td></tr>
+        <tr><th scope="row">Honest verdicts</th><td>They will tell you where not to use AI, and where to fix the process first</td><td>An adviser who always says "AI" is selling, not advising</td></tr>
+        <tr><th scope="row">Written scope and price</th><td>A fixed quote in writing, with what each stage covers</td><td>Open-ended day rates and "phase two" surprises are where budgets go</td></tr>
+        <tr><th scope="row">Data handling</th><td>A confidentiality agreement before the first visit, and a date when notes are deleted</td><td>They will see how your business runs, sometimes with customer data on screen</td></tr>
+        <tr><th scope="row">Who does the work</th><td>The people you meet are the people who visit and write the report</td><td>Senior people at the pitch and juniors on site is a common swap</td></tr>
+      </tbody>
+    </table>
+
+    <p>For a smaller business, the first two checks matter most. If you have thirty staff, one
+       wrong tool bought on a sales pitch can cost you a year of effort. If you are still unsure
+       what a proper assessment covers, read
+       <a href="/learn/ai-readiness-assessment-uae/">what an AI readiness assessment in the UAE covers</a>.</p>
+  </section>
+
+  <section id="questions">
+    <h2>Which questions should you ask an AI consultant?</h2>
+    <p>Ask these five questions in the first call, and ask for the answers in writing. A
+       genuine adviser will answer each one in a sentence.</p>
+    <ol>
+      <li><strong>Do you sell, resell or build any AI tools?</strong> If yes, their advice will
+          tend to lead to their own product, even with the best intentions.</li>
+      <li><strong>Do you take commissions, referral fees or kickbacks from any provider?</strong>
+          Many software companies pay partners for each customer they bring. Ask directly; it is a
+          normal question.</li>
+      <li><strong>Are you a partner or reseller of any provider?</strong> Partner badges look
+          reassuring on a website. They also mean a commercial tie.</li>
+      <li><strong>Will you come on site and watch the work being done?</strong> A recommendation
+          made from a questionnaire or a single workshop is a guess about your business.</li>
+      <li><strong>Will you tell us where not to use AI?</strong> Ask for an example of work they
+          would leave alone, or would solve with plain automation instead.</li>
+    </ol>
+
+    <MemoryFlow
+      id="flow-five-questions"
+      from="Vendor shortlist"
+      to="Independent advice"
+      fact="No commissions taken"
+      hub="Five questions"
+      hubNote="tools? fees? on site?"
+      saved="Checked"
+      caption="Five questions, asked in the first call, separate an adviser who works for you from a seller who works for a supplier."
+    />
+
+    <p>Two follow-up questions are worth asking too: what you get at the end, and what happens to
+       the notes they take about your business. You can see how we answer all of these on our
+       <a href="/consulting/#questions">AI Readiness Assessment questions</a>.</p>
+  </section>
+
+  <section id="red-flags">
+    <h2>What are the red flags?</h2>
+    <p>The clearest red flag is a recommendation made before anyone has seen your work. Watch for
+       these in Dubai, Abu Dhabi, Riyadh or anywhere else in the Gulf:</p>
+    <ul>
+      <li><strong>A free AI audit that leads into their own build work.</strong> The audit is
+          the sales step, and the answer is usually the product or project they sell.</li>
+      <li><strong>Commissions or referral fees.</strong> If they earn from the tool you buy, they
+          are not neutral about which tool you buy.</li>
+      <li><strong>Partner or reseller ties.</strong> A wall of supplier logos tells you who pays
+          them, as well as who trained them.</li>
+      <li><strong>A tool-first pitch.</strong> If the first meeting is a demonstration of a
+          product, the conclusion was decided before the question. Tools chosen from a demo,
+          without seeing the real work, tend to end up unused.</li>
+      <li><strong>No site visit.</strong> An AI audit delivered in a day or two, without anyone
+          coming to your office, has not seen how your people really work.</li>
+      <li><strong>A readiness quiz sold as an assessment.</strong> An online quiz scores your own
+          answers about yourself. It cannot see the hand-offs, waiting and rework that decide
+          where AI helps.</li>
+      <li><strong>Savings promised before the visit.</strong> Nobody can promise hours saved
+          before they have timed the work.</li>
+      <li><strong>No written quote.</strong> If the price is vague at the start, it rarely gets
+          smaller later.</li>
+    </ul>
+    <p>None of these prove bad intent. They tell you whose interests the advice is built around.
+       The difference between a task that needs AI and one that needs a simple rule is often the
+       first thing a seller blurs; our guide to
+       <a href="/learn/ai-vs-automation/">AI vs automation</a> explains it plainly.</p>
+  </section>
+
+  <section id="adviser-or-builder">
+    <h2>Should you hire an adviser or a company that builds AI?</h2>
+    <p>Hire an adviser to decide what to do, and a builder to do it, ideally as two separate
+       decisions. A company that builds AI systems is often good at building. Its view of what
+       you need will still lean towards what it builds.</p>
+    <p>An independent adviser has nothing to gain from any answer, so "automate this with a simple
+       form", "fix the process first" or "leave this team alone" are all possible outcomes. Once
+       you know what to do and what it should cost, you can brief a builder or buy a product
+       directly from its maker, with a clear scope they cannot quietly expand.</p>
+    <p>Before you spend on either, it helps to know how to judge the return. Our guide to
+       <a href="/learn/ai-roi-before-you-buy/">working out AI ROI before you buy</a> sets out the
+       sums.</p>
+  </section>
+
+  <section id="why-zaaheen">
+    <h2>What makes Zaaheen different?</h2>
+    <p>We built <a href="/consulting/">our AI Readiness Assessment</a> around the checks in this
+       guide. What that means in practice:</p>
+    <ul>
+      <li><strong>On site, every role.</strong> We walk the business from reception to the
+          managing director, sit with the people doing the work and time each step.</li>
+      <li><strong>Independent.</strong> We do not sell, resell or build any AI product, and we
+          take no referral fees, commissions or kickbacks. Our only income is the fee you pay us.</li>
+      <li><strong>Four honest verdicts.</strong> Every team gets one: AI now, Automate without AI,
+          Fix the process first, or Leave as it is. Some work should stay with your people, and we
+          say so.</li>
+      <li><strong>Twenty years in operations.</strong> Our team spent twenty years in corporate
+          operations: customer service, back office, sales and team management.</li>
+      <li><strong>Numbers for every recommendation.</strong> The effort, a cost range, the hours
+          saved each month, when it pays back, and where a person must stay in charge, in a
+          written report and a read-out with your team.</li>
+      <li><strong>A clear price.</strong> A free 30-minute call, then a fixed quote in writing,
+          with no hidden costs, plus VAT where it applies.</li>
+    </ul>
+    <p>If that is the kind of adviser you are looking for, start with an
+       <a href="/consulting/">AI readiness assessment in Dubai</a>, or wherever in the Gulf your
+       offices are.</p>
+  </section>
+
+  <section id="faq">
+    <h2>Common questions about choosing an AI consultant in the GCC</h2>
+
+    <h3>How do I find an AI consultant in Dubai or Saudi Arabia?</h3>
+    <p>Start with a short list from referrals and search, then run the five questions above on
+       a first call. Rule out anyone who sells tools, takes commissions or will not come on site.
+       The ones left can be judged on method, written scope and price.</p>
+
+    <h3>Do AI consultants take commissions?</h3>
+    <p>Some do. Many software providers run partner and referral programmes that pay for each
+       customer brought to them. Ask any consultant directly, and get the answer in writing. We
+       take none: our only income is the fee you pay us.</p>
+
+    <h3>What is the best AI consulting for small businesses?</h3>
+    <p>There is no single best; the right fit is an independent adviser who looks at your actual
+       work and gives you a fixed price. For a business of twenty to a hundred people, a focused
+       on-site assessment of the teams that matter most is usually more useful than a broad
+       strategy document.</p>
+
+    <h3>Is a free AI audit worth it?</h3>
+    <p>It can be a useful conversation, but check what follows it. If the "audit" leads straight
+       into the provider's own build work or product, treat it as a sales meeting. A real
+       assessment means someone watching and timing the work on site, which takes days, not
+       minutes.</p>
+
+    <h3>Do you come to offices in Abu Dhabi, Riyadh and Doha?</h3>
+    <p>Yes. We are based in Dubai and do the work on site across the UAE, Saudi Arabia, Qatar,
+       Kuwait, Bahrain and Oman. The timeline is agreed in writing before we start.</p>
+
+    <h3>What does an AI assessment cost in the UAE?</h3>
+    <p>It depends on how many teams and sites are involved, so we quote after the free call. The
+       quote is fixed, in UAE dirhams plus VAT where it applies, and in writing, and nothing is
+       added later without your written agreement.</p>
+  </section>
+</Learn>

@@ -1,0 +1,254 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+
+// Learn business article A4 (s129): how to work out AI ROI before you buy.
+// Plan: notes/ai-assessment/RESEARCH-CONSULTING-SEO-S129.md §5 Article 4.
+// Facts read on the publishers' pages, 2026-11-26:
+// - Deloitte Middle East press release, 4 June 2026: 66% improved efficiency;
+//   "only 20% say they are currently achieving revenue growth through AI"; 74%
+//   expect it; 84% have not redesigned jobs or workflows; 3,200+ leaders in 24
+//   countries, Middle East sample not stated.
+// - BCG, 24 October 2024: 74% yet to show tangible value; 70% of resources in
+//   people and processes; 1,000 executives in 59 countries.
+// - RAND, 13 August 2024: most common cause is a misunderstood problem.
+// The worked example is illustrative, round numbers, labelled as such: never a
+// client result, a price or a promised saving. Our service words follow
+// data/consulting.ts; "no hidden costs" is founder-approved (s129).
+const OUTLINE = [
+  { id: 'returns', title: 'Why so few see a return' },
+  { id: 'measure', title: 'Measure the work first' },
+  { id: 'costs', title: 'The costs people forget' },
+  { id: 'payback', title: 'The payback month' },
+  { id: 'real', title: 'When saved hours are not savings' },
+  { id: 'recommendation', title: 'What a recommendation should tell you' },
+  { id: 'why', title: 'How Zaaheen works it out' },
+  { id: 'faq', title: 'Questions' },
+];
+const DELOITTE = 'https://www.deloitte.com/middle-east/en/about/press-room/deloitte-unveils-new-era-of-enterprise-ai-as-middle-east-organizations-shift-from-pilots-to-large-scale-deployment.html';
+const BCG = 'https://www.bcg.com/press/24october2024-ai-adoption-in-2024-74-of-companies-struggle-to-achieve-and-scale-value';
+const RAND = 'https://www.rand.org/pubs/research_reports/RRA2680-1.html';
+---
+<Learn
+  path="/learn/ai-roi-before-you-buy/"
+  lede="Time the task as it is done today, estimate the hours a tool would really save each month, add every cost including setup, training and someone checking the output, and divide one by the other to find the payback month. If you cannot time the task, you cannot know the return."
+  outline={OUTLINE}
+  business
+>
+  <p>Zaaheen is an independent AI consultancy based in Dubai that assesses businesses across the
+     GCC on site, from reception to the managing director. We sell, resell and build no AI tools,
+     so the sums in this guide are the same ones we would do with you.</p>
+
+  <section id="returns">
+    <h2>Why do so few companies see a return from AI?</h2>
+    <p>Most companies see some benefit from AI, but far fewer see money they can count. Deloitte's
+       survey of more than 3,200 business leaders in 24 countries, published by Deloitte Middle East
+       on 4 June 2026, found that 66% had improved efficiency, but only 20% said they were achieving
+       revenue growth through AI. Another 74% expect that growth in future
+       (<a href={DELOITTE}>Deloitte, June 2026</a>).</p>
+
+    <BarChart
+      id="chart-ai-returns-deloitte"
+      title="Organisations and returns from AI, per Deloitte (June 2026)"
+      measure="Share of organisations (%)"
+      max={100}
+      bars={[
+        { label: 'Improved efficiency', value: 66, note: '%' },
+        { label: 'Revenue growth from AI now', value: 20, note: '%' },
+        { label: 'Expect revenue growth later', value: 74, note: '%' },
+      ]}
+      source={{ text: 'Deloitte survey of 3,200+ business leaders in 24 countries, press release by Deloitte Middle East, 4 June 2026. The size of the Middle East sample is not published.', href: DELOITTE }}
+    />
+
+    <p>The gap between expecting a return and getting one is the subject of this guide. The same
+       Deloitte survey found that 84% of organisations had not yet redesigned jobs or workflows
+       around AI. Boston Consulting Group found in October 2024 that 74% of companies had yet to
+       show tangible value from AI, and that the leaders put about 70% of their effort into people
+       and processes rather than technology (<a href={BCG}>BCG, 1,000 executives in 59 countries</a>).</p>
+    <p>Put simply, a return is decided before the tool is bought. It depends on which task you
+       pick, how well you understand it, and whether you counted every cost. We look at the other
+       reasons in <a href="/learn/why-ai-projects-fail/">why AI projects fail, and how to avoid it</a>.</p>
+  </section>
+
+  <section id="measure">
+    <h2>How do you measure the work before AI?</h2>
+    <p>You measure it by watching the work and timing it, step by step, as it is done today. A
+       guess at how long a job takes is almost always wrong, because people forget the waiting,
+       the checking and the chasing.</p>
+    <p>For each task you want to improve, write down:</p>
+    <ul>
+      <li><strong>How often it happens:</strong> times a day, a week or a month.</li>
+      <li><strong>How long each step takes:</strong> timed, not estimated, including hand-offs and
+          waiting.</li>
+      <li><strong>Who does it:</strong> the role, and roughly what an hour of that role costs you.</li>
+      <li><strong>How often it goes wrong:</strong> rework, corrections and complaints.</li>
+      <li><strong>What the step needs:</strong> the data it reads and where that data lives.</li>
+    </ul>
+    <p>Multiply frequency by time and you have the hours a month the task takes now. That is the
+       ceiling on what any tool can save. RAND's study of failed AI projects named a misunderstood
+       problem as the most common cause (<a href={RAND}>RAND, August 2024</a>), and timing the work
+       is the cheapest way to understand the problem.</p>
+    <p>Not every task needs AI to get faster. If the rules are fixed and the inputs are clean, plain
+       automation is cheaper and safer; we explain the difference in
+       <a href="/learn/ai-vs-automation/">AI vs automation: which does your business need?</a></p>
+  </section>
+
+  <section id="costs">
+    <h2>Which costs do people forget?</h2>
+    <p>The subscription price is usually the smallest cost. These are the hidden costs of AI tools
+       that turn a promising sum into a loss:</p>
+    <ul>
+      <li><strong>Setup:</strong> connecting the tool to your systems, setting it up for your work
+          and testing it.</li>
+      <li><strong>Training:</strong> the hours your people spend learning it, and the slower weeks
+          while they get used to it.</li>
+      <li><strong>Data clean-up:</strong> AI reads what you give it. Scattered spreadsheets, old
+          records and missing fields have to be fixed first.</li>
+      <li><strong>Human review:</strong> someone checking the output, every time or on a sample. This
+          cost never goes away for work where a mistake matters.</li>
+      <li><strong>Running both:</strong> the old way and the new way side by side until you trust
+          the new one.</li>
+      <li><strong>Upkeep:</strong> changes when your process, prices or forms change, and someone who
+          owns the tool inside the business.</li>
+    </ul>
+    <p>Leave any of these out and the payback month moves further away than the plan says.</p>
+  </section>
+
+  <section id="payback">
+    <h2>How do you work out the payback month?</h2>
+    <p>The AI payback period is the one-off cost divided by the net saving each month. The net
+       saving is the value of the hours saved minus everything you pay every month to keep the tool
+       running, including review.</p>
+    <p><strong>Payback in months = one-off costs ÷ (monthly value of hours saved minus monthly
+       running costs)</strong></p>
+    <p>For a return over a set period, the usual AI ROI formula is: value gained minus total cost,
+       divided by total cost. Use the same period for both, and count every cost from the list above.</p>
+    <p><strong>An example with round, illustrative numbers.</strong> These figures are made up to
+       show the method. They are not a client result, a price we charge or a saving anyone should
+       expect.</p>
+    <table class="learn-table">
+      <thead>
+        <tr><th scope="col">Example item</th><th scope="col">Illustrative figure</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>A month-end report, timed today</td><td>10 hours a month</td></tr>
+        <tr><td>Hours a tool would really save</td><td>6 hours a month</td></tr>
+        <tr><td>Cost of an hour of that role</td><td>AED 100</td></tr>
+        <tr><td>Value of hours saved</td><td>AED 600 a month</td></tr>
+        <tr><td>Subscription</td><td>AED 200 a month</td></tr>
+        <tr><td>Checking the output (1 hour)</td><td>AED 100 a month</td></tr>
+        <tr><td>Net saving</td><td>AED 300 a month</td></tr>
+        <tr><td>Setup, training and data clean-up, once</td><td>AED 3,000</td></tr>
+        <tr><td>Payback</td><td>3,000 ÷ 300 = 10 months</td></tr>
+      </tbody>
+    </table>
+    <p>In this example, the first year's return is small: AED 7,200 of value against AED 6,600 of
+       total cost, about 9%. The second year looks much better, because the one-off costs are paid.
+       That is a fair answer, and much more useful than a vendor's promise. If the payback runs past
+       the life of the process, or past the next system change, the answer is no.</p>
+
+    <MemoryFlow
+      id="flow-roi-payback"
+      from="Month-end report"
+      to="Payback month"
+      fact="Example: 6 hours a month"
+      hub="Time each step"
+      hubNote="hours, cost, payback"
+      saved="Costed"
+      caption="An illustrative example: the step is timed as it is done today, so the hours saved and the payback month are worked out, not guessed."
+    />
+  </section>
+
+  <section id="real">
+    <h2>When are saved hours not real savings?</h2>
+    <p>Saved hours are only worth money if something changes because of them. Six hours a month
+       spread across six people, thirty minutes at a time, rarely turns into anything you can count.</p>
+    <p>Saved time becomes real when it:</p>
+    <ul>
+      <li>lets the team take on more work without hiring;</li>
+      <li>removes overtime, temporary staff or outsourced work you pay for now;</li>
+      <li>moves people to work that brings in revenue or keeps customers;</li>
+      <li>cuts errors that cost you refunds, penalties or lost clients.</li>
+    </ul>
+    <p>Be honest about which of these applies before you count the saving. Also watch for time that
+       simply moves: if a tool drafts replies in seconds but a manager now spends longer checking
+       them, the saving belongs to one desk and the cost to another.</p>
+    <p>Sometimes the bigger return comes from no tool at all. When a process has too many exceptions or
+       nobody owns it, fixing the process first is cheaper, and a tool added later earns more. Our
+       guide on <a href="/learn/where-ai-helps-your-business/">how to find where AI helps your
+       business</a> shows how to spot those steps.</p>
+  </section>
+
+  <section id="recommendation">
+    <h2>What should a recommendation tell you before you spend?</h2>
+    <p>Before you spend on any AI tool, the advice you are given should answer five questions in
+       writing:</p>
+    <ul>
+      <li><strong>Effort:</strong> how much work it takes to put in place.</li>
+      <li><strong>A cost range:</strong> one-off and monthly, including the hidden costs above.</li>
+      <li><strong>Hours saved each month:</strong> based on the timed work, not a brochure.</li>
+      <li><strong>Payback:</strong> the month it pays for itself.</li>
+      <li><strong>Where a person stays in charge:</strong> which decisions the tool must never make
+          alone.</li>
+    </ul>
+    <p>That is what every recommendation in <a href="/consulting/">our AI Readiness Assessment</a>
+       gives you. Each team gets one of four verdicts with the reasons behind it: AI now, Automate
+       without AI, Fix the process first, or Leave as it is. Advice that cannot name the payback
+       month, or never says where AI should not be used, is a sales pitch.</p>
+  </section>
+
+  <section id="why">
+    <h2>How does Zaaheen work out AI ROI?</h2>
+    <ul>
+      <li><strong>We time the real work.</strong> We come on site and sit with every role, from
+          reception to the managing director, and time each step.</li>
+      <li><strong>Independent.</strong> We sell, resell and build no AI tools, and take no
+          commissions or referral fees. Our only income is the fee you pay us.</li>
+      <li><strong>Four honest verdicts.</strong> Including Fix the process first and Leave as it is.
+          Some work should stay with your people, and we say so.</li>
+      <li><strong>Twenty years in operations.</strong> Our team spent twenty years in corporate
+          operations, so we know where the hours really go at month end.</li>
+      <li><strong>Costs and payback in writing.</strong> A written report and a read-out, with effort,
+          a cost range, hours saved each month, payback and where a person stays in charge.</li>
+      <li><strong>A clear quote.</strong> A free 30-minute call first, then a fixed written quote
+          with no hidden costs, plus VAT where it applies.</li>
+    </ul>
+    <p>Zaaheen, based in Dubai, runs on-site AI readiness assessments for businesses across the UAE,
+       Saudi Arabia, Qatar, Kuwait, Bahrain and Oman. Read <a href="/consulting/">how the AI
+       readiness assessment in Dubai and across the Gulf works</a>.</p>
+  </section>
+
+  <section id="faq">
+    <h2>What else do people ask about AI ROI?</h2>
+
+    <h3>What is the AI ROI formula?</h3>
+    <p>Return on investment is value gained minus total cost, divided by total cost, over the same
+       period. For AI, the value is usually the hours saved, priced at what that role costs you. The
+       total cost must include setup, training, data clean-up, review and running both ways at once.</p>
+
+    <h3>Is AI worth it for my business?</h3>
+    <p>It is worth it where a task is frequent, repetitive and reads or writes things that vary, and
+       where the saved time turns into something you can count. It is often not worth it for rare
+       tasks or expert judgement where a mistake is costly. The only way to know is to time the work
+       first.</p>
+
+    <h3>What is a good AI payback period?</h3>
+    <p>There is no honest single number, so be wary of anyone who quotes one before seeing your work.
+       A useful test is whether the tool pays back well within the time you expect the process to
+       stay the same. If it pays back after your next system change, it never really pays back.</p>
+
+    <h3>How much does an AI assessment cost in Dubai, the UAE or Saudi Arabia?</h3>
+    <p>Every business is different, so we quote after the free 30-minute call, once we know how many
+       teams and sites are involved. The quote is fixed, in writing and in UAE dirhams plus VAT where it
+       applies, with no hidden costs, and nothing is added later without your written agreement. The same applies wherever
+       in the Gulf your offices are. See <a href="/consulting/#questions">our
+       answers on cost, timing and payment</a>.</p>
+
+    <h3>Can you help after the report?</h3>
+    <p>Yes, if you want us to. We can be your point of contact for AI on a monthly basis, and help
+       you choose and brief the right provider to put the recommendations in place. Each is a
+       separate, optional piece of work, and you buy any software or hardware directly from its
+       maker.</p>
+  </section>
+</Learn>

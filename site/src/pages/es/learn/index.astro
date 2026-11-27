@@ -1,6 +1,6 @@
 ---
 import Base from '../../../layouts/Base.astro';
-import { LEARN, pageFor } from '../../../data/site';
+import { LEARN, LEARN_BUSINESS, pageFor } from '../../../data/site';
 import { localize } from '../../../i18n/locales';
 import { learnSummary } from '../../../i18n/learn';
 
@@ -9,6 +9,8 @@ import { learnSummary } from '../../../i18n/learn';
 const page = pageFor('/es/learn/');
 const L = (href: string) => localize(href, 'es');
 const articles = LEARN.map((a) => ({ path: L(a.path), heading: pageFor(L(a.path)).heading, summary: learnSummary(a, 'es') }));
+// The business guides (s129) are English only: linked to the English pages.
+const business = LEARN_BUSINESS.map((a) => ({ path: a.path, heading: pageFor(a.path).heading, summary: a.summary }));
 ---
 <Base page={page}>
   <div class="docs learn">
@@ -22,5 +24,14 @@ const articles = LEARN.map((a) => ({ path: L(a.path), heading: pageFor(L(a.path)
     <ul class="learn-list">
       {articles.map((a) => <li><a href={a.path}>{a.heading}</a><p>{a.summary}</p></li>)}
     </ul>
+    {business.length > 0 && (
+      <section class="learn-section" aria-labelledby="for-business">
+        <h2 id="for-business" class="docs-title">IA para tu empresa (en inglés)</h2>
+        <p class="learn-section-lede">Guías para empresas de nuestro <a href="/consulting/">AI Readiness Assessment</a>: dónde ayuda la IA, cuánto cuesta y por qué se estancan tantos proyectos. Disponibles en inglés.</p>
+        <ul class="learn-list" lang="en">
+          {business.map((a) => <li><a href={a.path} hreflang="en">{a.heading}</a><p>{a.summary}</p></li>)}
+        </ul>
+      </section>
+    )}
   </div>
 </Base>

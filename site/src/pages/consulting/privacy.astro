@@ -1,0 +1,316 @@
+---
+import Policy, { type Outline } from '../../layouts/Policy.astro';
+import Row from '../../components/Row.astro';
+import { COMPANY, CONSULTING, SITE } from '../../data/site';
+
+// The Privacy Policy for the AI Readiness Assessment (s129). Decisions: notes
+// ai-assessment/RESEARCH-CONSULTING-PRIVACY-S129.md D1 to D9, all as
+// recommended (founder s129). Contents per UAE PDPL (Decree-Law 45/2021)
+// art 13; the PDPL has no legitimate-interests basis, so enquiries rest on the
+// required contact tick. What the form collects and keeps is read from
+// workers/consulting/src: validate.ts (fields), store.ts (12-month sweep,
+// next-day count deletion), visitor.ts (daily keyed hash), gate.ts
+// (Turnstile), mail.ts (one email to consulting@). Change this page in the
+// same change as any of those.
+const OUTLINE: Outline[] = [
+  { id: 'about', title: 'About this policy', topics: [
+    { id: 'covers', title: 'What it covers' },
+    { id: 'responsible', title: 'Who is responsible' },
+  ] },
+  { id: 'collect', title: 'What we collect', topics: [
+    { id: 'enquiry', title: 'When you enquire' },
+    { id: 'form-checks', title: 'The bot check and daily limit' },
+    { id: 'client', title: 'If you become a client' },
+    { id: 'interviews', title: 'In interviews' },
+  ] },
+  { id: 'use', title: 'How we use it', topics: [
+    { id: 'basis', title: 'Why, on what basis, for how long' },
+    { id: 'updates', title: 'Occasional updates' },
+    { id: 'never', title: 'What we never do' },
+  ] },
+  { id: 'share', title: 'Who helps us', topics: [
+    { id: 'providers', title: 'Our service providers' },
+    { id: 'transfers', title: 'Data outside your country' },
+    { id: 'security', title: 'How we protect it' },
+  ] },
+  { id: 'keep', title: 'Keeping and your rights', topics: [
+    { id: 'retention', title: 'How long we keep it' },
+    { id: 'your-rights', title: 'Your rights' },
+    { id: 'complaints', title: 'Complaints' },
+    { id: 'children', title: 'Children' },
+    { id: 'changes', title: 'Changes to this policy' },
+    { id: 'contact', title: 'Contact us' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+const mail = `mailto:${CONSULTING.email}`;
+const lede = `How ${SITE.name} handles personal information when you enquire about our AI Readiness Assessment and when we work with your business. It covers what we collect, why, who helps us, how long we keep it and your rights.`;
+---
+<Policy path="/consulting/privacy/" heading="Privacy Policy" lede={lede} outline={OUTLINE} consulting>
+  <ul slot="summary">
+    <li>We collect only what we need to <strong>answer your enquiry</strong> and, if you hire us,
+        to <strong>run the assessment</strong>.</li>
+    <li>We contact you only because you ticked <strong>"Please contact me"</strong>. Updates
+        about AI for business are sent <strong>only if you tick the second box</strong>.</li>
+    <li>Enquiries are <strong>deleted after 12 months</strong>, whether or not we work
+        together.</li>
+    <li>In interviews we record <strong>job roles and processes, not people's names</strong> or
+        personal details, and we <strong>never contact your customers</strong>.</li>
+    <li>Interview notes are <strong>deleted 90 days after we deliver the report</strong>, unless
+        you ask us in writing to keep them for follow-on work.</li>
+    <li>We <strong>never sell</strong> your information or use it for advertising, and we set
+        <strong>no cookies</strong> on the form.</li>
+    <li>To see, correct or delete your information, email
+        <strong>{CONSULTING.email}</strong>. We reply within 30 days.</li>
+  </ul>
+
+  <section id="about" class="docs-section">
+    <h2 class="docs-title">About this policy</h2>
+
+    <Row id="covers" title={topic('covers')} where="The AI Readiness Assessment">
+      <p>This policy covers the AI Readiness Assessment only: the enquiry form at
+         consulting.zaaheen.com, the emails we exchange with you, and the assessments we carry out
+         for businesses.</p>
+      <p>The {SITE.name} app has its own <a href="/privacy/">Privacy Policy</a>, and coaching in the
+         Knowledge Centre has its own <a href="/knowledge-centre/privacy/">Coaching Privacy
+         Notice</a>.</p>
+    </Row>
+
+    <Row id="responsible" title={topic('responsible')} where="Controller">
+      <p>{COMPANY.legalName}, trading as {SITE.name}, is responsible for your enquiry, for our
+         relationship with you as a client, and for our invoices. In data protection law, that
+         makes us the controller.</p>
+      <p>Information about your staff that we gather in interviews is different. Your company
+         decides why the assessment happens, so your company is the controller of that
+         information, and we act on its behalf under the data processing agreement in our
+         engagement letter.</p>
+    </Row>
+  </section>
+
+  <section id="collect" class="docs-section">
+    <h2 class="docs-title">What we collect</h2>
+
+    <Row id="enquiry" title={topic('enquiry')} where="Enquiry form">
+      <p>What you type into the form: your name, work email, phone number (the country code and
+         number, kept as one international number), company, country, number of staff, estimated
+         annual turnover and sector. If you choose to, you can also give a best time to call and
+         add comments.</p>
+      <p>We also keep your two answers about contact, and when you sent the form. The "Please
+         contact me" tick is required. The tick for occasional updates is optional and never
+         ticked for you.</p>
+      <p>Your enquiry is stored in our enquiry database and a copy is emailed to our own mailbox,
+         so we can read it and reply. You need to fill in the required fields for us to answer
+         you; the best time to call, the comments and the updates tick are up to you.</p>
+      <p>We do not store your network address or details about your browser with your enquiry.
+         Our system logs record error codes, never what you typed.</p>
+    </Row>
+
+    <Row id="form-checks" title={topic('form-checks')} where="Before your enquiry is accepted">
+      <p>Before the form is sent, a bot check run by Cloudflare confirms you are a person. To
+         decide, it looks at technical signals from your browser and at your network address.
+         We pass your network address to Cloudflare for the check and do not keep it; we receive
+         only the answer: person or not. Cloudflare explains how it handles that information in
+         its own privacy notice.</p>
+      <p>To stop the form being flooded, we count how many enquiries come from each visitor in a
+         day. The count is filed under a scrambled code made from your network address, the date
+         and a secret key. The code cannot be turned back into your address, it changes every day
+         so it cannot link your visits, and the count is deleted the next day.</p>
+    </Row>
+
+    <Row id="client" title={topic('client')} where="If we work together">
+      <p>The names, job titles, work emails and phone numbers of the people we deal with at your
+         company, our engagement letter and other engagement documents, and invoices and payment
+         records.</p>
+      <p>We use these to agree the work, arrange visits, send the report and invoice your company.
+         We need them to carry out our contract with your company.</p>
+    </Row>
+
+    <Row id="interviews" title={topic('interviews')} where="On site">
+      <p>We sit with your teams to see how the work is done. We record job roles and processes:
+         the steps, how long they take, volumes, hand-offs and what gets in the way. We record
+         roles, not names, and delete any name we come across. We do not record personal
+         details.</p>
+      <p>We use what your staff tell us to understand the work, not to judge the people doing it.
+         The report describes teams and roles, not individuals.</p>
+      <p>If you share sample documents, we ask you to hide customer names and contact details
+         first. We never contact your customers.</p>
+    </Row>
+  </section>
+
+  <section id="use" class="docs-section">
+    <h2 class="docs-title">How we use it</h2>
+
+    <Row id="basis" title={topic('basis')} where="Our reasons">
+      <p>We follow the UAE's personal data protection law (Federal Decree-Law 45 of 2021). Each use
+         of your information rests on one of the reasons that law allows:</p>
+      <div class="basis-wrap" role="region" aria-label="What we collect, why, and how long we keep it" tabindex="0">
+        <table>
+          <thead>
+            <tr><th scope="col">What</th><th scope="col">Why, and on what basis</th><th scope="col">How long</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Your enquiry</th>
+              <td>To reply and call you about it. Your consent: the required "Please contact me"
+                  tick.</td>
+              <td>12 months from arrival, then deleted</td>
+            </tr>
+            <tr>
+              <th scope="row">The enquiry email in our mailbox</th>
+              <td>The same reason, on the same consent.</td>
+              <td>12 months</td>
+            </tr>
+            <tr>
+              <th scope="row">Your choice about updates</th>
+              <td>To send occasional updates about AI for business. Your consent: the optional
+                  tick.</td>
+              <td>Until you withdraw it or the enquiry is deleted, whichever comes first</td>
+            </tr>
+            <tr>
+              <th scope="row">The daily visitor count</th>
+              <td>To keep the form working for real enquiries, as part of handling the enquiry you
+                  consented to. It holds a scrambled code, not your address.</td>
+              <td>Deleted the next day</td>
+            </tr>
+            <tr>
+              <th scope="row">Client contacts and engagement documents</th>
+              <td>To agree and run the assessment. Our contract with your company.</td>
+              <td>7 years</td>
+            </tr>
+            <tr>
+              <th scope="row">Interview notes and sample documents</th>
+              <td>To map the work, score it and write the report. Our contract with your company,
+                  acting on its instructions.</td>
+              <td>90 days after we deliver the report, or, if you ask us in writing to keep them
+                  for follow-on work, 90 days after that work ends</td>
+            </tr>
+            <tr>
+              <th scope="row">The final report</th>
+              <td>A record of the work we did. Our contract, and our legal and accounting
+                  records.</td>
+              <td>One copy for 7 years</td>
+            </tr>
+            <tr>
+              <th scope="row">Invoices and payment records</th>
+              <td>To keep accounts. The law requires it.</td>
+              <td>7 years</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>You can withdraw your consent at any time by emailing us. We then stop contacting you.
+         Withdrawing does not undo what we did with your information before you asked.</p>
+    </Row>
+
+    <Row id="updates" title={topic('updates')} where="Only if you ask">
+      <p>We send occasional updates about AI for business only if you tick the box for it on the
+         form. You can stop them at any time by replying to one or by emailing us. Your choice ends
+         when your enquiry is deleted after 12 months, so updates stop then unless you ask
+         again.</p>
+    </Row>
+
+    <Row id="never" title={topic('never')} where="Never">
+      <p>We never sell your information or share it for advertising. We never contact your
+         customers. We make no decisions about you by automated means.</p>
+    </Row>
+  </section>
+
+  <section id="share" class="docs-section">
+    <h2 class="docs-title">Who helps us</h2>
+
+    <Row id="providers" title={topic('providers')} where="Under contract">
+      <p>These companies process information for us, only on our instructions:</p>
+      <ul>
+        <li><strong>Cloudflare</strong>: runs our website, the enquiry form, the bot check and the
+            database that holds enquiries.</li>
+        <li><strong>Microsoft</strong>: our email. Each enquiry is emailed to our own mailbox,
+            <a href={mail}>{CONSULTING.email}</a>.</li>
+        <li><strong>Hostinger</strong>: hosts the private, encrypted app we use to record interview
+            notes.</li>
+      </ul>
+      <p>We also use AI tools that help us analyse notes and draft reports, used only with
+         settings that do not use your information to train them.</p>
+      <p>We may also share information where the law requires it, or to deal with a legal
+         claim.</p>
+    </Row>
+
+    <Row id="transfers" title={topic('transfers')} where="Safeguards">
+      <p>We are based in the United Arab Emirates. Our providers may store your information
+         outside your country. We choose providers that are bound by contract to protect it. When
+         we work in Saudi Arabia or Oman, we follow their rules for sending personal information
+         abroad.</p>
+    </Row>
+
+    <Row id="security" title={topic('security')} where="Safeguards">
+      <p>Everything travels over encrypted connections. Interview notes are encrypted in our
+         private app. Access is limited to the people at {SITE.name} who work on your assessment.</p>
+      <p>We keep as little as we need: the form asks only for what helps us answer you, and
+         interview notes hold roles, not names. If something went wrong that put your information
+         at risk, we would tell you, and the authorities where the law requires it.</p>
+    </Row>
+  </section>
+
+  <section id="keep" class="docs-section">
+    <h2 class="docs-title">Keeping and your rights</h2>
+
+    <Row id="retention" title={topic('retention')} where="No longer than needed">
+      <ul>
+        <li><strong>Enquiries</strong>: 12 months from the day they arrive, whether or not we work
+            together. A daily job then deletes them from our database. Deleted enquiries can
+            remain in the database's automatic backups for up to 7 more days.</li>
+        <li><strong>Enquiry emails in our mailbox</strong>: 12 months.</li>
+        <li><strong>Your choice about updates</strong>: until you withdraw it or your enquiry is
+            deleted, whichever comes first.</li>
+        <li><strong>Interview notes</strong>: 90 days after we deliver the report, unless you ask
+            us in writing to keep them for follow-on work. Notes kept that way are deleted 90 days
+            after the follow-on work ends.</li>
+        <li><strong>One copy of the final report, engagement documents and invoices</strong>: 7
+            years, for our legal and accounting records.</li>
+      </ul>
+      <p>You can ask us to delete your enquiry sooner at any time.</p>
+    </Row>
+
+    <Row id="your-rights" title={topic('your-rights')} where="Everyone">
+      <p>You can ask us to show you the information we hold about you, correct it or delete it.
+         You can stop updates and withdraw your consent at any time. Where the law allows, you can
+         also object to how we use your information, ask us to limit it, or ask for a copy in a
+         form you can take elsewhere.</p>
+      <p>To ask, email <a href={mail}>{CONSULTING.email}</a>. We reply within 30 days. We may need
+         to confirm who you are first. Some records we must keep by law, such as invoices; we tell
+         you if that applies.</p>
+      <p>If you were interviewed for your employer's assessment, you can ask your employer or us.
+         We act on your employer's instructions, so we pass your request to them.</p>
+    </Row>
+
+    <Row id="complaints" title={topic('complaints')} where="Us first, then a regulator">
+      <p>If you are unhappy with how we handle your information, please tell us first at
+         <a href={mail}>{CONSULTING.email}</a>, and we will try to put it right. You can also
+         complain to a data protection authority: in the UAE, the UAE's federal data protection
+         authority; in Saudi Arabia, the Saudi Data and AI Authority (SDAIA); elsewhere, the
+         authority in your country.</p>
+    </Row>
+
+    <Row id="children" title={topic('children')} where="Businesses only">
+      <p>The AI Readiness Assessment is for businesses. We do not knowingly collect information
+         about children.</p>
+    </Row>
+
+    <Row id="changes" title={topic('changes')} where="Dated">
+      <p>When we change this policy, we update the date at the top of this page. If a change
+         matters to a business we are working with, we email it.</p>
+    </Row>
+
+    <Row id="contact" title={topic('contact')} where="Email">
+      <p>{COMPANY.legalName}, trading as {SITE.name}, {COMPANY.city}, United Arab Emirates
+         ({COMPANY.licence}). For anything about this policy or your information, email
+         <a href={mail}>{CONSULTING.email}</a>.</p>
+    </Row>
+  </section>
+</Policy>
+
+<style>
+  .basis-wrap { overflow-x: auto; margin: 4px 0 12px; }
+  .basis-wrap table { margin: 0; min-width: 480px; }
+  .basis-wrap:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+</style>

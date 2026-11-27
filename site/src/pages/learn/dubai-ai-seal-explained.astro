@@ -1,0 +1,241 @@
+---
+import Learn from '../../layouts/Learn.astro';
+import MemoryFlow from '../../components/learn/MemoryFlow.astro';
+import BarChart from '../../components/learn/BarChart.astro';
+
+// Learn article (s129, notes ai-assessment/RESEARCH-DUBAI-AI-SEAL-S129.md):
+// the Dubai AI Seal, explained for businesses that buy AI. Zaaheen is not a
+// holder, issuer or partner of the seal or of any scheme named here; the page
+// says so twice and points to dub.ai as the authority. Every claim about us
+// comes from data/consulting.ts.
+// Facts read on the publishers' pages on 2026-11-26:
+// - DCAI, dub.ai/en/ai-seal: free; six tiers E to S; classified with the
+//   "Dubai AI Business Activity Classification System"; serial number can be
+//   checked on the site; "protection from irrelevant suppliers and AI washing".
+// - Dubai Media Office, 22 Apr 2025: launched January 2025; criteria (activities,
+//   specialised AI engineers, projects, partnerships); "must first obtain".
+// - Dubai Media Office, 15 May 2025: 325 applications, 77 international offices;
+//   e& and IBM first at Tier S.
+// - Dubai Media Office, 19 Oct 2025: Dubai Finance urges entities to restrict
+//   AI service and consultancy contracts to sealed companies.
+// - The National, 19 Aug 2025: five categories (consulting, development,
+//   infrastructure, integration, ancillary services).
+// - Roland Berger, 10 Feb 2026: chart figures (sample not stated).
+// Not published anywhere we found: tier requirements, validity, renewal, a
+// count of certified companies.
+const OUTLINE = [
+  { id: 'what-is-it', title: 'What is the Dubai AI Seal?' },
+  { id: 'who-can-apply', title: 'Who can apply?' },
+  { id: 'tiers', title: 'What the tiers mean' },
+  { id: 'how-to-apply', title: 'How to get it' },
+  { id: 'government', title: 'Government contracts' },
+  { id: 'buyers', title: 'If you are buying AI' },
+  { id: 'gulf', title: 'Similar schemes in the Gulf' },
+  { id: 'prepare', title: 'Where Zaaheen fits' },
+  { id: 'faq', title: 'Common questions' },
+];
+const SEAL = 'https://www.dub.ai/en/ai-seal';
+const APRIL_2025 = 'https://mediaoffice.ae/en/news/2025/april/22-04/hamdan-bin-mohammed-meets-with-first-batch-of-companies-granted-dubai-ai-seal';
+const MAY_2025 = 'https://mediaoffice.ae/en/news/2025/may/15-05/dubai-ai-seal-sets-industry-standard-for-trusted-ai';
+const OCT_2025 = 'https://www.mediaoffice.ae/en/news/2025/october/19-10/dubai-finance-calls-on-government-entities-to-contract-ai-certified-suppliers';
+const NATIONAL = 'https://www.thenationalnews.com/future/2025/08/19/sheikh-hamdan-directs-creation-of-dubai-ai-seal-for-businesses';
+const ROLAND_BERGER = 'https://www.rolandberger.com/en/Media/Roland-Berger-Middle-East-report-4-in-5-GCC-organizations-have-an-AI-strategy.html';
+---
+<Learn
+  path="/learn/dubai-ai-seal-explained/"
+  lede="The Dubai AI Seal is a free classification from the Dubai Centre for Artificial Intelligence for companies in Dubai that provide AI products or services. It ranks them in six tiers, from E up to S, and Dubai government buyers look for it when they hire AI suppliers. It is not a certificate for businesses that only use AI, but if you buy AI it tells you which suppliers have been checked."
+  outline={OUTLINE}
+  business
+>
+  <p>Zaaheen is an independent AI consultancy based in Dubai that assesses businesses across the
+     Gulf, on site and role by role. We are not a holder, issuer or partner of the Dubai AI Seal or
+     of any scheme on this page. The official site, <a href={SEAL}>dub.ai/en/ai-seal</a>, is the
+     authority on its rules; we last checked it on 26 November 2026.</p>
+
+  <section id="what-is-it">
+    <h2>What is the Dubai AI Seal?</h2>
+    <p>The Dubai AI Seal is a verification system run by the Dubai Centre for Artificial
+       Intelligence (DCAI), in an initiative overseen by the Dubai Future Foundation. It was launched in January 2025
+       under the directives of Sheikh Hamdan bin Mohammed, Crown Prince of Dubai, as part of the
+       Dubai Universal Blueprint for AI (<a href={APRIL_2025}>Dubai Media Office, 22 April 2025</a>).</p>
+    <p>Its job is to separate genuine AI providers from companies that only use the word. DCAI
+       says the seal goes only to businesses that "genuinely provide AI technology", and lists
+       "protection from irrelevant suppliers and AI washing" as a benefit for the government and
+       private companies that buy from them (<a href={SEAL}>DCAI</a>). Each certified company gets
+       a seal showing its tier and a unique serial number, which anyone can check on the seal's
+       website.</p>
+    <p>The first holders were presented at Dubai AI Week in April 2025. By 15 May 2025, 325
+       companies operating in Dubai had applied, representing 77 international offices, and e&amp; and
+       IBM were among the first awarded the top tier (<a href={MAY_2025}>Dubai Media Office, 15 May
+       2025</a>). We found no published count of how many companies hold the seal today.</p>
+  </section>
+
+  <section id="who-can-apply">
+    <h2>Who can apply for the Dubai AI Seal?</h2>
+    <p>Companies that provide AI, not companies that use it. The scheme is open to local,
+       regional and international companies licensed to operate in Dubai that offer AI
+       products or services, or build AI into what they sell (<a href={MAY_2025}>Dubai Media Office</a>).
+       DCAI says AI businesses of any size can apply.</p>
+    <p>The National reported five categories of activity: AI consulting, development,
+       infrastructure, integration and ancillary services
+       (<a href={NATIONAL}>The National, 19 August 2025</a>). A restaurant group using an AI
+       chatbot, or a logistics firm using AI to plan routes, is a user of AI and is not who the
+       seal is for. If your business sells a product or service with AI inside it, you may be
+       eligible, and DCAI decides.</p>
+  </section>
+
+  <section id="tiers">
+    <h2>What do the Dubai AI Seal tiers mean?</h2>
+    <p>There are six tiers: E, D, C, B, A and S, with S marking the highest impact on Dubai's AI
+       economy. DCAI places each company using its Dubai AI Business Activity Classification
+       System, based on the nature of its activities and services, its current and future
+       projects, and its economic contribution to the AI sector (<a href={SEAL}>DCAI</a>).</p>
+    <p>The assessment looks at the nature of the company's AI work, the number of specialised AI
+       engineers it employs, its current and upcoming projects, and its partnerships with
+       government and the private sector (<a href={APRIL_2025}>Dubai Media Office</a>). DCAI has
+       not published what each tier requires, how long a seal lasts or how renewal works. Any page
+       that gives exact tier thresholds is guessing; ask DCAI.</p>
+  </section>
+
+  <section id="how-to-apply">
+    <h2>How do you get the Dubai AI Seal?</h2>
+    <p>You apply online, and it costs nothing. DCAI describes three steps (<a href={SEAL}>DCAI</a>):</p>
+    <ol>
+      <li><strong>Apply.</strong> Submit the online form at dub.ai/en/ai-seal with your business
+          information.</li>
+      <li><strong>Classification.</strong> The DCAI team reviews the application and places the
+          company in a tier.</li>
+      <li><strong>Seal issued.</strong> Approved companies receive a personalised seal with their
+          tier and serial number, and may show it on their websites and marketing.</li>
+    </ol>
+    <p>Be careful with anyone offering to "get you the seal" for a fee. The application is free
+       and goes straight to DCAI.</p>
+  </section>
+
+  <section id="government">
+    <h2>Do you need the seal for Dubai government AI contracts?</h2>
+    <p>In practice, yes. Dubai's Media Office said in April 2025 that any technology company
+       wishing to take part in government AI projects in Dubai "must first obtain" the seal
+       (<a href={APRIL_2025}>Dubai Media Office</a>). On 19 October 2025, Dubai Finance urged
+       government entities to restrict AI-related service and consultancy contracts to companies
+       holding it, and to tell consultancies and AI providers that they need it
+       (<a href={OCT_2025}>Dubai Media Office</a>).</p>
+    <p>That rule is about Dubai government buyers. We found no published requirement that private
+       companies, other emirates or federal bodies use it, so for a private business it is a
+       useful check, not an obligation.</p>
+  </section>
+
+  <section id="buyers">
+    <h2>What does the seal mean if your business is buying AI?</h2>
+    <p>It answers one question well: is this supplier a real AI company, active in Dubai? It does
+       not answer the question that decides whether your project works: does this supplier's
+       product fit the way your people actually work?</p>
+    <p>That second question is where most Gulf businesses are thin. Roland Berger's Middle East
+       report of 10 February 2026 found most GCC organisations plan to use AI, while far fewer have
+       the data strategy or the governance to run it:</p>
+
+    <BarChart
+      id="chart-gcc-ai-governance"
+      title="GCC organisations: AI plans against data and governance, 2026"
+      measure="Share of GCC organisations"
+      max={100}
+      bars={[
+        { label: 'AI in strategic plans', value: 80, note: '% (nearly)' },
+        { label: 'Enterprise data strategy', value: 33, note: '% (one third)' },
+        { label: 'AI ethics or compliance board', value: 28, note: '%' },
+      ]}
+      source={{ text: 'Roland Berger, Middle East report "4 in 5 GCC organizations have an AI strategy", 10 February 2026. Sample size not stated. "Only one-third" is drawn at 33%.', href: ROLAND_BERGER }}
+    />
+
+    <p>A seal on a supplier's website cannot close that gap for you. Before you compare sealed
+       suppliers, it pays to know four things about your own business:</p>
+    <ul>
+      <li><strong>Where AI would actually help.</strong> Which tasks read, write, sort or answer at
+          volume, and which are better served by a simple rule or form. Our guide to
+          <a href="/learn/ai-vs-automation/">AI vs automation</a> explains the difference.</li>
+      <li><strong>How the work is done today.</strong> A mapped process, with its hand-offs and
+          waiting points, is the brief a supplier needs. Without it, you are buying from a demo.</li>
+      <li><strong>Where a person stays in charge.</strong> Which decisions are too costly to get
+          wrong to hand to a system, and who checks the output.</li>
+      <li><strong>What data the tool would touch.</strong> Which records it reads, where they
+          live, and who in your team owns them.</li>
+    </ul>
+
+    <MemoryFlow
+      id="flow-seal-and-fit"
+      from="AI supplier pitch"
+      to="Right supplier"
+      fact="Seal checked, fit checked"
+      hub="Your own map"
+      hubNote="where AI fits, who decides"
+      saved="Fit confirmed"
+      caption="The seal tells you a supplier is a genuine AI company. Your own map of the work tells you whether its product fits your business."
+    />
+
+    <p>With those answers, the seal becomes a useful second filter: you shortlist suppliers that
+       fit your work, then check their serial numbers on the DCAI site. Projects that skip the first
+       step are the ones that stall, as our guide to
+       <a href="/learn/why-ai-projects-fail/">why AI projects fail</a> sets out.</p>
+  </section>
+
+  <section id="gulf">
+    <h2>Are there similar AI certification schemes elsewhere in the Gulf?</h2>
+    <p>A few, and they work differently. In Saudi Arabia, the Saudi Data and AI Authority (SDAIA)
+       awards AI ethics badges to organisations based on their maturity in applying its AI Ethics
+       Principles. Press reports describe five levels and one-year validity, and report that more
+       than 20 companies received badges at the UNESCO Global Forum on the Ethics of AI in Riyadh
+       in 2026. The level
+       names differ between reports, so check SDAIA directly.</p>
+    <p>At federal level in the UAE, the Cyber Security Council announced a national AI test and
+       validation lab in May 2026 to assess AI models, agents and applications, with a national
+       certification mark for systems that pass. That certifies AI systems, not the businesses using
+       them. We found no comparable company scheme in Abu Dhabi or Qatar at the time of writing.</p>
+  </section>
+
+  <section id="prepare">
+    <h2>Where does Zaaheen fit if your business is buying AI?</h2>
+    <p>To be clear first: our assessment does not get anyone a seal, and it is not a certification
+       of any AI system. What it does is give a business that wants to use AI the groundwork a good
+       supplier decision needs.</p>
+    <p>In <a href="/consulting/">our AI Readiness Assessment</a>, someone from our team comes on
+       site and goes through the business department by department, sitting with the people doing
+       the work and timing each step. Every process becomes a map, and each team gets one of four
+       verdicts: AI now, Automate without AI, Fix the process first, or Leave as it is. For every
+       recommendation we give the effort, a cost range, the hours it saves each month, when it pays
+       back, and where a person must stay in charge.</p>
+    <p>We are independent: we sell, resell and build no AI tools, and take no commissions from any
+       provider, so the report is a neutral brief you can take to any supplier, sealed or not. If you
+       are still weighing whether to start, read
+       <a href="/learn/ai-readiness-assessment-uae/">what an AI readiness assessment in the UAE
+       covers</a>, or book <a href="/consulting/">a free 30-minute call</a>.</p>
+  </section>
+
+  <section id="faq">
+    <h2>Common questions about the Dubai AI Seal</h2>
+
+    <h3>Is the Dubai AI Seal free?</h3>
+    <p>Yes. DCAI says the service is free of charge, and you apply directly on its website at
+       dub.ai/en/ai-seal.</p>
+
+    <h3>Can a company that only uses AI get the Dubai AI Seal?</h3>
+    <p>Not on the published rules. The seal is for companies licensed in Dubai that provide AI
+       products or services, or build AI into what they offer. A business that uses AI tools
+       internally is a buyer of AI, not a provider.</p>
+
+    <h3>How do I check if a supplier has the Dubai AI Seal?</h3>
+    <p>Ask for its serial number and check it on the Dubai AI Seal website, which DCAI says can
+       verify any seal. A logo on a website alone proves nothing.</p>
+
+    <h3>How long does the Dubai AI Seal last?</h3>
+    <p>DCAI has not published a validity period or renewal process. Ask DCAI directly before
+       relying on an old seal.</p>
+
+    <h3>Is the Dubai AI Seal the same as a free AI certification from the Dubai government?</h3>
+    <p>No. The seal is a classification for companies. Free AI courses and certificates for
+       individuals are separate programmes, and completing one does not give a company the seal.</p>
+
+    <h3>Does Zaaheen hold the Dubai AI Seal?</h3>
+    <p>No. We are an independent consultancy and have no role in the scheme. We assess private
+       businesses that want to use AI, and the seal's own site is the authority on its rules.</p>
+  </section>
+</Learn>

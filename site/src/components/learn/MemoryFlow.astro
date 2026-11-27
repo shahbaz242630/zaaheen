@@ -16,9 +16,26 @@ interface Props {
   others?: string[];
   /** What the picture shows, in a sentence: the caption and the SVG's name. */
   caption: string;
+  /**
+   * The middle box and the tag under it. Zaaheen's memory by default; the AI
+   * Readiness Assessment's business articles (s129) name their own, e.g.
+   * "Assessment" / "on site, every role" / "One verdict per step".
+   */
+  hub?: string;
+  hubNote?: string;
+  saved?: string;
 }
-const { id, from, to, fact, others = [], caption } = Astro.props;
+const { id, from, to, fact, others = [], caption, hub, hubNote, saved } = Astro.props;
 if (fact.length > 28) throw new Error(`flow ${id}: the fact "${fact}" is too long for its card`);
+if ((hub ?? '').length > 16) throw new Error(`flow ${id}: the hub "${hub}" is too long for its box`);
+if ((hubNote ?? '').length > 26) throw new Error(`flow ${id}: the hub note "${hubNote}" is too long for its box`);
+if ((saved ?? '').length > 22) throw new Error(`flow ${id}: the tag "${saved}" is too long for its box`);
+// The business articles' own box labels (s129) must fit their 150px boxes.
+if (hub) {
+  for (const [what, label] of [['from', from], ['to', to]] as const) {
+    if (label.length > 18) throw new Error(`flow ${id}: the ${what} label "${label}" is too long for its box`);
+  }
+}
 const extra = others.slice(0, 3);
 const height = extra.length ? 300 : 224;
 const chipX = (i: number) => 320 + (i - (extra.length - 1) / 2) * 150;
@@ -38,8 +55,8 @@ const lang = langOf(Astro.url.pathname);
     </g>
     <g class="flow-hub">
       <rect x="230" y="86" width="180" height="84" rx="14" />
-      <text x="320" y="122" text-anchor="middle" class="flow-hub-name">Zaaheen</text>
-      <text x="320" y="146" text-anchor="middle" class="flow-hub-note">{t(lang, 'on your computer')}</text>
+      <text x="320" y="122" text-anchor="middle" class="flow-hub-name">{hub ?? 'Zaaheen'}</text>
+      <text x="320" y="146" text-anchor="middle" class="flow-hub-note">{hubNote ?? t(lang, 'on your computer')}</text>
     </g>
     <g class="flow-app">
       <rect x="470" y="100" width="150" height="56" rx="12" />
@@ -54,7 +71,7 @@ const lang = langOf(Astro.url.pathname);
 
     <g class="flow-saved">
       <rect x="255" y="182" width="130" height="28" rx="8" />
-      <text x="320" y="201" text-anchor="middle">{t(lang, 'Saved once')}</text>
+      <text x="320" y="201" text-anchor="middle">{saved ?? t(lang, 'Saved once')}</text>
     </g>
     <g class="flow-card">
       <rect x="245" y="34" width="150" height="32" rx="8" />

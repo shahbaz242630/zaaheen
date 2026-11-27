@@ -151,6 +151,11 @@ describe("RULES", () => {
     expect(RULES).toContain("customerservice@zaaheen.com");
   });
 
+  it("answers about the AI Readiness Assessment too, and sends its unknowns to consulting@ (founder s129)", () => {
+    expect(RULES).toContain("AI Readiness Assessment for businesses");
+    expect(RULES).toContain("consulting@zaaheen.com for a question about the AI Readiness Assessment");
+  });
+
   it("is friendly: greetings and thanks are answered warmly, not turned away (founder s117)", () => {
     expect(RULES).toMatch(/friendly, helpful person/);
     expect(RULES).toMatch(/Greetings, thanks, goodbyes and small talk about this chat .* are on topic/);

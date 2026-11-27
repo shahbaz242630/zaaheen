@@ -1,0 +1,260 @@
+---
+import Policy, { type Outline } from '../../layouts/Policy.astro';
+import Row from '../../components/Row.astro';
+import { COMPANY, CONSULTING } from '../../data/site';
+
+// The AI Readiness Assessment's Cancellation and Refund Policy (s129). Option D
+// of notes ai-assessment/RESEARCH-CONSULTING-REFUNDS-S129.md, approved by the
+// founder, decisions locked by the lead. Points that carry the law:
+// - the 50% is a "first payment", never a deposit or arbun (earnest-money rule:
+//   the receiver who backs out repays double);
+// - each fixed sum is explained as real loss (weeks held, work turned away),
+//   because a court may cut an excessive pre-agreed sum (new Civil Transactions
+//   Law, article 340);
+// - cancellation counts from the ORIGINAL first visit date, which closes the
+//   move-then-cancel loophole;
+// - "work done" is the stage split printed on the quote, so it is never argued;
+// - once visits start, the client pays the greater of the work done and the
+//   first payment (lead decision H2, s129 review); force majeure past 90 days
+//   is the one case where only the work done is paid;
+// - day bands are calendar days from receipt of the email (Dubai time);
+// - never a bare "no refunds" (UAE Federal Law 15/2020, article 34(11)).
+const OUTLINE: Outline[] = [
+  { id: 'quote-paying', title: 'The quote and paying', topics: [
+    { id: 'free-call', title: 'The free call' },
+    { id: 'quote', title: 'Your quote' },
+    { id: 'paying', title: 'Paying' },
+    { id: 'withholding', title: 'Tax withheld by you' },
+    { id: 'late', title: 'Late payment' },
+  ] },
+  { id: 'before', title: 'Moving and cancelling', topics: [
+    { id: 'cancel-before', title: 'Cancelling before the first visit' },
+    { id: 'why', title: 'Why we keep part of the fee' },
+    { id: 'moving', title: 'Moving a slot or the visits' },
+    { id: 'access', title: 'If people or access are not ready' },
+  ] },
+  { id: 'during', title: 'Once work has started', topics: [
+    { id: 'stopping', title: 'Stopping part-way' },
+    { id: 'we-cancel', title: 'If we cancel or cannot deliver' },
+    { id: 'force-majeure', title: 'Events outside anyone\'s control' },
+    { id: 'example', title: 'A worked example' },
+  ] },
+  { id: 'after', title: 'After the report', topics: [
+    { id: 'findings', title: 'Disagreeing with the findings' },
+    { id: 'errors', title: 'Errors and a follow-up meeting' },
+    { id: 'not-delivered', title: 'If we did not deliver' },
+  ] },
+  { id: 'refunds-rights', title: 'Refunds and your rights', topics: [
+    { id: 'how-paid', title: 'How refunds are paid' },
+    { id: 'law', title: 'Your legal rights' },
+    { id: 'contact', title: 'Questions and disputes' },
+  ] },
+];
+const topic = (id: string) =>
+  OUTLINE.flatMap((s) => s.topics).find((t) => t.id === id)?.title ?? id;
+const mail = `mailto:${CONSULTING.email}`;
+const lede = 'An AI Readiness Assessment holds weeks of our time on fixed dates, on your site. This page explains how the quote and payments work, what happens if you move or cancel, and when we refund.';
+---
+<Policy path="/consulting/refunds/" heading="Cancellation and Refund Policy" lede={lede} outline={OUTLINE} consulting>
+  <ul slot="summary">
+    <li><strong>The first 30-minute call is free</strong> and commits neither of us to anything.</li>
+    <li><strong>You get a fixed written quote in UAE dirhams (AED)</strong>, plus VAT where it
+        applies, valid for 30 days, with no hidden costs. It shows how the fee splits across the
+        stages of the work.</li>
+    <li><strong>You pay 50% when you sign the engagement letter and 50% after we deliver the
+        report.</strong> Each invoice is due within 14 days.</li>
+    <li><strong>Cancel 14 days or more before the original first visit date in your engagement
+        letter and we refund your first payment in full.</strong> From 7 to 13 days before, we keep
+        25% of the total fee. Less than 7 days before, we keep the first payment.</li>
+    <li><strong>Once visits have started, you pay the greater of the work done and the first
+        payment</strong> (50% of the fee). Work done is measured by the split in your quote, and we
+        refund anything you paid beyond the amount due.</li>
+    <li><strong>If we cancel or cannot deliver, you choose a new date or a full refund</strong> of
+        anything paid for work not done.</li>
+    <li><strong>We do not refund because you disagree with the findings</strong>, but we correct
+        factual errors free if you tell us within 30 days.</li>
+    <li>This policy does not take away any right the law gives you that cannot be excluded.</li>
+  </ul>
+
+  <section id="quote-paying" class="docs-section">
+    <h2 class="docs-title">The quote and paying</h2>
+
+    <Row id="free-call" title={topic('free-call')} where="Before anything">
+      <p>The first 30-minute call costs nothing and commits nobody. You tell us about your
+         business, and we tell you honestly whether an assessment is worth it for you.</p>
+    </Row>
+
+    <Row id="quote" title={topic('quote')} where="After the call">
+      <p>If you want to go ahead, we send a fixed written quote in UAE dirhams (AED). It is valid
+         for 30 days. The price is fixed, plus VAT where it applies, and there are no hidden
+         costs. Travel and accommodation outside Dubai are always a fixed line in the quote.</p>
+      <p>The quote shows how the fee splits across the stages of the work, for example site
+         visits, analysis and report, and the read-out meeting. <strong>That split is what "work
+         done" means if an engagement stops part-way.</strong> If a stage is only partly done, we
+         count the share of it completed, such as the number of site days held out of those
+         planned.</p>
+    </Row>
+
+    <Row id="paying" title={topic('paying')} where="Two payments">
+      <ul>
+        <li><strong>First payment:</strong> 50% of the fee, invoiced when you sign the engagement
+            letter.</li>
+        <li><strong>Second payment:</strong> the other 50%, invoiced after we deliver the
+            report.</li>
+      </ul>
+      <p>Each invoice is payable within 14 days. The first payment, once received, reserves your
+         dates.</p>
+    </Row>
+
+    <Row id="withholding" title={topic('withholding')} where="Outside the UAE">
+      <p>If the law where you are requires you to withhold tax from our fee, for example Saudi
+         withholding tax, you add that amount to the payment so that we receive the fee in the
+         quote. Your quote says when this applies.</p>
+    </Row>
+
+    <Row id="late" title={topic('late')} where="Overdue invoices">
+      <p>We do not charge interest on late payments. If an invoice is overdue, we may pause the
+         work until it is paid, and we will tell you in writing before we do. <strong>The right to
+         use the report passes to you once the fee has been paid in full.</strong></p>
+    </Row>
+  </section>
+
+  <section id="before" class="docs-section">
+    <h2 class="docs-title">Moving and cancelling</h2>
+
+    <Row id="cancel-before" title={topic('cancel-before')} where="From the original date">
+      <p>You can cancel the whole engagement before the first visit by emailing us. What happens
+         to your first payment depends on how far ahead you cancel:</p>
+      <ul>
+        <li><strong>14 days or more before the original first visit date in your engagement
+            letter:</strong> we refund your first payment in full.</li>
+        <li><strong>7 to 13 days before:</strong> we keep 25% of the total fee and refund the rest
+            of your first payment.</li>
+        <li><strong>Less than 7 days before:</strong> we keep the first payment.</li>
+      </ul>
+      <p><strong>The days are always counted to the original first visit date in your engagement
+         letter.</strong> They are calendar days, counted from the day we receive your email
+         (Dubai time). Moving the date does not restart the count.</p>
+      <p>If the first payment has not yet been paid when you cancel, the amount we keep is payable
+         within 14 days.</p>
+    </Row>
+
+    <Row id="why" title={topic('why')} where="Our reason">
+      <p>When you book, we hold those weeks for you and turn other work away. Close to the date,
+         we cannot fill them. The amounts above are what that late notice costs us, and they are
+         set out in advance so neither side has to argue about them.</p>
+    </Row>
+
+    <Row id="moving" title={topic('moving')} where="48 hours or 7 days">
+      <ul>
+        <li><strong>A single interview or site slot</strong> can be moved free with 48 hours'
+            notice. A slot moved with less than 48 hours' notice counts as a missed slot (see
+            "If people or access are not ready" below).</li>
+        <li><strong>The whole block of visits</strong> can be moved free once, with 7 days'
+            notice, to a date within 90 days of the original first visit date.</li>
+      </ul>
+      <p>If you later cancel, the timing still counts to the original first visit date.</p>
+    </Row>
+
+    <Row id="access" title={topic('access')} where="On the day">
+      <p>Before the visits, we agree in writing the rooms, people and systems we need. If they are
+         not available at the agreed time, we rebook once per engagement, free. After that, a
+         missed slot counts as work done.</p>
+    </Row>
+  </section>
+
+  <section id="during" class="docs-section">
+    <h2 class="docs-title">Once work has started</h2>
+
+    <Row id="stopping" title={topic('stopping')} where="After visits start">
+      <p>You can stop the engagement at any time by emailing us. If visits have started, <strong>you
+         pay the greater of the work done, measured by the split in your quote, and the first
+         payment (50% of the fee)</strong>. We hand over everything we have gathered so far, and we
+         refund any amount you paid beyond that.</p>
+      <p>The first payment is the least you pay once visits have started, because by then we have
+         held the weeks for you and turned other work away.</p>
+      <p>The one exception: if you stop because we seriously broke our terms and did not put it
+         right within 14 days of being told, you pay only for the work done, and we refund the
+         rest (see Ending an engagement in our <a href="/consulting/terms/">Terms of Service</a>).</p>
+    </Row>
+
+    <Row id="we-cancel" title={topic('we-cancel')} where="Your choice">
+      <p>If we have to cancel or cannot deliver, whether through illness or for reasons of our
+         own, <strong>you choose a new date or a full refund of anything you paid for work not
+         done</strong>.</p>
+    </Row>
+
+    <Row id="force-majeure" title={topic('force-majeure')} where="More than 90 days">
+      <p>If either of us cannot perform for more than 90 days because of events outside our
+         control, such as severe weather, a public health emergency or travel bans, either of us
+         may end the engagement. You then pay only for the work done, nothing more, and we refund
+         the rest.</p>
+    </Row>
+
+    <Row id="example" title={topic('example')} where="Example only">
+      <p>This is an example with round numbers, before any VAT. Your own quote sets the real
+         amounts.</p>
+      <p>Say your quote is AED 20,000, split as site visits AED 10,000 (ten site days), analysis
+         and report AED 7,000, and read-out AED 3,000. Your first payment is AED 10,000.</p>
+      <ul>
+        <li>You cancel 20 days before the first visit: we refund AED 10,000.</li>
+        <li>You cancel 10 days before: we keep AED 5,000 (25% of AED 20,000) and refund
+            AED 5,000.</li>
+        <li>You cancel 3 days before: we keep AED 10,000.</li>
+        <li>You stop after one of the ten site days: the work done is AED 1,000, which is less
+            than the first payment, so you pay AED 10,000. We hand over our notes so far.</li>
+        <li>You stop after all ten site days and half the analysis and report: the work done is
+            AED 13,500, which is more than the first payment, so you pay AED 13,500.</li>
+      </ul>
+    </Row>
+  </section>
+
+  <section id="after" class="docs-section">
+    <h2 class="docs-title">After the report</h2>
+
+    <Row id="findings" title={topic('findings')} where="Our rule">
+      <p>The report gives our honest assessment, and sometimes that means telling you AI is not
+         the answer for a team. <strong>We do not refund because you disagree with the findings or
+         your plans change.</strong></p>
+    </Row>
+
+    <Row id="errors" title={topic('errors')} where="Within 30 days">
+      <p>If the report gets a fact wrong, tell us within 30 days of delivery and we correct it
+         free. You also get one free follow-up meeting within 30 days of delivery to go through
+         anything that is unclear.</p>
+    </Row>
+
+    <Row id="not-delivered" title={topic('not-delivered')} where="Within 30 days">
+      <p>If we did not deliver what your quote and engagement letter describe, tell us within 30
+         days of delivery. We will put it right, or refund the part not delivered. Here,
+         "delivery" means the day we send you the report.</p>
+    </Row>
+  </section>
+
+  <section id="refunds-rights" class="docs-section">
+    <h2 class="docs-title">Refunds and your rights</h2>
+
+    <Row id="how-paid" title={topic('how-paid')} where="Within 14 days">
+      <p>We pay refunds to the account that paid us, in UAE dirhams, within 14 days of the
+         cancellation, or of the amount being settled. Where VAT was charged, we issue a tax
+         credit note.</p>
+      <p>We refund only what we actually received. Bank charges, and any tax you withheld from
+         our fee, are not refunded by us.</p>
+    </Row>
+
+    <Row id="law" title={topic('law')} where="Everyone">
+      <p>The AI Readiness Assessment is a service for businesses. Nothing in this policy takes away
+         any right the law gives you that cannot be excluded. The full terms are in the
+         <a href="/consulting/terms/">Terms of Service</a>.</p>
+    </Row>
+
+    <Row id="contact" title={topic('contact')} where="Email">
+      <p>To cancel, move a date or ask about a refund, email
+         <a href={mail}>{CONSULTING.email}</a>. We reply within 5 working days. If we cannot agree,
+         disputes are handled as set out in the <a href="/consulting/terms/">Terms of
+         Service</a>.</p>
+      <p>The AI Readiness Assessment is provided by {COMPANY.legalName} ({COMPANY.licence}),
+         {COMPANY.city}, United Arab Emirates.</p>
+    </Row>
+  </section>
+</Policy>

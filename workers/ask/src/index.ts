@@ -25,5 +25,15 @@ export default {
 
   async scheduled(_controller, env): Promise<void> {
     await sweep(env.DB, Date.now());
+    // The consulting form's nightly job (alert + 12-month sweep) rides on this
+    // cron: the free plan's 5 crons per account are all used (s130). Its own
+    // failure must never stop ours, and ours ran first.
+    if (env.CONSULTING) {
+      try {
+        await env.CONSULTING.run();
+      } catch {
+        console.error("consulting_nightly_failed");
+      }
+    }
   },
 } satisfies ExportedHandler<AskEnv>;

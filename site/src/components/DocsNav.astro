@@ -1,5 +1,6 @@
 ---
 import { COACHING_POLICIES, DOCS_SECTIONS, GUIDES, POLICIES } from '../data/site';
+import { CONSULTING_POLICIES } from '../data/consulting';
 import { englishPath, langOf, localize } from '../i18n/locales';
 import { t } from '../i18n/ui';
 
@@ -13,8 +14,9 @@ interface Props {
   /** '/docs/', a guide's path or a policy's path. */
   current: string;
   coaching?: boolean;
+  consulting?: boolean;
 }
-const { current, coaching = false } = Astro.props;
+const { current, coaching = false, consulting = false } = Astro.props;
 // On a translated page (ADR-113 D2): labels in its language, links to the same
 // language where the page is translated, "(English)" on the ones that stay
 // English. The search covers the English documents only, so it is left out.
@@ -26,7 +28,17 @@ const label = (path: string, english: string) =>
 const onDocs = here === '/docs/';
 const onGuide = GUIDES.some((g) => g.path === here);
 ---
-{coaching ? (
+{consulting ? (
+  <nav class="docs-sections" aria-label="Consulting documents">
+    <details class="docs-group" open>
+      <summary>Consulting policies</summary>
+      {CONSULTING_POLICIES.map((p) => (
+        <a href={p.path} aria-current={p.path === current ? 'page' : undefined}>{p.label}</a>
+      ))}
+    </details>
+    <a href="/consulting/">Back to the AI Readiness Assessment</a>
+  </nav>
+) : coaching ? (
   <nav class="docs-sections" aria-label="Coaching documents">
     <details class="docs-group" open>
       <summary>Coaching policies</summary>
@@ -66,4 +78,4 @@ const onGuide = GUIDES.some((g) => g.path === here);
     </details>
   </nav>
 )}
-{!coaching && lang === 'en' && <script src="../scripts/search.js"></script>}
+{!coaching && !consulting && lang === 'en' && <script src="../scripts/search.js"></script>}
