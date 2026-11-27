@@ -4,9 +4,8 @@
 // (connect-src and form-action 'self') never has to widen; the page on
 // zaaheen.com/consulting/ only links here.
 //
-// NOT DEPLOYED YET: waits for the founder's account steps (design §8 items
-// 1-4). The database id below is a placeholder until the database is made.
-// Every account value is a Cloudflare secret, never this file.
+// Deployed s130 (2026-11-27). Every account value is a Cloudflare secret,
+// never this file.
 //
 // Its name must never be another Worker's: a publish under a reused name
 // REPLACES that Worker (session 108 took api.zaaheen.com down that way).
@@ -33,10 +32,11 @@
     {
       "binding": "DB",
       "database_name": "zaaheen-consulting",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "d475a602-c878-4aa7-b9c5-0efad92b2dea",
       "migrations_dir": "migrations"
     }
-  ],
-  // The daily sweep (src/store.ts): enquiries older than 12 months are deleted, at 00:20 UTC.
-  "triggers": { "crons": ["20 0 * * *"] }
+  ]
+  // No cron here: the free plan allows 5 per account and all 5 are used (s130).
+  // The nightly job (alert + 12-month sweep) runs from zaaheen-ask's daily
+  // cron through the Nightly entrypoint (src/index.ts, a service binding).
 }

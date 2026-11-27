@@ -28,6 +28,8 @@ export interface AskEnv {
   TURNSTILE_SECRET: string;
   SESSION_SECRET: string;
   VISITOR_SECRET: string;
+  /** zaaheen-consulting's Nightly entrypoint (wrangler.jsonc services); absent in tests. */
+  CONSULTING?: { run(): Promise<void> };
 }
 
 export interface Deps {

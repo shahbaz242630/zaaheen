@@ -41,6 +41,9 @@
     }
   ],
   // The daily sweep (src/store.ts): yesterday's visitor counts and questions
-  // kept over 30 days are deleted, at 00:10 UTC.
-  "triggers": { "crons": ["10 0 * * *"] }
+  // kept over 30 days are deleted, at 00:10 UTC. The same cron then runs the
+  // consulting form's nightly job (12-month sweep) through the binding below:
+  // the free plan allows 5 crons per account and all 5 are used (s130).
+  "triggers": { "crons": ["10 0 * * *"] },
+  "services": [{ "binding": "CONSULTING", "service": "zaaheen-consulting", "entrypoint": "Nightly" }]
 }

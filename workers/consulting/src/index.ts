@@ -1,7 +1,10 @@
 // The enquiry form's Worker (ADR-121, ADR-SEC-057). The form page and its
 // files are static assets (public/, served before this code runs); only
-// /v1/* reaches the Worker. The daily cron sends the nightly alert, then
-// runs the sweep.
+// /v1/* reaches the Worker. The nightly job (alert, then the sweep) is called
+// once a day by zaaheen-ask's cron through the Nightly entrypoint: the free
+// plan's 5 crons per account are all used (s130). An entrypoint class is
+// reachable only through a service binding, never from the internet.
+import { WorkerEntrypoint } from "cloudflare:workers";
 import type { Fetcher } from "./gate";
 import { handleEnquiry, type EnquiryEnv } from "./handler";
 import { NIGHTLY_SUBJECT, nightlyAlertText, sendMail } from "./mail";
@@ -44,3 +47,10 @@ export default {
     await nightly(env, (url, init) => fetch(url, init), Date.now());
   },
 } satisfies ExportedHandler<EnquiryEnv>;
+
+/** Called by zaaheen-ask's daily cron (service binding "CONSULTING"). */
+export class Nightly extends WorkerEntrypoint<EnquiryEnv> {
+  async run(): Promise<void> {
+    await nightly(this.env, (url, init) => fetch(url, init), Date.now());
+  }
+}
